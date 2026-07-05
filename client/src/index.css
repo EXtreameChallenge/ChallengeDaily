@@ -1,0 +1,283 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── 主题变量 ──────────────────────────── */
+:root {
+  /* 表面 / 背景：浅色模式以白/浅灰为主 */
+  --cd-bg: #FFFFFF;
+  --cd-bg-secondary: #F5F5F5;
+  --cd-bg-tertiary: #EEEEEE;
+  --cd-sidebar: #FAFAFA;
+  --cd-card: #FFFFFF;
+  /* 边框 */
+  --cd-border: #E0E0E0;
+  --cd-border-light: #F0F0F0;
+  /* 文字 */
+  --cd-text: #1A1A1A;
+  --cd-text-secondary: #666666;
+  --cd-text-tertiary: #999999;
+  /* 交互 */
+  --cd-hover: #F0F0F0;
+  --cd-selected: #F3F0FF;
+  /* 主色与强调色：幕布紫为主，金色点缀 */
+  --cd-green: #7B68EE;
+  --cd-green-light: #F3F0FF;
+  --cd-green-dark: #6A5ACD;
+  --cd-blue: #5B8DEF;
+  --cd-blue-light: #E8F0FD;
+  --cd-orange: #F0A030;
+  --cd-orange-light: #FFF6E5;
+  --cd-red: #E54D42;
+  --cd-red-light: #FDECEB;
+  --cd-purple: #7B68EE;
+  --cd-purple-light: #F3F0FF;
+  --cd-yellow: #F0C040;
+  --cd-gold: #F0C040;
+  /* 滚动条 */
+  --cd-scrollbar: #CCCCCC;
+  --cd-scrollbar-hover: #AAAAAA;
+}
+
+.dark {
+  /* 表面 / 背景：真正的黑灰底色，不带蓝紫 */
+  --cd-bg: #121212;
+  --cd-bg-secondary: #1E1E1E;
+  --cd-bg-tertiary: #2D2D2D;
+  --cd-sidebar: #181818;
+  --cd-card: #1E1E1E;
+  /* 边框 */
+  --cd-border: #333333;
+  --cd-border-light: #2A2A2A;
+  /* 文字 */
+  --cd-text: #FFFFFF;
+  --cd-text-secondary: #B3B3B3;
+  --cd-text-tertiary: #666666;
+  /* 交互 */
+  --cd-hover: #2A2A2A;
+  --cd-selected: rgba(123, 104, 238, 0.15);
+  /* 强调色：紫色和金色仅作点缀 */
+  --cd-green: #937CFF;
+  --cd-green-light: rgba(123, 104, 238, 0.15);
+  --cd-green-dark: #B8A8FF;
+  --cd-blue-light: #1F2A45;
+  --cd-orange-light: #3D3220;
+  --cd-red-light: #3D2020;
+  --cd-purple-light: rgba(123, 104, 238, 0.15);
+  --cd-yellow: #F0C040;
+  --cd-gold: #F0C040;
+  /* 滚动条 */
+  --cd-scrollbar: #3A3A3A;
+  --cd-scrollbar-hover: #4A4A4A;
+}
+
+/* ─── 全局样式 ──────────────────────────── */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  background: var(--cd-bg);
+  color: var(--cd-text);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--cd-scrollbar);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cd-scrollbar-hover);
+}
+
+/* ─── 标题栏拖拽区域 ────────────────────── */
+.titlebar {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.titlebar button {
+  -webkit-app-region: no-drag;
+}
+
+/* ─── 分类颜色（12大分类） ─────────────── */
+.cat-开发 { --cat-color: #00B894; }
+.cat-会议 { --cat-color: #E54D42; }
+.cat-沟通 { --cat-color: #5B8DEF; }
+.cat-文档 { --cat-color: #A29BFE; }
+.cat-测试 { --cat-color: #F0A030; }
+.cat-设计 { --cat-color: #FD79A8; }
+.cat-运维 { --cat-color: #00CEC9; }
+.cat-数据分析 { --cat-color: #55EFC4; }
+.cat-学习 { --cat-color: #6C5CE7; }
+.cat-管理 { --cat-color: #B2BEC3; }
+.cat-产品 { --cat-color: #635BFF; }
+.cat-生活 { --cat-color: #F0C040; }
+.cat-其他 { --cat-color: #9999B0; }
+
+/* ─── 卡片通用样式 ──────────────────────── */
+.card {
+  background: var(--cd-card);
+  border-radius: 12px;
+  border: 1px solid var(--cd-border);
+  padding: 20px;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+/* ─── 热力图格子 ────────────────────────── */
+.heat-cell {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 500;
+  transition: all 0.15s;
+  cursor: default;
+}
+
+.heat-cell:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+/* ─── 动画 ──────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* ─── 时间线 ────────────────────────────── */
+.timeline-track {
+  position: relative;
+  padding-left: 52px;
+}
+
+.timeline-track::before {
+  content: '';
+  position: absolute;
+  left: 22px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--cd-border);
+}
+
+.timeline-entry {
+  position: relative;
+  padding-bottom: 12px;
+}
+
+.timeline-entry::before {
+  content: '';
+  position: absolute;
+  left: -38px;
+  top: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--cd-border);
+  background: var(--cd-card);
+  z-index: 1;
+}
+
+.timeline-entry::after {
+  content: '';
+  position: absolute;
+  left: -35px;
+  top: 11px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cat-color, #9E9E9E);
+  z-index: 2;
+}
+
+/* ─── 进度条 ────────────────────────────── */
+.progress-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--cd-border);
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+
+/* ─── Toast 通知动画 ─────────────────────── */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.25s ease-out;
+}
+
+/* ─── 无障碍：键盘聚焦样式 ──────────────────── */
+*:focus-visible {
+  outline: 2px solid var(--cd-green);
+  outline-offset: 2px;
+}
+
+/* ─── 热力图格子 hover（纯 CSS，不触发 React 重渲染）─── */
+.heatmap-cell {
+  transition: filter 0.15s, box-shadow 0.15s;
+}
+.heatmap-cell:hover {
+  filter: brightness(1.25);
+  box-shadow: 0 0 0 1.5px var(--cd-green);
+}
+
+/* ─── 减弱动画偏好 ─────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-spin,
+  .animate-slide-in,
+  .animate-pulse {
+    animation: none !important;
+  }
+  .transition-colors,
+  .transition-transform,
+  .transition-all {
+    transition: none !important;
+  }
+}

@@ -1,0 +1,162 @@
+{
+  "name": "challenge-daily",
+  "version": "1.2.0",
+  "description": "ChallengeDaily Windows版 - AI智能工作日报助手",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "vite build && electron-builder",
+    "preview": "vite preview",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.20",
+    "dayjs": "^1.11.12",
+    "electron-updater": "^6.8.9",
+    "lucide-react": "^0.424.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.0.1",
+    "react-router-dom": "^6.26.0",
+    "recharts": "^2.12.7",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "concurrently": "^8.2.2",
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3",
+    "postcss": "^8.4.40",
+    "tailwindcss": "^3.4.7",
+    "typescript": "^5.5.4",
+    "vite": "^5.3.5",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.challenge.daily",
+    "productName": "ChallengeDaily",
+    "copyright": "Copyright © 2024 ChallengeDaily",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icon.ico",
+      "artifactName": "ChallengeDaily-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "installerHeaderIcon": "public/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ChallengeDaily",
+      "perMachine": false,
+      "unicode": true,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
+    },
+    "portable": {
+      "artifactName": "ChallengeDaily-${version}-Portable.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "ChallengeDaily",
+      "repo": "ChallengeDaily"
+    },
+    "extraResources": [
+      {
+        "from": "../main.py",
+        "to": "backend/main.py"
+      },
+      {
+        "from": "../config.py",
+        "to": "backend/config.py"
+      },
+      {
+        "from": "../db.py",
+        "to": "backend/db.py"
+      },
+      {
+        "from": "../screenshot.py",
+        "to": "backend/screenshot.py"
+      },
+      {
+        "from": "../app_tracker.py",
+        "to": "backend/app_tracker.py"
+      },
+      {
+        "from": "../prompt.py",
+        "to": "backend/prompt.py"
+      },
+      {
+        "from": "../ai_client.py",
+        "to": "backend/ai_client.py"
+      },
+      {
+        "from": "../classifier.py",
+        "to": "backend/classifier.py"
+      },
+      {
+        "from": "../collector.py",
+        "to": "backend/collector.py"
+      },
+      {
+        "from": "../report.py",
+        "to": "backend/report.py"
+      },
+      {
+        "from": "../server.py",
+        "to": "backend/server.py"
+      },
+      {
+        "from": "../crypto.py",
+        "to": "backend/crypto.py"
+      },
+      {
+        "from": "../file_utils.py",
+        "to": "backend/file_utils.py"
+      },
+      {
+        "from": "../.env",
+        "to": "backend/.env"
+      },
+      {
+        "from": "../install_deps.py",
+        "to": "backend/install_deps.py"
+      },
+      {
+        "from": "../requirements.txt",
+        "to": "backend/requirements.txt"
+      },
+      {
+        "from": "../routes",
+        "to": "backend/routes",
+        "filter": ["**/*.py"]
+      }
+    ]
+  }
+}

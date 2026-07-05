@@ -1,0 +1,35 @@
+import threading
+import logging
+
+from flask import Blueprint, jsonify
+from datetime import datetime as _datetime
+
+logger = logging.getLogger(__name__)
+
+bp = Blueprint('notifications', __name__)
+
+_notifications: list[dict] = []
+_notifications_lock = threading.Lock()
+
+
+def add_notification(title: str, body: str, ntype: str = "info"):
+    with _notifications_lock:
+        _notifications.append({
+            "id": len(_notifications) + 1,
+            "title": title,
+            "body": body,
+            "type": ntype,
+            "timestamp": _datetime.now().isoformat(),
+            "read": False,
+        })
+        if len(_notifications) > 50:
+            _notifications[:] = _notifications[-50:]
+
+
+@bp.route("/api/notifications")
+def get_notifications():
+    with _notifications_lock:
+        unread = [n for n in _notifications if not n["read"]]
+        for n in unread:
+            n["read"] = True
+        return jsonify({"notifications": unread})
