@@ -6,7 +6,7 @@ import logging
 import threading
 from datetime import datetime
 
-from config import RETENTION_DAYS, is_app_excluded
+from config import RETENTION_DAYS, is_app_excluded, load_settings
 import config
 from app_tracker import get_foreground_app, get_display_name, get_idle_seconds
 from screenshot import take_screenshot, get_active_monitor_index
@@ -87,11 +87,23 @@ class Collector:
             fg = get_foreground_app()
             app_name = fg["app_name"]
             window_title = fg["window_title"]
+            exe_path = fg.get("exe_path", "")
             display_name = get_display_name(app_name)
+            # 异步提取图标（不阻塞采集）
+            try:
+                from icon_extractor import get_app_icon_path
+                threading.Thread(
+                    target=get_app_icon_path,
+                    args=(app_name, exe_path),
+                    daemon=True,
+                ).start()
+            except Exception:
+                pass
         except Exception as e:
             logger.error(f"获取前台应用失败: {e}")
             app_name = "Unknown"
             window_title = ""
+            exe_path = ""
             display_name = "Unknown"
 
         # 2.5 检查是否在排除列表中 — 跳过截图和分析，节省AI额度
@@ -146,9 +158,17 @@ class Collector:
             self._segment_start = timestamp  # 开始新的分段
             self._last_flush_time = now
 
-        # 4. AI 分析 — 画面重复时跳过 AI，节省额度
-        if is_duplicate:
-            logger.info("画面与上次相同，跳过AI分析，复用上次分类")
+        # 4. AI 分析 — 画面重复或用户关闭 AI 时跳过，节省额度
+        ai_enabled = bool(load_settings().get("ai_enabled", False))
+        category = ""
+        summary = ""
+        ai_detail = ""
+
+        if is_duplicate or not ai_enabled:
+            if is_duplicate:
+                logger.info("画面与上次相同，跳过AI分析，复用上次分类")
+            if not ai_enabled:
+                logger.info("AI 分析已关闭，使用规则分类")
             # 使用基于应用名的规则分类
             category = classify(app_name, "", window_title)
             summary = f"{display_name} - {window_title[:20]}" if window_title else display_name

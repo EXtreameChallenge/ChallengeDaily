@@ -10,7 +10,8 @@ export default function Settings() {
   const [aiEnabled, setAiEnabled] = useState(false)
   const [apiKey, setApiKey] = useState('')
   const [apiBase, setApiBase] = useState('https://open.bigmodel.cn/api/paas/v4')
-  const [apiModel, setApiModel] = useState('glm-4v-flash')
+  const [apiVisionModel, setApiVisionModel] = useState('glm-4v-flash')
+  const [apiTextModel, setApiTextModel] = useState('glm-4-flash')
   const [showKey, setShowKey] = useState(false)
   const [excludeApps, setExcludeApps] = useState('')
   const [interval, setInterval_] = useState(60)
@@ -18,9 +19,12 @@ export default function Settings() {
   const [workEnd, setWorkEnd] = useState(18)
   const [customInstr, setCustomInstr] = useState('')
   const [saved, setSaved] = useState(false)
+  // AI Key 配置状态（从后端 settings 读取，不暴露明文）
+  const [apiKeySet, setApiKeySet] = useState(false)
+  const [showKeyInput, setShowKeyInput] = useState(false)
   // AI 测试状态
-  const [aiTesting, setAiTesting] = useState(false)
-  const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [aiTesting, setAiTesting] = useState<'vision' | 'text' | false>(false)
+  const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; message: string; label?: string } | null>(null)
   // 导出日期范围
   const [exportStart, setExportStart] = useState(dayjs().subtract(7, 'day').format('YYYY-MM-DD'))
   const [exportEnd, setExportEnd] = useState(dayjs().format('YYYY-MM-DD'))
@@ -50,12 +54,20 @@ export default function Settings() {
   useEffect(() => {
     if (!initialData) return
     const { status: s, settings } = initialData
-    setAiEnabled(s.ai_enabled)
+    // 优先使用 settings 中用户显式设置的 ai_enabled，避免 status 因 key 缺失而返回 false 导致开关被强制关闭
+    setAiEnabled(settings.ai_enabled ?? s.ai_enabled)
+    setApiKeySet(!!(settings as any).ai_api_key_set)
+    setShowKeyInput(!(settings as any).ai_api_key_set)
     setExcludeApps(settings.exclude_apps.join(', '))
     setInterval_(settings.screenshot_interval_sec)
     setWorkStart(settings.work_start_hour)
     setWorkEnd(settings.work_end_hour)
     setCustomInstr(settings.custom_report_instructions || '')
+    setApiBase(settings.ai_base_url || 'https://open.bigmodel.cn/api/paas/v4')
+    // 兼容旧版单模型字段 ai_model
+    const legacyModel = (settings as any).ai_model
+    setApiVisionModel(settings.ai_vision_model || legacyModel || 'glm-4v-flash')
+    setApiTextModel(settings.ai_text_model || legacyModel || 'glm-4-flash')
   }, [initialData])
 
   // 获取应用版本
@@ -117,7 +129,8 @@ export default function Settings() {
         work_end_hour: workEnd,
         custom_report_instructions: customInstr,
         ai_base_url: apiBase,
-        ai_model: apiModel,
+        ai_vision_model: apiVisionModel,
+        ai_text_model: apiTextModel,
         ai_enabled: aiEnabled,
       }
       // 仅当用户实际输入了 API Key 时才发送（避免清空已保存的 key）
@@ -125,8 +138,18 @@ export default function Settings() {
         (settings as any).ai_api_key = apiKey.trim()
       }
 
-      await updateSettings(settings)
+      const res = await updateSettings(settings)
       setSaved(true)
+      // 如果用户输入了新的 API Key，保存成功后标记为已配置并隐藏输入框
+      if (apiKey.trim()) {
+        setApiKeySet(true)
+        setShowKeyInput(false)
+        setApiKey('')
+      }
+      // 同步后端返回的最新状态（含 ai_api_key_set）
+      if (res.settings) {
+        setApiKeySet(!!(res.settings as any).ai_api_key_set)
+      }
       toast.success('设置已保存')
     } catch (err) {
       console.error('Failed to save settings:', err)
@@ -143,7 +166,8 @@ export default function Settings() {
         work_end_hour: 18,
         custom_report_instructions: '',
         ai_base_url: 'https://open.bigmodel.cn/api/paas/v4',
-        ai_model: 'glm-4v-flash',
+        ai_vision_model: 'glm-4v-flash',
+        ai_text_model: 'glm-4-flash',
         ai_enabled: false,
       }
       await updateSettings(defaultSettings)
@@ -154,25 +178,29 @@ export default function Settings() {
       setWorkEnd(defaultSettings.work_end_hour!)
       setCustomInstr('')
       setApiBase(defaultSettings.ai_base_url!)
-      setApiModel(defaultSettings.ai_model!)
+      setApiVisionModel(defaultSettings.ai_vision_model!)
+      setApiTextModel(defaultSettings.ai_text_model!)
       setAiEnabled(false)
       setApiKey('')
+      setApiKeySet(false)
+      setShowKeyInput(true)
       toast.success('已恢复默认设置')
     } catch (err) {
       toast.error('恢复默认失败')
     }
   }
 
-  const handleTestAi = async () => {
-    setAiTesting(true)
+  const handleTestAi = async (model: 'vision' | 'text') => {
+    setAiTesting(model)
     setAiTestResult(null)
     try {
-      const result = await testAiConnection(apiKey, apiBase, apiModel)
-      setAiTestResult(result)
+      const modelName = model === 'vision' ? apiVisionModel : apiTextModel
+      const result = await testAiConnection(apiKey, apiBase, modelName)
+      setAiTestResult({ ...result, label: model === 'vision' ? '识图模型' : '文本模型' })
     } catch (err: any) {
-      setAiTestResult({ ok: false, message: err.message || '测试失败' })
+      setAiTestResult({ ok: false, message: err.message || '测试失败', label: model === 'vision' ? '识图模型' : '文本模型' })
     } finally {
-      setAiTesting(false)
+      setAiTesting(false as any)
     }
   }
 
@@ -337,53 +365,93 @@ export default function Settings() {
                 />
               </div>
 
-              <div>
-                <label className="text-xs text-cd-text-secondary block mb-1">模型</label>
-                <input
-                  type="text"
-                  value={apiModel}
-                  onChange={(e) => setApiModel(e.target.value)}
-                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-cd-text-secondary block mb-1">识图模型（Vision）</label>
+                  <input
+                    type="text"
+                    value={apiVisionModel}
+                    onChange={(e) => setApiVisionModel(e.target.value)}
+                    placeholder="glm-4v-flash"
+                    className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-cd-text-secondary block mb-1">文本模型（Text）</label>
+                  <input
+                    type="text"
+                    value={apiTextModel}
+                    onChange={(e) => setApiTextModel(e.target.value)}
+                    placeholder="glm-4-flash"
+                    className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+                  />
+                </div>
               </div>
 
               <div>
                 <label className="text-xs text-cd-text-secondary block mb-1">API Key</label>
-                <div className="relative">
-                  <input
-                    type={showKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="sk-..."
-                    className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 pr-9 text-sm focus:outline-none focus:border-cd-green transition-colors"
-                  />
-                  <button
-                    onClick={() => setShowKey(!showKey)}
-                    className="absolute right-2 top-1.5 text-cd-text-tertiary hover:text-cd-text transition-colors"
-                  >
-                    {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                </div>
+                {apiKeySet && !showKeyInput ? (
+                  <div className="flex items-center justify-between bg-cd-green-light border border-cd-green/20 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2 text-sm text-cd-green">
+                      <CheckCircle size={14} />
+                      <span>已配置（Windows 加密存储）</span>
+                    </div>
+                    <button
+                      onClick={() => { setShowKeyInput(true); setApiKey('') }}
+                      className="text-xs text-cd-green hover:opacity-80 font-medium"
+                    >
+                      更换
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type={showKey ? 'text' : 'password'}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      placeholder="sk-..."
+                      className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 pr-9 text-sm focus:outline-none focus:border-cd-green transition-colors"
+                    />
+                    <button
+                      onClick={() => setShowKey(!showKey)}
+                      className="absolute right-2 top-1.5 text-cd-text-tertiary hover:text-cd-text transition-colors"
+                    >
+                      {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* AI 测试按钮 */}
-              <div>
+              <div className="flex flex-wrap items-center gap-3">
                 <button
-                  onClick={handleTestAi}
-                  disabled={aiTesting || !apiKey}
+                  onClick={() => handleTestAi('vision')}
+                  disabled={!!aiTesting || !(apiKey || apiKeySet)}
                   className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors disabled:opacity-40 border border-cd-border"
                 >
-                  {aiTesting ? (
-                    <><Loader2 size={12} className="animate-spin" /> 正在测试...</>
+                  {aiTesting === 'vision' ? (
+                    <><Loader2 size={12} className="animate-spin" /> 测试识图模型...</>
                   ) : (
-                    <>测试连接</>
+                    <>测试识图模型</>
+                  )}
+                </button>
+                <button
+                  onClick={() => handleTestAi('text')}
+                  disabled={!!aiTesting || !(apiKey || apiKeySet)}
+                  className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors disabled:opacity-40 border border-cd-border"
+                >
+                  {aiTesting === 'text' ? (
+                    <><Loader2 size={12} className="animate-spin" /> 测试文本模型...</>
+                  ) : (
+                    <>测试文本模型</>
                   )}
                 </button>
                 {aiTestResult && (
-                  <div className={`mt-2 flex items-center gap-1.5 text-xs ${
+                  <div className={`flex items-center gap-1.5 text-xs ${
                     aiTestResult.ok ? 'text-cd-green' : 'text-cd-red'
                   }`}>
                     {aiTestResult.ok ? <CheckCircle size={12} /> : <XCircle size={12} />}
+                    <span className="font-medium">{aiTestResult.label}：</span>
                     {aiTestResult.message}
                   </div>
                 )}

@@ -26,7 +26,7 @@ def update_settings():
 
     for key in ["exclude_apps", "screenshot_interval_sec", "work_start_hour",
                 "work_end_hour", "custom_report_instructions",
-                "ai_base_url", "ai_model", "ai_enabled"]:
+                "ai_base_url", "ai_vision_model", "ai_text_model", "ai_enabled"]:
         if key in data:
             current[key] = data[key]
 
@@ -39,7 +39,15 @@ def update_settings():
             current["ai_api_key_set"] = True
         except Exception as e:
             logger.error(f"Failed to save API Key to vault: {e}")
+            return jsonify({"error": "API Key 保存失败，请检查系统权限后重试"}), 500
     elif ai_api_key_raw is not None and not ai_api_key_raw.strip():
+        try:
+            from crypto import delete_secret
+            delete_secret("ai_api_key")
+        except Exception:
+            pass
+        import config
+        config.AI_API_KEY = ""
         current["ai_api_key_set"] = False
 
     save_settings(current)
@@ -56,10 +64,13 @@ def update_settings():
     if "ai_base_url" in data:
         import config
         config.AI_BASE_URL = str(data["ai_base_url"])
-    if "ai_model" in data:
+    if "ai_vision_model" in data:
         import config
-        config.AI_MODEL = str(data["ai_model"])
-    if any(k in data for k in ["ai_base_url", "ai_model"]) or ai_api_key_raw:
+        config.AI_VISION_MODEL = str(data["ai_vision_model"])
+    if "ai_text_model" in data:
+        import config
+        config.AI_TEXT_MODEL = str(data["ai_text_model"])
+    if any(k in data for k in ["ai_base_url", "ai_vision_model", "ai_text_model"]) or ai_api_key_raw:
         try:
             from ai_client import _reset_client
             _reset_client()

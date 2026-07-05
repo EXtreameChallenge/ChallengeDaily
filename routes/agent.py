@@ -17,6 +17,11 @@ def test_ai_connection():
     base_url = data.get("base_url", "https://open.bigmodel.cn/api/paas/v4")
     model = data.get("model", "glm-4v-flash")
 
+    # 若前端未传 key（已配置状态下测试），回退到本地加密存储的 key
+    if not api_key:
+        import config
+        api_key = config.AI_API_KEY
+
     if not api_key:
         return jsonify({"ok": False, "message": "请先填写 API Key"})
 

@@ -1,11 +1,14 @@
-import { useState } from 'react'
-import { getAppUsage, getTodayStats, CATEGORY_COLORS, type AppUsage, type TodayStats } from '../api/client'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { getAppUsage, getTodayStats, getAppIconUrl, CATEGORY_COLORS, type AppUsage, type TodayStats } from '../api/client'
 import { CategoryFilter, formatDuration, useAsyncData, ApiErrorDisplay } from '../components/shared'
+import { ImageOff } from 'lucide-react'
 import dayjs from 'dayjs'
 
 export default function AppRecords() {
   const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [filterCategory, setFilterCategory] = useState<string>('全部')
+  const [iconUrls, setIconUrls] = useState<Record<string, string>>({})
 
   const { data, loading, error, refresh } = useAsyncData<{ apps: AppUsage[]; stats: TodayStats | null }>(
     async () => {
@@ -17,6 +20,22 @@ export default function AppRecords() {
 
   const apps = data?.apps || []
   const stats = data?.stats || null
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const map: Record<string, string> = {}
+      for (const app of apps) {
+        try {
+          map[app.app_name_raw] = await getAppIconUrl(app.app_name_raw)
+        } catch {
+          map[app.app_name_raw] = ''
+        }
+      }
+      if (!cancelled) setIconUrls(map)
+    })()
+    return () => { cancelled = true }
+  }, [apps.map((a) => a.app_name_raw).join('|')])
 
   const filtered = filterCategory === '全部'
     ? apps
@@ -57,16 +76,26 @@ export default function AppRecords() {
             {filtered.map((app, idx) => {
               const catColor = CATEGORY_COLORS[app.category] || 'var(--cd-text-tertiary)'
               const pct = app.percentage || (totalMin > 0 ? (app.duration_min / totalMin) * 100 : 0)
+              const iconUrl = iconUrls[app.app_name_raw]
               return (
-                <div key={app.app_name} className="flex items-center gap-4">
+                <div key={app.app_name} className="flex items-center gap-4 group">
                   {/* 排名 */}
                   <div className="w-6 text-center text-xs text-cd-text-tertiary font-mono shrink-0">
                     {idx + 1}
                   </div>
 
                   {/* 应用图标 */}
-                  <div className="w-10 h-10 rounded-xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center text-sm font-medium text-cd-text-secondary shrink-0">
-                    {app.app_name.slice(0, 2)}
+                  <div className="w-10 h-10 rounded-xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center text-sm font-medium text-cd-text-secondary shrink-0 overflow-hidden">
+                    {iconUrl ? (
+                      <img
+                        src={iconUrl}
+                        alt=""
+                        className="w-7 h-7 object-contain"
+                        onError={(e) => { e.currentTarget.style.display = 'none' }}
+                      />
+                    ) : (
+                      <ImageOff size={16} className="text-cd-text-tertiary" />
+                    )}
                   </div>
 
                   {/* 内容 */}
@@ -82,6 +111,12 @@ export default function AppRecords() {
                       >
                         {app.category}
                       </span>
+                      <Link
+                        to="/app-tags"
+                        className="opacity-0 group-hover:opacity-100 text-[10px] text-cd-green hover:underline transition-opacity"
+                      >
+                        编辑标签
+                      </Link>
                     </div>
                     <div className="progress-bar">
                       <div

@@ -23,35 +23,67 @@ QueryFullProcessImageNameW = kernel32.QueryFullProcessImageNameW
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
 
-def _get_process_name(hwnd: int) -> str:
-    """通过窗口句柄获取所属进程的可执行文件名"""
+def _get_process_path_by_hwnd(hwnd: int) -> str:
+    """通过窗口句柄获取所属进程的完整可执行文件路径"""
     pid = wintypes.DWORD()
     GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
 
     h_process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value)
     if not h_process:
-        return "Unknown"
+        return ""
 
     try:
         size = wintypes.DWORD(260)
         buf = ctypes.create_unicode_buffer(260)
         if QueryFullProcessImageNameW(h_process, 0, buf, ctypes.byref(size)):
-            full_path = buf.value
-            # 只取文件名部分
-            return full_path.split("\\")[-1]
-        return "Unknown"
+            return buf.value
+        return ""
     finally:
         CloseHandle(h_process)
+
+
+def _get_process_name(hwnd: int) -> str:
+    """通过窗口句柄获取所属进程的可执行文件名"""
+    full_path = _get_process_path_by_hwnd(hwnd)
+    if full_path:
+        return full_path.split("\\")[-1]
+    return "Unknown"
+
+
+def _get_process_path(app_name: str) -> str:
+    """
+    根据进程名（如 chrome.exe）反查一个正在运行的实例的完整路径。
+    通过枚举顶层窗口实现，未找到则返回空字符串。
+    """
+    try:
+        found = {"path": ""}
+
+        def enum_callback(hwnd, _):
+            if found["path"]:
+                return True
+            if not user32.IsWindowVisible(hwnd):
+                return True
+            name = _get_process_name(hwnd)
+            if name.lower() == app_name.lower():
+                found["path"] = _get_process_path_by_hwnd(hwnd)
+            return True
+
+        EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+        user32.EnumWindows(EnumWindowsProc(enum_callback), 0)
+        return found["path"]
+    except Exception as e:
+        logger.warning(f"Failed to get process path for {app_name}: {e}")
+        return ""
 
 
 def get_foreground_app() -> dict:
     """
     获取当前前台应用信息。
-    返回 {"app_name": "chrome.exe", "window_title": "GitHub - Google Chrome"}
+    返回 {"app_name": "chrome.exe", "window_title": "GitHub - Google Chrome", "exe_path": "C:\\...\\chrome.exe"}
     """
     hwnd = GetForegroundWindow()
     if not hwnd:
-        return {"app_name": "Unknown", "window_title": ""}
+        return {"app_name": "Unknown", "window_title": "", "exe_path": ""}
 
     # 获取窗口标题
     length = GetWindowTextLengthW(hwnd)
@@ -59,12 +91,14 @@ def get_foreground_app() -> dict:
     GetWindowTextW(hwnd, buf, length + 1)
     window_title = buf.value
 
-    # 获取进程名
+    # 获取进程名和路径
     app_name = _get_process_name(hwnd)
+    exe_path = _get_process_path_by_hwnd(hwnd)
 
     return {
         "app_name": app_name,
         "window_title": window_title,
+        "exe_path": exe_path,
     }
 
 

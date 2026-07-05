@@ -105,9 +105,21 @@ export interface ReportContent {
 
 export interface AppUsage {
   app_name: string
+  app_name_raw: string
   category: string
   duration_min: number
   percentage: number
+}
+
+export interface AppCategoryRule {
+  id: number
+  app_name: string
+  display_name: string
+  primary_category: string
+  tags: string[]
+  window_rules: Record<string, string>
+  created_at: string
+  updated_at: string
 }
 
 export interface BackendSettings {
@@ -118,7 +130,10 @@ export interface BackendSettings {
   custom_report_instructions: string
   ai_api_key?: string
   ai_base_url?: string
+  /** @deprecated 旧版单模型字段，保留兼容 */
   ai_model?: string
+  ai_vision_model?: string
+  ai_text_model?: string
   ai_enabled?: boolean
 }
 
@@ -430,6 +445,37 @@ export async function restoreBackup(file: File): Promise<{ status: string; resto
 /** 获取未读通知列表 */
 export async function getNotifications(): Promise<{ notifications: Array<{ id: number; title: string; body: string; type: string; timestamp: string }> }> {
   return request('/api/notifications') as Promise<{ notifications: Array<{ id: number; title: string; body: string; type: string; timestamp: string }> }>
+}
+
+// ─── 应用分类规则 ──────────────────────────────────
+
+/** 获取所有应用分类规则 */
+export async function getAppRules(): Promise<{ rules: AppCategoryRule[] }> {
+  return request('/api/app-rules') as Promise<{ rules: AppCategoryRule[] }>
+}
+
+/** 获取所有已记录应用及其规则 */
+export async function getKnownApps(): Promise<{ apps: { app_name: string; rule?: AppCategoryRule }[] }> {
+  return request('/api/app-rules/known') as Promise<{ apps: { app_name: string; rule?: AppCategoryRule }[] }>
+}
+
+/** 创建或更新应用分类规则 */
+export async function updateAppRule(rule: Partial<AppCategoryRule> & { app_name: string }): Promise<{ status: string; rule: AppCategoryRule }> {
+  return request('/api/app-rules', {
+    method: 'POST',
+    body: JSON.stringify(rule),
+  }) as Promise<{ status: string; rule: AppCategoryRule }>
+}
+
+/** 删除应用分类规则 */
+export async function deleteAppRule(appName: string): Promise<{ status: string; deleted: boolean }> {
+  return request(`/api/app-rules/${encodeURIComponent(appName)}`, { method: 'DELETE' }) as Promise<{ status: string; deleted: boolean }>
+}
+
+/** 获取应用图标 URL */
+export async function getAppIconUrl(appName: string): Promise<string> {
+  const token = await getApiToken()
+  return `${BASE_URL}/api/icons/${encodeURIComponent(appName)}${token ? `?token=${token}` : ''}`
 }
 
 // ─── 分类配色映射 ────────────────────────────────

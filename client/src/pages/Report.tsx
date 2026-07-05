@@ -15,7 +15,7 @@ import { FileText, Calendar, Sparkles, Copy, Check, Download } from 'lucide-reac
 import dayjs from 'dayjs'
 
 type ReportType = 'daily' | 'weekly' | 'monthly'
-type TemplateType = 'standard' | 'simple' | 'technical' | 'okr'
+type TemplateType = 'standard' | 'simple' | 'technical' | 'okr' | 'ai'
 
 const REPORT_TYPES: { value: ReportType; label: string }[] = [
   { value: 'daily', label: '日报' },
@@ -28,6 +28,7 @@ const TEMPLATE_TYPES: { value: TemplateType; label: string; desc: string }[] = [
   { value: 'simple', label: '简洁', desc: '精炼要点，一页搞定' },
   { value: 'technical', label: '技术', desc: '侧重代码/项目/技术细节' },
   { value: 'okr', label: 'OKR', desc: '对齐目标和关键结果' },
+  { value: 'ai', label: 'AI 智能', desc: '调用文本模型生成自然语言日报' },
 ]
 
 export default function Report() {
@@ -144,7 +145,7 @@ export default function Report() {
         {reportType === 'daily' && (
           <div>
             <label className="text-xs text-cd-text-secondary mb-2 block">报告模板</label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 gap-2">
               {TEMPLATE_TYPES.map((t) => (
                 <button
                   key={t.value}

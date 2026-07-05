@@ -1,6 +1,6 @@
 {
   "name": "challenge-daily",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "ChallengeDaily Windows版 - AI智能工作日报助手",
   "type": "module",
   "main": "electron/main.cjs",
@@ -82,11 +82,7 @@
     "portable": {
       "artifactName": "ChallengeDaily-${version}-Portable.${ext}"
     },
-    "publish": {
-      "provider": "github",
-      "owner": "ChallengeDaily",
-      "repo": "ChallengeDaily"
-    },
+    "publish": null,
     "extraResources": [
       {
         "from": "../main.py",

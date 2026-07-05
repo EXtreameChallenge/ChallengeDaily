@@ -16,6 +16,7 @@ const AppRecords = lazy(() => import('./pages/AppRecords'))
 const HistoryReports = lazy(() => import('./pages/HistoryReports'))
 const Settings = lazy(() => import('./pages/Settings'))
 const AgentPage = lazy(() => import('./pages/Agent'))
+const AppTags = lazy(() => import('./pages/AppTags'))
 const Onboarding = lazy(() => import('./pages/Onboarding'))
 const Legal = lazy(() => import('./pages/Legal'))
 
@@ -193,6 +194,7 @@ export default function App() {
                         <Route path="/report" element={<Report />} />
                         <Route path="/heatmap" element={<Heatmap />} />
                         <Route path="/apps" element={<AppRecords />} />
+                        <Route path="/app-tags" element={<AppTags />} />
                         <Route path="/history" element={<HistoryReports />} />
                         <Route path="/agent" element={<AgentPage />} />
                         <Route path="/settings" element={<Settings />} />

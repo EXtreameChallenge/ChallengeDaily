@@ -307,9 +307,11 @@ def app_usage():
     from app_tracker import get_display_name as _gdn3
     result = []
     for a in apps:
+        raw_name = a["app_name"]
         result.append({
-            "app_name": _gdn3(a["app_name"]),
-            "category": app_primary_cat.get(a["app_name"], "其他"),
+            "app_name": _gdn3(raw_name),
+            "app_name_raw": raw_name,
+            "category": app_primary_cat.get(raw_name, "其他"),
             "duration_min": a["duration_min"],
             "percentage": round(a["duration_min"] / total_min * 100, 1) if total_min > 0 else 0,
         })

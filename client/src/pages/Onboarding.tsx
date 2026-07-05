@@ -30,7 +30,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const [useFreeModel, setUseFreeModel] = useState(true)
   const [apiKey, setApiKey] = useState('')
   const [apiBase, setApiBase] = useState('https://open.bigmodel.cn/api/paas/v4')
-  const [apiModel, setApiModel] = useState('glm-4v-flash')
+  const [apiVisionModel, setApiVisionModel] = useState('glm-4v-flash')
+  const [apiTextModel, setApiTextModel] = useState('glm-4-flash')
   const [showKey, setShowKey] = useState(false)
   const [aiTesting, setAiTesting] = useState(false)
   const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; message: string } | null>(null)
@@ -43,7 +44,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     setAiTesting(true)
     setAiTestResult(null)
     try {
-      const result = await testAiConnection(apiKey, apiBase, apiModel)
+      // 新手引导默认测试识图模型
+      const result = await testAiConnection(apiKey, apiBase, apiVisionModel)
       setAiTestResult(result)
     } catch (err: any) {
       setAiTestResult({ ok: false, message: err.message || '测试失败' })
@@ -55,7 +57,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const handleUseFreeModel = () => {
     setUseFreeModel(true)
     setApiBase('https://open.bigmodel.cn/api/paas/v4')
-    setApiModel('glm-4v-flash')
+    setApiVisionModel('glm-4v-flash')
+    setApiTextModel('glm-4-flash')
   }
 
   const handleComplete = async () => {
@@ -64,7 +67,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       const settings: Record<string, any> = {
         ai_enabled: aiEnabled,
         ai_base_url: apiBase,
-        ai_model: apiModel,
+        ai_vision_model: apiVisionModel,
+        ai_text_model: apiTextModel,
         work_start_hour: workStart,
         work_end_hour: workEnd,
       }
@@ -127,8 +131,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               setApiKey={setApiKey}
               apiBase={apiBase}
               setApiBase={setApiBase}
-              apiModel={apiModel}
-              setApiModel={setApiModel}
+              apiVisionModel={apiVisionModel}
+              setApiVisionModel={setApiVisionModel}
+              apiTextModel={apiTextModel}
+              setApiTextModel={setApiTextModel}
               showKey={showKey}
               setShowKey={setShowKey}
               aiTesting={aiTesting}
@@ -212,7 +218,8 @@ function AIStep({
   useFreeModel, setUseFreeModel, handleUseFreeModel,
   apiKey, setApiKey,
   apiBase, setApiBase,
-  apiModel, setApiModel,
+  apiVisionModel, setApiVisionModel,
+  apiTextModel, setApiTextModel,
   showKey, setShowKey,
   aiTesting, aiTestResult, handleTestAi,
 }: {
@@ -220,7 +227,8 @@ function AIStep({
   useFreeModel: boolean; setUseFreeModel: (v: boolean) => void; handleUseFreeModel: () => void
   apiKey: string; setApiKey: (v: string) => void
   apiBase: string; setApiBase: (v: string) => void
-  apiModel: string; setApiModel: (v: string) => void
+  apiVisionModel: string; setApiVisionModel: (v: string) => void
+  apiTextModel: string; setApiTextModel: (v: string) => void
   showKey: boolean; setShowKey: (v: boolean) => void
   aiTesting: boolean
   aiTestResult: { ok: boolean; message: string } | null
@@ -315,15 +323,27 @@ function AIStep({
                   className="w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
                 />
               </div>
-              <div>
-                <label className="text-xs text-cd-text-secondary block mb-1">模型名称</label>
-                <input
-                  type="text"
-                  value={apiModel}
-                  onChange={(e) => setApiModel(e.target.value)}
-                  placeholder="gpt-4o"
-                  className="w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-cd-text-secondary block mb-1">识图模型</label>
+                  <input
+                    type="text"
+                    value={apiVisionModel}
+                    onChange={(e) => setApiVisionModel(e.target.value)}
+                    placeholder="glm-4v-flash"
+                    className="w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-cd-text-secondary block mb-1">文本模型</label>
+                  <input
+                    type="text"
+                    value={apiTextModel}
+                    onChange={(e) => setApiTextModel(e.target.value)}
+                    placeholder="glm-4-flash"
+                    className="w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
+                  />
+                </div>
               </div>
               <div>
                 <label className="text-xs text-cd-text-secondary block mb-1">API Key</label>

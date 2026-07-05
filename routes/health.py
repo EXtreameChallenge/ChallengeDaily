@@ -73,7 +73,7 @@ def status():
                         pass
             screenshots_size_mb = screenshots_size_mb / (1024 * 1024)
 
-    ai_enabled = bool(config.AI_API_KEY)
+    ai_enabled = bool(config.load_settings().get("ai_enabled") and config.AI_API_KEY)
 
     return jsonify({
         "running": deps.collector is not None and not deps.collector_paused,

@@ -156,7 +156,7 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
             client = _get_client()
 
             response = client.chat.completions.create(
-                model=config.AI_MODEL,
+                model=config.AI_VISION_MODEL,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {

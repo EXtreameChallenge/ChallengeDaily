@@ -49,10 +49,22 @@ def set_collector(collector_instance):
 # ── 鉴权中间件 ──
 
 _PUBLIC_PATHS = {"/", "/api/health"}
+_PUBLIC_PREFIXES = ["/api/icons/"]
+
+
+def _is_public_path(path: str) -> bool:
+    """判断请求路径是否为公开接口"""
+    if path in _PUBLIC_PATHS:
+        return True
+    for prefix in _PUBLIC_PREFIXES:
+        if path.startswith(prefix):
+            return True
+    return False
+
 
 @app.before_request
 def auth_check():
-    if request.path in _PUBLIC_PATHS or request.method == "OPTIONS":
+    if _is_public_path(request.path) or request.method == "OPTIONS":
         return None
     if not check_token(request):
         return jsonify({"error": "未授权访问，请通过客户端操作"}), 401

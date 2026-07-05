@@ -7,6 +7,7 @@ import {
   AppWindow,
   History,
   Bot,
+  Tags,
   CreditCard,
   Users,
   Shield,
@@ -29,6 +30,7 @@ const CORE_NAV = [
   { to: '/timeline',  icon: Clock,           label: '工作时间线' },
   { to: '/heatmap',   icon: Grid3X3,         label: '时段热力图' },
   { to: '/apps',      icon: AppWindow,       label: '应用记录' },
+  { to: '/app-tags',  icon: Tags,            label: '应用标签' },
   { to: '/history',   icon: History,         label: '历史报告' },
   { to: '/agent',     icon: Bot,             label: '接入Agent' },
 ]

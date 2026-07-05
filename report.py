@@ -10,6 +10,9 @@ from app_tracker import get_display_name
 from db import get_activities, get_daily_summary, get_app_usage, save_report
 from config import REPORT_DIR
 import config
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # ── 公共工具函数 ──────────────────────────────────
@@ -609,6 +612,107 @@ def _template_okr(target_date: str, activities, summary_data, app_usage) -> str:
     return "\n".join(lines)
 
 
+# ── 模板5: AI 智能 (ai) ──────────────────────────
+# 使用文本模型根据活动数据生成自然语言日报，充分发挥 GLM-4-Flash 等文本模型能力
+
+def _build_ai_report_prompt(target_date: str, activities, summary_data, app_usage) -> str:
+    """为文本模型构建日报生成 Prompt"""
+    blocks = _group_into_blocks(activities)
+    cat_narratives = _build_category_narrative(blocks)
+
+    focus_hours = _estimate_focus_hours(activities)
+    focus_sessions = _count_focus_sessions(activities)
+    total = summary_data.get("total", 0)
+
+    lines = [
+        f"请根据以下 {target_date} 的工作活动记录，生成一份专业、自然、适合向上级汇报的工作日报。",
+        "要求：",
+        "1. 使用 Markdown 格式，包含今日概要、重点工作、时间分配、明日方向。",
+        "2. 内容要具体，结合时段和工具，不要泛泛而谈。",
+        "3. 语气专业、简洁，避免过度夸张。",
+        "4. 如果活动记录为空，直接说明今天暂无工作记录。",
+        "",
+        "---",
+        "",
+        f"总活动数：{total}",
+        f"估算专注时长：{focus_hours}",
+        f"深度工作次数：{focus_sessions}",
+        "",
+        "分类统计：",
+    ]
+    for cat, cnt in (summary_data.get("categories") or {}).items():
+        lines.append(f"- {cat}: {cnt} 次记录")
+
+    lines.extend(["", "主要工作段落："])
+    for narr in cat_narratives[:8]:
+        lines.append(
+            f"- [{narr['category']}] {narr['duration_str']} | 时段：{narr['time_desc']} | "
+            f"内容：{narr['summary'] or '使用 ' + narr['apps']} | 工具：{narr['apps']}"
+        )
+
+    if app_usage:
+        lines.extend(["", "应用使用时长 Top："])
+        for au in app_usage[:8]:
+            total_sec = au["duration_min"] * 60
+            time_str = _format_duration(total_sec)
+            display_name = get_display_name(au["app_name"])
+            lines.append(f"- {display_name}: {time_str}")
+
+    lines.extend(["", "---", "", "请直接输出 Markdown 日报内容，不要包含任何额外说明。"])
+    return "\n".join(lines)
+
+
+def _template_ai(target_date: str, activities, summary_data, app_usage) -> str:
+    """使用 AI 文本模型生成日报"""
+    if not activities:
+        return f"# {target_date} 工作日报\n\n今天暂无工作记录。\n"
+
+    if not config.AI_API_KEY:
+        # 未配置 AI 时回退到标准模板，并附加提示
+        base = _template_standard(target_date, activities, summary_data, app_usage)
+        return base.replace(
+            f"# {target_date} 工作日报",
+            f"# {target_date} 工作日报\n\n> 未配置 AI API Key，已使用标准模板生成。在设置中配置 Key 后可启用 AI 智能日报。\n"
+        )
+
+    prompt = _build_ai_report_prompt(target_date, activities, summary_data, app_usage)
+
+    try:
+        from openai import OpenAI
+        import httpx
+        client = OpenAI(
+            api_key=config.AI_API_KEY,
+            base_url=config.AI_BASE_URL,
+            timeout=httpx.Timeout(60.0, connect=10.0),
+        )
+        response = client.chat.completions.create(
+            model=config.AI_TEXT_MODEL,
+            messages=[
+                {"role": "system", "content": "你是一位专业的工作日报撰写助手，擅长根据活动记录提炼要点、组织语言。"},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=1500,
+            temperature=0.5,
+        )
+        content = response.choices[0].message.content.strip()
+        # 去除模型可能包裹的 ```markdown ... ``` 代码块，避免前端渲染为代码块原文
+        import re as _re
+        _md_fence = _re.match(r"^```(?:markdown|md)?\s*\n(.+?)\n```\s*$", content, _re.DOTALL)
+        if _md_fence:
+            content = _md_fence.group(1).strip()
+        # 兼容只有开头 ```markdown 但没有闭合 ``` 的情况
+        content = _re.sub(r"^```(?:markdown|md)?\s*\n", "", content).rstrip("`").strip()
+        # 确保有 AIGC 标记
+        aigc_label = "\n\n---\n*本报告由 ChallengeDaily AI 辅助生成，内容仅供参考*"
+        if aigc_label.strip() not in content and "*AI 辅助生成*" not in content:
+            content = content.rstrip() + aigc_label
+        return content
+    except Exception as e:
+        logger.error(f"AI 日报生成失败: {e}")
+        # 回退到标准模板
+        return _template_standard(target_date, activities, summary_data, app_usage)
+
+
 # ── 公共入口 ──────────────────────────────────
 
 _TEMPLATE_MAP = {
@@ -616,6 +720,7 @@ _TEMPLATE_MAP = {
     "simple": _template_simple,
     "technical": _template_technical,
     "okr": _template_okr,
+    "ai": _template_ai,
 }
 
 
@@ -623,7 +728,7 @@ def generate_daily_report(target_date: str = None, template: str = "standard") -
     """
     生成指定日期的 Markdown 日报，保存到 data/reports/ 和数据库。
     target_date: "YYYY-MM-DD" 格式，默认今天。
-    template: "standard" / "simple" / "technical" / "okr"
+    template: "standard" / "simple" / "technical" / "okr" / "ai"
     返回生成的报告内容。
     """
     if not target_date:

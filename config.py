@@ -9,6 +9,7 @@ from pathlib import Path
 from file_utils import atomic_write_text, backup_file
 
 # ── 加载 .env 文件 ──
+# 规则：空值不写入 os.environ，避免覆盖 vault 中已保存的敏感信息
 _ENV_FILE = Path(__file__).resolve().parent / ".env"
 if _ENV_FILE.exists():
     with open(_ENV_FILE, "r", encoding="utf-8") as f:
@@ -20,7 +21,8 @@ if _ENV_FILE.exists():
                 key, _, value = line.partition("=")
                 key = key.strip()
                 value = value.strip().strip('"').strip("'")
-                if key and key not in os.environ:
+                # 空值不设置：防止 .env 里的 AI_API_KEY= 覆盖已保存的 key
+                if key and value and key not in os.environ:
                     os.environ[key] = value
 
 # ── 基础路径 ──
@@ -48,20 +50,22 @@ SCREENSHOT_MAX_WIDTH = int(os.getenv("SCREENSHOT_MAX_WIDTH", "1920"))
 HTTP_PORT = int(os.getenv("PORT", os.getenv("HTTP_PORT", "58888")))
 
 # ── AI 模型配置（兼容 OpenAI 接口协议）──
+# 支持双模型：识图模型（Vision）+ 文本分析模型（Text）
 AI_BASE_URL = os.getenv("AI_BASE_URL", "https://open.bigmodel.cn/api/paas/v4")
-AI_MODEL = os.getenv("AI_MODEL", "glm-4v-flash")
 
-# API Key 优先级：环境变量 > 加密 vault > .env 文件 > 默认值
-_raw_api_key = os.getenv("AI_API_KEY", "")
+# 向后兼容：旧的 AI_MODEL 同时作为 vision/text 的兜底
+_legacy_model = os.getenv("AI_MODEL", "")
+AI_VISION_MODEL = os.getenv("AI_VISION_MODEL", _legacy_model or "glm-4v-flash")
+AI_TEXT_MODEL = os.getenv("AI_TEXT_MODEL", _legacy_model or "glm-4-flash")
+
+# API Key 优先级：环境变量（非空）> 加密 vault > 默认值
+_raw_api_key = os.getenv("AI_API_KEY", "").strip()
 if not _raw_api_key:
     try:
         from crypto import load_secret
         _raw_api_key = load_secret("ai_api_key", "")
     except Exception:
         pass
-if not _raw_api_key and _ENV_FILE.exists():
-    # .env 已在文件顶部加载到 os.environ，此处无需重复读取
-    _raw_api_key = os.getenv("AI_API_KEY", "")
 AI_API_KEY = _raw_api_key
 
 # ── 数据保留天数 ──
@@ -83,6 +87,10 @@ _DEFAULT_SETTINGS = {
     "work_start_hour": 9,
     "work_end_hour": 18,
     "custom_report_instructions": "",
+    "ai_enabled": False,
+    "ai_base_url": "https://open.bigmodel.cn/api/paas/v4",
+    "ai_vision_model": "glm-4v-flash",
+    "ai_text_model": "glm-4-flash",
 }
 
 def load_settings() -> dict:
