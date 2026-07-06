@@ -75,21 +75,33 @@ _IGNORED_PROCESS_NAMES = {
     "ctfmon.exe",
 }
 
+# ─ 进程路径缓存（PID → path，避免每次 EnumWindows 都 OpenProcess/CloseHandle）──
+_pid_path_cache: dict[int, str] = {}
+
 
 def _get_process_path_by_hwnd(hwnd: int) -> str:
-    """通过窗口句柄获取所属进程的完整可执行文件路径"""
+    """通过窗口句柄获取所属进程的完整可执行文件路径（带 PID 缓存）"""
     pid = wintypes.DWORD()
     GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    pid_val = pid.value
 
-    h_process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value)
+    # 查缓存
+    if pid_val in _pid_path_cache:
+        return _pid_path_cache[pid_val]
+
+    h_process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid_val)
     if not h_process:
+        _pid_path_cache[pid_val] = ""
         return ""
 
     try:
         size = wintypes.DWORD(260)
         buf = ctypes.create_unicode_buffer(260)
         if QueryFullProcessImageNameW(h_process, 0, buf, ctypes.byref(size)):
-            return buf.value
+            path = buf.value
+            _pid_path_cache[pid_val] = path
+            return path
+        _pid_path_cache[pid_val] = ""
         return ""
     finally:
         CloseHandle(h_process)
@@ -133,6 +145,7 @@ def get_foreground_app() -> dict:
     """
     获取当前前台应用信息。
     返回 {"app_name": "chrome.exe", "window_title": "GitHub - Google Chrome", "exe_path": "C:\\...\\chrome.exe"}
+    桌面空闲时返回 {"app_name": "Desktop", "window_title": "桌面", "exe_path": ""}
     """
     hwnd = GetForegroundWindow()
     if not hwnd:
@@ -147,6 +160,10 @@ def get_foreground_app() -> dict:
     # 获取进程名和路径
     app_name = _get_process_name(hwnd)
     exe_path = _get_process_path_by_hwnd(hwnd)
+
+    # 桌面空闲：explorer.exe 的 "Program Manager" 窗口就是桌面
+    if app_name.lower() == "explorer.exe" and window_title in ("Program Manager", ""):
+        return {"app_name": "Desktop", "window_title": "桌面", "exe_path": ""}
 
     return {
         "app_name": app_name,
@@ -367,6 +384,7 @@ APP_NAME_MAP = {
     "cmd.exe": "命令提示符",
     "PowerShell.exe": "PowerShell",
     "explorer.exe": "文件资源管理器",
+    "Desktop": "桌面",
     "Navicat.exe": "Navicat",
     "DataGrip64.exe": "DataGrip",
     "postman.exe": "Postman",
@@ -388,14 +406,13 @@ APP_NAME_MAP = {
     "ApplicationFrameHost.exe": "UWP 应用",
 }
 
+# ── O(1) 显示名查找表（启动时构建，避免每次线性扫描）──
+_APP_NAME_MAP_LOWER: dict[str, str] = {k.lower(): v for k, v in APP_NAME_MAP.items()}
+
 
 def get_display_name(app_name: str) -> str:
-    """将进程名转为友好显示名（大小写不敏感匹配）"""
-    lower = app_name.lower()
-    for key, value in APP_NAME_MAP.items():
-        if key.lower() == lower:
-            return value
-    return app_name.replace(".exe", "")
+    """将进程名转为友好显示名（大小写不敏感，O(1) 查找）"""
+    return _APP_NAME_MAP_LOWER.get(app_name.lower(), app_name.replace(".exe", ""))
 
 
 # ── 闲置检测 ──

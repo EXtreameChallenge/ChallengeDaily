@@ -151,38 +151,40 @@ def main():
     try:
         while not stop.is_set():
             try:
+                settings = _get_cached_settings()
+                now_hour = datetime.now().hour
+                work_start = settings.get("work_start_hour", 0)
+                work_end = settings.get("work_end_hour", 24)
+                in_work_hours = work_start <= now_hour < work_end
+
                 if _server_module._collector_paused:
                     logger.debug("采集器已暂停，跳过本次采集")
+                elif in_work_hours:
+                    collector.capture_once()
                 else:
-                    # 使用缓存的设置检查工作时间
-                    settings = _get_cached_settings()
-                    now_hour = datetime.now().hour
-                    work_start = settings.get("work_start_hour", 0)
-                    work_end = settings.get("work_end_hour", 24)
-                    if work_start <= now_hour < work_end:
-                        collector.capture_once()
-                    else:
-                        logger.debug(f"当前 {now_hour}:00 不在工作时间 {work_start}:00-{work_end}:00 内，跳过采集")
+                    logger.debug(f"当前 {now_hour}:00 不在工作时间 {work_start}:00-{work_end}:00 内，跳过采集")
 
-                # 检查是否到了自动生成日报的时间
-                try:
-                    _server_module.check_auto_report()
-                except Exception as e:
-                    logger.error(f"自动日报检查异常: {e}")
-
-                # 定时数据备份（每小时检查一次）
-                now_minutes = datetime.now().minute
-                if now_minutes == 0:
+                # 非工作时间降低检查频率（日报/备份只需每天一次）
+                if in_work_hours:
                     try:
-                        from file_utils import auto_backup_critical_files
-                        auto_backup_critical_files(DATA_DIR)
+                        _server_module.check_auto_report()
                     except Exception as e:
-                        logger.error(f"自动备份失败: {e}")
+                        logger.error(f"自动日报检查异常: {e}")
+
+                    now_minutes = datetime.now().minute
+                    if now_minutes == 0:
+                        try:
+                            from file_utils import auto_backup_critical_files
+                            auto_backup_critical_files(DATA_DIR)
+                        except Exception as e:
+                            logger.error(f"自动备份失败: {e}")
 
             except Exception as e:
                 logger.error(f"采集循环异常: {e}")
 
-            stop.wait(timeout=config.SCREENSHOT_INTERVAL_SEC)
+            # 自适应休眠：非工作时间 5 分钟醒一次，工作时间正常间隔
+            sleep_sec = config.SCREENSHOT_INTERVAL_SEC if in_work_hours else 300
+            stop.wait(timeout=sleep_sec)
 
     except KeyboardInterrupt:
         logger.info("收到 Ctrl+C，正在退出...")

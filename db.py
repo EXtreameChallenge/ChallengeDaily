@@ -1,8 +1,10 @@
 """
 ChallengeDaily Windows 版 — SQLite 数据库操作
-企业级：连接池、自动重试、schema 版本管理
+企业级：持久连接、自动重试、schema 版本管理
+优化：单持久连接避免频繁 connect/close，WAL 只设一次
 """
 import sqlite3
+import threading
 import time
 import logging
 from datetime import datetime, date, timedelta
@@ -15,19 +17,31 @@ logger = logging.getLogger(__name__)
 # ── 数据库 Schema 版本 ──
 SCHEMA_VERSION = 7
 
+# ── 持久连接（避免每分钟 5-7 次 connect/close）──
+_persistent_conn: Optional[sqlite3.Connection] = None
+_conn_lock = threading.Lock()
+
+
+def _get_persistent_conn() -> sqlite3.Connection:
+    """获取持久连接（线程安全，WAL 只设一次）"""
+    global _persistent_conn
+    with _conn_lock:
+        if _persistent_conn is None:
+            _persistent_conn = sqlite3.connect(str(DB_PATH), timeout=10, check_same_thread=False)
+            _persistent_conn.row_factory = sqlite3.Row
+            # WAL 和 busy_timeout 只设一次
+            _persistent_conn.execute("PRAGMA journal_mode=WAL")
+            _persistent_conn.execute("PRAGMA busy_timeout=5000")
+            _persistent_conn.execute("PRAGMA foreign_keys=ON")
+            logger.info("SQLite 持久连接已建立 (WAL模式)")
+        return _persistent_conn
+
 
 @contextmanager
 def get_conn():
-    """获取数据库连接（contextmanager，自动关闭）"""
-    conn = sqlite3.connect(str(DB_PATH), timeout=10)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=5000")
-    conn.execute("PRAGMA foreign_keys=ON")
-    try:
-        yield conn
-    finally:
-        conn.close()
+    """获取数据库连接（contextmanager，使用持久连接不关闭）"""
+    conn = _get_persistent_conn()
+    yield conn
 
 
 def _execute_with_retry(conn, sql, params=(), max_retries=3):

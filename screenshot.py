@@ -1,6 +1,7 @@
 """
 ChallengeDaily Windows 版 — 截图模块
 使用 mss 库进行跨平台屏幕截图，Pillow 做压缩缩放
+优化：MSS 上下文复用、PIL Image 显式关闭、显示器信息缓存
 """
 import base64
 import hashlib
@@ -17,6 +18,33 @@ from config import SCREENSHOT_DIR, SCREENSHOT_QUALITY, SCREENSHOT_MAX_WIDTH
 _last_phash: int | None = None
 _phash_lock = threading.Lock()
 
+# ── MSS 上下文复用（避免每 60 秒创建/销毁 GDI 资源）──
+_mss_instance = None
+_mss_lock = threading.Lock()
+_monitors_cache = None
+_monitors_cache_time = 0
+_MONITORS_CACHE_TTL = 60  # 显示器信息 60 秒缓存（极少变化）
+
+
+def _get_mss():
+    """获取或创建 MSS 单例"""
+    global _mss_instance
+    with _mss_lock:
+        if _mss_instance is None:
+            _mss_instance = mss.mss()
+        return _mss_instance
+
+
+def _get_monitors():
+    """获取显示器列表（带缓存）"""
+    global _monitors_cache, _monitors_cache_time
+    now = time.time()
+    if _monitors_cache is None or (now - _monitors_cache_time) > _MONITORS_CACHE_TTL:
+        sct = _get_mss()
+        _monitors_cache = sct.monitors
+        _monitors_cache_time = now
+    return _monitors_cache
+
 
 def _compute_phash(img: Image.Image, hash_size: int = 8) -> int:
     """
@@ -24,11 +52,13 @@ def _compute_phash(img: Image.Image, hash_size: int = 8) -> int:
     缩放到 hash_size x hash_size，转灰度，取均值二值化。
     返回 64-bit 整数。
     """
-    # 缩小到 hash_size+1 x hash_size 用于 DCT（简化版用缩放+灰度均值）
-    small = img.convert("L").resize((hash_size, hash_size), Image.LANCZOS)
+    # 缩小到 hash_size x hash_size，转灰度，取均值二值化
+    gray = img.convert("L")
+    small = gray.resize((hash_size, hash_size), Image.LANCZOS)
+    gray.close()  # 显式关闭中间 Image
     pixels = list(small.getdata())
+    small.close()  # 显式关闭
     avg = sum(pixels) / len(pixels)
-    # 每个像素大于均值为1，否则为0
     return sum((1 if p > avg else 0) << i for i, p in enumerate(pixels))
 
 
@@ -55,6 +85,38 @@ def is_screen_duplicate(img: Image.Image, threshold: int = 5) -> bool:
         return dist <= threshold
 
 
+def get_active_monitor_index() -> int:
+    """
+    获取前台窗口所在的显示器索引（mss 的 1-based 索引）。
+    使用缓存的显示器信息，避免每次创建 MSS 上下文。
+    """
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        hwnd = user32.GetForegroundWindow()
+        if not hwnd:
+            return 0
+        rect = ctypes.wintypes.RECT()
+        user32.GetWindowRect(hwnd, ctypes.byref(rect))
+        cx = (rect.left + rect.right) // 2
+        cy = (rect.top + rect.bottom) // 2
+        MONITOR_DEFAULTTONEAREST = 2
+        monitor_handle = user32.MonitorFromPoint(
+            ctypes.wintypes.POINT(cx, cy),
+            MONITOR_DEFAULTTONEAREST,
+        )
+        if not monitor_handle:
+            return 0
+        monitors = _get_monitors()
+        for i, mon in enumerate(monitors[1:], start=1):
+            if (mon["left"] <= cx <= mon["left"] + mon["width"] and
+                mon["top"] <= cy <= mon["top"] + mon["height"]):
+                return i
+        return 0
+    except Exception:
+        return 0
+
+
 def take_screenshot(monitor_index: int = 0) -> tuple[str, str, bool]:
     """
     截取屏幕，保存到 data/screenshots/，返回 (文件名, 绝对路径, 是否画面重复)。
@@ -62,17 +124,21 @@ def take_screenshot(monitor_index: int = 0) -> tuple[str, str, bool]:
       - 0 = 全部显示器的合集（虚拟桌面）
       - 1, 2, ... = 第1、2个显示器
     """
-    with mss.MSS() as sct:
-        # 选择截图区域
-        if monitor_index < len(sct.monitors):
-            monitor = sct.monitors[monitor_index]
-        else:
-            monitor = sct.monitors[0]  # fallback to virtual desktop
-        sct_img = sct.grab(monitor)
+    sct = _get_mss()
+    monitors = _get_monitors()
 
-        # 转换为 Pillow Image
-        img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
+    # 选择截图区域
+    if monitor_index < len(monitors):
+        monitor = monitors[monitor_index]
+    else:
+        monitor = monitors[0]
 
+    sct_img = sct.grab(monitor)
+
+    # 转换为 Pillow Image
+    img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
+
+    try:
         # 画面去重检测
         is_duplicate = is_screen_duplicate(img)
 
@@ -81,7 +147,9 @@ def take_screenshot(monitor_index: int = 0) -> tuple[str, str, bool]:
         if w > SCREENSHOT_MAX_WIDTH:
             ratio = SCREENSHOT_MAX_WIDTH / w
             new_h = int(h * ratio)
-            img = img.resize((SCREENSHOT_MAX_WIDTH, new_h), Image.LANCZOS)
+            resized = img.resize((SCREENSHOT_MAX_WIDTH, new_h), Image.LANCZOS)
+            img.close()  # 关闭原图
+            img = resized
 
         # 生成文件名
         ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -91,42 +159,8 @@ def take_screenshot(monitor_index: int = 0) -> tuple[str, str, bool]:
         # 保存 JPEG
         img.save(str(filepath), "JPEG", quality=SCREENSHOT_QUALITY)
         return filename, str(filepath), is_duplicate
-
-
-def get_active_monitor_index() -> int:
-    """
-    获取前台窗口所在的显示器索引（mss 的 1-based 索引）。
-    如果无法判断，返回 0（虚拟桌面合集）。
-    """
-    try:
-        import ctypes
-        user32 = ctypes.windll.user32
-        # 获取前台窗口
-        hwnd = user32.GetForegroundWindow()
-        if not hwnd:
-            return 0
-        # 获取窗口中心点
-        rect = ctypes.wintypes.RECT()
-        user32.GetWindowRect(hwnd, ctypes.byref(rect))
-        cx = (rect.left + rect.right) // 2
-        cy = (rect.top + rect.bottom) // 2
-        # 用 MonitorFromPoint 找到该点所在显示器
-        MONITOR_DEFAULTTONEAREST = 2
-        monitor_handle = user32.MonitorFromPoint(
-            ctypes.wintypes.POINT(cx, cy),
-            MONITOR_DEFAULTTONEAREST,
-        )
-        if not monitor_handle:
-            return 0
-        # 遍历 mss 的显示器列表，匹配
-        with mss.MSS() as sct:
-            for i, mon in enumerate(sct.monitors[1:], start=1):  # mss 从1开始
-                if (mon["left"] <= cx <= mon["left"] + mon["width"] and
-                    mon["top"] <= cy <= mon["top"] + mon["height"]):
-                    return i
-        return 0
-    except Exception:
-        return 0
+    finally:
+        img.close()  # 确保 Image 被释放
 
 
 def encode_image_to_base64(image_path: str) -> str:
