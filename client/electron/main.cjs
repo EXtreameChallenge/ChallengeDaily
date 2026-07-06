@@ -422,7 +422,7 @@ function setupIPC() {
         '$locator.DesiredAccuracyInMeters = 50\n' +
         '$asyncOp = $locator.GetGeopositionAsync()\n' +
         '$task = $asTaskMethod.MakeGenericMethod([Windows.Devices.Geolocation.Geoposition]).Invoke($null, @($asyncOp))\n' +
-        '$task.Wait(15000)\n' +
+        '[void]$task.Wait(15000)\n' +
         'if ($task.IsCompleted) {\n' +
         '  $pos = $task.Result\n' +
         '  $c = $pos.Coordinate\n' +
@@ -437,7 +437,9 @@ function setupIPC() {
           console.error('[GeoLocation] WinRT location failed:', err?.message || stderr || 'timeout')
           return resolve(null)
         }
-        const parts = stdout.trim().split(',')
+        const lines = stdout.trim().split('\n')
+        const coordLine = lines.find(l => l.match(/^\d/)) || lines[lines.length - 1]
+        const parts = coordLine.split(',')
         if (parts.length < 2) return resolve(null)
         const lat = parseFloat(parts[0])
         const lon = parseFloat(parts[1])
