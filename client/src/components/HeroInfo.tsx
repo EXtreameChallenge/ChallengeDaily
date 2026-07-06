@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
 import { Solar } from 'lunar-javascript'
-import { MapPin, CloudSun, Sparkles, Sunrise, Cloud, CloudRain, Snowflake, Wind, Zap, Droplets } from 'lucide-react'
+import { MapPin, Navigation, CloudSun, Sparkles, Sunrise, Cloud, CloudRain, Snowflake, Wind, Zap, Droplets } from 'lucide-react'
 import { request } from '../api/client'
 
 interface HeroInfoProps {
@@ -61,6 +61,7 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
   const [now, setNow] = useState(dayjs())
   const [weather, setWeather] = useState<WeatherInfo | null>(null)
   const [city, setCity] = useState<string>(tzCity)
+  const [preciseLocation, setPreciseLocation] = useState<string>('')
   const [loadingWeather, setLoadingWeather] = useState(false)
   const [greeting, setGreeting] = useState('')
   const [loadingGreeting, setLoadingGreeting] = useState(false)
@@ -101,31 +102,48 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
       }
     }
 
+    // 逆地理编码：从坐标解析出城市 + 精确位置（街道/建筑/POI）
     const fetchCityByCoords = async (lat: number, lon: number, precise = false) => {
+      // ─ 第一层：BigDataCloud（免费，返回 neighbourhood / POI 字段）──
       try {
         const res = await fetch(
           `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=zh`,
           { signal: AbortSignal.timeout(8000) }
         )
         const data = await res.json()
-        const name = data.city || data.locality || data.principalSubdivision
-        if (name && !cancelled) setCity(name)
-      } catch {
-        // ignore
-      }
+        const cityName = data.city || data.locality || data.principalSubdivision
+        if (cityName && !cancelled) setCity(cityName)
 
-      // 高精度坐标再调用 Nominatim 解析学校/楼宇/街道等 POI
+        // 提取精确位置：POI > neighbourhood > 商圈
+        const poiParts: string[] = []
+        if (data.poi) poiParts.push(data.poi)
+        if (data.neighbourhood && data.neighbourhood !== data.city) poiParts.push(data.neighbourhood)
+        if (data.poiDescription) {
+          // 补充描述，如 "university campus"
+          const desc = data.poiDescription
+          if (!poiParts.some(p => desc.toLowerCase().includes(p.toLowerCase()))) {
+            poiParts.push(desc)
+          }
+        }
+        if (poiParts.length > 0 && !cancelled) {
+          setPreciseLocation(poiParts.join(' · '))
+        }
+      } catch { /* ignore */ }
+
+      // ── 第二层：Nominatim（OSM，高精度坐标时解析到建筑/道路级）──
       if (!precise) return
       try {
         const res = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=zh-CN`,
           {
             signal: AbortSignal.timeout(8000),
-            headers: { 'User-Agent': 'ChallengeDaily/1.3.9' },
+            headers: { 'User-Agent': 'ChallengeDaily/1.5.0' },
           }
         )
         const data = await res.json()
         const addr = data.address || {}
+
+        // 优先取最精确的 POI 信息
         const place =
           addr.building ||
           addr.college ||
@@ -133,15 +151,40 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
           addr.university ||
           addr.hospital ||
           addr.mall ||
+          addr.office ||
+          addr.hotel ||
+          addr.restaurant ||
+          addr.shop ||
+          addr.amenity ||
           addr.suburb ||
+          addr.quarter ||
+          addr.neighbourhood ||
           addr.road
+
         if (place && !cancelled) {
-          const cityName = addr.city || addr.town || addr.county || addr.state || city || tzCity
-          setCity(`${cityName} · ${place}`)
+          // 如果 BigDataCloud 没给出精确位置，用 Nominatim 的
+          const currentPrecise = preciseLocation
+          if (!currentPrecise) {
+            // 构建详细位置：道路 + 门牌号 + 建筑
+            const detailParts: string[] = []
+            if (addr.road) detailParts.push(addr.road)
+            if (addr.house_number) detailParts.push(addr.house_number + '号')
+            if (addr.building && addr.building !== addr.road) detailParts.push(addr.building)
+            const detail = detailParts.join('')
+
+            if (detail) {
+              setPreciseLocation(detail)
+            } else {
+              setPreciseLocation(place)
+            }
+          }
+          // 同时更新城市名为更准确的
+          const betterCity = addr.city || addr.town || addr.county || addr.state
+          if (betterCity && betterCity !== city) {
+            setCity(betterCity)
+          }
         }
-      } catch {
-        // ignore
-      }
+      } catch { /* ignore */ }
     }
 
     const fetchWeatherByCityName = async (name: string) => {
@@ -221,6 +264,34 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
       return false
     }
 
+    // 腾讯免费 IP 定位（返回区县级别，比搜狐/新浪更精细）
+    const tryTencentIP = async (): Promise<boolean> => {
+      try {
+        const res = await fetch('https://apis.map.qq.com/ws/location/v1/ip', {
+          signal: AbortSignal.timeout(6000),
+        })
+        const data = await res.json()
+        if (data.status === 0 && data.result) {
+          const r = data.result
+          const loc = r.location
+          const adInfo = r.ad_info
+          // 构建区县级别位置名
+          const districtName = adInfo?.district || adInfo?.city || ''
+          if (districtName && !cancelled) setCity(districtName)
+          if (loc?.lat && loc?.lng) {
+            await Promise.all([
+              fetchWeather(loc.lat, loc.lng),
+              fetchCityByCoords(loc.lat, loc.lng),
+            ])
+            return true
+          }
+          // 即使没有坐标，有城市名也算成功
+          if (districtName) return true
+        }
+      } catch { /* try next */ }
+      return false
+    }
+
     // 搜狐免费 IP 城市（只返回城市名，用 open-meteo 地理编码转坐标）
     const trySohu = async (): Promise<boolean> => {
       try {
@@ -292,6 +363,7 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
       if (await tryWindowsLocation()) return done()
       if (await tryBrowserGeo()) return done()
       if (await tryBaiduQifu()) return done()
+      if (await tryTencentIP()) return done()
       if (await trySohu()) return done()
       if (await trySina()) return done()
       if (await tryOverseasIP()) return done()
@@ -307,12 +379,13 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
   // 获取 AI 导语（天气/城市就绪后会带着真实信息再请求一次）
   useEffect(() => {
     setLoadingGreeting(true)
+    const locationText = preciseLocation ? `${city || tzCity} · ${preciseLocation}` : (city || tzCity)
     const params = new URLSearchParams({
       time: now.format('HH:mm'),
       date: now.format('M月D日'),
       weekday: WEEKDAYS[now.day()],
       lunar: lunarText,
-      location: city || tzCity,
+      location: locationText,
     })
     if (weather) {
       params.set('weather', getWeatherText(weather.code))
@@ -322,7 +395,7 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
       .then((data: { greeting?: string }) => setGreeting(data.greeting || ''))
       .catch(() => setGreeting(''))
       .finally(() => setLoadingGreeting(false))
-  }, [weather, city])
+  }, [weather, city, preciseLocation])
 
   const progress = Math.min((todayDurationMin / (goalHours * 60)) * 100, 100)
   const progressColor = progress >= 100 ? 'text-cd-green' : progress >= 50 ? 'text-yellow-400' : 'text-cd-text-secondary'
@@ -344,9 +417,17 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
 
         {/* 中间：天气定位 */}
         <div className="flex items-center gap-4 lg:ml-auto">
-          <div className="flex items-center gap-2 text-sm text-cd-text-secondary">
-            <MapPin size={16} className="text-cd-text-tertiary" />
-            <span className="font-display">{city || tzCity}</span>
+          <div className="flex items-start gap-2 text-sm text-cd-text-secondary">
+            <MapPin size={16} className="text-cd-text-tertiary mt-0.5 shrink-0" />
+            <div className="flex flex-col">
+              <span className="font-display leading-tight">{city || tzCity}</span>
+              {preciseLocation && (
+                <span className="text-[11px] text-cd-text-tertiary font-display leading-tight mt-0.5 flex items-center gap-1">
+                  <Navigation size={10} className="shrink-0" />
+                  {preciseLocation}
+                </span>
+              )}
+            </div>
           </div>
           {loadingWeather ? (
             <div className="flex items-center gap-2 text-sm text-cd-text-tertiary">
