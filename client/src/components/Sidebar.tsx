@@ -184,26 +184,15 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* ─── 底部信息 ─────────────────────── */}
+      {/* ─── 底部用户信息 ─────────────────────── */}
       <div className="px-4 py-3 border-t border-cd-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-cd-green-light flex items-center justify-center text-cd-green text-[10px] font-bold">
-              U
-            </div>
-            <div>
-              <div className="text-xs text-cd-text font-medium leading-tight">用户</div>
-              <div className="text-[10px] text-cd-text-tertiary leading-tight">免费版</div>
-            </div>
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-cd-green-light flex items-center justify-center text-cd-green text-[10px] font-bold">
+            U
           </div>
-        </div>
-        {/* 快捷键提示 */}
-        <div className="mt-3 pt-2 border-t border-cd-border-light">
-          <div className="text-[9px] text-cd-text-tertiary space-y-0.5">
-            <div className="flex justify-between"><span>截图</span><kbd className="bg-cd-bg-secondary px-1 rounded text-[8px]">Ctrl+Shift+S</kbd></div>
-            <div className="flex justify-between"><span>暂停/恢复</span><kbd className="bg-cd-bg-secondary px-1 rounded text-[8px]">Ctrl+Shift+P</kbd></div>
-            <div className="flex justify-between"><span>生成日报</span><kbd className="bg-cd-bg-secondary px-1 rounded text-[8px]">Ctrl+Shift+R</kbd></div>
-            <div className="flex justify-between"><span>显示/隐藏</span><kbd className="bg-cd-bg-secondary px-1 rounded text-[8px]">Ctrl+Shift+H</kbd></div>
+          <div>
+            <div className="text-xs text-cd-text font-medium leading-tight">用户</div>
+            <div className="text-[10px] text-cd-text-tertiary leading-tight">免费版</div>
           </div>
         </div>
       </div>
