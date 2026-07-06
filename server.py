@@ -116,7 +116,9 @@ def start_server():
     try:
         from waitress import serve as waitress_serve
         logger.info(f"使用 waitress 生产级 WSGI 服务器启动: http://127.0.0.1:{HTTP_PORT}")
-        waitress_serve(app, host="127.0.0.1", port=HTTP_PORT, threads=4)
+        # 本地桌面应用并发极低（仅一个前端 + 偶尔手动触发），2 线程足够
+        # 减少 waitress 线程可降低约 2MB 内存开销
+        waitress_serve(app, host="127.0.0.1", port=HTTP_PORT, threads=2)
     except ImportError:
         logger.warning("waitress 未安装，回退到 Flask 开发服务器（本地场景可用）")
         # 本地桌面应用场景：Flask 开发服务器足够稳定

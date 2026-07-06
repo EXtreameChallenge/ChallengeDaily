@@ -15,7 +15,7 @@ import { FileText, Calendar, Sparkles, Copy, Check, Download } from 'lucide-reac
 import dayjs from 'dayjs'
 
 type ReportType = 'daily' | 'weekly' | 'monthly'
-type TemplateType = 'standard' | 'simple' | 'technical' | 'okr' | 'ai'
+type TemplateType = 'standard' | 'simple' | 'technical' | 'okr' | 'ai' | 'deep'
 
 const REPORT_TYPES: { value: ReportType; label: string }[] = [
   { value: 'daily', label: '日报' },
@@ -29,12 +29,13 @@ const TEMPLATE_TYPES: { value: TemplateType; label: string; desc: string }[] = [
   { value: 'technical', label: '技术', desc: '侧重代码/项目/技术细节' },
   { value: 'okr', label: 'OKR', desc: '对齐目标和关键结果' },
   { value: 'ai', label: 'AI 智能', desc: '调用文本模型生成自然语言日报' },
+  { value: 'deep', label: '深度洞察', desc: '叙事日记+心理推测+反思' },
 ]
 
 export default function Report() {
   const toast = useToast()
   const [reportType, setReportType] = useState<ReportType>('daily')
-  const [template, setTemplate] = useState<TemplateType>('standard')
+  const [template, setTemplate] = useState<TemplateType>('deep')
   const [generatedContent, setGeneratedContent] = useState<string>('')
   const [generating, setGenerating] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -145,7 +146,7 @@ export default function Report() {
         {reportType === 'daily' && (
           <div>
             <label className="text-xs text-cd-text-secondary mb-2 block">报告模板</label>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {TEMPLATE_TYPES.map((t) => (
                 <button
                   key={t.value}

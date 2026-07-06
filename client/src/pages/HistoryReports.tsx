@@ -106,7 +106,7 @@ export default function HistoryReports() {
                     {report.date}
                   </div>
                   <div className="text-[10px] text-cd-text-tertiary">
-                    {report.template === 'standard' ? '标准模板' : report.template || '日报'}
+                    {report.template === 'standard' ? '标准模板' : report.template === 'deep' ? '深度洞察' : report.template === 'ai' ? 'AI智能' : report.template || '日报'}
                   </div>
                 </div>
                 <ChevronRight size={14} className="text-cd-text-tertiary shrink-0" />

@@ -4,6 +4,10 @@ import routes.deps as deps
 
 bp = Blueprint('health', __name__)
 
+# 截图目录大小缓存
+_ss_size_cache = None
+_ss_size_cache_time = 0
+
 
 @bp.route("/")
 def index():
@@ -55,23 +59,31 @@ def status():
     with get_conn() as conn:
         total_captures = conn.execute("SELECT COUNT(*) as cnt FROM activities").fetchone()["cnt"]
 
-    screenshots_size_mb = 0.0
-    # 使用 screenshot 模块的标准方法，避免路径拼接错误
-    try:
-        from screenshot import get_screenshots_size_mb as _get_ss_size
-        screenshots_size_mb = _get_ss_size()
-    except Exception:
-        # 回退：使用 config.SCREENSHOT_DIR
-        ss_dir = str(config.SCREENSHOT_DIR)
-        if os.path.isdir(ss_dir):
-            for f in os.listdir(ss_dir):
-                fp = os.path.join(ss_dir, f)
-                if os.path.isfile(fp):
-                    try:
-                        screenshots_size_mb += os.path.getsize(fp)
-                    except OSError:
-                        pass
-            screenshots_size_mb = screenshots_size_mb / (1024 * 1024)
+    # 优化：截图目录大小计算加缓存（10 秒），避免每次 /api/status 都遍历目录
+    # 截图在 AI 分析后会被删除，目录通常很小，但仍避免频繁 I/O
+    global _ss_size_cache, _ss_size_cache_time
+    import time as _time
+    now = _time.time()
+    if _ss_size_cache is not None and (now - _ss_size_cache_time) < 10:
+        screenshots_size_mb = _ss_size_cache
+    else:
+        screenshots_size_mb = 0.0
+        try:
+            from screenshot import get_screenshots_size_mb as _get_ss_size
+            screenshots_size_mb = _get_ss_size()
+        except Exception:
+            ss_dir = str(config.SCREENSHOT_DIR)
+            if os.path.isdir(ss_dir):
+                for f in os.listdir(ss_dir):
+                    fp = os.path.join(ss_dir, f)
+                    if os.path.isfile(fp):
+                        try:
+                            screenshots_size_mb += os.path.getsize(fp)
+                        except OSError:
+                            pass
+                screenshots_size_mb = screenshots_size_mb / (1024 * 1024)
+        _ss_size_cache = screenshots_size_mb
+        _ss_size_cache_time = now
 
     ai_enabled = bool(config.load_settings().get("ai_enabled") and config.AI_API_KEY)
 

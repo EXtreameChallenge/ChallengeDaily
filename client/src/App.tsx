@@ -121,10 +121,18 @@ export default function App() {
         // 通知轮询失败不影响主流程
       }
     }
-    // 每 30 秒轮询一次
+    // 优化：从 30 秒调整为 60 秒，窗口隐藏时暂停轮询
     poll()
-    const interval = setInterval(poll, 30000)
-    return () => clearInterval(interval)
+    const interval = setInterval(() => {
+      if (!document.hidden) poll()
+    }, 60000)
+    // 窗口恢复可见时立即检查一次
+    const onVisible = () => { if (!document.hidden) poll() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [backendReady])
 
   return (

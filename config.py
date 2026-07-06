@@ -5,6 +5,7 @@ ChallengeDaily Windows 版 — 配置管理
 import json
 import os
 import logging
+import time
 from pathlib import Path
 from file_utils import atomic_write_text, backup_file
 
@@ -93,8 +94,17 @@ _DEFAULT_SETTINGS = {
     "ai_text_model": "glm-4-flash",
 }
 
+# ── settings 缓存（避免每次 API 请求都读磁盘）──
+_settings_cache = None
+_settings_cache_time = 0
+_SETTINGS_CACHE_TTL = 10  # 10 秒缓存
+
 def load_settings() -> dict:
-    """从 settings.json 读取设置，不存在则返回默认值"""
+    """从 settings.json 读取设置，不存在则返回默认值（带缓存）"""
+    global _settings_cache, _settings_cache_time
+    now = time.time()
+    if _settings_cache is not None and (now - _settings_cache_time) < _SETTINGS_CACHE_TTL:
+        return _settings_cache.copy()
     if SETTINGS_PATH.exists():
         try:
             with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
@@ -102,13 +112,19 @@ def load_settings() -> dict:
             # 合并默认值（确保新字段有默认值）
             result = dict(_DEFAULT_SETTINGS)
             result.update(saved)
+            _settings_cache = result
+            _settings_cache_time = now
             return result
         except Exception as e:
             logging.getLogger(__name__).warning(f"Failed to load settings: {e}, using defaults")
-    return dict(_DEFAULT_SETTINGS)
+    result = dict(_DEFAULT_SETTINGS)
+    _settings_cache = result
+    _settings_cache_time = now
+    return result
 
 def save_settings(settings: dict) -> None:
     """保存设置到 settings.json（原子写入）"""
+    global _settings_cache, _settings_cache_time
     # 合并默认值
     result = dict(_DEFAULT_SETTINGS)
     result.update(settings)
@@ -116,6 +132,9 @@ def save_settings(settings: dict) -> None:
     if SETTINGS_PATH.exists():
         backup_file(SETTINGS_PATH)
     atomic_write_text(SETTINGS_PATH, content)
+    # 更新缓存
+    _settings_cache = result
+    _settings_cache_time = time.time()
 
 def get_exclude_apps() -> list[str]:
     """获取排除应用列表"""

@@ -76,7 +76,9 @@ _IGNORED_PROCESS_NAMES = {
 }
 
 # ─ 进程路径缓存（PID → path，避免每次 EnumWindows 都 OpenProcess/CloseHandle）──
+# 优化：限制缓存大小，防止长期运行内存泄漏
 _pid_path_cache: dict[int, str] = {}
+_PID_CACHE_MAX_SIZE = 200  # 最多缓存 200 个进程路径
 
 
 def _get_process_path_by_hwnd(hwnd: int) -> str:
@@ -88,6 +90,10 @@ def _get_process_path_by_hwnd(hwnd: int) -> str:
     # 查缓存
     if pid_val in _pid_path_cache:
         return _pid_path_cache[pid_val]
+
+    # 缓存大小控制：超过上限时清空旧条目
+    if len(_pid_path_cache) >= _PID_CACHE_MAX_SIZE:
+        _pid_path_cache.clear()
 
     h_process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid_val)
     if not h_process:

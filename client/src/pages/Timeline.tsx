@@ -29,7 +29,7 @@ export default function Timeline() {
   const { data: activitiesData, loading, error, refresh: refreshList, refreshing } = useAsyncData(
     () => getActivities(selectedDate),
     [selectedDate],
-    15000,
+    30000, // 优化：从 15 秒调整为 30 秒，配合 useAsyncData 的可见性检测
   )
   const activities = activitiesData?.activities ?? []
   const newIds = useNewIds(activities, (a) => a.id)

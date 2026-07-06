@@ -31,6 +31,7 @@ _IDLE_THRESHOLD_SEC = 180  # 3分钟无操作判定为闲置
 _icon_extract_lock = threading.Lock()
 _icon_extract_recent: dict[str, float] = {}  # app_name -> last_extract_time
 _ICON_EXTRACT_COOLDOWN_SEC = 600  # 同一应用10分钟内不重复提取图标
+_ICON_CACHE_MAX_SIZE = 100  # 限制图标提取缓存大小，避免内存无限增长
 
 
 def _should_extract_icon(app_name: str) -> bool:
@@ -38,6 +39,12 @@ def _should_extract_icon(app_name: str) -> bool:
     import time
     now = time.time()
     with _icon_extract_lock:
+        # 定期清理过期条目，防止字典无限增长
+        if len(_icon_extract_recent) > _ICON_CACHE_MAX_SIZE:
+            cutoff = now - _ICON_EXTRACT_COOLDOWN_SEC
+            expired = [k for k, v in _icon_extract_recent.items() if v < cutoff]
+            for k in expired:
+                del _icon_extract_recent[k]
         last = _icon_extract_recent.get(app_name.lower(), 0)
         if (now - last) < _ICON_EXTRACT_COOLDOWN_SEC:
             return False
@@ -46,8 +53,9 @@ def _should_extract_icon(app_name: str) -> bool:
 
 
 # 内存监控：每隔一段时间强制 GC，避免长期运行内存增长
+# 优化：从 10 分钟调整为 30 分钟，gc.collect() 本身有 CPU 开销
 _last_gc_time = 0
-_GC_INTERVAL_SEC = 600  # 10分钟执行一次 GC
+_GC_INTERVAL_SEC = 1800  # 30分钟执行一次 GC
 
 
 def _maybe_gc():
@@ -135,6 +143,10 @@ class Collector:
         self._last_ai_summary = ""
         self._last_ai_category = ""
         self._AI_REANALYZE_INTERVAL_SEC = 180  # 3分钟
+        # 近期活动上下文缓存：避免每次采集都查 DB
+        self._recent_context_cache = None
+        self._recent_context_cache_time = 0
+        self._RECENT_CONTEXT_CACHE_TTL = 120  # 2分钟缓存
 
     def capture_once(self) -> dict | None:
         """执行一次截图→分析→存储的完整流程（线程安全）"""
@@ -298,31 +310,40 @@ class Collector:
         elif should_analyze:
             if is_duplicate:
                 logger.info("画面相同但超过复用间隔，重新结合上下文分析")
-            # 4.5 获取近期活动上下文，供 AI 综合分析
+            # 4.5 获取近期活动上下文，供 AI 综合分析（带缓存）
             recent_context = ""
             try:
-                recent = get_recent_activities(8)
-                if recent:
-                    ctx_lines = []
-                    for r in recent:
-                        ts = r["timestamp"][11:16] if len(r["timestamp"]) > 11 else r["timestamp"]  # 只取时分
-                        app = r.get("app_name", "")
-                        cat = r.get("category", "")
-                        summ = r.get("ai_summary", "")
-                        detail = r.get("ai_detail", "")
-                        # 解析 windows_json，显示窗口变化
-                        try:
-                            wins = json.loads(r.get("windows_json", "[]") or "[]")
-                            win_names = ", ".join([
-                                f"{w.get('app_name', '').replace('.exe', '')}{'[前台]' if w.get('is_foreground') else ''}"
-                                for w in wins[:3]
-                            ]) if wins else app
-                        except Exception:
-                            win_names = app
-                        ctx_lines.append(f"- {ts} [{cat}] {win_names}: {summ}")
-                        if detail:
-                            ctx_lines.append(f"  详情：{detail[:80]}{'...' if len(detail) > 80 else ''}")
-                    recent_context = "\n".join(ctx_lines)
+                import time as _time
+                now_ctx = _time.time()
+                if (self._recent_context_cache is not None and
+                    (now_ctx - self._recent_context_cache_time) < self._RECENT_CONTEXT_CACHE_TTL):
+                    recent_context = self._recent_context_cache
+                else:
+                    recent = get_recent_activities(8)
+                    if recent:
+                        ctx_lines = []
+                        for r in recent:
+                            ts = r["timestamp"][11:16] if len(r["timestamp"]) > 11 else r["timestamp"]  # 只取时分
+                            app = r.get("app_name", "")
+                            cat = r.get("category", "")
+                            summ = r.get("ai_summary", "")
+                            detail = r.get("ai_detail", "")
+                            # 解析 windows_json，显示窗口变化
+                            try:
+                                wins = json.loads(r.get("windows_json", "[]") or "[]")
+                                win_names = ", ".join([
+                                    f"{w.get('app_name', '').replace('.exe', '')}{'[前台]' if w.get('is_foreground') else ''}"
+                                    for w in wins[:3]
+                                ]) if wins else app
+                            except Exception:
+                                win_names = app
+                            ctx_lines.append(f"- {ts} [{cat}] {win_names}: {summ}")
+                            if detail:
+                                ctx_lines.append(f"  详情：{detail[:80]}{'...' if len(detail) > 80 else ''}")
+                        recent_context = "\n".join(ctx_lines)
+                    # 缓存上下文
+                    self._recent_context_cache = recent_context
+                    self._recent_context_cache_time = now_ctx
             except Exception as e:
                 logger.debug(f"获取近期活动上下文失败（不影响采集）: {e}")
 

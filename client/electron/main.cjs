@@ -228,6 +228,10 @@ function stopBackend() {
 
 // ─── 主窗口 ──────────────────────────────────────
 function createMainWindow() {
+  // V8 内存优化：限制渲染进程内存上限，防止长期运行内存膨胀
+  // 参考 Electron 性能指南：https://www.electronjs.org/docs/latest/api/web-preferences
+  app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256 --gc-interval=100')
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -243,8 +247,18 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      // 后台节流：窗口不可见时降低定时器频率
+      backgroundThrottling: true,
     },
     show: false,
+  })
+
+  // 窗口最小化时暂停渲染，减少 CPU/GPU 占用
+  mainWindow.on('minimize', () => {
+    mainWindow.webContents.setBackgroundThrottling(true)
+  })
+  mainWindow.on('restore', () => {
+    mainWindow.webContents.setBackgroundThrottling(false)
   })
 
   // 自定义标题栏拖拽区域
@@ -646,10 +660,11 @@ function watchBackend() {
 }
 
 // ─── 心跳检测（Liveness Probe）──────────────────────
-// 每 30 秒探测后端 /api/health，连续 3 次失败则认为后端卡死，强制重启
+// 优化：从 30 秒调整为 60 秒，本地服务无需高频探测
+// 连续 3 次失败（即 3 分钟无响应）才触发重启
 let _healthFailCount = 0
 const _HEALTH_FAIL_THRESHOLD = 3
-const _HEALTH_CHECK_INTERVAL_MS = 30000
+const _HEALTH_CHECK_INTERVAL_MS = 60000
 
 function startHealthCheck() {
   const checkHealth = async () => {
@@ -714,10 +729,10 @@ app.whenReady().then(async () => {
   setupIPC()
   registerShortcuts()
 
-  // 启动后10秒检查更新（仅打包版）
-  setTimeout(checkForUpdates, 10000)
-  // 每4小时检查一次更新
-  setInterval(checkForUpdates, 4 * 60 * 60 * 1000)
+  // 启动后30秒检查更新（仅打包版）
+  setTimeout(checkForUpdates, 30000)
+  // 每8小时检查一次更新（降低频率，减少网络请求和 CPU 唤醒）
+  setInterval(checkForUpdates, 8 * 60 * 60 * 1000)
 })
 
 app.on('window-all-closed', () => {

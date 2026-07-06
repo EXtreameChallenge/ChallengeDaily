@@ -272,11 +272,24 @@ export function useAsyncData<T>(
 
     let intervalId: ReturnType<typeof setInterval> | undefined
     let cancelled = false
+    let isVisible = !document.hidden
+
+    // 页面可见性检测：窗口隐藏时暂停轮询，可见时恢复
+    // 参考 Page Visibility API：https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API
+    const handleVisibilityChange = () => {
+      const wasVisible = isVisible
+      isVisible = !document.hidden
+      if (!wasVisible && isVisible) {
+        // 从隐藏恢复到可见，立即刷新一次数据
+        load(true)
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     if (refreshInterval) {
-      // 正常定时刷新
+      // 正常定时刷新（窗口可见时才执行）
       intervalId = setInterval(() => {
-        if (cancelled) return
+        if (cancelled || !isVisible) return
         load(true)
       }, refreshInterval)
 
@@ -316,12 +329,14 @@ export function useAsyncData<T>(
         if (intervalId) clearInterval(intervalId)
         if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
         unsubState()
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
       }
     }
 
     return () => {
       mountedRef.current = false
       if (intervalId) clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [load, refreshInterval])
 

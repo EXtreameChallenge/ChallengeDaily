@@ -21,8 +21,18 @@ _AUTO_REPORT_PATH = BASE_DIR / "data" / "auto_report.json"
 _auto_report_generated_today = False
 _auto_report_last_date = None
 
+# 配置缓存：避免每次 check_auto_report 都读磁盘
+_auto_report_cfg_cache = None
+_auto_report_cfg_cache_time = 0
+_AUTO_REPORT_CFG_TTL = 60  # 60 秒缓存
+
 
 def _load_auto_report_config() -> dict:
+    global _auto_report_cfg_cache, _auto_report_cfg_cache_time
+    import time as _time
+    now = _time.time()
+    if _auto_report_cfg_cache is not None and (now - _auto_report_cfg_cache_time) < _AUTO_REPORT_CFG_TTL:
+        return _auto_report_cfg_cache.copy()
     default = {
         "enabled": False,
         "auto_time": "18:00",
@@ -34,10 +44,16 @@ def _load_auto_report_config() -> dict:
             default.update(saved)
         except Exception:
             pass
+    _auto_report_cfg_cache = default
+    _auto_report_cfg_cache_time = now
     return default
 
 
 def _save_auto_report_config(cfg: dict):
+    global _auto_report_cfg_cache, _auto_report_cfg_cache_time
+    _auto_report_cfg_cache = cfg
+    import time as _time
+    _auto_report_cfg_cache_time = _time.time()
     _AUTO_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     content = _json.dumps(cfg, ensure_ascii=False, indent=2)
     if _AUTO_REPORT_PATH.exists():

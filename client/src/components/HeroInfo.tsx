@@ -67,8 +67,17 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
   const [loadingGreeting, setLoadingGreeting] = useState(false)
 
   // 实时更新时间
+  // 优化：从 1 秒调整为 10 秒，仅在分钟变化时重渲染
+  // HH:mm 显示只需分钟级精度，1 秒轮询导致每秒 React 重渲染 + lunar 计算
   useEffect(() => {
-    const timer = setInterval(() => setNow(dayjs()), 1000)
+    let lastMinute = dayjs().minute()
+    const timer = setInterval(() => {
+      const current = dayjs()
+      if (current.minute() !== lastMinute) {
+        lastMinute = current.minute()
+        setNow(current)
+      }
+    }, 10000) // 10 秒检查一次
     return () => clearInterval(timer)
   }, [])
 

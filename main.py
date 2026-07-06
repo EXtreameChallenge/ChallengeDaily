@@ -98,7 +98,7 @@ def main():
 
     print("""
 ╔══════════════════════════════════════╗
-║       ChallengeDaily  Windows 版 v1.2.0    ║
+║       ChallengeDaily  Windows 版 v1.10.0   ║
 ║   截图 → AI 分析 → 分类 → Markdown   ║
 ╚══════════════════════════════════════╝
     """)

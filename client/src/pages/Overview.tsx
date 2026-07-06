@@ -88,8 +88,18 @@ export default function Overview() {
       }
     }
     refresh()
-    const interval = setInterval(refresh, 30000)
-    return () => clearInterval(interval)
+    // 优化：从 30 秒调整为 60 秒
+    // 配合 visibilitychange 事件，窗口隐藏时暂停轮询
+    const interval = setInterval(() => {
+      if (!document.hidden) refresh()
+    }, 60000)
+    // 窗口恢复可见时立即刷新
+    const onVisible = () => { if (!document.hidden) refresh() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [])
 
   useEffect(() => {
