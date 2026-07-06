@@ -401,24 +401,33 @@ function setupIPC() {
       const path = require('path')
       const fs = require('fs')
       const tmpScript = path.join(os.tmpdir(), 'cd_geo.ps1')
-      const scriptContent = [
-        'Add-Type -AssemblyName System.Runtime.WindowsRuntime',
-        '[Windows.Devices.Geolocation.Geolocator, Windows.Devices.Geolocation, ContentType = WindowsRuntime] | Out-Null',
-        '[Windows.Devices.Geolocation.Geoposition, Windows.Devices.Geolocation, ContentType = WindowsRuntime] | Out-Null',
-        '$methods = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq "AsTask" -and $_.GetParameters().Count -eq 1 }',
-        '$asTask = $methods[0]',
-        '$locator = New-Object Windows.Devices.Geolocation.Geolocator',
-        '$locator.DesiredAccuracy = [Windows.Devices.Geolocation.PositionAccuracy]::High',
-        '$locator.DesiredAccuracyInMeters = 50',
-        '$asyncOp = $locator.GetGeopositionAsync()',
-        '$task = $asTask.MakeGenericMethod([Windows.Devices.Geolocation.Geoposition]).Invoke($null, @($asyncOp))',
-        '$task.Wait(15000)',
-        'if ($task.IsCompleted) {',
-        '  $pos = $task.Result',
-        '  $c = $pos.Coordinate',
-        '  Write-Output "$($c.Point.Position.Latitude),$($c.Point.Position.Longitude),$($c.Accuracy)"',
-        '} else { Write-Output "TIMEOUT" }',
-      ].join('\n')
+      const scriptContent =
+        'Add-Type -AssemblyName System.Runtime.WindowsRuntime\n' +
+        '[Windows.Devices.Geolocation.Geolocator, Windows.Devices.Geolocation, ContentType = WindowsRuntime] | Out-Null\n' +
+        '[Windows.Devices.Geolocation.Geoposition, Windows.Devices.Geolocation, ContentType = WindowsRuntime] | Out-Null\n' +
+        '$asTaskMethod = $null\n' +
+        'foreach ($m in [System.WindowsRuntimeSystemExtensions].GetMethods()) {\n' +
+        '  if ($m.Name -ne "AsTask") { continue }\n' +
+        '  $ps = $m.GetParameters()\n' +
+        '  if ($ps.Count -ne 1) { continue }\n' +
+        '  $pt = $ps[0].ParameterType\n' +
+        "  if ($pt.IsGenericType -and $pt.GetGenericTypeDefinition().Name -like 'IAsyncOperation*') {\n" +
+        '    $asTaskMethod = $m\n' +
+        '    break\n' +
+        '  }\n' +
+        '}\n' +
+        'if (-not $asTaskMethod) { Write-Output "ERROR:no_asTask_method"; exit }\n' +
+        '$locator = New-Object Windows.Devices.Geolocation.Geolocator\n' +
+        '$locator.DesiredAccuracy = [Windows.Devices.Geolocation.PositionAccuracy]::High\n' +
+        '$locator.DesiredAccuracyInMeters = 50\n' +
+        '$asyncOp = $locator.GetGeopositionAsync()\n' +
+        '$task = $asTaskMethod.MakeGenericMethod([Windows.Devices.Geolocation.Geoposition]).Invoke($null, @($asyncOp))\n' +
+        '$task.Wait(15000)\n' +
+        'if ($task.IsCompleted) {\n' +
+        '  $pos = $task.Result\n' +
+        '  $c = $pos.Coordinate\n' +
+        '  Write-Output "$($c.Point.Position.Latitude),$($c.Point.Position.Longitude),$($c.Accuracy)"\n' +
+        '} else { Write-Output "TIMEOUT" }\n';
       try { fs.writeFileSync(tmpScript, scriptContent, 'utf8') } catch (e) { return resolve(null) }
 
       const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -File "${tmpScript}"`
