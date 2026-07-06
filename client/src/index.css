@@ -153,6 +153,18 @@ code, pre, kbd, .font-mono {
   background: var(--cd-scrollbar-hover);
 }
 
+/* 卡片内嵌细滚动条 — 更轻量不抢视觉 */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 3px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--cd-scrollbar);
+  border-radius: 2px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--cd-scrollbar-hover);
+}
+
 /* ─── 标题栏拖拽区域 ────────────────────── */
 .titlebar {
   -webkit-app-region: drag;

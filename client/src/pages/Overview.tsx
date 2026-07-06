@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   ResponsiveContainer, Tooltip,
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -21,7 +22,7 @@ import {
 } from '../api/client'
 import {
   Clock, Monitor, Zap, TrendingUp, Camera, Focus,
-  Activity as ActivityIcon, Play,
+  Activity as ActivityIcon, Play, ArrowRight,
 } from 'lucide-react'
 import dayjs from 'dayjs'
 import { RefreshIndicator } from '../components/shared'
@@ -38,7 +39,32 @@ function getDisplayAppName(appName: string): string {
   return appName.replace(/\.exe$/i, '')
 }
 
+/** 卡片标题栏：标题在左，"查看详情→" 在右，hover 显示箭头 */
+function CardHeader({ title, subtitle, linkTo, onNavigate }: {
+  title: string
+  subtitle?: string
+  linkTo: string
+  onNavigate: (path: string) => void
+}) {
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <h3 className="text-sm font-semibold text-cd-text">
+        {title}
+        {subtitle && <span className="text-cd-text-tertiary font-normal ml-1.5">{subtitle}</span>}
+      </h3>
+      <button
+        onClick={() => onNavigate(linkTo)}
+        className="flex items-center gap-1 text-xs text-cd-text-tertiary hover:text-cd-green transition-colors group"
+      >
+        查看详情
+        <ArrowRight size={12} className="opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+      </button>
+    </div>
+  )
+}
+
 export default function Overview() {
+  const navigate = useNavigate()
   const [stats, setStats] = useState<TodayStats | null>(null)
   const [status, setStatus] = useState<CollectorStatus | null>(null)
   const [activities, setActivities] = useState<Activity[]>([])
@@ -108,7 +134,7 @@ export default function Overview() {
     ;(async () => {
       const map: Record<string, string> = {}
       await Promise.all(
-        stats.top_apps!.slice(0, 5).map(async (app) => {
+        stats.top_apps!.slice(0, 10).map(async (app) => {
           try {
             map[app.app_name] = await getAppIconUrl(app.app_name)
           } catch {
@@ -149,7 +175,7 @@ export default function Overview() {
   })
   const maxHeatVal = Math.max(...heatmapBins.flatMap((d) => d.cells), 1)
 
-  const topApps = stats?.top_apps?.slice(0, 5) || []
+  const topApps = stats?.top_apps || []
 
   const categoryBars = stats?.categories
     ? Object.entries(stats.categories)
@@ -278,7 +304,7 @@ export default function Overview() {
       <div className="grid grid-cols-2 gap-6 mb-6">
         {/* 左：时间分布 */}
         <div className="flex flex-col">
-          <h3 className="text-sm font-semibold text-cd-text mb-4">时间都去哪了</h3>
+          <CardHeader title="时间都去哪了" linkTo="/timeline" onNavigate={navigate} />
           <div className="flex-1 bg-cd-card border border-cd-border rounded-xl p-5">
             {categoryBars.length > 0 ? (
               <div className="space-y-4">
@@ -312,7 +338,7 @@ export default function Overview() {
 
         {/* 右：3天热力图 */}
         <div className="flex flex-col">
-          <h3 className="text-sm font-semibold text-cd-text mb-4">近三天活动热力图</h3>
+          <CardHeader title="近三天活动热力图" linkTo="/heatmap" onNavigate={navigate} />
           <div className="flex-1 bg-cd-card border border-cd-border rounded-xl p-4 flex flex-col justify-center">
             <div className="grid grid-cols-12 gap-1 pl-[52px] mb-1.5">
               {Array.from({ length: 12 }, (_, b) => (
@@ -370,13 +396,13 @@ export default function Overview() {
 
       {/* ─── 下方区域：应用 Top 5 + 效率趋势 + 个人节奏 ──── */}
       <div className="grid grid-cols-3 gap-6">
-        {/* 左：应用使用 Top 5 */}
+        {/* 左：应用使用 */}
         <div className="col-span-1 flex flex-col">
-          <h3 className="text-sm font-semibold text-cd-text mb-4">应用使用</h3>
-          <div className="flex-1 bg-cd-card border border-cd-border rounded-xl p-5">
+          <CardHeader title="应用使用" linkTo="/apps" onNavigate={navigate} />
+          <div className="flex-1 bg-cd-card border border-cd-border rounded-xl p-5 min-h-0 overflow-hidden">
             {topApps.length > 0 ? (
-              <div className="space-y-3">
-                {topApps.slice(0, 5).map((app, idx) => {
+              <div className="space-y-2.5 overflow-y-auto max-h-[280px] pr-1 scrollbar-thin">
+                {topApps.map((app, idx) => {
                   const pct = totalMin > 0 ? (app.duration_min / totalMin) * 100 : 0
                   const iconUrl = iconUrls[app.app_name]
                   const defaultIcon = import.meta.env.DEV ? '/icon.png' : './icon.png'
@@ -407,7 +433,7 @@ export default function Overview() {
 
         {/* 中：效率趋势 */}
         <div className="col-span-1 flex flex-col">
-          <h3 className="text-sm font-semibold text-cd-text mb-4">效率趋势 <span className="text-cd-text-tertiary font-normal">7d</span></h3>
+          <CardHeader title="效率趋势" subtitle="7d" linkTo="/timeline" onNavigate={navigate} />
           <div className="flex-1 bg-cd-card border border-cd-border rounded-xl p-5 min-h-[220px]">
             {validTrend.length > 0 ? (
               <div className="h-full min-h-[180px]">
@@ -436,7 +462,7 @@ export default function Overview() {
 
         {/* 右：个人节奏 */}
         <div className="col-span-1 flex flex-col">
-          <h3 className="text-sm font-semibold text-cd-text mb-4">个人节奏</h3>
+          <CardHeader title="个人节奏" linkTo="/heatmap" onNavigate={navigate} />
           <div className="flex-1 bg-cd-card border border-cd-border rounded-xl p-5">
             {rhythmData.length > 0 ? (
               <div className="space-y-3">
@@ -481,7 +507,7 @@ export default function Overview() {
       {/* ─── 最近活动（底部，更轻量的展示） ──── */}
       {recentActivities.length > 0 && (
         <div className="mt-6 pt-6 border-t border-cd-border">
-          <h3 className="text-sm font-semibold text-cd-text mb-3">最近活动</h3>
+          <CardHeader title="最近活动" linkTo="/timeline" onNavigate={navigate} />
           <div className="flex gap-2.5 overflow-x-auto pb-1">
             {recentActivities.map((act) => {
               const color = CATEGORY_COLORS[act.category] || 'var(--cd-text-tertiary)'
