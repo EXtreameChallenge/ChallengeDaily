@@ -2,11 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { getStatus, getSettings, updateSettings, testAiConnection, getExportActivitiesUrl, getExportAppUsageUrl, getBackupInfo, getBackupDownloadUrl, restoreBackup, type CollectorStatus, type BackendSettings } from '../api/client'
 import { ToggleSwitch, useTimeout, useAsyncData, ApiErrorDisplay } from '../components/shared'
 import { useToast } from '../components/Toast'
-import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw } from 'lucide-react'
+import { useTheme, ACCENT_PRESETS, FONT_PRESETS } from '../components/ThemeContext'
+import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon } from 'lucide-react'
 import dayjs from 'dayjs'
 
 export default function Settings() {
   const toast = useToast()
+  const { theme, toggleTheme, accentIndex, setAccentIndex, fontIndex, setFontIndex, sidebarTranslucent, setSidebarTranslucent } = useTheme()
   const [aiEnabled, setAiEnabled] = useState(false)
   const [apiKey, setApiKey] = useState('')
   const [apiBase, setApiBase] = useState('https://open.bigmodel.cn/api/paas/v4')
@@ -241,6 +243,97 @@ export default function Settings() {
           恢复默认
         </button>
       </div>
+
+      {/* ─── 外观设置 ──────────────────────────── */}
+      <section className="card space-y-4">
+        <div className="flex items-center gap-2">
+          <Palette size={16} className="text-cd-green" />
+          <h2 className="text-sm font-semibold text-cd-text">外观设置</h2>
+        </div>
+
+        <div className="space-y-4">
+          {/* 深色模式 */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Moon size={14} className="text-cd-text-tertiary" />
+              <span className="text-sm text-cd-text">深色模式</span>
+            </div>
+            <ToggleSwitch checked={theme === 'dark'} onChange={toggleTheme} />
+          </div>
+
+          {/* 主题色 */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Palette size={14} className="text-cd-text-tertiary" />
+              <span className="text-sm text-cd-text">主题色</span>
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              {ACCENT_PRESETS.map((preset, i) => (
+                <button
+                  key={i}
+                  onClick={() => setAccentIndex(i)}
+                  className={`group relative w-8 h-8 rounded-full transition-all duration-150 ${
+                    i === accentIndex
+                      ? 'ring-2 ring-offset-2 scale-110'
+                      : 'hover:scale-105'
+                  }`}
+                  style={{
+                    backgroundColor: theme === 'dark' ? preset.dark : preset.light,
+                    ringColor: theme === 'dark' ? preset.dark : preset.light,
+                    // @ts-ignore ring-offset-color not in CSSProperties
+                    '--tw-ring-color': theme === 'dark' ? preset.dark : preset.light,
+                  } as React.CSSProperties}
+                  title={preset.name}
+                >
+                  {i === accentIndex && (
+                    <CheckCircle size={14} className="absolute inset-0 m-auto text-white drop-shadow-sm" />
+                  )}
+                  <span className="sr-only">{preset.name}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-cd-text-tertiary mt-1.5">
+              当前：{ACCENT_PRESETS[accentIndex].name}
+            </p>
+          </div>
+
+          {/* 字体 */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Type size={14} className="text-cd-text-tertiary" />
+              <span className="text-sm text-cd-text">字体</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {FONT_PRESETS.map((f, i) => (
+                <button
+                  key={i}
+                  onClick={() => setFontIndex(i)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border ${
+                    i === fontIndex
+                      ? 'bg-cd-green-light text-cd-green border-cd-green/30'
+                      : 'bg-cd-bg-secondary text-cd-text-secondary border-cd-border hover:bg-cd-hover'
+                  }`}
+                  style={i === fontIndex ? {} : { fontFamily: f.value }}
+                >
+                  {f.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 侧边栏毛玻璃 */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <GlassWater size={14} className="text-cd-text-tertiary" />
+                <span className="text-sm text-cd-text">侧边栏毛玻璃</span>
+              </div>
+              <p className="text-[10px] text-cd-text-tertiary ml-[22px] mt-0.5">半透明模糊效果，需重启应用生效</p>
+            </div>
+            <ToggleSwitch checked={sidebarTranslucent} onChange={setSidebarTranslucent} />
+          </div>
+        </div>
+      </section>
 
       {/* ─── 采集设置 ────────────────────────── */}
       <section className="card space-y-4">

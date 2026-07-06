@@ -87,6 +87,18 @@ def overview_summary():
             f"近期活动详情：\n{detail_text}"
         )
 
+        # ── 注入用户画像 + 周级上下文（长记忆） ──
+        try:
+            from context_manager import get_user_profile_context, build_weekly_context
+            user_ctx = get_user_profile_context()
+            if user_ctx:
+                prompt += f"\n\n用户画像：{user_ctx}"
+            weekly_ctx = build_weekly_context(7)
+            if weekly_ctx and len(weekly_ctx) > 50:
+                prompt += f"\n\n近一周上下文：\n{weekly_ctx}"
+        except Exception:
+            pass
+
         from openai import OpenAI
         import httpx
         client = OpenAI(

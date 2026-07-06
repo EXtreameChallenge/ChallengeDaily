@@ -66,6 +66,31 @@ def _build_stats(target_date: str):
         for a in apps[:5]
     ]
 
+    # 当前活动：最近一条记录的摘要
+    current_activity = None
+    with get_conn() as conn:
+        cur_row = conn.execute(
+            "SELECT app_name, category, ai_detail FROM activities "
+            "WHERE date(timestamp) = ? ORDER BY timestamp DESC LIMIT 1",
+            (target_date,),
+        ).fetchone()
+    if cur_row:
+        from app_tracker import get_display_name as _gdn3
+        app_disp = _gdn3(cur_row["app_name"])
+        cat_disp = cur_row["category"] or "其他"
+        detail = cur_row["ai_detail"] or ""
+        # 取 ai_detail 的首句作为简短描述
+        short_detail = ""
+        if detail:
+            for sep in ["。", "，", "；", ".", ","]:
+                idx = detail.find(sep)
+                if idx > 0 and idx < 30:
+                    short_detail = detail[:idx]
+                    break
+            if not short_detail:
+                short_detail = detail[:25]
+        current_activity = f"[{cat_disp}] {app_disp}" + (f" · {short_detail}" if short_detail else "")
+
     return jsonify({
         "date": target_date,
         "total_duration_min": round(total_duration_min, 1),
@@ -73,6 +98,8 @@ def _build_stats(target_date: str):
         "top_apps": top_apps,
         "focus_sessions": focus_sessions,
         "longest_focus_min": longest_focus_min,
+        "total_activities": len(act_rows) if act_rows else 0,
+        "current_activity": current_activity,
     })
 
 

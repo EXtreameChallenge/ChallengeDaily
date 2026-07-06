@@ -19,6 +19,7 @@ import {
   Loader2,
   Sun,
   Moon,
+  Brain,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { getStatus, pauseCollector, resumeCollector, getTodayStats, type CollectorStatus, type TodayStats } from '../api/client'
@@ -33,6 +34,7 @@ const CORE_NAV = [
   { to: '/app-tags',  icon: Tags,            label: '应用标签' },
   { to: '/history',   icon: History,         label: '历史报告' },
   { to: '/agent',     icon: Bot,             label: '接入Agent' },
+  { to: '/profile',   icon: Brain,           label: '个人画像' },
 ]
 
 const MORE_NAV = [
@@ -46,7 +48,7 @@ const MORE_NAV = [
 export default function Sidebar() {
   const [status, setStatus] = useState<CollectorStatus | null>(null)
   const [todayStats, setTodayStats] = useState<TodayStats | null>(null)
-  const { theme, toggleTheme } = useTheme()
+  const { theme, toggleTheme, sidebarTranslucent } = useTheme()
 
   useEffect(() => {
     const refresh = () => {
@@ -74,7 +76,14 @@ export default function Sidebar() {
   }
 
   return (
-    <nav className="w-56 bg-cd-sidebar border-r border-cd-border flex flex-col shrink-0 select-none">
+    <nav
+      className="w-56 border-r border-cd-border flex flex-col shrink-0 select-none"
+      style={{
+        background: sidebarTranslucent ? 'var(--cd-sidebar-bg, var(--cd-sidebar))' : 'var(--cd-sidebar)',
+        backdropFilter: sidebarTranslucent ? 'var(--cd-sidebar-blur)' : 'none',
+        WebkitBackdropFilter: sidebarTranslucent ? 'var(--cd-sidebar-blur)' : 'none',
+      }}
+    >
       {/* ─── 顶部状态 ───────────────── */}
       <div className="px-5 pt-5 pb-4">
         {/* 记录状态 */}

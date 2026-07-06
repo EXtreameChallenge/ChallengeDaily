@@ -126,7 +126,7 @@ html, body, #root {
   overflow: hidden;
   background: var(--cd-bg);
   color: var(--cd-text);
-  font-family: 'Anthropic Sans', 'FZQingKeBenYueSong', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  font-family: var(--cd-font, 'Anthropic Sans', 'FZQingKeBenYueSong', 'Microsoft YaHei', 'PingFang SC', sans-serif);
   transition: background-color 0.2s, color 0.2s;
 }
 

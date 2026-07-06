@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline';" />
-  <title>ChallengeDaily</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src http://127.0.0.1:58888;" />
+  <title>ChallengeDaily Pet</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -15,35 +15,39 @@
       user-select: none;
       -webkit-app-region: drag;
     }
-    .pet {
-      width: 120px;
-      height: 120px;
+
+    .pet-container {
+      position: relative;
+      width: 160px;
+      height: 160px;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
-      font-size: 72px;
-      cursor: pointer;
-      transition: transform 0.2s;
+      justify-content: flex-end;
     }
-    .pet:hover {
-      transform: scale(1.1);
-    }
+
+    /* ─── 气泡 ─── */
     .speech-bubble {
       position: absolute;
-      top: -40px;
+      top: 2px;
       left: 50%;
       transform: translateX(-50%);
       background: rgba(255, 255, 255, 0.95);
       color: #212121;
-      padding: 4px 10px;
-      border-radius: 8px;
+      padding: 5px 12px;
+      border-radius: 10px;
       font-size: 11px;
+      max-width: 200px;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       pointer-events: none;
       opacity: 0;
       transition: opacity 0.3s;
-      font-family: "Microsoft YaHei", sans-serif;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+      z-index: 10;
+      line-height: 1.4;
     }
     .speech-bubble.show {
       opacity: 1;
@@ -58,60 +62,359 @@
       border-right: 6px solid transparent;
       border-top: 6px solid rgba(255, 255, 255, 0.95);
     }
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-8px); }
+
+    /* ─── 宠物角色 ─── */
+    .pet-sprite {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 88px;
+      height: 88px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+      transition: transform 0.15s;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
     }
-    .bouncing {
-      animation: bounce 0.6s ease-in-out;
+    .pet-sprite:hover {
+      transform: translateX(-50%) scale(1.08);
     }
+    .pet-sprite:active {
+      transform: translateX(-50%) scale(0.95);
+    }
+
+    /* ─── 宠物状态动画 ─── */
+    @keyframes idle-float {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(-4px); }
+    }
+    @keyframes idle-breathe {
+      0%, 100% { transform: translateX(-50%) scale(1); }
+      50% { transform: translateX(-50%) scale(1.04); }
+    }
+    @keyframes sleep-breathe {
+      0%, 100% { transform: translateX(-50%) scale(1); opacity: 1; }
+      50% { transform: translateX(-50%) scale(0.97); opacity: 0.8; }
+    }
+    @keyframes bounce-click {
+      0% { transform: translateX(-50%) translateY(0); }
+      30% { transform: translateX(-50%) translateY(-16px) scale(1.1); }
+      60% { transform: translateX(-50%) translateY(0); }
+      80% { transform: translateX(-50%) translateY(-6px); }
+      100% { transform: translateX(-50%) translateY(0); }
+    }
+
+    .state-idle .pet-sprite { animation: idle-breathe 2.5s ease-in-out infinite; }
+    .state-active .pet-sprite { animation: idle-float 1.5s ease-in-out infinite; }
+    .state-sleep .pet-sprite { animation: sleep-breathe 3s ease-in-out infinite; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15)) brightness(0.7); }
+    .click-bounce .pet-sprite { animation: bounce-click 0.5s ease-out !important; }
+
+    /* ─── 特效粒子 ─── */
+    .particles {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 5;
+    }
+    .particle {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      opacity: 0;
+      animation: particle-fly 0.8s ease-out forwards;
+    }
+    @keyframes particle-fly {
+      0% { opacity: 1; transform: translate(0, 0) scale(1); }
+      100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.3); }
+    }
+
+    /* ─── 切换菜单 ─── */
+    .pet-menu {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.96);
+      border-radius: 10px;
+      padding: 6px 4px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      display: none;
+      z-index: 20;
+      min-width: 90px;
+    }
+    .pet-menu.show {
+      display: block;
+    }
+    .pet-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      color: #333;
+      transition: background 0.15s;
+      font-family: "Microsoft YaHei", sans-serif;
+    }
+    .pet-menu-item:hover {
+      background: rgba(123,104,238,0.1);
+    }
+    .pet-menu-item.active {
+      background: rgba(123,104,238,0.15);
+      color: #7B68EE;
+      font-weight: 600;
+    }
+    .pet-menu-item .emoji {
+      font-size: 18px;
+    }
+
+    /* ─── 睡眠 Zzz ─── */
+    .zzz {
+      position: absolute;
+      top: 24px;
+      right: 16px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #937CFF;
+      opacity: 0;
+      pointer-events: none;
+    }
+    @keyframes zzz-float {
+      0% { opacity: 0; transform: translateY(0) scale(0.8); }
+      30% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(-20px) scale(1.2); }
+    }
+    .state-sleep .zzz { animation: zzz-float 2s ease-in-out infinite; }
   </style>
 </head>
 <body>
-  <div class="pet" id="pet">
-    <div class="speech-bubble" id="bubble">该休息一下啦~</div>
-    🐱
+  <div class="pet-container state-idle" id="container">
+    <!-- 气泡 -->
+    <div class="speech-bubble" id="bubble">ChallengeDaily 陪你~</div>
+    <!-- 宠物角色 -->
+    <div class="pet-sprite" id="sprite">🐱</div>
+    <!-- 睡眠特效 -->
+    <div class="zzz" id="zzz">Z<span style="font-size:10px">z</span><span style="font-size:7px">z</span></div>
+    <!-- 点击特效 -->
+    <div class="particles" id="particles"></div>
+    <!-- 右键切换菜单 -->
+    <div class="pet-menu" id="menu"></div>
   </div>
+
   <script>
-    const pet = document.getElementById('pet');
-    const bubble = document.getElementById('bubble');
-    const messages = [
-      '努力工作中~',
-      '该休息一下啦~',
-      '喝口水吧 💧',
-      '今天进展不错！',
-      '专注模式开启！',
-      '别忘了起来走走~',
-      '加油加油！',
-      '需要我帮你写日报吗？',
+    // ─── 宠物配置 ──────────────────────────────
+    const PETS = [
+      { id: 'cat',     emoji: '🐱', name: '小猫' },
+      { id: 'dog',     emoji: '🐶', name: '小狗' },
+      { id: 'hamster', emoji: '🐹', name: '仓鼠' },
+      { id: 'robot',   emoji: '🤖', name: '机器人' },
+      { id: 'slime',   emoji: '💙', name: '史莱姆' },
+      { id: 'fox',     emoji: '🦊', name: '小狐狸' },
+      { id: 'panda',   emoji: '🐼', name: '熊猫' },
+      { id: 'dragon',  emoji: '🐲', name: '小龙' },
     ];
 
-    let bounceTimeout = null;
+    const REST_MESSAGES = [
+      '该休息一下啦~',
+      '喝口水吧',
+      '起来走走吧',
+      '放松一下眼睛~',
+    ];
 
-    pet.addEventListener('click', () => {
-      pet.classList.add('bouncing');
-      setTimeout(() => pet.classList.remove('bouncing'), 600);
+    const WORK_MESSAGES = [
+      '努力工作中~',
+      '专注模式开启！',
+      '加油加油！',
+      '今天进展不错！',
+      '保持节奏~',
+    ];
 
-      const msg = messages[Math.floor(Math.random() * messages.length)];
-      bubble.textContent = msg;
+    // ─── 状态 ──────────────────────────────
+    let currentPetIdx = parseInt(localStorage.getItem('cd_pet_idx') || '0', 10);
+    let currentActivity = null;
+    let bubbleTimeout = null;
+    let menuVisible = false;
+    let petState = 'idle'; // idle | active | sleep
+
+    const container = document.getElementById('container');
+    const sprite    = document.getElementById('sprite');
+    const bubble    = document.getElementById('bubble');
+    const menu      = document.getElementById('menu');
+    const particles = document.getElementById('particles');
+
+    // ─── 初始化 ──────────────────────────────
+    function init() {
+      setPet(currentPetIdx);
+      buildMenu();
+      bindEvents();
+      greetAfterDelay();
+      startActivityPoll();
+      startRestReminder();
+    }
+
+    function setPet(idx) {
+      currentPetIdx = idx;
+      localStorage.setItem('cd_pet_idx', String(idx));
+      sprite.textContent = PETS[idx].emoji;
+      // 隐藏菜单
+      menuVisible = false;
+      menu.classList.remove('show');
+    }
+
+    function buildMenu() {
+      menu.innerHTML = '';
+      PETS.forEach((p, i) => {
+        const item = document.createElement('div');
+        item.className = 'pet-menu-item' + (i === currentPetIdx ? ' active' : '');
+        item.innerHTML = `<span class="emoji">${p.emoji}</span><span>${p.name}</span>`;
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          setPet(i);
+          buildMenu();
+          showBubble(`切换为${p.name}~`, 2000);
+          spawnParticles();
+        });
+        menu.appendChild(item);
+      });
+    }
+
+    // ─── 事件绑定 ──────────────────────────────
+    function bindEvents() {
+      // 左键点击 → 弹跳 + 气泡
+      sprite.addEventListener('click', (e) => {
+        e.stopPropagation();
+        container.classList.add('click-bounce');
+        setTimeout(() => container.classList.remove('click-bounce'), 500);
+        spawnParticles();
+        showRandomBubble();
+      });
+
+      // 右键 → 切换菜单
+      sprite.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        menuVisible = !menuVisible;
+        menu.classList.toggle('show', menuVisible);
+      });
+
+      // 点击其他地方关闭菜单
+      document.addEventListener('click', () => {
+        if (menuVisible) {
+          menuVisible = false;
+          menu.classList.remove('show');
+        }
+      });
+    }
+
+    // ─── 气泡 ──────────────────────────────
+    function showBubble(text, duration = 3000) {
+      bubble.textContent = text;
       bubble.classList.add('show');
-      clearTimeout(bounceTimeout);
-      bounceTimeout = setTimeout(() => bubble.classList.remove('show'), 3000);
-    });
+      clearTimeout(bubbleTimeout);
+      bubbleTimeout = setTimeout(() => bubble.classList.remove('show'), duration);
+    }
 
-    // 定时提醒（每 45 分钟）
-    setInterval(() => {
-      bubble.textContent = '该休息一下啦~ 🎯';
-      bubble.classList.add('show');
-      setTimeout(() => bubble.classList.remove('show'), 5000);
-    }, 45 * 60 * 1000);
+    function showRandomBubble() {
+      const pool = currentActivity ? [...WORK_MESSAGES, currentActivity] : WORK_MESSAGES;
+      const msg = pool[Math.floor(Math.random() * pool.length)];
+      showBubble(msg, 3000);
+    }
 
-    // 初始打招呼
-    setTimeout(() => {
-      bubble.textContent = 'ChallengeDaily 陪你~';
-      bubble.classList.add('show');
-      setTimeout(() => bubble.classList.remove('show'), 3000);
-    }, 2000);
+    // ─── 粒子特效 ──────────────────────────────
+    function spawnParticles() {
+      const colors = ['#7B68EE', '#FF6B6B', '#4ECDC4', '#FFD93D', '#FF8A65'];
+      for (let i = 0; i < 8; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const angle = (Math.PI * 2 / 8) * i + Math.random() * 0.5;
+        const dist = 20 + Math.random() * 20;
+        p.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
+        p.style.setProperty('--dy', `${Math.sin(angle) * dist}px`);
+        p.style.background = colors[i % colors.length];
+        p.style.animationDelay = `${Math.random() * 0.15}s`;
+        particles.appendChild(p);
+        setTimeout(() => p.remove(), 1000);
+      }
+    }
+
+    // ─── 活动轮询（从后端获取当前活动）──────────────────
+    function startActivityPoll() {
+      pollActivity(); // 首次
+      setInterval(pollActivity, 30000); // 每30秒
+    }
+
+    async function pollActivity() {
+      try {
+        // 读取 token
+        const token = localStorage.getItem('cd_pet_token') || await fetchToken();
+        if (!token) return;
+
+        const res = await fetch(`http://127.0.0.1:58888/api/stats/today?token=${token}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data.current_activity) {
+          currentActivity = data.current_activity;
+          updateState('active');
+        } else if (data.total_activities > 0) {
+          updateState('idle');
+          currentActivity = null;
+        } else {
+          updateState('sleep');
+          currentActivity = null;
+        }
+      } catch (_) {
+        // 后端不可达，保持当前状态
+      }
+    }
+
+    async function fetchToken() {
+      try {
+        // 尝试从 electronAPI 获取
+        if (window.electronAPI?.getApiToken) {
+          const token = await window.electronAPI.getApiToken();
+          if (token) {
+            localStorage.setItem('cd_pet_token', token);
+            return token;
+          }
+        }
+        // fallback: 直接读 .api_token（sandbox 限制可能不可用）
+        return localStorage.getItem('cd_pet_token') || '';
+      } catch (_) {
+        return '';
+      }
+    }
+
+    function updateState(state) {
+      petState = state;
+      container.className = `pet-container state-${state}`;
+    }
+
+    // ─── 定时休息提醒（每 45 分钟）──────────────────
+    function startRestReminder() {
+      setInterval(() => {
+        const msg = REST_MESSAGES[Math.floor(Math.random() * REST_MESSAGES.length)];
+        showBubble(msg, 5000);
+      }, 45 * 60 * 1000);
+    }
+
+    // ─── 初始打招呼 ──────────────────────────────
+    function greetAfterDelay() {
+      setTimeout(() => {
+        showBubble(`${PETS[currentPetIdx].name} 来陪你~`, 3000);
+      }, 1500);
+    }
+
+    // ─── 启动 ──────────────────────────────
+    init();
   </script>
 </body>
 </html>

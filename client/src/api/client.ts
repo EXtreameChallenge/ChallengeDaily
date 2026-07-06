@@ -534,6 +534,84 @@ export async function getAppIconUrl(appName: string): Promise<string> {
   return `${BASE_URL}/api/icons/${encodeURIComponent(appName)}${token ? `?token=${token}` : ''}`
 }
 
+// ─── 用户画像 ──────────────────────────────────
+
+export interface UserProfile {
+  role_desc: string
+  work_style: string
+  habits: string  // JSON string
+  app_overrides: string  // JSON string
+  custom_rules: string  // JSON string
+  updated_at: string
+}
+
+export interface UserCorrection {
+  id: number
+  app_name: string
+  correct_category: string
+  correct_desc: string
+  notes: string
+  created_at: string
+}
+
+export interface DailyProfile {
+  date: string
+  daily_summary: string
+  work_patterns: string  // JSON
+  top_apps: string  // JSON
+  focus_hours: string  // JSON
+  productivity: string
+  key_insights: string  // JSON
+  hourly_digest: string  // JSON
+  generated_at: string
+}
+
+export interface ProfileData {
+  profile: UserProfile
+  corrections: UserCorrection[]
+}
+
+/** 获取用户画像 + 纠正记录 */
+export async function getProfile(): Promise<ProfileData> {
+  return request('/api/profile') as Promise<ProfileData>
+}
+
+/** 保存用户画像 */
+export async function saveProfile(data: Partial<UserProfile>): Promise<{ ok: boolean }> {
+  return request('/api/profile', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }) as Promise<{ ok: boolean }>
+}
+
+/** 添加分类纠正 */
+export async function addCorrection(data: { app_name: string; correct_category?: string; correct_desc?: string; notes?: string }): Promise<{ ok: boolean }> {
+  return request('/api/profile/correction', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }) as Promise<{ ok: boolean }>
+}
+
+/** 删除分类纠正 */
+export async function deleteCorrection(id: number): Promise<{ ok: boolean }> {
+  return request(`/api/profile/correction/${id}`, { method: 'DELETE' }) as Promise<{ ok: boolean }>
+}
+
+/** 获取日画像 */
+export async function getDailyProfile(date: string): Promise<{ profile: DailyProfile | null }> {
+  return request(`/api/profile/daily/${date}`) as Promise<{ profile: DailyProfile | null }>
+}
+
+/** 生成日画像 */
+export async function generateDailyProfile(date: string, timeoutMs = 30000): Promise<{ ok: boolean; profile?: DailyProfile }> {
+  return request(`/api/profile/daily/${date}/generate`, { method: 'POST' }, timeoutMs) as Promise<{ ok: boolean; profile?: DailyProfile }>
+}
+
+/** 获取周上下文（调试用） */
+export async function getWeeklyContext(days = 7): Promise<{ context: string }> {
+  return request(`/api/profile/weekly-context?days=${days}`) as Promise<{ context: string }>
+}
+
 // ─── 分类配色映射 ────────────────────────────────
 export const CATEGORY_COLORS: Record<string, string> = {
   '开发': '#00B894',

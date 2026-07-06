@@ -290,9 +290,9 @@ function createPetWindow() {
   const { width } = screen.getPrimaryDisplay().workAreaSize
 
   petWindow = new BrowserWindow({
-    width: 120,
-    height: 120,
-    x: width - 150,
+    width: 200,
+    height: 200,
+    x: width - 230,
     y: 100,
     transparent: true,
     frame: false,
@@ -302,6 +302,7 @@ function createPetWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.cjs'),
     },
     show: false,
   })
@@ -376,6 +377,13 @@ function setupIPC() {
   ipcMain.on('pet-toggle', (_event, show) => {
     if (show) petWindow?.show()
     else petWindow?.hide()
+  })
+
+  // 宠物气泡内容更新 → 中转到主窗口侧边栏状态
+  ipcMain.on('pet-activity-update', (_event, data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('pet-activity', data)
+    }
   })
 
   // 后端状态

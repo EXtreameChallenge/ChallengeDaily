@@ -20,6 +20,7 @@ const AgentPage = lazy(() => import('./pages/Agent'))
 const AppTags = lazy(() => import('./pages/AppTags'))
 const Onboarding = lazy(() => import('./pages/Onboarding'))
 const Legal = lazy(() => import('./pages/Legal'))
+const Profile = lazy(() => import('./pages/Profile'))
 
 // 首次启动流程：法律协议 → 新手引导 → 主界面
 type FirstLaunchPhase = 'legal' | 'onboarding' | 'done'
@@ -208,6 +209,7 @@ export default function App() {
                         <Route path="/history" element={<HistoryReports />} />
                         <Route path="/agent" element={<AgentPage />} />
                         <Route path="/settings" element={<Settings />} />
+                        <Route path="/profile" element={<Profile />} />
                         <Route path="*" element={<NotFoundPage />} />
                       </Routes>
                     </Suspense>

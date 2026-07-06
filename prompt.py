@@ -144,6 +144,19 @@ def build_user_prompt(app_name: str, window_title: str, recent_context: str = ""
 
     if recent_context:
         parts.append(f"近期活动上下文（供综合判断）：\n{recent_context}")
+
+    # ── 注入用户画像 + 周级上下文（长记忆） ──
+    try:
+        from context_manager import get_user_profile_context, build_weekly_context
+        user_ctx = get_user_profile_context()
+        if user_ctx:
+            parts.append(f"用户画像（请根据此信息更好理解用户行为）：\n{user_ctx}")
+        weekly_ctx = build_weekly_context(7)
+        if weekly_ctx and len(weekly_ctx) > 50:  # 有实际内容（非空壳）
+            parts.append(f"近一周工作上下文（了解用户长期模式）：\n{weekly_ctx}")
+    except Exception:
+        pass  # context_manager 加载失败不影响核心功能
+
     # 追加用户自定义指令
     custom = _get_custom_instructions()
     if custom:

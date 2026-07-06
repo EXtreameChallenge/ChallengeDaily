@@ -1186,6 +1186,22 @@ def _build_rich_data_context(target_date, summary_data, app_usage, activities) -
         end = rng.get("end", f"{h:02d}:59")
         lines.append(f"| {start}-{end} | {cat_str} | {app_str} | {dur_min:.0f}分钟 |")
 
+    # ── 注入用户画像 + 周级上下文（长记忆） ──
+    try:
+        from context_manager import get_user_profile_context, build_weekly_context
+        user_ctx = get_user_profile_context()
+        if user_ctx:
+            lines.append("")
+            lines.append("═══ 用户画像 ═══")
+            lines.append(user_ctx)
+        weekly_ctx = build_weekly_context(7)
+        if weekly_ctx and len(weekly_ctx) > 50:
+            lines.append("")
+            lines.append("═══ 近一周工作上下文 ═══")
+            lines.append(weekly_ctx)
+    except Exception:
+        pass
+
     return "\n".join(lines)
 
 

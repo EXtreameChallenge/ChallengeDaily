@@ -15,7 +15,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 # ── 持久连接（避免每分钟 5-7 次 connect/close）──
 _persistent_conn: Optional[sqlite3.Connection] = None
@@ -187,6 +187,39 @@ def init_db():
                 conn.execute("ALTER TABLE activities ADD COLUMN windows_json TEXT DEFAULT '[]'")
             except sqlite3.OperationalError:
                 pass  # 列已存在
+
+        # V8: 用户画像 + 每日画像表
+        if current_version < 8:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS daily_profiles (
+                    date           TEXT PRIMARY KEY,
+                    hourly_digest  TEXT DEFAULT '[]',
+                    daily_summary  TEXT DEFAULT '',
+                    work_patterns  TEXT DEFAULT '[]',
+                    top_apps       TEXT DEFAULT '[]',
+                    focus_hours    TEXT DEFAULT '[]',
+                    productivity   TEXT DEFAULT '',
+                    key_insights   TEXT DEFAULT '[]',
+                    generated_at   TEXT DEFAULT (datetime('now','localtime'))
+                );
+                CREATE TABLE IF NOT EXISTS user_profile (
+                    id             INTEGER PRIMARY KEY CHECK (id = 1),
+                    role_desc      TEXT DEFAULT '',
+                    work_style     TEXT DEFAULT '',
+                    habits         TEXT DEFAULT '{}',
+                    app_overrides  TEXT DEFAULT '{}',
+                    custom_rules   TEXT DEFAULT '[]',
+                    updated_at     TEXT DEFAULT (datetime('now','localtime'))
+                );
+                CREATE TABLE IF NOT EXISTS user_corrections (
+                    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                    app_name       TEXT NOT NULL,
+                    correct_category TEXT DEFAULT '',
+                    correct_desc   TEXT DEFAULT '',
+                    notes          TEXT DEFAULT '',
+                    created_at     TEXT DEFAULT (datetime('now','localtime'))
+                );
+            """)
 
         # 更新版本号
         conn.execute(

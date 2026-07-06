@@ -10,6 +10,7 @@ from routes.notifications import bp as notifications_bp
 from routes.exports import bp as exports_bp
 from routes.agent import bp as agent_bp
 from routes.app_rules import bp as app_rules_bp
+from routes.profile import bp as profile_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -24,4 +25,5 @@ ALL_BLUEPRINTS = [
     exports_bp,
     agent_bp,
     app_rules_bp,
+    profile_bp,
 ]
