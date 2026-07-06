@@ -20,6 +20,7 @@ interface Window {
     onCollectorAction: (cb: (data: string) => void) => void
     onGenerateReport: (cb: (data: string) => void) => void
     showNotification: (opts: { title: string; body: string }) => void
+    getWindowsLocation: () => Promise<{ lat: number; lon: number; status?: string } | null>
   }
   _petVisible?: boolean
 }

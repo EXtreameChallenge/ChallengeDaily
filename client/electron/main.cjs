@@ -1,6 +1,6 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, globalShortcut, Notification } = require('electron')
 const path = require('path')
-const { spawn } = require('child_process')
+const { spawn, exec } = require('child_process')
 const http = require('http')
 const fs = require('fs')
 
@@ -34,6 +34,24 @@ const isDev = process.env.ELECTRON_IS_DEV === '0' ? false : !app.isPackaged
 
 // Windows 任务栏图标关键：设置 AppUserModelId（必须在 app ready 之前）
 app.setAppUserModelId('com.challenge.daily')
+
+// ─── 单实例锁：禁止打开多个窗口 ────────────────────
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  // 已有实例在运行，直接退出
+  console.log('[Main] Another instance is already running, quitting...')
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    // 有人试图打开第二个实例，聚焦到已有窗口
+    console.log('[Main] Second instance attempted, focusing main window')
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      if (!mainWindow.isVisible()) mainWindow.show()
+      mainWindow.focus()
+    }
+  })
+}
 
 // 获取图标路径：按实际文件存在性查找，兼容源码运行、打包运行、开发模式
 function getIconPath() {
@@ -213,8 +231,10 @@ function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    minWidth: 900,
-    minHeight: 600,
+    minWidth: 680,
+    minHeight: 480,
+    resizable: true,
+    maximizable: true,
     frame: false,
     titleBarStyle: 'hidden',
     backgroundColor: '#121212',
@@ -372,6 +392,28 @@ function setupIPC() {
       notification.show()
     }
   })
+
+  // Windows 系统定位（调用 PowerShell Get-GeoLocation，需要系统开启定位服务）
+  ipcMain.handle('get-windows-location', async () => {
+    return new Promise((resolve) => {
+      const cmd = 'powershell -NoProfile -Command "$g=Get-GeoLocation; \\"$($g.Latitude),$($g.Longitude),$($g.Status)\\""'
+      exec(cmd, { timeout: 8000, windowsHide: true }, (err, stdout, stderr) => {
+        if (err || !stdout) {
+          console.error('[GeoLocation] PowerShell Get-GeoLocation failed:', err?.message || stderr)
+          return resolve(null)
+        }
+        const parts = stdout.trim().split(',')
+        if (parts.length < 2) return resolve(null)
+        const lat = parseFloat(parts[0])
+        const lon = parseFloat(parts[1])
+        if (!isNaN(lat) && !isNaN(lon)) {
+          resolve({ lat, lon, status: parts[2]?.trim() || 'OK' })
+        } else {
+          resolve(null)
+        }
+      })
+    })
+  })
 }
 
 // ─── 全局快捷键 ────────────────────────────────────
@@ -523,10 +565,14 @@ function installUpdate() {
   }
 }
 
-// ─── 崩溃监控 & Watchdog ──────────────────────────
+// ─── 崩溃监控 & Watchdog & 心跳检测 ──────────────────
+// 参考 Kubernetes liveness/readiness probe 模式：
+//   1. 进程崩溃：指数退避重启（3s → 5s → 10s → 20s → 30s），不放弃
+//   2. 心跳检测：每 30 秒探测 /api/health，连续 3 次失败则强制重启后端
+//   3. 重启次数上限：设为 999（实际不放弃），避免后端偶尔崩溃后永久无法恢复
 let _crashCount = 0
-const _CRASH_THRESHOLD = 3      // 连续崩溃3次后停止自动重启
-const _CRASH_WINDOW_SEC = 60    // 60秒内
+const _CRASH_THRESHOLD = 999      // 不放弃，持续重试
+const _CRASH_WINDOW_SEC = 60      // 60秒内崩溃计数窗口
 
 function watchBackend() {
   if (!backendProcess) return
@@ -534,24 +580,74 @@ function watchBackend() {
     if (code !== 0 && code !== null) {
       _crashCount++
       console.error(`[Watchdog] Backend crashed (code=${code}), crash count: ${_crashCount}`)
-      if (_crashCount < _CRASH_THRESHOLD) {
-        console.log('[Watchdog] Restarting backend in 3 seconds...')
-        setTimeout(async () => {
-          try {
-            await startBackend()
-            watchBackend()  // re-attach watcher
-          } catch (e) {
-            console.error('[Watchdog] Restart failed:', e)
-          }
-        }, 3000)
-      } else {
-        console.error('[Watchdog] Backend crashed too many times, giving up auto-restart')
-        _addNotification_dedup('后端异常', '后端服务多次崩溃，请重启应用', 'error')
-      }
+
+      // 指数退避重启：3s → 5s → 10s → 20s → 30s
+      const delay = _crashCount <= 1 ? 3000
+        : _crashCount === 2 ? 5000
+        : _crashCount === 3 ? 10000
+        : _crashCount === 4 ? 20000
+        : 30000  // 封顶 30 秒
+      console.log(`[Watchdog] Restarting backend in ${delay/1000}s (attempt ${_crashCount})...`)
+
+      setTimeout(async () => {
+        try {
+          await startBackend()
+          watchBackend()  // re-attach watcher
+          console.log('[Watchdog] Backend restarted successfully')
+        } catch (e) {
+          console.error('[Watchdog] Restart failed:', e)
+          // 递归重试
+          watchBackend()
+        }
+      }, delay)
     } else {
       _crashCount = 0  // 正常退出则重置计数
     }
   })
+}
+
+// ─── 心跳检测（Liveness Probe）──────────────────────
+// 每 30 秒探测后端 /api/health，连续 3 次失败则认为后端卡死，强制重启
+let _healthFailCount = 0
+const _HEALTH_FAIL_THRESHOLD = 3
+const _HEALTH_CHECK_INTERVAL_MS = 30000
+
+function startHealthCheck() {
+  const checkHealth = async () => {
+    try {
+      const ok = await isBackendRunning()
+      if (ok) {
+        _healthFailCount = 0
+      } else {
+        _healthFailCount++
+        console.warn(`[HealthCheck] Backend not responding (${_healthFailCount}/${_HEALTH_FAIL_THRESHOLD})`)
+
+        if (_healthFailCount >= _HEALTH_FAIL_THRESHOLD) {
+          console.error('[HealthCheck] Backend unresponsive, forcing restart...')
+          _healthFailCount = 0
+          // 强制杀掉后端进程并重启
+          stopBackend()
+          setTimeout(async () => {
+            try {
+              await startBackend()
+              watchBackend()
+              console.log('[HealthCheck] Backend restarted after health check failure')
+            } catch (e) {
+              console.error('[HealthCheck] Restart after health check failed:', e)
+            }
+          }, 3000)
+        }
+      }
+    } catch (e) {
+      // 心跳检测异常不中断循环
+      console.error('[HealthCheck] Error:', e.message)
+    }
+  }
+
+  // 延迟 10 秒后开始心跳检测（给后端启动时间）
+  setTimeout(() => {
+    setInterval(checkHealth, _HEALTH_CHECK_INTERVAL_MS)
+  }, 10000)
 }
 
 function _addNotification_dedup(title, body, type) {
@@ -566,6 +662,7 @@ app.whenReady().then(async () => {
   try {
     await startBackend()
     watchBackend()  // 启动崩溃监控
+    startHealthCheck()  // 启动心跳检测（Kubernetes liveness probe 模式）
     console.log('[Main] Backend start sequence completed')
   } catch (err) {
     console.error('[Main] Backend start failed, continuing without it:', err)

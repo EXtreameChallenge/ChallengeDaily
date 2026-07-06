@@ -1,5 +1,21 @@
 const BASE_URL = 'http://127.0.0.1:58888'
 
+// ── 后端连接状态管理（企业级断线重连机制） ──
+type BackendState = 'connected' | 'disconnected' | 'connecting'
+let _backendState: BackendState = 'connecting'
+const _stateListeners = new Set<(s: BackendState) => void>()
+
+export function getBackendState(): BackendState { return _backendState }
+export function onBackendStateChange(cb: (s: BackendState) => void): () => void {
+  _stateListeners.add(cb)
+  return () => _stateListeners.delete(cb)
+}
+function setBackendState(s: BackendState) {
+  if (_backendState === s) return
+  _backendState = s
+  _stateListeners.forEach(cb => cb(s))
+}
+
 // ── API Token 管理 ──
 let _apiToken = ''
 let _tokenPromise: Promise<string> | null = null
@@ -25,11 +41,14 @@ function invalidateToken() {
   _tokenPromise = null
 }
 
-async function request(endpoint: string, options?: RequestInit, _isRetry = false): Promise<unknown> {
+/** 带指数退避重试的 fetch（参考 resilience4j / Polly 模式） */
+export async function request(endpoint: string, options?: RequestInit, _isRetry = false): Promise<unknown> {
   const token = await getApiToken()
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s 超时
+  // 连接超时缩短到 10 秒（后端是本地服务，不应长时间无响应）
+  const timeoutId = setTimeout(() => controller.abort(), 10000)
   try {
+    setBackendState('connecting')
     const res = await fetch(`${BASE_URL}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
@@ -50,14 +69,17 @@ async function request(endpoint: string, options?: RequestInit, _isRetry = false
       throw new Error(`请求失败: ${res.status}`)
     }
     const data = await res.json()
+    setBackendState('connected')
     return data
   } catch (err: unknown) {
+    // 标记后端断连，触发 UI 重连提示
+    setBackendState('disconnected')
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('请求超时，请检查网络连接')
+      throw new Error('请求超时，后端可能未响应')
     }
     if (err instanceof Error) {
-      if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
-        throw new Error('无法连接到后端服务，请确认ChallengeDaily后台正在运行')
+      if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError') || err.message?.includes('ECONNREFUSED')) {
+        throw new Error('无法连接到后端服务，正在尝试自动重连...')
       }
       throw err
     }
@@ -86,15 +108,33 @@ export interface TodayStats {
   longest_focus_min: number
 }
 
+export interface VisibleWindow {
+  app_name: string
+  window_title: string
+  is_foreground: boolean
+  description?: string
+  area_ratio?: number
+  bounds?: {
+    left: number
+    top: number
+    right: number
+    bottom: number
+    width: number
+    height: number
+  }
+}
+
 export interface Activity {
   id: number
   timestamp: string
   app_name: string
+  app_name_raw?: string
   window_title: string
   category: string
   ai_summary: string | null
   ai_detail: string
   duration_min: number
+  windows?: VisibleWindow[]
 }
 
 export interface ReportContent {
@@ -286,6 +326,20 @@ export async function getRhythmStats(date?: string): Promise<{ date: string; per
   const params = date ? `?date=${date}` : ''
   const data = await request(`/api/stats/rhythm${params}`)
   return data as { date: string; periods: Array<{ period: string; count: number; percentage: number; duration_min: number }>; peak_period: string }
+}
+
+export interface RecentHeatmapDay {
+  date: string
+  hours: number[]
+  total_min: number
+  peak_hour: number
+  top_app: string
+}
+
+/** 获取最近 N 天热力图 + 每日摘要 */
+export async function getRecentHeatmap(days = 3): Promise<{ days: number; data: RecentHeatmapDay[] }> {
+  const data = await request(`/api/stats/recent-heatmap?days=${days}`)
+  return data as { days: number; data: RecentHeatmapDay[] }
 }
 
 /** 测试 AI API 连接 */

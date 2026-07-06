@@ -30,10 +30,16 @@ def activities():
     rows = get_activities(target_date, target_date)
 
     from app_tracker import get_display_name as _gdn
+    import json as _json
     result = []
     for r in rows:
         raw_name = r.get("app_name", "")
         interval = r["interval_sec"] if "interval_sec" in r.keys() and r["interval_sec"] else config.SCREENSHOT_INTERVAL_SEC
+        windows_json = r.get("windows_json", "[]")
+        try:
+            windows = _json.loads(windows_json) if windows_json else []
+        except Exception:
+            windows = []
         result.append({
             "id": r["id"],
             "timestamp": r["timestamp"],
@@ -44,6 +50,7 @@ def activities():
             "ai_summary": r.get("summary"),
             "ai_detail": r.get("ai_detail", ""),
             "duration_min": interval / 60,
+            "windows": windows,
         })
 
     total = len(result)
@@ -249,9 +256,15 @@ def search_activities():
         ).fetchall()
 
     from app_tracker import get_display_name as _gdn_s
+    import json as _json
     result = []
     for r in rows:
         interval = r["interval_sec"] if "interval_sec" in r.keys() and r["interval_sec"] else config.SCREENSHOT_INTERVAL_SEC
+        windows_json = r.get("windows_json", "[]")
+        try:
+            windows = _json.loads(windows_json) if windows_json else []
+        except Exception:
+            windows = []
         result.append({
             "id": r["id"],
             "timestamp": r["timestamp"],
@@ -261,6 +274,7 @@ def search_activities():
             "ai_summary": r["summary"] if "summary" in r.keys() else None,
             "ai_detail": r["ai_detail"] if "ai_detail" in r.keys() else "",
             "duration_min": interval / 60,
+            "windows": windows,
         })
     return jsonify({"activities": result})
 

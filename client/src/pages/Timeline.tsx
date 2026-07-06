@@ -1,6 +1,6 @@
-import { useState, useCallback, memo } from 'react'
-import { getActivities, searchActivities, updateActivity, deleteActivity, undoDeleteActivity, createActivity, CATEGORY_COLORS, CATEGORIES, type Activity } from '../api/client'
-import { CategoryFilter, useAsyncData, ApiErrorDisplay } from '../components/shared'
+import { useState, useCallback, useEffect, memo } from 'react'
+import { getActivities, searchActivities, updateActivity, deleteActivity, undoDeleteActivity, createActivity, getAppIconUrl, CATEGORY_COLORS, CATEGORIES, type Activity } from '../api/client'
+import { CategoryFilter, useAsyncData, ApiErrorDisplay, useNewIds, RefreshIndicator } from '../components/shared'
 import { useToast } from '../components/Toast'
 import { Search, Pencil, X, Check, Loader2, Plus, Clock, Trash2 } from 'lucide-react'
 import dayjs from 'dayjs'
@@ -26,14 +26,43 @@ export default function Timeline() {
   const [addDuration, setAddDuration] = useState(30)
   const [addSaving, setAddSaving] = useState(false)
 
-  const { data: activitiesData, loading, error, refresh: refreshList } = useAsyncData(
+  const { data: activitiesData, loading, error, refresh: refreshList, refreshing } = useAsyncData(
     () => getActivities(selectedDate),
     [selectedDate],
     15000,
   )
   const activities = activitiesData?.activities ?? []
+  const newIds = useNewIds(activities, (a) => a.id)
 
   const [searchResults, setSearchResults] = useState<Activity[] | null>(null)
+  // 应用图标缓存：app_name -> iconUrl
+  const [iconUrls, setIconUrls] = useState<Record<string, string>>({})
+
+  // 批量加载应用图标（前台应用 + 多窗口中的每个应用）
+  useEffect(() => {
+    const baseList = searchResults ?? activities
+    const apps = Array.from(new Set(baseList.flatMap((a) => [
+      a.app_name,
+      ...(a.windows || []).map((w) => w.app_name),
+    ])))
+    if (!apps.length) return
+    let cancelled = false
+    ;(async () => {
+      const map: Record<string, string> = {}
+      await Promise.all(
+        apps.map(async (name) => {
+          if (!name) return
+          try {
+            map[name] = await getAppIconUrl(name)
+          } catch {
+            map[name] = ''
+          }
+        }),
+      )
+      if (!cancelled) setIconUrls(map)
+    })()
+    return () => { cancelled = true }
+  }, [(searchResults ?? activities).map((a) => [a.app_name, ...(a.windows || []).map((w) => w.app_name)].join('|')).join(';')])
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
@@ -139,13 +168,21 @@ export default function Timeline() {
     ? baseList
     : baseList.filter((a) => a.category === filterCategory)
 
-  // 按小时分组
+  // 按时间轴分组：按小时聚合，每条记录显示具体几点几分
   const grouped: Record<string, Activity[]> = {}
   filtered.forEach((act) => {
     const hour = dayjs(act.timestamp).format('HH:00')
     if (!grouped[hour]) grouped[hour] = []
     grouped[hour].push(act)
   })
+  // 按时间正序排列（早 → 晚）
+  const sortedHours = Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))
+
+  // 时间线主轴：以时间为第一维度，每条记录以时间开头
+  const timelineItems = filtered.map((act) => ({
+    act,
+    time: dayjs(act.timestamp).format('HH:mm'),
+  }))
 
   // 切换日期时重置搜索
   const handleDateChange = (date: string) => {
@@ -155,10 +192,13 @@ export default function Timeline() {
   }
 
   return (
-    <div className="animate-fade-in space-y-5">
+    <div className="space-y-5 content-stable">
       {/* ─── 头部 ─────────────────────────── */}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-cd-text">工作时间线</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-semibold text-cd-text">工作时间线</h1>
+          <RefreshIndicator refreshing={refreshing} />
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowAdd(!showAdd)}
@@ -291,7 +331,7 @@ export default function Timeline() {
       {/* ─── 分类筛选 ──────────────────────── */}
       <CategoryFilter selected={filterCategory} onChange={setFilterCategory} />
 
-      {/* ─── 时间线内容 ────────────────────── */}
+      {/* ─── 时间线内容（时间为主轴）────────── */}
       {error ? (
         <ApiErrorDisplay error={error} onRetry={refreshList} />
       ) : loading ? (
@@ -301,43 +341,69 @@ export default function Timeline() {
           {searchQuery ? `未找到与「${searchQuery}」相关的记录` : '暂无活动记录'}
         </div>
       ) : (
-        <div className="space-y-6">
-          {Object.entries(grouped)
-            .sort(([a], [b]) => b.localeCompare(a))
-            .map(([hour, acts]) => (
-              <div key={hour}>
-                <h3 className="text-xs font-medium text-cd-text-tertiary mb-3 ml-1">
-                  {hour} - {((parseInt(hour) + 1) % 24).toString().padStart(2, '0')}:00
-                  <span className="ml-2 font-normal">{acts.length} 条记录</span>
-                </h3>
-                <div className="timeline-track">
-                  {acts.map((act) => (
-                    <TimelineEntry
-                       key={act.id}
-                       activity={act}
-                       isEditing={editingId === act.id}
-                       editCategory={editCategory}
-                       editSummary={editSummary}
-                       setEditCategory={setEditCategory}
-                       setEditSummary={setEditSummary}
-                       onStartEdit={startEdit}
-                       onCancelEdit={cancelEdit}
-                       onSaveEdit={saveEdit}
-                       onDelete={handleDelete}
-                       saving={saving}
-                     />
-                  ))}
-                </div>
-              </div>
-            ))}
+        <div className="space-y-1">
+          {timelineItems.map(({ act, time }) => (
+            <TimelineEntry
+              key={act.id}
+              activity={act}
+              displayTime={time}
+              iconUrl={iconUrls[act.app_name] || ''}
+              allIconUrls={iconUrls}
+              isEditing={editingId === act.id}
+              editCategory={editCategory}
+              editSummary={editSummary}
+              setEditCategory={setEditCategory}
+              setEditSummary={setEditSummary}
+              onStartEdit={startEdit}
+              onCancelEdit={cancelEdit}
+              onSaveEdit={saveEdit}
+              onDelete={handleDelete}
+              saving={saving}
+              isNew={newIds.has(act.id)}
+            />
+          ))}
         </div>
       )}
     </div>
   )
 }
 
+function getDisplayAppName(appName: string): string {
+  const lower = appName.toLowerCase()
+  const map: Record<string, string> = {
+    'trae.exe': 'TRAE SOLO CN',
+    'trae solo cn.exe': 'TRAE SOLO CN',
+    'trae-solo-cn.exe': 'TRAE SOLO CN',
+  }
+  if (map[lower]) return map[lower]
+  return appName.replace(/\.exe$/i, '')
+}
+
+function AppIcon({ name, iconUrl, size = 24 }: { name: string; iconUrl: string; size?: number }) {
+  const defaultIcon = import.meta.env.DEV ? '/icon.png' : './icon.png'
+  const displayIcon = iconUrl || defaultIcon
+  return (
+    <div
+      className="rounded-lg bg-cd-card border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden"
+      style={{ width: size + 8, height: size + 8 }}
+      title={name}
+    >
+      <img
+        src={displayIcon}
+        alt=""
+        className="object-contain"
+        style={{ width: size, height: size }}
+        onError={(e) => { e.currentTarget.src = defaultIcon }}
+      />
+    </div>
+  )
+}
+
 const TimelineEntry = memo(function TimelineEntry({
   activity,
+  displayTime,
+  iconUrl,
+  allIconUrls,
   isEditing,
   editCategory,
   editSummary,
@@ -348,8 +414,12 @@ const TimelineEntry = memo(function TimelineEntry({
   onSaveEdit,
   onDelete,
   saving,
+  isNew = false,
 }: {
   activity: Activity
+  displayTime: string
+  iconUrl: string
+  allIconUrls: Record<string, string>
   isEditing: boolean
   editCategory: string
   editSummary: string
@@ -360,32 +430,46 @@ const TimelineEntry = memo(function TimelineEntry({
   onSaveEdit: (id: number) => void
   onDelete: (act: Activity) => void
   saving: boolean
+  isNew?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const catColor = CATEGORY_COLORS[activity.category] || 'var(--cd-text-tertiary)'
-  const time = dayjs(activity.timestamp).format('HH:mm')
   const duration =
     activity.duration_min >= 60
       ? `${(activity.duration_min / 60).toFixed(1)}h`
       : `${Math.round(activity.duration_min)}min`
-  const iconChar = activity.app_name.replace(/\s+/g, '').slice(0, 1).toUpperCase()
+
+  // 显示该时间点所有被记录的并行窗口（面积较大的可见窗口），前台排在最前
+  const windows = (activity.windows || []).filter((w) => w.app_name).slice(0, 4)
+  // 主标题栏显示所有并行应用，没有时回退到主导应用
+  const foregroundApps = windows.length > 0 ? windows : [{ app_name: activity.app_name } as VisibleWindow]
 
   return (
     <div
-      className="timeline-entry"
+      className={`timeline-entry group ${isNew ? 'animate-blur-fade-in' : 'content-stable'}`}
       style={{ '--cat-color': catColor } as React.CSSProperties}
     >
-      <div
-        className="flex items-center gap-3 py-1.5 cursor-pointer"
-        onClick={() => !isEditing && setExpanded(!expanded)}
-      >
-        <div className="w-9 h-9 rounded-xl bg-cd-card border border-cd-border-light flex items-center justify-center text-xs font-medium text-cd-text-secondary shrink-0">
-          {iconChar}
+      {/* 时间为主轴：左侧时间列 */}
+      <div className="flex items-start gap-3 py-1.5 cursor-pointer" onClick={() => !isEditing && setExpanded(!expanded)}>
+        {/* 时间列 */}
+        <div className="w-14 shrink-0 text-right pt-0.5">
+          <span className="text-sm font-mono font-semibold text-cd-text">{displayTime}</span>
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-cd-text truncate">{activity.app_name}</span>
+        {/* 内容列 */}
+        <div className="flex-1 min-w-0 border-l-2 border-cd-border-light pl-3">
+          <div className="flex items-start gap-2 flex-wrap">
+            {foregroundApps.map((w, idx) => {
+              const appName = w.app_name
+              const wicon = allIconUrls[appName] || iconUrl
+              const shortName = getDisplayAppName(appName)
+              return (
+                <div key={appName + idx} className="flex items-center gap-1.5 bg-cd-bg-secondary rounded-full pl-1 pr-2 py-0.5 border border-cd-border-light max-w-full" title={shortName}>
+                  <AppIcon name={appName} iconUrl={wicon} size={18} />
+                  <span className="text-xs font-medium text-cd-text truncate">{shortName}</span>
+                </div>
+              )
+            })}
             {isEditing ? (
               <select
                 value={editCategory}
@@ -405,77 +489,86 @@ const TimelineEntry = memo(function TimelineEntry({
                 {activity.category}
               </span>
             )}
+            <span className="text-[10px] text-cd-text-tertiary shrink-0 pt-1">{duration}</span>
           </div>
-          <p className="text-xs text-cd-text-tertiary mt-0.5 truncate">
+          <p className="text-xs text-cd-text-secondary mt-0.5 break-words">
             {activity.ai_summary || activity.window_title || '无标题'}
           </p>
-        </div>
 
-        <div className="flex items-center gap-1 shrink-0">
-          <span className="text-xs text-cd-text-tertiary">{duration}</span>
+          {/* 多窗口并排卡片（屏幕状态） */}
+          {windows.length > 0 && !isEditing && (
+            <div className="mt-2 animate-fade-in">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="text-[10px] text-cd-text-tertiary uppercase tracking-wide">屏幕状态</span>
+                <span className="text-[10px] text-cd-text-tertiary">({windows.length} 个窗口{windows.length > 1 ? '并行' : ''})</span>
+              </div>
+              <div className="space-y-2">
+                {windows.map((w, idx) => {
+                  const wicon = allIconUrls[w.app_name] || ''
+                  return (
+                    <div
+                      key={`${w.app_name}-${idx}`}
+                      className="flex items-start gap-3 rounded-lg px-3 py-2.5 border bg-cd-bg-secondary border-cd-border-light hover:bg-cd-hover transition-colors"
+                      title={w.window_title}
+                    >
+                      <AppIcon name={w.app_name} iconUrl={wicon} size={24} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-semibold text-cd-text">
+                            {getDisplayAppName(w.app_name)}
+                          </span>
+                          {w.is_foreground && (
+                            <span className="text-[9px] px-1 py-0 rounded bg-cd-green/10 text-cd-green">前台</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-cd-text-secondary mt-0.5 break-words">
+                          {w.window_title || '无标题'}
+                        </p>
+                        {w.description && (
+                          <p className="text-xs text-cd-text-tertiary mt-1 leading-relaxed break-words">
+                            {w.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 详细分析（直接展示，不折叠） */}
+          {activity.ai_detail && !isEditing && (
+            <div className="mt-2 text-xs text-cd-text-secondary leading-relaxed bg-cd-bg-secondary rounded-lg px-3 py-2 break-words">
+              {activity.ai_detail}
+            </div>
+          )}
+
+          {/* 编辑和删除按钮 */}
           {!isEditing && (
-            <svg
-              width="12" height="12" viewBox="0 0 12 12" fill="none"
-              className={`text-cd-text-tertiary transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
-            >
-              <path d="M4.5 2.5L8 6L4.5 9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <div className="mt-1.5 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={(e) => { e.stopPropagation(); onStartEdit(activity) }}
+                className="flex items-center gap-1 text-[10px] text-cd-green hover:text-cd-green-dark transition-colors"
+              >
+                <Pencil size={10} />
+                编辑
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onDelete(activity) }}
+                className="flex items-center gap-1 text-[10px] text-cd-red hover:opacity-80 transition-opacity"
+              >
+                <Trash2 size={10} />
+                删除
+              </button>
+            </div>
           )}
         </div>
       </div>
 
-      {/* 展开详情 / 编辑模式 */}
-      {expanded && !isEditing && (
-        <div className="ml-12 mt-1 mb-2 bg-cd-bg-secondary rounded-lg p-3 space-y-2 animate-fade-in">
-          <div className="flex items-center gap-4 text-xs">
-            <span className="text-cd-text-tertiary">
-              时间：<span className="text-cd-text">{time}</span>
-            </span>
-            <span className="text-cd-text-tertiary">
-              时长：<span className="text-cd-text">{duration}</span>
-            </span>
-          </div>
-          {activity.window_title && (
-            <div className="text-xs">
-              <span className="text-cd-text-tertiary">窗口：</span>
-              <span className="text-cd-text">{activity.window_title}</span>
-            </div>
-          )}
-          {activity.ai_summary && (
-            <div className="text-xs">
-              <span className="text-cd-text-tertiary">AI 摘要：</span>
-              <span className="text-cd-text">{activity.ai_summary}</span>
-            </div>
-          )}
-          {activity.ai_detail && (
-            <div className="text-xs">
-              <span className="text-cd-text-tertiary">详细分析：</span>
-              <span className="text-cd-text-secondary">{activity.ai_detail}</span>
-            </div>
-          )}
-          {/* 编辑和删除按钮 */}
-          <div className="pt-2 border-t border-cd-border-light flex items-center gap-4">
-            <button
-              onClick={(e) => { e.stopPropagation(); onStartEdit(activity) }}
-              className="flex items-center gap-1 text-xs text-cd-green hover:text-cd-green-dark transition-colors"
-            >
-              <Pencil size={12} />
-              编辑
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onDelete(activity) }}
-              className="flex items-center gap-1 text-xs text-cd-red hover:opacity-80 transition-opacity"
-            >
-              <Trash2 size={12} />
-              删除
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* 编辑模式 */}
       {isEditing && (
-        <div className="ml-12 mt-1 mb-2 bg-cd-bg-secondary rounded-lg p-3 space-y-3 animate-fade-in border border-cd-green/20">
+        <div className="ml-17 mt-1 mb-2 bg-cd-bg-secondary rounded-lg p-3 space-y-3 animate-fade-in border border-cd-green/20">
           <div>
             <label className="text-xs text-cd-text-secondary block mb-1">分类</label>
             <select

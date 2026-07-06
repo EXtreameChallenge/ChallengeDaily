@@ -13,7 +13,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 @contextmanager
@@ -160,6 +160,13 @@ def init_db():
                 CREATE INDEX IF NOT EXISTS idx_app_rules_name ON app_category_rules(app_name);
             """)
 
+        # V7: 添加 activities.windows_json 列，存储多窗口分析结果
+        if current_version < 7:
+            try:
+                conn.execute("ALTER TABLE activities ADD COLUMN windows_json TEXT DEFAULT '[]'")
+            except Exception:
+                pass  # 列已存在
+
         # 更新版本号
         conn.execute(
             "INSERT OR REPLACE INTO schema_version (key, value) VALUES ('version', ?)",
@@ -172,13 +179,14 @@ def init_db():
 
 def insert_activity(timestamp: str, screenshot: str, app_name: str,
                     window_title: str, category: str, summary: str,
-                    interval_sec: int = 60, ai_detail: str = ""):
+                    interval_sec: int = 60, ai_detail: str = "",
+                    windows_json: str = "[]"):
     """写入一条活动记录"""
     with get_conn() as conn:
         _execute_with_retry(conn,
-            "INSERT INTO activities (timestamp, screenshot, app_name, window_title, category, summary, interval_sec, ai_detail) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (timestamp, screenshot, app_name, window_title, category, summary, interval_sec, ai_detail),
+            "INSERT INTO activities (timestamp, screenshot, app_name, window_title, category, summary, interval_sec, ai_detail, windows_json) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (timestamp, screenshot, app_name, window_title, category, summary, interval_sec, ai_detail, windows_json),
         )
         conn.commit()
 

@@ -2,6 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Anthropic Sans：Claude 同款英文/数字字体 ─── */
+@font-face {
+  font-family: 'Anthropic Sans';
+  src: url('./fonts/anthropic-sans.woff2') format('woff2');
+  font-weight: 300 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007F, U+0080-00FF, U+0100-017F, U+0180-024F;
+}
+@font-face {
+  font-family: 'Anthropic Sans';
+  src: url('./fonts/anthropic-sans-italic.woff2') format('woff2');
+  font-weight: 300 800;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+0020-007F, U+0080-00FF, U+0100-017F, U+0180-024F;
+}
+@font-face {
+  font-family: 'Anthropic Mono';
+  src: url('./fonts/anthropic-mono.woff2') format('woff2');
+  font-weight: 300 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007F, U+0080-00FF, U+0100-017F, U+0180-024F;
+}
+@font-face {
+  font-family: 'Anthropic Mono';
+  src: url('./fonts/anthropic-mono-italic.woff2') format('woff2');
+  font-weight: 300 800;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+0020-007F, U+0080-00FF, U+0100-017F, U+0180-024F;
+}
+
+/* ─── 方正清刻本悦宋：中文衬线标题字体（Claude 风格） ─── */
+@font-face {
+  font-family: 'FZQingKeBenYueSong';
+  src: url('./fonts/方正清刻本悦宋简体.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ─── 主题变量 ──────────────────────────── */
 :root {
   /* 表面 / 背景：浅色模式以白/浅灰为主 */
@@ -83,7 +126,13 @@ html, body, #root {
   overflow: hidden;
   background: var(--cd-bg);
   color: var(--cd-text);
+  font-family: 'Anthropic Sans', 'FZQingKeBenYueSong', 'Microsoft YaHei', 'PingFang SC', sans-serif;
   transition: background-color 0.2s, color 0.2s;
+}
+
+/* 等宽字体用于代码/数值 */
+code, pre, kbd, .font-mono {
+  font-family: 'Anthropic Mono', 'JetBrains Mono', 'Fira Code', Consolas, monospace;
 }
 
 ::-webkit-scrollbar {
@@ -138,6 +187,13 @@ html, body, #root {
   transition: background-color 0.2s, border-color 0.2s;
 }
 
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* ─── 热力图格子 ────────────────────────── */
 .heat-cell {
   width: 28px;
@@ -167,6 +223,40 @@ html, body, #root {
   animation: fadeIn 0.25s ease-out;
 }
 
+/* 动态模糊渐入：适合新条目/流式内容 */
+@keyframes blurFadeIn {
+  0% {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(4px) scale(0.995);
+  }
+  60% {
+    opacity: 1;
+    filter: blur(2px);
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-blur-fade-in {
+  animation: blurFadeIn 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  will-change: opacity, filter, transform;
+}
+
+/* 内容稳定化：减少刷新时的闪烁 */
+.content-stable {
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.content-updating {
+  opacity: 0.85;
+  filter: blur(0.5px);
+}
+
 @keyframes pulse-soft {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
@@ -174,6 +264,16 @@ html, body, #root {
 
 .animate-pulse-soft {
   animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* 刷新指示器 */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin 1.5s linear infinite;
 }
 
 /* ─── 时间线 ────────────────────────────── */
@@ -195,31 +295,6 @@ html, body, #root {
 .timeline-entry {
   position: relative;
   padding-bottom: 12px;
-}
-
-.timeline-entry::before {
-  content: '';
-  position: absolute;
-  left: -38px;
-  top: 8px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 2px solid var(--cd-border);
-  background: var(--cd-card);
-  z-index: 1;
-}
-
-.timeline-entry::after {
-  content: '';
-  position: absolute;
-  left: -35px;
-  top: 11px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--cat-color, #9E9E9E);
-  z-index: 2;
 }
 
 /* ─── 进度条 ────────────────────────────── */

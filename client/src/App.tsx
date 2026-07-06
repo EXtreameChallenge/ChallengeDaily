@@ -5,6 +5,7 @@ import TitleBar from './components/TitleBar'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ToastProvider } from './components/Toast'
 import { ThemeProvider } from './components/ThemeContext'
+import { BackendStatusBar } from './components/shared'
 import { healthCheck, getNotifications } from './api/client'
 
 // 懒加载页面组件 — 减少首屏加载体积
@@ -132,6 +133,7 @@ export default function App() {
         <ErrorBoundary>
           <div className="flex flex-col h-screen bg-cd-bg">
             <TitleBar />
+          <BackendStatusBar />
           {/* ── 全局更新提示条 ── */}
           {updateInfo && !updateDismissed && !updateDownloaded && (
             <div className="bg-cd-green/10 border-b border-cd-green/20 px-4 py-2 flex items-center justify-between text-sm">

@@ -16,7 +16,10 @@ from db import (
     get_known_apps,
 )
 from classifier import invalidate_rule_cache, get_app_tags
-from icon_extractor import ICON_DIR, get_app_icon_path
+from icon_extractor import (
+    ICON_DIR, get_app_icon_path,
+    preload_all_icons, refresh_outdated_icons,
+)
 from app_tracker import get_display_name
 
 logger = logging.getLogger(__name__)
@@ -109,7 +112,9 @@ def remove_rule(app_name):
 @bp.route("/api/icons/<string:app_name>")
 def serve_icon(app_name):
     """获取应用图标 PNG（无需 token，图标不敏感）。
-    若图标尚未缓存，立即返回 404 并在后台触发提取，避免前端请求超时。"""
+    若图标尚未缓存，立即返回项目默认图标，避免前端出现空白图标；
+    同时在后台触发提取，下次请求即可命中真实图标缓存。"""
+    default_icon = DATA_DIR.parent / "client" / "public" / "icon.png"
     try:
         path = get_app_icon_path(app_name)
         if path and path.exists():
@@ -122,5 +127,52 @@ def serve_icon(app_name):
         ).start()
     except Exception as e:
         logger.warning(f"获取图标失败 {app_name}: {e}")
+    # 返回默认项目图标，确保前端永远有图可显
+    if default_icon.exists():
+        return send_from_directory(str(default_icon.parent), default_icon.name, mimetype="image/png")
     return jsonify({"error": "图标不存在"}), 404
+
+
+# ── 图标预缓存与刷新 ──
+
+@bp.route("/api/icons/preload", methods=["POST"])
+def preload_icons():
+    """批量预缓存所有应用图标（后台执行）"""
+    data = request.get_json(silent=True) or {}
+    force = data.get("force", False)
+    # 后台执行，避免阻塞
+    def _run():
+        result = preload_all_icons(force=force)
+        logger.info(f"预缓存结果: {result}")
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"status": "started", "message": "图标预缓存已开始，请稍后刷新查看"})
+
+
+@bp.route("/api/icons/refresh", methods=["POST"])
+def refresh_icons():
+    """刷新过期图标缓存（每日扫描）"""
+    def _run():
+        result = refresh_outdated_icons(max_age_days=1)
+        logger.info(f"刷新结果: {result}")
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"status": "started", "message": "图标刷新已开始"})
+
+
+@bp.route("/api/icons/status")
+def icons_status():
+    """获取图标缓存状态"""
+    import os
+    from pathlib import Path
+    icon_files = list(ICON_DIR.glob("*.png"))
+    total_size = sum(f.stat().st_size for f in icon_files if f.name != ".icon_version")
+    # 检查版本文件
+    ver_file = ICON_DIR / ".icon_version"
+    ver = ver_file.read_text().strip() if ver_file.exists() else "1"
+    return jsonify({
+        "cached_count": len(icon_files),
+        "total_size_kb": round(total_size / 1024, 1),
+        "icon_version": int(ver) if ver.isdigit() else 1,
+        "icon_dir": str(ICON_DIR),
+    })
+
 

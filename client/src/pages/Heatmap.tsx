@@ -91,15 +91,15 @@ export default function Heatmap() {
       {/* ─── 统计摘要 ──────────────────────── */}
       <div className="grid grid-cols-3 gap-4">
         <div className="card text-center">
-          <div className="text-xl font-bold text-cd-green">{(totalMin / 60).toFixed(1)}</div>
+          <div className="text-xl font-bold text-cd-green font-display">{(totalMin / 60).toFixed(1)}</div>
           <div className="text-xs text-cd-text-tertiary mt-1">本周总时长 (h)</div>
         </div>
         <div className="card text-center">
-          <div className="text-xl font-bold text-cd-green">{totalMin > 0 ? Math.round(totalMin / 7) : 0}</div>
+          <div className="text-xl font-bold text-cd-green font-display">{totalMin > 0 ? Math.round(totalMin / 7) : 0}</div>
           <div className="text-xs text-cd-text-tertiary mt-1">日均时长 (min)</div>
         </div>
         <div className="card text-center">
-          <div className="text-xl font-bold text-cd-green">{peakH}:00</div>
+          <div className="text-xl font-bold text-cd-green font-display">{peakH}:00</div>
           <div className="text-xs text-cd-text-tertiary mt-1">最活跃时段</div>
         </div>
       </div>

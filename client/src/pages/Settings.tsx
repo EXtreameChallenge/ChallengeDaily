@@ -617,7 +617,7 @@ export default function Settings() {
 
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-cd-text">ChallengeDaily</p>
+            <p className="text-sm font-bold text-cd-text font-brand">ChallengeDaily</p>
             <p className="text-xs text-cd-text-tertiary">
               版本 {appVersion || '—'}
             </p>

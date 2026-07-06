@@ -110,4 +110,21 @@ def __getattr__(name):
 def start_server():
     save_token()
     logger.info(f"API Token 已生成: {TOKEN_PATH}")
-    app.run(host="127.0.0.1", port=HTTP_PORT, debug=False, threaded=True)
+
+    # 生产级 WSGI 服务器：waitress（比 Flask 内置服务器更稳定）
+    # 参考：https://docs.pylonsproject.org/projects/waitress/en/stable/
+    try:
+        from waitress import serve as waitress_serve
+        logger.info(f"使用 waitress 生产级 WSGI 服务器启动: http://127.0.0.1:{HTTP_PORT}")
+        waitress_serve(app, host="127.0.0.1", port=HTTP_PORT, threads=4)
+    except ImportError:
+        logger.warning("waitress 未安装，回退到 Flask 开发服务器（本地场景可用）")
+        # 本地桌面应用场景：Flask 开发服务器足够稳定
+        # 关闭 reloader 和 debug 模式，避免双进程和内存泄漏
+        app.run(
+            host="127.0.0.1",
+            port=HTTP_PORT,
+            debug=False,
+            use_reloader=False,
+            threaded=True,
+        )

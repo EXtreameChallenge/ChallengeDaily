@@ -2,7 +2,7 @@ export default function TitleBar() {
   return (
     <div className="titlebar h-9 flex items-center justify-between bg-cd-bg border-b border-cd-border px-4 shrink-0">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-semibold text-cd-green">ChallengeDaily</span>
+        <span className="text-sm font-bold text-cd-green font-brand">ChallengeDaily</span>
         <span className="text-xs text-cd-text-tertiary">AI 智能工作日报助手</span>
       </div>
       <div className="flex items-center gap-0.5">

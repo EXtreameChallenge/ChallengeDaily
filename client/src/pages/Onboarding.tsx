@@ -186,7 +186,7 @@ function WelcomeStep() {
       <div className="w-16 h-16 rounded-2xl bg-cd-green flex items-center justify-center text-white text-2xl font-bold mx-auto mb-5">
         CD
       </div>
-      <h1 className="text-2xl font-bold text-cd-text mb-2">欢迎使用 ChallengeDaily</h1>
+      <h1 className="text-2xl font-bold text-cd-text mb-2 font-display">欢迎使用 <span className="font-brand font-bold">ChallengeDaily</span></h1>
       <p className="text-cd-text-secondary text-sm mb-6">
         AI 智能工作日报助手，自动记录你的工作轨迹
       </p>
@@ -238,7 +238,7 @@ function AIStep({
     <div>
       <div className="flex items-center gap-2 mb-1">
         <Bot size={20} className="text-cd-green" />
-        <h2 className="text-lg font-bold text-cd-text">配置 AI 分析</h2>
+        <h2 className="text-lg font-bold text-cd-text font-display">配置 AI 分析</h2>
       </div>
       <p className="text-xs text-cd-text-tertiary mb-5">
         AI 会识别截图内容，自动分类并生成摘要。不用 AI 也可以用基础规则分类。
@@ -447,7 +447,7 @@ function WorkHoursStep({
     <div>
       <div className="flex items-center gap-2 mb-1">
         <Clock size={20} className="text-cd-green" />
-        <h2 className="text-lg font-bold text-cd-text">设置工作时间</h2>
+        <h2 className="text-lg font-bold text-cd-text font-display">设置工作时间</h2>
       </div>
       <p className="text-xs text-cd-text-tertiary mb-5">
         只在工作时间段内自动截图记录，休息时间不打扰。你也可以在设置中随时调整。
@@ -474,7 +474,7 @@ function WorkHoursStep({
         <div className="grid grid-cols-2 gap-6">
           <div>
             <label className="text-xs text-cd-text-secondary block mb-2">工作开始</label>
-            <div className="text-2xl font-bold text-cd-text">
+            <div className="text-2xl font-bold text-cd-text font-display">
               {String(workStart).padStart(2, '0')}:00
             </div>
             <input
@@ -519,7 +519,7 @@ function DoneStep() {
       <div className="w-16 h-16 rounded-full bg-cd-green-light flex items-center justify-center mx-auto mb-5">
         <CheckCircle size={32} className="text-cd-green" />
       </div>
-      <h2 className="text-xl font-bold text-cd-text mb-2">一切就绪！</h2>
+      <h2 className="text-xl font-bold text-cd-text mb-2 font-display">一切就绪！</h2>
       <p className="text-sm text-cd-text-secondary mb-6">
         ChallengeDaily 已开始在后台默默记录你的工作轨迹
       </p>

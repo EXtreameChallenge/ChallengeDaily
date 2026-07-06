@@ -75,18 +75,8 @@ export default function Sidebar() {
 
   return (
     <nav className="w-56 bg-cd-sidebar border-r border-cd-border flex flex-col shrink-0 select-none">
-      {/* ─── 顶部 Logo + 状态 ───────────────── */}
+      {/* ─── 顶部状态 ───────────────── */}
       <div className="px-5 pt-5 pb-4">
-        <div className="flex items-center gap-2.5 mb-4">
-          <div className="w-8 h-8 rounded-lg bg-cd-green flex items-center justify-center text-white font-bold text-sm">
-            CD
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-cd-text leading-tight">ChallengeDaily</div>
-            <div className="text-[10px] text-cd-text-tertiary leading-tight">AI 智能工作日报助手</div>
-          </div>
-        </div>
-
         {/* 记录状态 */}
         <button
           onClick={handleToggleCollector}

@@ -52,7 +52,7 @@ export default function Legal({ onAccept }: { onAccept: () => void }) {
 function PrivacyContent() {
   return (
     <div className="space-y-4">
-      <h2 className="text-base font-semibold text-cd-text">ChallengeDaily 隐私政策</h2>
+      <h2 className="text-base font-semibold text-cd-text"><span className="font-brand font-bold">ChallengeDaily</span> 隐私政策</h2>
       <p className="text-xs text-cd-text-tertiary">最后更新：2026年7月</p>
 
       <section>
@@ -120,7 +120,7 @@ function PrivacyContent() {
 function TermsContent() {
   return (
     <div className="space-y-4">
-      <h2 className="text-base font-semibold text-cd-text">ChallengeDaily 用户协议</h2>
+      <h2 className="text-base font-semibold text-cd-text"><span className="font-brand font-bold">ChallengeDaily</span> 用户协议</h2>
       <p className="text-xs text-cd-text-tertiary">最后更新：2026年7月</p>
 
       <section>

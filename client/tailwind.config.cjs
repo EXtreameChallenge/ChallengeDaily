@@ -36,8 +36,11 @@ module.exports = {
         'cd-scrollbar': 'var(--cd-scrollbar)',
       },
       fontFamily: {
-        sans: ['"Microsoft YaHei"', '"PingFang SC"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-        mono: ['"JetBrains Mono"', '"Fira Code"', 'Consolas', 'monospace'],
+        sans: ['"Anthropic Sans"', '"FZQingKeBenYueSong"', '"Microsoft YaHei"', '"PingFang SC"', 'sans-serif'],
+        display: ['"FZQingKeBenYueSong"', '"Newsreader"', 'Georgia', 'ui-serif', 'serif'],
+        brand: ['"Anthropic Sans"', '"FZQingKeBenYueSong"', '"Microsoft YaHei"', '"PingFang SC"', 'sans-serif'],
+        serif: ['"Lora"', '"FZQingKeBenYueSong"', 'Georgia', 'ui-serif', 'serif'],
+        mono: ['"Anthropic Mono"', '"JetBrains Mono"', '"Fira Code"', 'Consolas', 'monospace'],
       },
       borderRadius: {
         'xl2': '12px',

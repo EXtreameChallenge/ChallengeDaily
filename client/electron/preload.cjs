@@ -32,4 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 桌面通知
   showNotification: ({ title, body }) => ipcRenderer.send('show-notification', { title, body }),
+
+  // Windows 系统定位（主进程调用 PowerShell）
+  getWindowsLocation: () => ipcRenderer.invoke('get-windows-location'),
 })

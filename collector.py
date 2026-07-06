@@ -1,19 +1,23 @@
 """
 ChallengeDaily Windows 版 — 核心循环
 截图 → AI 分析 → 分类 → 存储
+企业级稳定性：线程限流、内存监控、异常隔离
 """
 import logging
 import threading
+import gc
 from datetime import datetime
 
 from config import RETENTION_DAYS, is_app_excluded, load_settings
 import config
-from app_tracker import get_foreground_app, get_display_name, get_idle_seconds
+import json
+from app_tracker import get_foreground_app, get_display_name, get_idle_seconds, get_visible_windows
 from screenshot import take_screenshot, get_active_monitor_index
 from ai_client import analyze_screenshot
 from classifier import classify
 from db import insert_activity, upsert_app_usage, cleanup_old_data, get_recent_activities
 from screenshot import cleanup_screenshots, get_screenshots_size_mb
+from config import CATEGORIES
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +26,97 @@ _FLUSH_APP_USAGE_SEC = 300  # 5分钟
 
 # 闲置检测：超过此时间无键盘/鼠标活动则暂停记录
 _IDLE_THRESHOLD_SEC = 180  # 3分钟无操作判定为闲置
+
+# 图标提取线程限流：避免每分钟都启动新线程提取同一应用的图标
+_icon_extract_lock = threading.Lock()
+_icon_extract_recent: dict[str, float] = {}  # app_name -> last_extract_time
+_ICON_EXTRACT_COOLDOWN_SEC = 600  # 同一应用10分钟内不重复提取图标
+
+
+def _should_extract_icon(app_name: str) -> bool:
+    """检查是否应该提取图标（限流：同一应用10分钟内只提取一次）"""
+    import time
+    now = time.time()
+    with _icon_extract_lock:
+        last = _icon_extract_recent.get(app_name.lower(), 0)
+        if (now - last) < _ICON_EXTRACT_COOLDOWN_SEC:
+            return False
+        _icon_extract_recent[app_name.lower()] = now
+        return True
+
+
+# 内存监控：每隔一段时间强制 GC，避免长期运行内存增长
+_last_gc_time = 0
+_GC_INTERVAL_SEC = 600  # 10分钟执行一次 GC
+
+
+def _maybe_gc():
+    """定时执行垃圾回收，控制内存增长"""
+    global _last_gc_time
+    import time
+    now = time.time()
+    if (now - _last_gc_time) > _GC_INTERVAL_SEC:
+        gc.collect()
+        _last_gc_time = now
+        logger.debug("执行垃圾回收，控制内存")
+
+
+def _smooth_category(current_category: str, app_name: str, window_title: str,
+                     is_duplicate: bool) -> str:
+    """
+    分类稳定性平滑：避免同一工作场景下 category 在"开发"和"其他"之间乱跳。
+    规则：
+      1. 当前是"其他"且最近非生活记录与当前为同一应用/相似窗口，沿用最近分类。
+      2. 画面重复且应用未变，沿用最近一条记录的分类。
+    """
+    if current_category not in CATEGORIES:
+        return current_category
+
+    recent = get_recent_activities(3)
+    if not recent:
+        return current_category
+
+    # 找到最近一条非生活/非空闲记录
+    last_work = None
+    for r in recent:
+        cat = r.get("category", "")
+        if cat and cat not in ("生活", ""):
+            last_work = r
+            break
+    if not last_work:
+        return current_category
+
+    last_ts = last_work.get("timestamp", "")
+    last_cat = last_work.get("category", "")
+    last_app = last_work.get("app_name", "")
+    last_title = last_work.get("window_title", "")
+
+    # 计算时间差（秒）
+    try:
+        from datetime import datetime
+        last_dt = datetime.strptime(last_ts, "%Y-%m-%d %H:%M:%S")
+        now_dt = datetime.now()
+        delta_sec = (now_dt - last_dt).total_seconds()
+    except Exception:
+        delta_sec = 9999
+
+    # 同一应用或窗口标题高度相似
+    same_app = bool(app_name and last_app and app_name.lower() == last_app.lower())
+    similar_title = bool(window_title and last_title and
+                         (window_title == last_title or
+                          window_title.split(" - ")[-1] == last_title.split(" - ")[-1]))
+
+    # 画面重复：直接沿用上一分类
+    if is_duplicate and same_app:
+        return last_cat
+
+    # 当前被归为"其他"，但最近是工作分类且时间/应用/窗口连续，沿用工作分类
+    if current_category == "其他" and last_cat != "其他" and delta_sec <= 300:
+        if same_app or similar_title:
+            logger.debug(f"分类平滑: {current_category} -> {last_cat} (同一工作场景)")
+            return last_cat
+
+    return current_category
 
 
 class Collector:
@@ -34,6 +129,12 @@ class Collector:
         self._last_flush_time = None # 上次强制落盘 app_usage 的时间
         self._running = False
         self._capture_lock = threading.Lock()  # 防止定时和手动并发
+        # AI 分析缓存：重复画面时复用，但每隔一段时间强制重新分析以结合新上下文
+        self._last_ai_analysis_time = None
+        self._last_ai_detail = ""
+        self._last_ai_summary = ""
+        self._last_ai_category = ""
+        self._AI_REANALYZE_INTERVAL_SEC = 180  # 3分钟
 
     def capture_once(self) -> dict | None:
         """执行一次截图→分析→存储的完整流程（线程安全）"""
@@ -82,23 +183,30 @@ class Collector:
             logger.error(f"截图失败: {e}")
             return None
 
-        # 2. 获取前台应用
+        # 2. 获取前台应用 + 所有可见窗口
+        visible_windows = []
         try:
             fg = get_foreground_app()
             app_name = fg["app_name"]
             window_title = fg["window_title"]
             exe_path = fg.get("exe_path", "")
             display_name = get_display_name(app_name)
-            # 异步提取图标（不阻塞采集）
+            # 异步提取图标（不阻塞采集），限流：同一应用10分钟内只提取一次
+            if _should_extract_icon(app_name):
+                try:
+                    from icon_extractor import get_app_icon_path
+                    threading.Thread(
+                        target=get_app_icon_path,
+                        args=(app_name, exe_path),
+                        daemon=True,
+                    ).start()
+                except Exception:
+                    pass
+            # 枚举所有可见窗口（供 AI 多窗口分析）
             try:
-                from icon_extractor import get_app_icon_path
-                threading.Thread(
-                    target=get_app_icon_path,
-                    args=(app_name, exe_path),
-                    daemon=True,
-                ).start()
-            except Exception:
-                pass
+                visible_windows = get_visible_windows()
+            except Exception as e:
+                logger.warning(f"获取可见窗口列表失败: {e}")
         except Exception as e:
             logger.error(f"获取前台应用失败: {e}")
             app_name = "Unknown"
@@ -158,47 +266,112 @@ class Collector:
             self._segment_start = timestamp  # 开始新的分段
             self._last_flush_time = now
 
-        # 4. AI 分析 — 画面重复或用户关闭 AI 时跳过，节省额度
+        # 4. AI 分析 — 分析所有可见的并行大窗口（而不仅是前台窗口）
+        # 过滤掉面积过小（<15%）的悬浮/背景窗口，但保留所有并行的主要工作窗口
+        analysis_windows = [w for w in visible_windows if w.get("area_ratio", 0) >= 0.15]
+        # 如果过滤后为空，回退到前台窗口或 Z-Order 最高的窗口
+        if not analysis_windows:
+            analysis_windows = [w for w in visible_windows if w.get("is_foreground")]
+        if not analysis_windows and visible_windows:
+            analysis_windows = [visible_windows[0]]
+
         ai_enabled = bool(load_settings().get("ai_enabled", False))
         category = ""
         summary = ""
         ai_detail = ""
+        windows_data = analysis_windows
 
-        if is_duplicate or not ai_enabled:
-            if is_duplicate:
-                logger.info("画面与上次相同，跳过AI分析，复用上次分类")
-            if not ai_enabled:
-                logger.info("AI 分析已关闭，使用规则分类")
-            # 使用基于应用名的规则分类
+        # 是否需要完整 AI 分析：画面变化、AI 首次分析、或超过复用间隔
+        import time
+        now_ts = time.time()
+        should_analyze = (
+            ai_enabled
+            and (not is_duplicate
+                 or self._last_ai_analysis_time is None
+                 or (now_ts - self._last_ai_analysis_time) >= self._AI_REANALYZE_INTERVAL_SEC)
+        )
+
+        if not ai_enabled:
+            logger.info("AI 分析已关闭，使用规则分类")
             category = classify(app_name, "", window_title)
             summary = f"{display_name} - {window_title[:20]}" if window_title else display_name
-        else:
+        elif should_analyze:
+            if is_duplicate:
+                logger.info("画面相同但超过复用间隔，重新结合上下文分析")
             # 4.5 获取近期活动上下文，供 AI 综合分析
             recent_context = ""
             try:
-                recent = get_recent_activities(5)
+                recent = get_recent_activities(8)
                 if recent:
                     ctx_lines = []
                     for r in recent:
-                        ts = r["timestamp"][11:] if len(r["timestamp"]) > 11 else r["timestamp"]  # 只取时分秒
+                        ts = r["timestamp"][11:16] if len(r["timestamp"]) > 11 else r["timestamp"]  # 只取时分
                         app = r.get("app_name", "")
                         cat = r.get("category", "")
                         summ = r.get("ai_summary", "")
-                        ctx_lines.append(f"- {ts} [{cat}] {app}: {summ}")
+                        detail = r.get("ai_detail", "")
+                        # 解析 windows_json，显示窗口变化
+                        try:
+                            wins = json.loads(r.get("windows_json", "[]") or "[]")
+                            win_names = ", ".join([
+                                f"{w.get('app_name', '').replace('.exe', '')}{'[前台]' if w.get('is_foreground') else ''}"
+                                for w in wins[:3]
+                            ]) if wins else app
+                        except Exception:
+                            win_names = app
+                        ctx_lines.append(f"- {ts} [{cat}] {win_names}: {summ}")
+                        if detail:
+                            ctx_lines.append(f"  详情：{detail[:80]}{'...' if len(detail) > 80 else ''}")
                     recent_context = "\n".join(ctx_lines)
             except Exception as e:
                 logger.debug(f"获取近期活动上下文失败（不影响采集）: {e}")
 
             try:
-                ai_result = analyze_screenshot(filepath, display_name, window_title, recent_context)
+                ai_result = analyze_screenshot(filepath, display_name, window_title, recent_context, analysis_windows)
             except Exception as e:
                 logger.error(f"AI 分析失败: {e}")
-                ai_result = {"category": "", "summary": "", "detail": ""}
+                ai_result = {"category": "", "summary": "", "detail": "", "windows": []}
 
             # 5. 分类
             category = classify(app_name, ai_result.get("category", ""), window_title)
             summary = ai_result.get("summary", "")
             ai_detail = ai_result.get("detail", "")
+            # 合并 AI 返回的 description 与原始窗口数据：保留原始 app_name/window_title，防止 AI 改名导致图标错误
+            ai_windows = ai_result.get("windows", []) if isinstance(ai_result.get("windows"), list) else []
+            windows_data = []
+            for idx, orig in enumerate(analysis_windows):
+                ai_desc = ""
+                if idx < len(ai_windows):
+                    ai_desc = ai_windows[idx].get("description", "")
+                windows_data.append({
+                    "app_name": orig.get("app_name", ""),
+                    "window_title": orig.get("window_title", ""),
+                    "is_foreground": orig.get("is_foreground", False),
+                    "description": ai_desc,
+                    "area_ratio": orig.get("area_ratio", 0),
+                })
+
+            # 缓存本次分析结果
+            self._last_ai_analysis_time = now_ts
+            self._last_ai_detail = ai_detail
+            self._last_ai_summary = summary
+            self._last_ai_category = category
+        else:
+            logger.info("画面与上次相同，复用AI分析缓存")
+            category = self._last_ai_category or classify(app_name, "", window_title)
+            summary = self._last_ai_summary or f"{display_name} - {window_title[:20]}"
+            ai_detail = self._last_ai_detail
+
+        # 5.5 分类稳定性平滑：同一工作场景下避免"开发"与"其他"乱跳
+        try:
+            category = _smooth_category(
+                current_category=category,
+                app_name=app_name,
+                window_title=window_title,
+                is_duplicate=is_duplicate,
+            )
+        except Exception as e:
+            logger.debug(f"分类平滑失败（不影响采集）: {e}")
 
         # 6. 存储
         insert_activity(
@@ -209,7 +382,8 @@ class Collector:
             category=category,
             summary=summary or f"{display_name} - {window_title[:20]}",
             interval_sec=config.SCREENSHOT_INTERVAL_SEC,
-            ai_detail=ai_detail if not is_duplicate else "",
+            ai_detail=ai_detail,
+            windows_json=json.dumps(windows_data, ensure_ascii=False) if windows_data else "[]",
         )
 
         logger.info(f"[{category}] {summary} ({display_name})")
@@ -223,6 +397,12 @@ class Collector:
                 logger.debug(f"已删除截图: {filename}")
         except Exception as e:
             logger.warning(f"删除截图失败: {e}")
+
+        # 8. 定时垃圾回收，控制长期运行的内存增长
+        try:
+            _maybe_gc()
+        except Exception:
+            pass
 
         return {
             "timestamp": timestamp,

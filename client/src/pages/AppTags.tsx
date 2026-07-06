@@ -198,19 +198,17 @@ export default function AppTags() {
                 {/* 头部 */}
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
-                    {iconUrl ? (
-                      <img
-                        src={iconUrl}
-                        alt=""
-                        className="w-7 h-7 object-contain"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none'
-                          e.currentTarget.parentElement?.classList.add('fallback')
-                        }}
-                      />
-                    ) : (
-                      <ImageOff size={16} className="text-cd-text-tertiary" />
-                    )}
+                    {(() => {
+                      const defaultIcon = import.meta.env.DEV ? '/icon.png' : './icon.png'
+                      return (
+                        <img
+                          src={iconUrl || defaultIcon}
+                          alt=""
+                          className="w-7 h-7 object-contain"
+                          onError={(e) => { e.currentTarget.src = defaultIcon }}
+                        />
+                      )
+                    })()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-cd-text truncate">

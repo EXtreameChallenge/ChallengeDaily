@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getAppUsage, getTodayStats, getAppIconUrl, CATEGORY_COLORS, type AppUsage, type TodayStats } from '../api/client'
 import { CategoryFilter, formatDuration, useAsyncData, ApiErrorDisplay } from '../components/shared'
-import { ImageOff } from 'lucide-react'
 import dayjs from 'dayjs'
 
 export default function AppRecords() {
@@ -85,18 +84,19 @@ export default function AppRecords() {
                   </div>
 
                   {/* 应用图标 */}
-                  <div className="w-10 h-10 rounded-xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center text-sm font-medium text-cd-text-secondary shrink-0 overflow-hidden">
-                    {iconUrl ? (
-                      <img
-                        src={iconUrl}
-                        alt=""
-                        className="w-7 h-7 object-contain"
-                        onError={(e) => { e.currentTarget.style.display = 'none' }}
-                      />
-                    ) : (
-                      <ImageOff size={16} className="text-cd-text-tertiary" />
-                    )}
-                  </div>
+                  {(() => {
+                    const defaultIcon = import.meta.env.DEV ? '/icon.png' : './icon.png'
+                    return (
+                      <div className="w-10 h-10 rounded-xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center text-sm font-medium text-cd-text-secondary shrink-0 overflow-hidden">
+                        <img
+                          src={iconUrl || defaultIcon}
+                          alt=""
+                          className="w-7 h-7 object-contain"
+                          onError={(e) => { e.currentTarget.src = defaultIcon }}
+                        />
+                      </div>
+                    )
+                  })()}
 
                   {/* 内容 */}
                   <div className="flex-1 min-w-0">

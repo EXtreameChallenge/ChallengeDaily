@@ -9,35 +9,51 @@ import {
   getActivities,
   pauseCollector,
   resumeCollector,
-  getHourlyStats,
   getTrendStats,
   getRhythmStats,
   getAppIconUrl,
+  getRecentHeatmap,
   CATEGORY_COLORS,
   type TodayStats,
   type CollectorStatus,
   type Activity,
+  type RecentHeatmapDay,
 } from '../api/client'
 import {
   Clock, Monitor, Zap, TrendingUp, Camera, Focus,
   Activity as ActivityIcon, Play,
 } from 'lucide-react'
 import dayjs from 'dayjs'
+import { RefreshIndicator } from '../components/shared'
+import HeroInfo from '../components/HeroInfo'
+
+function getDisplayAppName(appName: string): string {
+  const lower = appName.toLowerCase()
+  const map: Record<string, string> = {
+    'trae.exe': 'TRAE SOLO CN',
+    'trae solo cn.exe': 'TRAE SOLO CN',
+    'trae-solo-cn.exe': 'TRAE SOLO CN',
+  }
+  if (map[lower]) return map[lower]
+  return appName.replace(/\.exe$/i, '')
+}
 
 export default function Overview() {
   const [stats, setStats] = useState<TodayStats | null>(null)
   const [status, setStatus] = useState<CollectorStatus | null>(null)
   const [activities, setActivities] = useState<Activity[]>([])
-  const [heatmap3Day, setHeatmap3Day] = useState<number[][]>([Array(24).fill(0), Array(24).fill(0), Array(24).fill(0)])
+  const [heatmapData, setHeatmapData] = useState<RecentHeatmapDay[]>([])
   const [trendData, setTrendData] = useState<Array<{ date: string; count: number; category_count: number; duration_min: number }>>([])
   const [rhythmData, setRhythmData] = useState<Array<{ period: string; count: number; percentage: number; duration_min: number }>>([])
   const [peakPeriod, setPeakPeriod] = useState('')
   const [loading, setLoading] = useState(true)
-  // 应用图标缓存：app_name -> iconUrl（或空字符串表示无图标）
+  const [refreshing, setRefreshing] = useState(false)
   const [iconUrls, setIconUrls] = useState<Record<string, string>>({})
 
   useEffect(() => {
+    let isFirst = true
     const refresh = async () => {
+      if (!isFirst) setRefreshing(true)
       try {
         const [s, st, actsPage] = await Promise.all([
           getTodayStats(),
@@ -48,13 +64,10 @@ export default function Overview() {
         setStatus(st)
         setActivities(actsPage.activities)
 
-        const days3 = [0, 1, 2].map((offset) => dayjs().subtract(offset, 'day').format('YYYY-MM-DD'))
-        const hourlyResults = await Promise.all(days3.map((d) => getHourlyStats(d)))
-        const interval = st?.interval_sec || 60
-        const heatData = hourlyResults.map((res) =>
-          res.hours.map((h) => Math.round(h.count * interval / 60))
-        )
-        setHeatmap3Day(heatData)
+        try {
+          const heat = await getRecentHeatmap(3)
+          setHeatmapData(heat.data)
+        } catch { /* 热力图数据非关键 */ }
 
         try {
           const trend = await getTrendStats(7)
@@ -70,6 +83,8 @@ export default function Overview() {
         console.error('Failed to load stats:', err)
       } finally {
         setLoading(false)
+        setRefreshing(false)
+        isFirst = false
       }
     }
     refresh()
@@ -77,7 +92,6 @@ export default function Overview() {
     return () => clearInterval(interval)
   }, [])
 
-  // 加载 Top 应用图标（参考 AppTags 的做法，并行加载避免阻塞）
   useEffect(() => {
     if (!stats?.top_apps?.length) return
     let cancelled = false
@@ -113,8 +127,17 @@ export default function Overview() {
   const isPaused = status !== null && !status.running
 
   const days = [0, 1, 2].map((offset) => dayjs().subtract(offset, 'day'))
-  const heatmapData = heatmap3Day
-  const maxHeatVal = Math.max(...heatmapData.flat(), 1)
+  const intervalSec = status?.interval_sec || 60
+
+  // 将 24 小时聚合为 12 个 2 小时区间
+  const heatmapBins = heatmapData.map((day) => {
+    const cells: number[] = []
+    for (let b = 0; b < 12; b++) {
+      cells.push((day.hours[2 * b] || 0) + (day.hours[2 * b + 1] || 0))
+    }
+    return { ...day, cells }
+  })
+  const maxHeatVal = Math.max(...heatmapBins.flatMap((d) => d.cells), 1)
 
   const topApps = stats?.top_apps?.slice(0, 5) || []
 
@@ -143,19 +166,35 @@ export default function Overview() {
     }
   }
 
+  const handlePause = async () => {
+    try {
+      await pauseCollector()
+      const s = await getStatus()
+      setStatus(s)
+    } catch (err) {
+      console.error('Failed to pause collector:', err)
+    }
+  }
+
   const formatDur = (m: number) => m >= 60 ? `${(m / 60).toFixed(1)}h` : `${Math.round(m)}min`
 
   const rhythmIcons: Record<string, string> = {
-    '早晨 (6-12)': '🌅',
-    '下午 (12-18)': '☀️',
-    '晚间 (18-22)': '🌆',
-    '夜间 (22-6)': '🌙',
+    '早晨 (6-8)': '🌅',
+    '上午 (8-11)': '🌞',
+    '中午 (11-14)': '🍜',
+    '下午 (14-19)': '☀️',
+    '晚间 (19-22)': '🌆',
+    '夜间 (22-24)': '🌙',
+    '凌晨 (0-6)': '🌑',
   }
   const rhythmShort: Record<string, string> = {
-    '早晨 (6-12)': '早晨',
-    '下午 (12-18)': '下午',
-    '晚间 (18-22)': '晚间',
-    '夜间 (22-6)': '夜间',
+    '早晨 (6-8)': '早晨',
+    '上午 (8-11)': '上午',
+    '中午 (11-14)': '中午',
+    '下午 (14-19)': '下午',
+    '晚间 (19-22)': '晚间',
+    '夜间 (22-24)': '夜间',
+    '凌晨 (0-6)': '凌晨',
   }
 
   if (isEmptyState) {
@@ -165,7 +204,7 @@ export default function Overview() {
           <div className="w-20 h-20 rounded-2xl bg-cd-green/10 flex items-center justify-center mx-auto mb-5">
             <ActivityIcon size={40} className="text-cd-green" />
           </div>
-          <h2 className="text-xl font-semibold text-cd-text mb-3">欢迎使用 ChallengeDaily</h2>
+          <h2 className="text-xl font-semibold text-cd-text mb-3 font-display">欢迎使用 <span className="font-brand font-bold">ChallengeDaily</span></h2>
           {isPaused ? (
             <>
               <p className="text-base text-cd-text-secondary mb-6">采集器已暂停，点击开始自动记录。</p>
@@ -183,284 +222,269 @@ export default function Overview() {
   }
 
   return (
-    <div className="animate-fade-in space-y-3">
-      {/* ─── 顶部状态栏 ─────────────────────── */}
-      <div className="flex items-center justify-between px-5 py-3.5 rounded-xl bg-cd-card border border-cd-border">
-        <div className="flex items-center gap-5">
-          <span className="text-lg font-semibold text-cd-text">
-            {dayjs().format('M月D日 dddd')}
-          </span>
+    <div className="animate-fade-in">
+      {/* ─── Hero 区域：时间日期 + AI 导语 + 关键数字 + 状态 ──── */}
+      <div className="mb-8">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <HeroInfo todayDurationMin={stats?.total_duration_min || 0} />
+          </div>
           <button
-            onClick={isRecording ? () => { pauseCollector().then(() => getStatus()).then(setStatus) } : handleResume}
-            className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg transition ${
+            onClick={isRecording ? handlePause : handleResume}
+            className={`shrink-0 flex items-center gap-2 text-sm px-4 py-2 rounded-lg transition border ${
               isRecording
-                ? 'bg-cd-green/10 text-cd-green'
-                : 'bg-cd-red/10 text-cd-red'
+                ? 'border-cd-green/20 bg-cd-green/5 text-cd-green'
+                : 'border-cd-red/20 bg-cd-red/5 text-cd-red'
             }`}
           >
             {isRecording ? <><span className="w-2 h-2 rounded-full bg-cd-green animate-pulse-soft" /> 正在记录</> : <><span className="w-2 h-2 rounded-full bg-cd-red" /> 已暂停</>}
           </button>
         </div>
-        <div className="flex items-center gap-6 text-sm text-cd-text-secondary">
-          <span className="flex items-center gap-1.5"><Clock size={16} className="text-cd-green" /> <b className="text-cd-text">{timeStr}</b></span>
-          <span className="flex items-center gap-1.5"><Camera size={16} /> {captureCount}次</span>
-          <span className="flex items-center gap-1.5"><Focus size={16} /> 深度{focusSessions}次</span>
-          {longestFocus > 0 && <span className="flex items-center gap-1.5"><Zap size={16} /> 最长{formatDur(longestFocus)}</span>}
-        </div>
-      </div>
 
-      {/* ─── 4 核心指标（行业惯例：精简为 4 个，避免信息过载） ──── */}
-      <div className="grid grid-cols-4 gap-3">
-        {[
-          { label: '专注时长', value: timeStr, sub: `≈ ${totalHours} 小时`, icon: Clock, color: 'text-cd-green' },
-          { label: '深度工作', value: `${focusSessions}次`, sub: longestFocus > 0 ? `最长 ${formatDur(longestFocus)}` : '今日暂无', icon: Focus, color: 'text-cd-blue' },
-          { label: '主要分类', value: topCategory, sub: totalCategoryMin > 0 ? `${formatDur(totalCategoryMin)} 总计` : '-', icon: Monitor, color: CATEGORY_COLORS[topCategory] ? '' : 'text-cd-orange', customColor: CATEGORY_COLORS[topCategory] },
-          { label: '高效时段', value: peakPeriod ? rhythmShort[peakPeriod] || peakPeriod.split(' ')[0] : '-', sub: captureCount > 0 ? `${captureCount} 次截图` : '-', icon: TrendingUp, color: 'text-cd-orange' },
-        ].map(({ label, value, sub, icon: Icon, color, customColor }) => (
-          <div key={label} className="bg-cd-card border border-cd-border rounded-xl px-5 py-4 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-cd-bg-secondary flex items-center justify-center shrink-0">
-              <Icon size={20} className={color} style={customColor ? { color: customColor } : undefined} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-xl font-bold text-cd-text truncate">{value}</div>
-              <div className="text-xs text-cd-text-tertiary mt-0.5 truncate">{label} · {sub}</div>
-            </div>
+        {/* 三个核心指标：大号衬线数字 */}
+        <div className="grid grid-cols-3 gap-6 mt-6">
+          <div>
+            <p className="text-xs text-cd-text-tertiary uppercase tracking-widest mb-1">专注时长</p>
+            <p className="text-3xl font-bold text-cd-text font-brand tracking-tight">{timeStr}</p>
+            <p className="text-xs text-cd-text-tertiary mt-0.5"><span className="font-brand font-semibold">{captureCount}</span> 次活动捕捉</p>
           </div>
-        ))}
-      </div>
-
-      {/* ─── 主可视化区：左 1/2 时间分布 | 右 1/2 热力图 ──── */}
-      <div className="grid grid-cols-2 gap-3 items-stretch">
-        {/* 左：时间分布（横向条形图，参考 RescueTime） */}
-        <div className="bg-cd-card border border-cd-border rounded-xl p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-cd-text">时间都去哪了</h3>
-            <span className="text-xs text-cd-text-tertiary">{formatDur(totalCategoryMin)}</span>
+          <div>
+            <p className="text-xs text-cd-text-tertiary uppercase tracking-widest mb-1">深度工作</p>
+            <p className="text-3xl font-bold text-cd-text font-brand tracking-tight">{focusSessions} <span className="text-lg font-normal text-cd-text-tertiary">次</span></p>
+            <p className="text-xs text-cd-text-tertiary mt-0.5">{longestFocus > 0 ? `最长 ${formatDur(longestFocus)}` : '今日暂无'}</p>
           </div>
-          {categoryBars.length > 0 ? (
-            <div className="space-y-3 flex-1 flex flex-col justify-center">
-              {categoryBars.slice(0, 6).map((entry) => {
-                const pct = totalCategoryMin > 0 ? Math.round(entry.value / totalCategoryMin * 100) : 0
-                const color = CATEGORY_COLORS[entry.name] || 'var(--cd-text-tertiary)'
-                return (
-                  <div key={entry.name}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
-                        <span className="text-sm text-cd-text truncate">{entry.name}</span>
-                      </div>
-                      <span className="text-xs text-cd-text-tertiary shrink-0 ml-2"><b className="text-cd-text font-semibold">{formatDur(entry.value)}</b> · {pct}%</span>
-                    </div>
-                    <div className="h-2.5 rounded-full bg-cd-bg-secondary overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(pct, 2)}%`, background: color }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <p className="text-sm text-cd-text-tertiary text-center py-8">暂无分类数据</p>
-          )}
-        </div>
-
-        {/* 右：3天热力图（GitHub Contributions 风格） */}
-        <div className="bg-cd-card border border-cd-border rounded-xl p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-cd-text">近三天活动热力图</h3>
-            <span className="text-xs text-cd-text-tertiary">每小时分布</span>
-          </div>
-          <div className="overflow-x-auto flex-1 flex flex-col justify-center">
-            <div className="min-w-fit">
-              <div className="flex items-center gap-1 pl-12 mb-1.5">
-                {Array.from({ length: 24 }, (_, h) => (
-                  <div key={h} className="w-7 text-center text-[10px] text-cd-text-tertiary">{h % 4 === 0 ? h : ''}</div>
-                ))}
-              </div>
-              {days.map((day, di) => (
-                <div key={di} className="flex items-center gap-1 mb-1">
-                  <span className="text-[11px] text-cd-text-tertiary w-10 text-right shrink-0 mr-1">
-                    {di === 0 ? '今天' : di === 1 ? '昨天' : day.format('MM/DD')}
-                  </span>
-                  {heatmapData[di].map((val, h) => {
-                    const intensity = maxHeatVal > 0 ? val / maxHeatVal : 0
-                    return (
-                      <div key={h}
-                        className="rounded transition-all hover:scale-125 cursor-default"
-                        style={{
-                          width: 28, height: 22,
-                          background: val === 0
-                            ? 'var(--cd-bg-tertiary)'
-                            : `rgba(99,91,255,${0.12 + intensity * 0.75})`,
-                        }}
-                        title={`${day.format('MM/DD')} ${h}:00 - ${val}分钟`}
-                      />
-                    )
-                  })}
-                </div>
-              ))}
-              <div className="flex items-center gap-1.5 mt-2 pl-12">
-                <span className="text-[10px] text-cd-text-tertiary">少</span>
-                {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
-                  <div key={i} className="w-4 h-3 rounded-sm"
-                    style={{ background: v === 0 ? 'var(--cd-bg-tertiary)' : `rgba(99,91,255,${0.12 + v * 0.75})` }} />
-                ))}
-                <span className="text-[10px] text-cd-text-tertiary">多</span>
-              </div>
-            </div>
+          <div>
+            <p className="text-xs text-cd-text-tertiary uppercase tracking-widest mb-1">高效时段</p>
+            <p className="text-3xl font-bold text-cd-text font-display tracking-tight">{peakPeriod ? rhythmShort[peakPeriod] || peakPeriod.split(' ')[0] : '-'}</p>
+            <p className="text-xs text-cd-text-tertiary mt-0.5">主要分类 · {topCategory}</p>
           </div>
         </div>
       </div>
 
-      {/* ─── 应用使用 Top 5（真实应用图标） + 效率趋势 ──── */}
-      <div className="grid grid-cols-5 gap-3 items-stretch">
-        {/* 左：应用使用 Top 5，占 3/5 */}
-        <div className="col-span-3 bg-cd-card border border-cd-border rounded-xl p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-cd-text">应用使用 Top 5</h3>
-            <span className="text-xs text-cd-text-tertiary">共 {topApps.length} 个应用</span>
-          </div>
-          {topApps.length > 0 ? (
-            <div className="space-y-2.5 flex-1 flex flex-col justify-center">
-              {topApps.map((app, idx) => {
-                const pct = totalMin > 0 ? (app.duration_min / totalMin) * 100 : 0
-                const iconUrl = iconUrls[app.app_name]
-                const iconChar = app.app_name.replace(/\s+/g, '').slice(0, 1).toUpperCase()
-                const displayName = app.app_name.replace(/\.exe$/i, '')
-                return (
-                  <div key={app.app_name} className="flex items-center gap-3">
-                    <span className="text-xs text-cd-text-tertiary w-4 text-right shrink-0">{idx + 1}</span>
-                    <div className="w-8 h-8 rounded-lg bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
-                      {iconUrl ? (
-                        <img
-                          src={iconUrl}
-                          alt=""
-                          className="w-6 h-6 object-contain"
-                          onError={(e) => {
-                            // 加载失败回退到首字母占位
-                            e.currentTarget.style.display = 'none'
-                            const parent = e.currentTarget.parentElement
-                            if (parent && !parent.querySelector('.fallback-char')) {
-                              const span = document.createElement('span')
-                              span.className = 'fallback-char text-xs font-medium text-cd-text-secondary'
-                              span.textContent = iconChar
-                              parent.appendChild(span)
-                            }
-                          }}
-                        />
-                      ) : (
-                        <span className="text-xs font-medium text-cd-text-secondary">{iconChar}</span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm text-cd-text truncate" title={app.app_name}>{displayName}</span>
-                        <span className="text-xs text-cd-text-tertiary shrink-0 ml-2"><b className="text-cd-text font-semibold">{formatDur(app.duration_min)}</b> · {Math.round(pct)}%</span>
+      {/* ─── 分隔线 ──── */}
+      <div className="border-t border-cd-border mb-6" />
+
+      {/* ─── 主可视化区：左 时间分布 | 右 热力图 ──── */}
+      <div className="grid grid-cols-2 gap-6 mb-6">
+        {/* 左：时间分布 */}
+        <div className="flex flex-col">
+          <h3 className="text-sm font-semibold text-cd-text mb-4">时间都去哪了</h3>
+          <div className="flex-1 bg-cd-card border border-cd-border rounded-xl p-5">
+            {categoryBars.length > 0 ? (
+              <div className="space-y-4">
+                {categoryBars.slice(0, 5).map((entry) => {
+                  const pct = totalCategoryMin > 0 ? Math.round(entry.value / totalCategoryMin * 100) : 0
+                  const color = CATEGORY_COLORS[entry.name] || 'var(--cd-text-tertiary)'
+                  return (
+                    <div key={entry.name}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
+                          <span className="text-sm text-cd-text truncate">{entry.name}</span>
+                        </div>
+                        <span className="text-sm text-cd-text-tertiary shrink-0 ml-3">
+                          <span className="font-brand font-semibold text-cd-text">{formatDur(entry.value)}</span>
+                          <span className="text-xs ml-1 font-brand">{pct}%</span>
+                        </span>
                       </div>
                       <div className="h-2 rounded-full bg-cd-bg-secondary overflow-hidden">
-                        <div className="h-full rounded-full bg-cd-green/70 transition-all duration-500" style={{ width: `${Math.max(pct, 2)}%` }} />
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(pct, 2)}%`, background: color }} />
                       </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <p className="text-sm text-cd-text-tertiary text-center py-8">暂无应用记录</p>
-          )}
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-cd-text-tertiary text-center py-8">暂无分类数据</p>
+            )}
+          </div>
         </div>
 
-        {/* 右：效率趋势，占 2/5 */}
-        <div className="col-span-2 bg-cd-card border border-cd-border rounded-xl p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-cd-text">效率趋势</h3>
-            <span className="text-xs text-cd-text-tertiary">7 天</span>
+        {/* 右：3天热力图 */}
+        <div className="flex flex-col">
+          <h3 className="text-sm font-semibold text-cd-text mb-4">近三天活动热力图</h3>
+          <div className="flex-1 bg-cd-card border border-cd-border rounded-xl p-4 flex flex-col justify-center">
+            <div className="grid grid-cols-12 gap-1 pl-[52px] mb-1.5">
+              {Array.from({ length: 12 }, (_, b) => (
+                <div key={b} className="text-center text-[9px] text-cd-text-tertiary font-brand">{b * 2}</div>
+              ))}
+            </div>
+            {[...heatmapBins].reverse().map((day, di) => {
+              const dayLabel = di === 0 ? 'Today' : di === 1 ? 'Yesterday' : dayjs(day.date).format('MM/DD')
+              return (
+                <div key={day.date} className="mb-2">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-cd-text-tertiary w-11 text-right shrink-0 mr-1 font-brand">
+                      {dayLabel}
+                    </span>
+                    <div className="flex-1 grid grid-cols-12 gap-1">
+                      {day.cells.map((val, b) => {
+                        const intensity = maxHeatVal > 0 ? val / maxHeatVal : 0
+                        const startH = b * 2
+                        const cellMin = Math.round(val * intervalSec / 60)
+                        return (
+                          <div key={b}
+                            className="h-5 rounded-sm transition-all hover:scale-110 cursor-default"
+                            style={{
+                              background: val === 0
+                                ? 'var(--cd-bg-tertiary)'
+                                : `rgba(99,91,255,${0.1 + intensity * 0.7})`,
+                            }}
+                            title={`${dayjs(day.date).format('MM/DD')} ${startH}:00-${startH + 2}:00 · ${cellMin}分钟 · ${val}次活动`}
+                          />
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div className="pl-[52px] mt-1 flex items-center gap-2 text-[10px] text-cd-text-tertiary">
+                    <span>总 <span className="text-cd-text font-brand font-semibold">{formatDur(day.total_min)}</span></span>
+                    <span>·</span>
+                    <span>峰值 <span className="text-cd-text font-brand font-semibold">{day.peak_hour >= 0 ? `${day.peak_hour}:00` : '-'}</span></span>
+                    <span>·</span>
+                    <span>主力 <span className="text-cd-text font-medium">{day.top_app ? getDisplayAppName(day.top_app) : '-'}</span></span>
+                  </div>
+                </div>
+              )
+            })}
+            <div className="flex items-center gap-1 mt-1 pl-[52px]">
+              <span className="text-[10px] text-cd-text-tertiary">Less</span>
+              {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
+                <div key={i} className="w-3.5 h-3 rounded-sm"
+                  style={{ background: v === 0 ? 'var(--cd-bg-tertiary)' : `rgba(99,91,255,${0.1 + v * 0.7})` }} />
+              ))}
+              <span className="text-[10px] text-cd-text-tertiary">More</span>
+            </div>
           </div>
-          {validTrend.length > 0 ? (
-            <div className="flex-1 flex flex-col">
-              <div className="flex-1" style={{ width: '100%', minHeight: 160 }}>
+        </div>
+      </div>
+
+      {/* ─── 下方区域：应用 Top 5 + 效率趋势 + 个人节奏 ──── */}
+      <div className="grid grid-cols-3 gap-6">
+        {/* 左：应用使用 Top 5 */}
+        <div className="col-span-1 flex flex-col">
+          <h3 className="text-sm font-semibold text-cd-text mb-4">应用使用</h3>
+          <div className="flex-1 bg-cd-card border border-cd-border rounded-xl p-5">
+            {topApps.length > 0 ? (
+              <div className="space-y-3">
+                {topApps.slice(0, 5).map((app, idx) => {
+                  const pct = totalMin > 0 ? (app.duration_min / totalMin) * 100 : 0
+                  const iconUrl = iconUrls[app.app_name]
+                  const defaultIcon = import.meta.env.DEV ? '/icon.png' : './icon.png'
+                  const displayName = getDisplayAppName(app.app_name)
+                  return (
+                    <div key={app.app_name} className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-md bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
+                        <img src={iconUrl || defaultIcon} alt="" className="w-5 h-5 object-contain" onError={(e) => { e.currentTarget.src = defaultIcon }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-xs text-cd-text truncate" title={app.app_name}>{displayName}</span>
+                          <span className="text-xs font-brand font-semibold text-cd-text shrink-0 ml-2">{formatDur(app.duration_min)}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-cd-bg-secondary overflow-hidden">
+                          <div className="h-full rounded-full bg-cd-green/60 transition-all duration-500" style={{ width: `${Math.max(pct, 2)}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-cd-text-tertiary text-center py-8">暂无应用记录</p>
+            )}
+          </div>
+        </div>
+
+        {/* 中：效率趋势 */}
+        <div className="col-span-1 flex flex-col">
+          <h3 className="text-sm font-semibold text-cd-text mb-4">效率趋势 <span className="text-cd-text-tertiary font-normal">7d</span></h3>
+          <div className="flex-1 bg-cd-card border border-cd-border rounded-xl p-5 min-h-[220px]">
+            {validTrend.length > 0 ? (
+              <div className="h-full min-h-[180px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={trendData} margin={{ top: 8, right: 12, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--cd-border)" />
-                    <XAxis dataKey="date" tickFormatter={(v: string) => dayjs(v).format('MM/DD')}
-                      tick={{ fontSize: 11, fill: 'var(--cd-text-tertiary)' }} axisLine={{ stroke: 'var(--cd-border)' }} />
-                    <YAxis tick={{ fontSize: 11, fill: 'var(--cd-text-tertiary)' }} axisLine={{ stroke: 'var(--cd-border)' }}
-                      tickFormatter={(v: number) => `${Math.round(v / 60 * 10) / 10}h`} width={40} />
+                  <LineChart data={trendData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--cd-border)" vertical={false} />
+                    <XAxis dataKey="date" tickFormatter={(v: string) => dayjs(v).format('M/D')}
+                      tick={{ fontSize: 11, fill: 'var(--cd-text-tertiary)' }} axisLine={{ stroke: 'var(--cd-border)' }} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: 'var(--cd-text-tertiary)' }} axisLine={false} tickLine={false}
+                      tickFormatter={(v: number) => `${Math.round(v / 60 * 10) / 10}h`} width={36} />
                     <Tooltip formatter={(value: number) => [value >= 60 ? `${(value / 60).toFixed(1)}h` : `${Math.round(value)}min`, '时长']}
                       labelFormatter={(label: string) => dayjs(label).format('YYYY-MM-DD')}
-                      contentStyle={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)', borderRadius: 8, fontSize: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }} />
-                    <Line type="monotone" dataKey="duration_min" stroke="var(--cd-green)" strokeWidth={2.5}
+                      contentStyle={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)', borderRadius: 8, fontSize: 12 }} />
+                    <Line type="monotone" dataKey="duration_min" stroke="var(--cd-green)" strokeWidth={2}
                       dot={{ r: 3, fill: 'var(--cd-green)' }} activeDot={{ r: 5 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-            </div>
-          ) : (
-            <p className="text-sm text-cd-text-tertiary text-center py-8">数据积累中，明天开始可看趋势</p>
-          )}
+            ) : (
+              <div className="h-full min-h-[180px] flex items-center justify-center">
+                <p className="text-sm text-cd-text-tertiary">数据积累中</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 右：个人节奏 */}
+        <div className="col-span-1 flex flex-col">
+          <h3 className="text-sm font-semibold text-cd-text mb-4">个人节奏</h3>
+          <div className="flex-1 bg-cd-card border border-cd-border rounded-xl p-5">
+            {rhythmData.length > 0 ? (
+              <div className="space-y-3">
+                {(() => {
+                  const maxDuration = Math.max(...rhythmData.map(r => r.duration_min), 1)
+                  return rhythmData.map((item) => {
+                    const ratio = item.duration_min / maxDuration
+                    const widthPct = Math.max(ratio * 100, 2)
+                    return (
+                      <div key={item.period}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-sm text-cd-text flex items-center gap-2">
+                            {rhythmIcons[item.period] || '⏰'} {rhythmShort[item.period] || item.period}
+                          </span>
+                          <span className="text-sm font-brand font-semibold text-cd-text">
+                            {item.duration_min >= 60 ? `${(item.duration_min / 60).toFixed(1)}h` : `${Math.round(item.duration_min)}m`}
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-cd-bg-secondary overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-cd-purple transition-all duration-500"
+                            style={{ width: `${widthPct}%`, opacity: 0.4 + ratio * 0.6 }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })
+                })()}
+              </div>
+            ) : (
+              <p className="text-sm text-cd-text-tertiary text-center py-8">暂无数据</p>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* ─── 最近活动 + 个人节奏 ──── */}
-      <div className="grid grid-cols-3 gap-3 items-stretch">
-        {/* 左：最近活动，占 2/3 */}
-        {recentActivities.length > 0 && (
-          <div className="col-span-2 bg-cd-card border border-cd-border rounded-xl p-5 flex flex-col">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-cd-text">最近活动</h3>
-              <span className="text-xs text-cd-text-tertiary">{recentActivities.length} 条</span>
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-1 flex-1 items-center">
-              {recentActivities.map((act) => {
-                const color = CATEGORY_COLORS[act.category] || 'var(--cd-text-tertiary)'
-                return (
-                  <div key={act.id}
-                    className="shrink-0 bg-cd-bg-secondary rounded-lg px-3 py-2.5 min-w-0 max-w-[220px] cursor-default hover:bg-cd-hover transition"
-                    title={act.window_title || act.app_name}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[11px] font-mono text-cd-text-tertiary">{dayjs(act.timestamp).format('HH:mm')}</span>
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                      <span className="text-xs font-medium truncate" style={{ color }}>{act.category}</span>
-                    </div>
-                    <div className="text-[13px] text-cd-text truncate">{act.ai_summary || act.app_name}</div>
+      {/* ─── 最近活动（底部，更轻量的展示） ──── */}
+      {recentActivities.length > 0 && (
+        <div className="mt-6 pt-6 border-t border-cd-border">
+          <h3 className="text-sm font-semibold text-cd-text mb-3">最近活动</h3>
+          <div className="flex gap-2.5 overflow-x-auto pb-1">
+            {recentActivities.map((act) => {
+              const color = CATEGORY_COLORS[act.category] || 'var(--cd-text-tertiary)'
+              return (
+                <div key={act.id}
+                  className="shrink-0 bg-cd-bg-secondary/50 border border-cd-border/50 rounded-lg px-3.5 py-2.5 min-w-0 max-w-[200px] cursor-default hover:bg-cd-hover transition">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[11px] font-mono text-cd-text-tertiary">{dayjs(act.timestamp).format('HH:mm')}</span>
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
+                    <span className="text-xs font-medium truncate" style={{ color }}>{act.category}</span>
                   </div>
-                )
-              })}
-            </div>
+                  <div className="text-[13px] text-cd-text truncate">{act.ai_summary || act.app_name}</div>
+                </div>
+              )
+            })}
           </div>
-        )}
-
-        {/* 右：个人节奏，占 1/3 */}
-        {rhythmData.length > 0 && (
-          <div className="bg-cd-card border border-cd-border rounded-xl p-5 flex flex-col">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-cd-text">个人节奏</h3>
-              {peakPeriod && <span className="text-[10px] text-cd-text-tertiary">峰值：<span className="text-cd-green font-medium">{rhythmShort[peakPeriod] || peakPeriod}</span></span>}
-            </div>
-            <div className="space-y-2.5 flex-1 flex flex-col justify-center">
-              {rhythmData.map((item) => {
-                const isPeak = item.duration_min === Math.max(...rhythmData.map(r => r.duration_min))
-                const color = isPeak ? 'var(--cd-green)' : 'var(--cd-text-tertiary)'
-                const barColor = isPeak ? 'bg-cd-green' : 'bg-cd-green/40'
-                return (
-                  <div key={item.period}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[13px] text-cd-text flex items-center gap-1.5">
-                        {rhythmIcons[item.period] || '⏰'} {rhythmShort[item.period] || item.period}
-                      </span>
-                      <span className="text-[13px] font-semibold" style={{ color }}>
-                        {item.duration_min >= 60 ? `${(item.duration_min / 60).toFixed(1)}h` : `${Math.round(item.duration_min)}m`}
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-cd-bg-secondary overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${Math.max(item.percentage, 2)}%` }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
