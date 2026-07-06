@@ -29,7 +29,7 @@ const TEMPLATE_TYPES: { value: TemplateType; label: string; desc: string }[] = [
   { value: 'technical', label: '技术', desc: '侧重代码/项目/技术细节' },
   { value: 'okr', label: 'OKR', desc: '对齐目标和关键结果' },
   { value: 'ai', label: 'AI 智能', desc: '调用文本模型生成自然语言日报' },
-  { value: 'deep', label: '深度洞察', desc: '叙事日记+心理推测+反思' },
+  { value: 'deep', label: '深度洞察', desc: '13板块叙事日记+心理分析+项目追踪' },
 ]
 
 export default function Report() {
@@ -206,7 +206,22 @@ export default function Report() {
               </button>
             </div>
           </div>
-          <div className="prose prose-sm max-w-none prose-headings:text-cd-text prose-p:text-cd-text-secondary prose-strong:text-cd-text prose-li:text-cd-text-secondary prose-code:bg-cd-bg-secondary prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-cd-green prose-code:before:content-none prose-code:after:content-none prose-hr:border-cd-border prose-table:text-sm prose-th:bg-cd-bg-secondary prose-th:text-cd-text prose-td:text-cd-text-secondary">
+          <div className="prose prose-sm max-w-none 
+            prose-headings:text-cd-text prose-headings:font-semibold 
+            prose-h1:text-2xl prose-h1:mb-6 prose-h1:border-b prose-h1:border-cd-border prose-h1:pb-3
+            prose-h2:text-lg prose-h2:mt-8 prose-h2:mb-4 prose-h2:text-cd-green
+            prose-h3:text-base prose-h3:mt-6 prose-h3:mb-3 prose-h3:text-cd-text
+            prose-p:text-cd-text-secondary prose-p:leading-relaxed prose-p:my-3
+            prose-strong:text-cd-text prose-strong:font-semibold
+            prose-li:text-cd-text-secondary prose-li:my-1
+            prose-ul:my-3 prose-ol:my-3
+            prose-blockquote:border-l-4 prose-blockquote:border-cd-green prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-cd-text-secondary prose-blockquote:bg-cd-bg-secondary/50 prose-blockquote:py-2 prose-blockquote:pr-4 prose-blockquote:rounded-r-lg
+            prose-code:bg-cd-bg-secondary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-cd-green prose-code:text-xs prose-code:before:content-none prose-code:after:content-none
+            prose-hr:border-cd-border prose-hr:my-6
+            prose-table:text-sm prose-table:border-collapse prose-th:bg-cd-bg-secondary prose-th:text-cd-text prose-th:font-semibold prose-th:p-2 prose-th:border prose-th:border-cd-border prose-td:text-cd-text-secondary prose-td:p-2 prose-td:border prose-td:border-cd-border prose-tr:nth-child(even):bg-cd-bg-secondary/30
+            prose-img:rounded-lg prose-img:shadow-md
+            prose-a:text-cd-green prose-a:no-underline hover:prose-a:underline
+          ">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
           </div>
         </div>

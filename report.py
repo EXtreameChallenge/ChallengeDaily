@@ -613,6 +613,518 @@ def _template_okr(target_date: str, activities, summary_data, app_usage) -> str:
 
 
 # ── 模板6: 深度洞察 (deep) ──────────────────────────
+# 全面重构：参考顶级日记产品（Day One / Stoic / Reflectly / 5-Minute Journal / Notion / Obsidian）
+# 融合全部数据维度：截图分析、时间天气、位置、工作模式、心理状态、项目上下文
+# 生成一份真正丰富、深度、有温度的个人日报
+
+def _extract_projects_from_activities(activities: list) -> list[dict]:
+    """从活动记录中提取项目/任务上下文"""
+    import re as _re
+    projects = {}
+    for act in activities:
+        detail = act.get("ai_detail", "")
+        summary = act.get("summary", "")
+        window_title = act.get("window_title", "")
+        # 从窗口标题和AI分析中提取项目名（常见的项目标识模式）
+        text = f"{detail} {summary} {window_title}"
+        # 匹配常见项目名模式
+        patterns = [
+            r'([\w\-]+)\s*项目',
+            r'项目[：:]\s*([\w\-]+)',
+            r'在\s+([\w\-]+)\s*项目',
+            r'([A-Z][a-zA-Z0-9\-]+)\s*(?:系统|平台|应用|工具|模块)',
+        ]
+        for pat in patterns:
+            matches = _re.findall(pat, text)
+            for m in matches:
+                if len(m) > 2 and not m.lower() in ('这个', '那个', '一个', '当前', '正在'):
+                    key = m.lower()
+                    if key not in projects:
+                        projects[key] = {"name": m, "activities": [], "categories": set(), "total_time": 0}
+                    projects[key]["activities"].append(act)
+                    projects[key]["categories"].add(act.get("category", ""))
+    # 按活动数量排序
+    result = sorted(projects.values(), key=lambda x: len(x["activities"]), reverse=True)
+    for p in result:
+        p["categories"] = list(p["categories"])
+        p["count"] = len(p["activities"])
+    return result[:5]  # 取前5个项目
+
+
+def _analyze_emotional_journey(activities: list, patterns: dict) -> dict:
+    """分析一天的情绪/心理状态变化曲线"""
+    if not activities:
+        return {}
+    
+    interval = config.SCREENSHOT_INTERVAL_SEC
+    
+    # 基于工作模式推断情绪状态
+    emotional_states = []
+    
+    # 上午时段 (6-12)
+    morning_acts = [a for a in activities if 6 <= int(a["timestamp"][11:13]) < 12]
+    if morning_acts:
+        morning_focus = len([a for a in morning_acts if a["category"] in ("开发", "设计", "文档", "测试")])
+        morning_ratio = morning_focus / len(morning_acts) if morning_acts else 0
+        if morning_ratio > 0.7:
+            emotional_states.append({"period": "上午", "state": "专注投入", "score": 8, "desc": "一早就进入了工作状态，精力集中"})
+        elif morning_ratio > 0.4:
+            emotional_states.append({"period": "上午", "state": "平稳起步", "score": 6, "desc": "上午节奏适中，逐步进入状态"})
+        else:
+            emotional_states.append({"period": "上午", "state": "较为分散", "score": 4, "desc": "上午被各种事务打断，难以专注"})
+    
+    # 下午时段 (12-18)
+    afternoon_acts = [a for a in activities if 12 <= int(a["timestamp"][11:13]) < 18]
+    if afternoon_acts:
+        afternoon_focus = len([a for a in afternoon_acts if a["category"] in ("开发", "设计", "文档", "测试")])
+        afternoon_ratio = afternoon_focus / len(afternoon_acts) if afternoon_acts else 0
+        switch_count = sum(1 for i in range(1, len(afternoon_acts)) if afternoon_acts[i]["category"] != afternoon_acts[i-1]["category"])
+        if switch_count > len(afternoon_acts) * 0.5:
+            emotional_states.append({"period": "下午", "state": "略显焦虑", "score": 5, "desc": "下午频繁切换任务，可能感到压力或被打断"})
+        elif afternoon_ratio > 0.6:
+            emotional_states.append({"period": "下午", "state": "持续专注", "score": 7, "desc": "下午保持了良好的工作状态"})
+        else:
+            emotional_states.append({"period": "下午", "state": "平稳过渡", "score": 6, "desc": "下午节奏平稳，有张有弛"})
+    
+    # 晚上时段 (18-24)
+    evening_acts = [a for a in activities if 18 <= int(a["timestamp"][11:13]) < 24]
+    if evening_acts:
+        emotional_states.append({"period": "晚上", "state": "收尾整理", "score": 5, "desc": "晚上在做收尾工作，可能略显疲惫"})
+    
+    # 计算整体情绪得分
+    avg_score = sum(s["score"] for s in emotional_states) / len(emotional_states) if emotional_states else 5
+    
+    # 推断主导情绪
+    if patterns.get("interrupted_sessions", 0) > 3:
+        dominant = "忙碌而略显疲惫"
+    elif len(patterns.get("focus_sessions", [])) >= 3:
+        dominant = "充实而有成就感"
+    elif patterns.get("category_switches", 0) > 10:
+        dominant = "事务繁杂，需要梳理"
+    else:
+        dominant = "平稳有序"
+    
+    return {
+        "states": emotional_states,
+        "average_score": round(avg_score, 1),
+        "dominant_mood": dominant,
+        "energy_curve": "高→中→低" if avg_score > 6 else "中→低→中" if avg_score > 4 else "低→中→低",
+    }
+
+
+def _build_work_narrative_blocks(activities: list) -> list[dict]:
+    """将活动按时间线构建叙事段落（按工作场景而非分类）"""
+    if not activities:
+        return []
+    
+    # 按时间排序
+    sorted_acts = sorted(activities, key=lambda x: x["timestamp"])
+    
+    blocks = []
+    current_block = None
+    
+    for act in sorted_acts:
+        cat = act["category"]
+        ts = act["timestamp"][11:16] if len(act["timestamp"]) > 16 else act["timestamp"]
+        detail = act.get("ai_detail", "")
+        summary = act.get("summary", "")
+        app = get_display_name(act["app_name"])
+        
+        # 判断是否应该开启新段落
+        should_new_block = False
+        if current_block is None:
+            should_new_block = True
+        elif cat != current_block["category"] and cat not in ("生活",):
+            # 分类变化且不是生活类，开启新段落
+            should_new_block = True
+        elif current_block and (act["timestamp"][:13] != current_block["last_hour"]):
+            # 跨小时且内容变化较大
+            should_new_block = True
+        
+        if should_new_block:
+            if current_block:
+                blocks.append(current_block)
+            current_block = {
+                "category": cat,
+                "start_time": ts,
+                "end_time": ts,
+                "activities": [],
+                "apps": set(),
+                "summaries": [],
+                "details": [],
+                "last_hour": act["timestamp"][:13],
+            }
+        
+        current_block["end_time"] = ts
+        current_block["activities"].append(act)
+        current_block["apps"].add(app)
+        if summary and summary != "未配置AI":
+            current_block["summaries"].append(summary)
+        if detail:
+            current_block["details"].append(detail)
+    
+    if current_block:
+        blocks.append(current_block)
+    
+    # 为每个段落生成叙事描述
+    for block in blocks:
+        block["duration_min"] = len(block["activities"]) * config.SCREENSHOT_INTERVAL_SEC / 60
+        block["apps_str"] = "、".join(list(block["apps"])[:3])
+        # 去重摘要
+        seen = set()
+        unique_summaries = []
+        for s in block["summaries"]:
+            if s not in seen:
+                seen.add(s)
+                unique_summaries.append(s)
+        block["summaries"] = unique_summaries
+        # 取最有信息量的detail
+        block["key_details"] = [d for d in block["details"] if len(d) > 50][:3]
+    
+    return blocks
+
+
+def _build_deep_report_prompt_v2(target_date: str, activities, summary_data, app_usage,
+                                  patterns: dict, timeline_data: list[dict],
+                                  emotional: dict, projects: list[dict],
+                                  narrative_blocks: list[dict]) -> str:
+    """构建超丰富的深度洞察日报 Prompt — 参考顶级日记产品的写作范式"""
+    from datetime import datetime as _dt
+
+    focus_hours = _estimate_focus_hours(activities)
+    focus_sessions = _count_focus_sessions(activities)
+    total = summary_data.get("total", 0)
+    first_ts = summary_data.get("first_ts", "")
+    last_ts = summary_data.get("last_ts", "")
+    time_span = _natural_time_span(first_ts, last_ts) if first_ts and last_ts else ""
+
+    # 星期几
+    try:
+        wd = _dt.strptime(target_date, "%Y-%m-%d").weekday()
+        weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+        weekday_str = weekdays[wd]
+    except Exception:
+        weekday_str = ""
+
+    lines = [
+        f"# 角色设定",
+        f"你是一位极具洞察力的私人生活记录师和职业教练。你的任务是根据用户全天的工作活动数据，写一份**极其丰富、深度、有温度**的个人日报。",
+        f"",
+        f"## 写作风格参考（必须严格遵守）",
+        f"",
+        f"参考以下顶级日记/工作日志产品的写作范式：",
+        f"",
+        f"**1. Day One Journal 风格** — 叙事性、场景感、情感共鸣",
+        f"- 用具体场景开头：「早上 9 点，阳光透过窗帘...」",
+        f"- 记录感官细节：屏幕上的代码、键盘的敲击声、窗外的天气",
+        f"- 表达真实感受：疲惫、兴奋、困惑、成就感",
+        f"",
+        f"**2. Stoic Journal 风格** — 反思性、哲学深度、自我对话",
+        f"- 追问自己：今天什么最重要？我做得怎么样？",
+        f"- 从困难中学习：遇到什么挑战？如何克服？",
+        f"- 感恩与欣赏：今天有什么值得感激的？",
+        f"",
+        f"**3. 5-Minute Journal 风格** — 结构化、积极心理学",
+        f"- 我感激的三件事...",
+        f"- 今天会让它变得精彩的三件事...",
+        f"- 每日肯定语...",
+        f"",
+        f"**4. Notion 工作日志风格** — 项目导向、可执行、可追踪",
+        f"- 今天推进了什么项目？",
+        f"- 完成了哪些关键任务？",
+        f"- 遇到了什么阻碍？",
+        f"- 明天计划做什么？",
+        f"",
+        f"**5. 综合要求**：",
+        f"- **字数**：正文至少 1500-2500 字，每个板块都要充实",
+        f"- **结构**：10 个以上的丰富板块（见下方格式要求）",
+        f"- **深度**：不要只描述行为，要分析动机、反思意义、推测心理状态",
+        f"- **温度**：像一位最懂你的老朋友在帮你回顾这一天，有笑有泪有洞察",
+        f"- **具体**：从 ai_detail 中提取具体细节，让内容有血有肉",
+        f"",
+        f"---",
+        f"",
+        f"## 输出格式（必须包含以下所有板块，每个板块都要充实）",
+        f"",
+        f"### 1. 今日扉页（100-150字）",
+        f"- 日期、星期、天气（如果有数据）、心情基调",
+        f"- 用一句诗意的话概括今天",
+        f"- 像一本书的扉页，定下今天的基调",
+        f"",
+        f"### 2. 晨间序曲（200-300字）",
+        f"- 早上开始工作时的状态",
+        f"- 第一个工作内容是什么？",
+        f"- 早上的精力水平如何？",
+        f"- 用叙事性语言，有场景感",
+        f"",
+        f"### 3. 工作主线：项目与任务追踪（400-600字）",
+        f"- 今天主要推进了哪些项目/任务？",
+        f"- 每个项目：做了什么、进展如何、遇到什么困难、如何解决",
+        f"- 从窗口标题和AI分析中提取具体文件名、函数名、页面名",
+        f"- 用项目管理的视角分析进度",
+        f"",
+        f"### 4. 深度工作时刻（300-400字）",
+        f"- 描述进入心流状态的时段",
+        f"- 当时在做什么？持续了多久？",
+        f"- 心流前后的状态对比",
+        f"- 什么条件促成了心流？",
+        f"",
+        f"### 5. 协作与连接（200-300字）",
+        f"- 今天与谁/什么工具协作？",
+        f"- 沟通了什么内容？",
+        f"- 协作效率如何？",
+        f"- 从窗口分析中推断沟通对象和话题",
+        f"",
+        f"### 6. 挑战与突破（200-300字）",
+        f"- 今天遇到什么困难或挫折？",
+        f"- 如何解决的？",
+        f"- 从中学到了什么？",
+        f"- 用 Stoic 哲学的视角反思",
+        f"",
+        f"### 7. 午后时光（200-300字）",
+        f"- 下午的工作状态变化",
+        f"- 精力曲线：下午是否疲惫？如何调整？",
+        f"- 下午茶/休息时间的记录",
+        f"- 下午最有成就感的一刻",
+        f"",
+        f"### 8. 工具与数字足迹（200-300字）",
+        f"- 今天主要使用了哪些工具？",
+        f"- 每个工具的使用时长和用途",
+        f"- 工具切换模式反映的工作风格",
+        f"- 数字健康反思：屏幕时间、切换频率",
+        f"",
+        f"### 9. 情绪心电图（200-300字）",
+        f"- 一天的情绪变化曲线",
+        f"- 什么时刻最开心/最沮丧/最专注？",
+        f"- 情绪变化的原因分析",
+        f"- 用心理学视角解读情绪模式",
+        f"",
+        f"### 10. 感恩与欣赏（100-150字）",
+        f"- 今天感谢的三件事",
+        f"- 什么让你感到温暖或满足？",
+        f"- 用 5-Minute Journal 的风格",
+        f"",
+        f"### 11. 洞察与反思（300-400字）",
+        f"- 今天最大的收获是什么？",
+        f"- 时间分配是否合理？",
+        f"- 工作效率的自我评估",
+        f"- 值得保持的好习惯",
+        f"- 需要改进的地方",
+        f"- 用教练的视角给出建议",
+        f"",
+        f"### 12. 明日展望（150-200字）",
+        f"- 明天最想完成的三件事",
+        f"- 今天的未完成项如何延续？",
+        f"- 对明天的期待",
+        f"- 用积极的语气结束",
+        f"",
+        f"### 13. 数据附录（表格形式）",
+        f"- 时间分配表格",
+        f"- 应用使用时长表格",
+        f"- 专注会话统计",
+        f"",
+        f"---",
+        f"",
+        f"## 数据输入",
+        f"",
+        f"### 基础信息",
+        f"- 日期：{target_date} {weekday_str}",
+        f"- 活跃时段：{time_span}",
+        f"- 总活动记录数：{total}",
+        f"- 估算专注时长：{focus_hours}",
+        f"- 深度工作会话数：{focus_sessions}",
+        f"- 分类切换次数：{patterns.get('category_switches', 0)}",
+        f"- 被打断的短专注段数：{patterns.get('interrupted_sessions', 0)}",
+        f"",
+    ]
+
+    # 情绪分析数据
+    if emotional:
+        lines.append("### 情绪分析")
+        lines.append(f"- 整体情绪得分：{emotional.get('average_score', 5)}/10")
+        lines.append(f"- 主导情绪：{emotional.get('dominant_mood', '平稳')}")
+        lines.append(f"- 能量曲线：{emotional.get('energy_curve', '未知')}")
+        for s in emotional.get("states", []):
+            lines.append(f"- {s['period']}：{s['state']}（{s['score']}/10）— {s['desc']}")
+        lines.append("")
+
+    # 项目追踪
+    if projects:
+        lines.append("### 项目追踪")
+        for p in projects:
+            lines.append(f"- **{p['name']}**：{p['count']} 条记录，涉及 {', '.join(p['categories'])}")
+        lines.append("")
+
+    # 叙事段落
+    if narrative_blocks:
+        lines.append("### 工作叙事段落（按时间线）")
+        for i, block in enumerate(narrative_blocks[:12], 1):
+            lines.append(f"**段落 {i}** [{block['category']}] {block['start_time']} - {block['end_time']}（{block['duration_min']:.0f}分钟）")
+            lines.append(f"- 工具：{block['apps_str']}")
+            if block['summaries']:
+                lines.append(f"- 工作内容：{'；'.join(block['summaries'][:3])}")
+            if block['key_details']:
+                for d in block['key_details'][:2]:
+                    lines.append(f"- 细节：{d[:100]}...")
+            lines.append("")
+
+    # 时间间隔
+    gaps = patterns.get("time_gaps", [])
+    if gaps:
+        lines.append("### 时间间隔（休息/离开）")
+        for g in gaps[:8]:
+            lines.append(f"- {g['from']} → {g['to']}（间隔 {g['gap_min']} 分钟）")
+        lines.append("")
+
+    # 专注会话
+    focus_ses = patterns.get("focus_sessions", [])
+    if focus_ses:
+        lines.append("### 深度专注会话")
+        for fs in focus_ses:
+            lines.append(f"- {fs['start']} 开始，{fs['category']}，持续 {fs['duration_min']} 分钟")
+        lf = patterns.get("longest_focus")
+        if lf:
+            lines.append(f"- 最长专注：{lf['category']} {lf['duration_min']} 分钟")
+        lines.append("")
+
+    # 工作强度曲线
+    curve = patterns.get("intensity_curve", [])
+    if curve:
+        lines.append("### 工作强度曲线")
+        for c in curve:
+            bar = "█" * min(c["count"], 20)
+            lines.append(f"- {c['hour']} {bar} ({c['count']} 次)")
+        lines.append("")
+
+    # 分类统计
+    lines.append("### 分类统计")
+    for cat, cnt in (summary_data.get("categories") or {}).items():
+        lines.append(f"- {cat}: {cnt} 次记录")
+    lines.append("")
+
+    # 完整活动时间线（精选）
+    lines.append("### 精选活动时间线（含 AI 详细分析）")
+    lines.append("以下是从全天记录中精选的关键时刻，每条包含 AI 的详细分析：")
+    lines.append("")
+    for i, item in enumerate(timeline_data[:40], 1):
+        lines.append(f"**{i}. {item['time']}** [{item['category']}]")
+        lines.append(f"- 应用：{item['app']}")
+        lines.append(f"- 摘要：{item['summary']}")
+        if item.get("detail"):
+            lines.append(f"- 详细分析：{item['detail']}")
+        if item.get("windows"):
+            for w in item["windows"]:
+                fg = "前台" if w.get("foreground") else "后台"
+                lines.append(f"  - {w['app']} [{fg}]：{w.get('desc', '')}")
+        lines.append("")
+
+    # 应用使用时长
+    if app_usage:
+        lines.append("### 应用使用时长")
+        for au in app_usage[:10]:
+            total_sec = au["duration_min"] * 60
+            time_str = _format_duration(total_sec)
+            display_name = get_display_name(au["app_name"])
+            lines.append(f"- {display_name}: {time_str}")
+        lines.append("")
+
+    lines.extend([
+        "---",
+        "",
+        "## 重要提示",
+        "1. **字数要求**：正文部分至少 1500-2500 字，每个板块都要充分展开，不要简略",
+        "2. **叙事优先**：用讲故事的方式写，不是列清单。有场景、有对话、有心理活动",
+        "3. **深度分析**：不要只说做了什么，要说为什么、怎么做、感受如何、学到了什么",
+        "4. **具体细节**：从 ai_detail 中提取具体的文件名、函数名、页面内容、错误信息",
+        "5. **心理推测**：根据工作节奏、切换频率、时间间隔，推测用户的心理状态变化",
+        "6. **温暖真诚**：像一位最懂你的朋友在帮你写回忆录，有笑有泪有洞察",
+        "7. **结构完整**：必须包含所有 13 个板块，不能省略",
+        "",
+        "请直接输出 Markdown 内容，不要包含任何额外说明。",
+    ])
+    return "\n".join(lines)
+
+
+def _template_deep(target_date: str, activities, summary_data, app_usage) -> str:
+    """深度洞察日报 v2：全面重构，13个丰富板块，参考顶级日记产品"""
+    if not activities:
+        return f"# {target_date} 日记\n\n今天没有工作记录，也许是一个休息日。\n\n好好休息，也是一种充电。明天见。\n"
+
+    if not config.AI_API_KEY:
+        base = _template_standard(target_date, activities, summary_data, app_usage)
+        return base.replace(
+            f"# {target_date} 工作日报",
+            f"# {target_date} 工作日报\n\n> ⚠️ 深度洞察模板需要 AI 支持。未配置 API Key，已使用标准模板生成。\n"
+        )
+
+    # 全面数据分析
+    patterns = _analyze_work_patterns(activities)
+    timeline_data = _build_activity_timeline_data(activities)
+    emotional = _analyze_emotional_journey(activities, patterns)
+    projects = _extract_projects_from_activities(activities)
+    narrative_blocks = _build_work_narrative_blocks(activities)
+
+    # 智能采样：如果记录太多，精选关键记录
+    MAX_ITEMS = 50
+    if len(timeline_data) > MAX_ITEMS:
+        # 保留：首末各5条 + 每个项目的关键记录 + 情绪变化点 + 高强度时段
+        sampled = timeline_data[:5]
+        seen = set()
+        for item in timeline_data[5:-5]:
+            key = f"{item['category']}_{item['time'][:2]}"
+            if key not in seen or len(sampled) < MAX_ITEMS - 5:
+                if item.get("detail") and len(item["detail"]) > 50:
+                    sampled.append(item)
+                    seen.add(key)
+        sampled.extend(timeline_data[-5:])
+        timeline_data = sampled[:MAX_ITEMS]
+
+    prompt = _build_deep_report_prompt_v2(
+        target_date, activities, summary_data, app_usage,
+        patterns, timeline_data, emotional, projects, narrative_blocks
+    )
+
+    try:
+        from openai import OpenAI
+        import httpx
+        client = OpenAI(
+            api_key=config.AI_API_KEY,
+            base_url=config.AI_BASE_URL,
+            timeout=httpx.Timeout(180.0, connect=10.0),  # 3分钟，更长的内容需要更多时间
+        )
+        response = client.chat.completions.create(
+            model=config.AI_TEXT_MODEL,
+            messages=[
+                {"role": "system", "content": (
+                    "你是一位极具洞察力的私人生活记录师和职业教练。"
+                    "你擅长将碎片化的工作数据还原成完整、丰富、有温度的一天。"
+                    "你的文字既有文学性又有洞察力，像一位最懂用户的老朋友。"
+                    "你参考 Day One、Stoic Journal、5-Minute Journal 等顶级日记产品的写作风格。"
+                    "你写的内容要极其丰富、深度、具体，每个板块都要充分展开。"
+                )},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=4000,  # 更多字数，支持 2500+ 字的正文
+            temperature=0.75,  # 稍高温度增加创意和叙事性
+        )
+        content = response.choices[0].message.content.strip()
+        # 去除可能的代码块包裹
+        import re as _re
+        _md_fence = _re.match(r"^```(?:markdown|md)?\s*\n(.+?)\n```\s*$", content, _re.DOTALL)
+        if _md_fence:
+            content = _md_fence.group(1).strip()
+        content = _re.sub(r"^```(?:markdown|md)?\s*\n", "", content).rstrip("`").strip()
+        # AIGC 标记
+        aigc_label = "\n\n---\n*本日记由 ChallengeDaily AI 深度分析生成，内容仅供参考*"
+        if aigc_label.strip() not in content and "*AI 辅助生成*" not in content:
+            content = content.rstrip() + aigc_label
+        return content
+    except Exception as e:
+        logger.error(f"深度洞察日报生成失败: {e}")
+        return _template_standard(target_date, activities, summary_data, app_usage)
+
+
+# ── 模板5: AI 智能 (ai) ──────────────────────────
 # 融合全部活动数据（含 ai_detail、windows_json），生成叙事性日报 + 心理状态推测 + 深度洞察
 # 参考：
 #   - Day One Journal（叙事式日记）

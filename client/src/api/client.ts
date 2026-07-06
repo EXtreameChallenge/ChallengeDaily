@@ -41,12 +41,14 @@ function invalidateToken() {
   _tokenPromise = null
 }
 
-/** 带指数退避重试的 fetch（参考 resilience4j / Polly 模式） */
-export async function request(endpoint: string, options?: RequestInit, _isRetry = false): Promise<unknown> {
+/** 带指数退避重试的 fetch（参考 resilience4j / Polly 模式）
+ * @param timeoutMs - 自定义超时时间（毫秒），默认 10000ms
+ */
+export async function request(endpoint: string, options?: RequestInit, timeoutMs = 10000, _isRetry = false): Promise<unknown> {
   const token = await getApiToken()
   const controller = new AbortController()
-  // 连接超时缩短到 10 秒（后端是本地服务，不应长时间无响应）
-  const timeoutId = setTimeout(() => controller.abort(), 10000)
+  // 连接超时：后端是本地服务，默认 10 秒；生成报告等长耗时操作可自定义
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
   try {
     setBackendState('connecting')
     const res = await fetch(`${BASE_URL}${endpoint}`, {
@@ -238,23 +240,23 @@ export async function getAppUsage(date?: string): Promise<AppUsage[]> {
   return data.apps || []
 }
 
-/** 生成日报 */
+/** 生成日报（深度模板需要 AI 处理更长时间，单独设置 120 秒超时） */
 export async function generateDailyReport(template = 'standard'): Promise<ReportContent> {
-  const data = await request(`/api/report/daily?template=${template}`)
+  const data = await request(`/api/report/daily?template=${template}`, {}, 120000)
   return data as ReportContent
 }
 
 /** 生成周报 */
 export async function generateWeeklyReport(date?: string): Promise<ReportContent> {
   const params = date ? `?date=${date}` : ''
-  const data = await request(`/api/report/weekly${params}`)
+  const data = await request(`/api/report/weekly${params}`, {}, 120000)
   return data as ReportContent
 }
 
 /** 生成月报 */
 export async function generateMonthlyReport(month?: string): Promise<ReportContent> {
   const params = month ? `?month=${month}` : ''
-  const data = await request(`/api/report/monthly${params}`)
+  const data = await request(`/api/report/monthly${params}`, {}, 120000)
   return data as ReportContent
 }
 
