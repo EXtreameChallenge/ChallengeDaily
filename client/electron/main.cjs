@@ -396,7 +396,12 @@ function setupIPC() {
   // Windows 系统定位（通过 WinRT Geolocator API，精度 ~30-500m WiFi 定位）
   ipcMain.handle('get-windows-location', async () => {
     return new Promise((resolve) => {
-      const psScript = [
+      // 写临时脚本文件避免 -Command 中 $ 变量被外层 shell 吞掉
+      const os = require('os')
+      const path = require('path')
+      const fs = require('fs')
+      const tmpScript = path.join(os.tmpdir(), 'cd_geo.ps1')
+      const scriptContent = [
         'Add-Type -AssemblyName System.Runtime.WindowsRuntime',
         '[Windows.Devices.Geolocation.Geolocator, Windows.Devices.Geolocation, ContentType = WindowsRuntime] | Out-Null',
         '[Windows.Devices.Geolocation.Geoposition, Windows.Devices.Geolocation, ContentType = WindowsRuntime] | Out-Null',
@@ -413,9 +418,12 @@ function setupIPC() {
         '  $c = $pos.Coordinate',
         '  Write-Output "$($c.Point.Position.Latitude),$($c.Point.Position.Longitude),$($c.Accuracy)"',
         '} else { Write-Output "TIMEOUT" }',
-      ].join('; ')
-      const cmd = `powershell -NoProfile -Command "${psScript.replace(/"/g, '\\"')}"`
+      ].join('\n')
+      try { fs.writeFileSync(tmpScript, scriptContent, 'utf8') } catch (e) { return resolve(null) }
+
+      const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -File "${tmpScript}"`
       exec(cmd, { timeout: 20000, windowsHide: true }, (err, stdout, stderr) => {
+        try { fs.unlinkSync(tmpScript) } catch {}
         if (err || !stdout || stdout.trim() === 'TIMEOUT') {
           console.error('[GeoLocation] WinRT location failed:', err?.message || stderr || 'timeout')
           return resolve(null)
@@ -426,6 +434,7 @@ function setupIPC() {
         const lon = parseFloat(parts[1])
         const accuracy = parts[2] ? parseFloat(parts[2]) : null
         if (!isNaN(lat) && !isNaN(lon)) {
+          console.log(`[GeoLocation] WinRT OK: lat=${lat}, lon=${lon}, accuracy=${accuracy}m`)
           resolve({ lat, lon, accuracy, status: 'OK' })
         } else {
           resolve(null)
