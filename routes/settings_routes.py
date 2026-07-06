@@ -50,8 +50,7 @@ def update_settings():
         config.AI_API_KEY = ""
         current["ai_api_key_set"] = False
 
-    save_settings(current)
-
+    # 校验截图间隔 — 在保存之前，避免无效值被持久化
     if "screenshot_interval_sec" in data:
         import config
         val = int(data["screenshot_interval_sec"])
@@ -59,6 +58,11 @@ def update_settings():
             return jsonify({"error": "截图间隔不能小于15秒"}), 400
         if val > 300:
             return jsonify({"error": "截图间隔不能大于300秒"}), 400
+
+    save_settings(current)
+
+    if "screenshot_interval_sec" in data:
+        import config
         config.SCREENSHOT_INTERVAL_SEC = val
 
     if "ai_base_url" in data:

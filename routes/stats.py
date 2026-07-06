@@ -88,7 +88,12 @@ def stats_hourly():
 
 @bp.route("/api/stats/trend")
 def stats_trend():
-    days = min(int(request.args.get("days", "7")), 30)
+    try:
+        days = min(int(request.args.get("days", "7")), 30)
+        if days < 1:
+            days = 7
+    except (ValueError, TypeError):
+        days = 7
     from db import get_multi_day_stats
     data = get_multi_day_stats(days)
     for item in data:
@@ -110,13 +115,13 @@ def stats_rhythm():
         ).fetchall()
 
     periods = {
+        "凌晨 (0-6)": 0,
         "早晨 (6-8)": 0,
         "上午 (8-11)": 0,
         "中午 (11-14)": 0,
         "下午 (14-19)": 0,
         "晚间 (19-22)": 0,
         "夜间 (22-24)": 0,
-        "凌晨 (0-6)": 0,
     }
     for r in rows:
         h = r["hour"]

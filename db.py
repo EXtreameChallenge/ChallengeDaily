@@ -148,21 +148,21 @@ def init_db():
             # 添加 reports 表 template 列
             try:
                 conn.execute("ALTER TABLE reports ADD COLUMN template TEXT DEFAULT 'standard'")
-            except Exception:
+            except sqlite3.OperationalError:
                 pass  # 列已存在
 
         # V4: 添加 activities.interval_sec 列，记录采集时的截图间隔
         if current_version < 4:
             try:
                 conn.execute("ALTER TABLE activities ADD COLUMN interval_sec INTEGER DEFAULT 60")
-            except Exception:
+            except sqlite3.OperationalError:
                 pass  # 列已存在
 
         # V5: 添加 activities.ai_detail 列，记录 AI 详细分析
         if current_version < 5:
             try:
                 conn.execute("ALTER TABLE activities ADD COLUMN ai_detail TEXT DEFAULT ''")
-            except Exception:
+            except sqlite3.OperationalError:
                 pass  # 列已存在
 
         # V6: 添加 app_category_rules 表，支持用户自定义应用分类规则和多标签
@@ -185,7 +185,7 @@ def init_db():
         if current_version < 7:
             try:
                 conn.execute("ALTER TABLE activities ADD COLUMN windows_json TEXT DEFAULT '[]'")
-            except Exception:
+            except sqlite3.OperationalError:
                 pass  # 列已存在
 
         # 更新版本号
@@ -203,24 +203,26 @@ def init_db():
 # 参考 SQLite 性能指南：https://www.sqlite.org/withoutrowid.html
 _pending_commits = 0
 _COMMIT_BATCH_SIZE = 5  # 攒够 5 条或下次读取时提交
+_write_lock = threading.Lock()  # 保护 _pending_commits 和写操作
 
 
 def insert_activity(timestamp: str, screenshot: str, app_name: str,
                     window_title: str, category: str, summary: str,
                     interval_sec: int = 60, ai_detail: str = "",
                     windows_json: str = "[]"):
-    """写入一条活动记录（批量提交优化）"""
+    """写入一条活动记录（批量提交优化，线程安全）"""
     global _pending_commits
-    with get_conn() as conn:
-        _execute_with_retry(conn,
-            "INSERT INTO activities (timestamp, screenshot, app_name, window_title, category, summary, interval_sec, ai_detail, windows_json) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (timestamp, screenshot, app_name, window_title, category, summary, interval_sec, ai_detail, windows_json),
-        )
-        _pending_commits += 1
-        if _pending_commits >= _COMMIT_BATCH_SIZE:
-            conn.commit()
-            _pending_commits = 0
+    with _write_lock:
+        with get_conn() as conn:
+            _execute_with_retry(conn,
+                "INSERT INTO activities (timestamp, screenshot, app_name, window_title, category, summary, interval_sec, ai_detail, windows_json) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (timestamp, screenshot, app_name, window_title, category, summary, interval_sec, ai_detail, windows_json),
+            )
+            _pending_commits += 1
+            if _pending_commits >= _COMMIT_BATCH_SIZE:
+                conn.commit()
+                _pending_commits = 0
 
 
 def insert_manual_activity(timestamp: str, app_name: str, window_title: str,
@@ -249,10 +251,11 @@ def insert_manual_activity(timestamp: str, app_name: str, window_title: str,
 def _flush_pending_commits():
     """刷新待提交的事务（读取数据前调用，确保数据一致）"""
     global _pending_commits
-    if _pending_commits > 0:
-        with get_conn() as conn:
-            conn.commit()
-        _pending_commits = 0
+    with _write_lock:
+        if _pending_commits > 0:
+            with get_conn() as conn:
+                conn.commit()
+            _pending_commits = 0
 
 
 def get_activities(start_date: str, end_date: str):
@@ -271,7 +274,7 @@ def get_recent_activities(limit: int = 5):
     _flush_pending_commits()
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT timestamp, app_name, window_title, category, summary "
+            "SELECT timestamp, app_name, window_title, category, summary, ai_detail, windows_json "
             "FROM activities ORDER BY timestamp DESC LIMIT ?",
             (limit,),
         ).fetchall()
@@ -336,6 +339,7 @@ def upsert_app_usage(app_name: str, window_title: str, start_time: str, end_time
 
 def get_app_usage(start_date: str, end_date: str):
     """查询应用使用时长统计"""
+    _flush_pending_commits()
     with get_conn() as conn:
         rows = conn.execute(
             "SELECT app_name, SUM(duration_sec) as total_sec FROM app_usage "

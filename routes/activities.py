@@ -173,14 +173,30 @@ def delete_activity(act_id):
                 window_title TEXT,
                 category TEXT,
                 summary TEXT,
+                interval_sec INTEGER DEFAULT 60,
+                ai_detail TEXT DEFAULT '',
+                windows_json TEXT DEFAULT '[]',
                 created_at TEXT,
                 original_id INTEGER,
                 deleted_at TEXT DEFAULT (datetime('now'))
             )
         """)
+        # 兼容：为旧版 deleted 表补齐新列
+        try:
+            conn.execute("ALTER TABLE activities_deleted ADD COLUMN interval_sec INTEGER DEFAULT 60")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE activities_deleted ADD COLUMN ai_detail TEXT DEFAULT ''")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE activities_deleted ADD COLUMN windows_json TEXT DEFAULT '[]'")
+        except Exception:
+            pass
 
-        # 只插入 deleted 表中存在的列 + original_id
-        deleted_cols = {"id", "timestamp", "screenshot", "app_name", "window_title", "category", "summary", "created_at"}
+        # 插入 deleted 表 — 包含所有活动字段 + original_id
+        deleted_cols = {"id", "timestamp", "screenshot", "app_name", "window_title", "category", "summary", "interval_sec", "ai_detail", "windows_json", "created_at"}
         insert_cols = []
         insert_vals = []
         for k in row.keys():

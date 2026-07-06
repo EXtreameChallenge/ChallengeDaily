@@ -189,22 +189,22 @@ export default function Overview() {
   const formatDur = (m: number) => m >= 60 ? `${(m / 60).toFixed(1)}h` : `${Math.round(m)}min`
 
   const rhythmIcons: Record<string, string> = {
+    '凌晨 (0-6)': '🌑',
     '早晨 (6-8)': '🌅',
     '上午 (8-11)': '🌞',
     '中午 (11-14)': '🍜',
     '下午 (14-19)': '☀️',
     '晚间 (19-22)': '🌆',
     '夜间 (22-24)': '🌙',
-    '凌晨 (0-6)': '🌑',
   }
   const rhythmShort: Record<string, string> = {
+    '凌晨 (0-6)': '凌晨',
     '早晨 (6-8)': '早晨',
     '上午 (8-11)': '上午',
     '中午 (11-14)': '中午',
     '下午 (14-19)': '下午',
     '晚间 (19-22)': '晚间',
     '夜间 (22-24)': '夜间',
-    '凌晨 (0-6)': '凌晨',
   }
 
   if (isEmptyState) {
@@ -441,9 +441,14 @@ export default function Overview() {
             {rhythmData.length > 0 ? (
               <div className="space-y-3">
                 {(() => {
-                  const maxDuration = Math.max(...rhythmData.map(r => r.duration_min), 1)
+                  // 用每个时段的理论最大时长作为进度条参考，避免单时段有数据时显示满格
+                  const maxHours: Record<string, number> = {
+                    '凌晨 (0-6)': 6, '早晨 (6-8)': 2, '上午 (8-11)': 3,
+                    '中午 (11-14)': 3, '下午 (14-19)': 5, '晚间 (19-22)': 3, '夜间 (22-24)': 2,
+                  }
                   return rhythmData.map((item) => {
-                    const ratio = item.duration_min / maxDuration
+                    const maxMin = (maxHours[item.period] || 2) * 60
+                    const ratio = Math.min(item.duration_min / maxMin, 1)
                     const widthPct = Math.max(ratio * 100, 2)
                     return (
                       <div key={item.period}>

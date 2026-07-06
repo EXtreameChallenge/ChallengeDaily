@@ -154,8 +154,8 @@ async function startBackend() {
     const logStream = fs.createWriteStream(logFile, { flags: 'a' })
     const log = (tag, msg) => {
       const line = `[${new Date().toISOString()}] [${tag}] ${msg}`
-      console.log(line)
-      logStream.write(line + '\n')
+      try { console.log(line) } catch (_) {}
+      try { logStream.write(line + '\n') } catch (_) {}
     }
     log('Main', `Starting backend: ${pythonExe} ${mainScript} cwd=${backendDir}`)
 
@@ -618,6 +618,24 @@ function installUpdate() {
   }
 }
 
+// ─── EPIPE 安全日志 ──────────────────────────────────
+// Windows 上后端进程被杀后，stdout/stderr 管道关闭，
+// console.log/warn/error 写入会触发 EPIPE 未捕获异常导致弹窗。
+// 所有定时器回调中的日志必须使用 safeLog 包装。
+function safeLog(fn, ...args) {
+  try { fn(...args) } catch (e) { /* EPIPE: pipe closed — ignore */ }
+}
+
+// 防止 EPIPE 等管道错误弹窗覆盖应用
+process.on('uncaughtException', (err) => {
+  if (err.code === 'EPIPE') {
+    // 后端进程已退出，管道关闭，忽略即可
+    return
+  }
+  // 其他未捕获异常仍然记录
+  safeLog(console.error, '[uncaughtException]', err)
+})
+
 // ─── 崩溃监控 & Watchdog & 心跳检测 ──────────────────
 // 参考 Kubernetes liveness/readiness probe 模式：
 //   1. 进程崩溃：指数退避重启（3s → 5s → 10s → 20s → 30s），不放弃
@@ -632,7 +650,7 @@ function watchBackend() {
   backendProcess.on('exit', (code) => {
     if (code !== 0 && code !== null) {
       _crashCount++
-      console.error(`[Watchdog] Backend crashed (code=${code}), crash count: ${_crashCount}`)
+      safeLog(console.error, `[Watchdog] Backend crashed (code=${code}), crash count: ${_crashCount}`)
 
       // 指数退避重启：3s → 5s → 10s → 20s → 30s
       const delay = _crashCount <= 1 ? 3000
@@ -640,15 +658,15 @@ function watchBackend() {
         : _crashCount === 3 ? 10000
         : _crashCount === 4 ? 20000
         : 30000  // 封顶 30 秒
-      console.log(`[Watchdog] Restarting backend in ${delay/1000}s (attempt ${_crashCount})...`)
+      safeLog(console.log, `[Watchdog] Restarting backend in ${delay/1000}s (attempt ${_crashCount})...`)
 
       setTimeout(async () => {
         try {
           await startBackend()
           watchBackend()  // re-attach watcher
-          console.log('[Watchdog] Backend restarted successfully')
+          safeLog(console.log, '[Watchdog] Backend restarted successfully')
         } catch (e) {
-          console.error('[Watchdog] Restart failed:', e)
+          safeLog(console.error, '[Watchdog] Restart failed:', e)
           // 递归重试
           watchBackend()
         }
@@ -674,10 +692,10 @@ function startHealthCheck() {
         _healthFailCount = 0
       } else {
         _healthFailCount++
-        console.warn(`[HealthCheck] Backend not responding (${_healthFailCount}/${_HEALTH_FAIL_THRESHOLD})`)
+        safeLog(console.warn, `[HealthCheck] Backend not responding (${_healthFailCount}/${_HEALTH_FAIL_THRESHOLD})`)
 
         if (_healthFailCount >= _HEALTH_FAIL_THRESHOLD) {
-          console.error('[HealthCheck] Backend unresponsive, forcing restart...')
+          safeLog(console.error, '[HealthCheck] Backend unresponsive, forcing restart...')
           _healthFailCount = 0
           // 强制杀掉后端进程并重启
           stopBackend()
@@ -685,16 +703,16 @@ function startHealthCheck() {
             try {
               await startBackend()
               watchBackend()
-              console.log('[HealthCheck] Backend restarted after health check failure')
+              safeLog(console.log, '[HealthCheck] Backend restarted after health check failure')
             } catch (e) {
-              console.error('[HealthCheck] Restart after health check failed:', e)
+              safeLog(console.error, '[HealthCheck] Restart after health check failed:', e)
             }
           }, 3000)
         }
       }
     } catch (e) {
       // 心跳检测异常不中断循环
-      console.error('[HealthCheck] Error:', e.message)
+      safeLog(console.error, '[HealthCheck] Error:', e.message)
     }
   }
 

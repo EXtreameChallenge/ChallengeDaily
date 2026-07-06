@@ -10,18 +10,21 @@ bp = Blueprint('notifications', __name__)
 
 _notifications: list[dict] = []
 _notifications_lock = threading.Lock()
+_next_id = 1  # 单调递增，避免 ID 碰撞
 
 
 def add_notification(title: str, body: str, ntype: str = "info"):
+    global _next_id
     with _notifications_lock:
         _notifications.append({
-            "id": len(_notifications) + 1,
+            "id": _next_id,
             "title": title,
             "body": body,
             "type": ntype,
             "timestamp": _datetime.now().isoformat(),
             "read": False,
         })
+        _next_id += 1
         if len(_notifications) > 50:
             _notifications[:] = _notifications[-50:]
 

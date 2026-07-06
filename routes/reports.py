@@ -55,8 +55,9 @@ def report_list():
 
 @bp.route("/api/generate-report", methods=["POST"])
 def generate_report():
-    target_date = request.args.get("date", date.today().isoformat())
-    template = request.args.get("template", "standard")
+    data = request.get_json(silent=True) or {}
+    target_date = data.get("date") or request.args.get("date", date.today().isoformat())
+    template = data.get("template") or request.args.get("template", "standard")
     if not validate_date(target_date):
         return jsonify({"error": f"Invalid date format: {target_date}"}), 400
     content = generate_daily_report(target_date, template=template)

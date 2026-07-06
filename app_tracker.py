@@ -51,6 +51,8 @@ IsWindow.argtypes = [ctypes.wintypes.HWND]
 IsWindow.restype = ctypes.c_bool
 GetWindowLongW.argtypes = [ctypes.wintypes.HWND, ctypes.c_int]
 GetWindowLongW.restype = ctypes.wintypes.LONG
+user32.GetClassNameW.argtypes = [ctypes.wintypes.HWND, ctypes.c_wchar_p, ctypes.c_int]
+user32.GetClassNameW.restype = ctypes.c_int
 
 # 多窗口追踪：忽略这些系统进程/无意义窗口
 _IGNORED_WINDOW_CLASSES = {

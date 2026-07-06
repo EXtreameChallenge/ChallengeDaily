@@ -6,6 +6,7 @@ ChallengeDaily Windows 版 — 核心循环
 import logging
 import threading
 import gc
+import time
 from datetime import datetime
 
 from config import RETENTION_DAYS, is_app_excluded, load_settings
@@ -36,7 +37,6 @@ _ICON_CACHE_MAX_SIZE = 100  # 限制图标提取缓存大小，避免内存无�
 
 def _should_extract_icon(app_name: str) -> bool:
     """检查是否应该提取图标（限流：同一应用10分钟内只提取一次）"""
-    import time
     now = time.time()
     with _icon_extract_lock:
         # 定期清理过期条目，防止字典无限增长
@@ -61,7 +61,6 @@ _GC_INTERVAL_SEC = 1800  # 30分钟执行一次 GC
 def _maybe_gc():
     """定时执行垃圾回收，控制内存增长"""
     global _last_gc_time
-    import time
     now = time.time()
     if (now - _last_gc_time) > _GC_INTERVAL_SEC:
         gc.collect()
@@ -252,12 +251,15 @@ class Collector:
         if current_app_key != self._last_app_key:
             # 应用切换了，先写入上一段
             if self._last_app_data is not None and self._segment_start is not None:
-                upsert_app_usage(
-                    app_name=self._last_app_data["app_name"],
-                    window_title=self._last_app_data["window_title"],
-                    start_time=self._segment_start,
-                    end_time=timestamp,
-                )
+                try:
+                    upsert_app_usage(
+                        app_name=self._last_app_data["app_name"],
+                        window_title=self._last_app_data["window_title"],
+                        start_time=self._segment_start,
+                        end_time=timestamp,
+                    )
+                except Exception as e:
+                    logger.warning(f"upsert_app_usage 失败（应用切换）: {e}")
             # 开始新段
             self._last_app_key = current_app_key
             self._last_app_data = {"app_name": app_name, "window_title": window_title}
@@ -294,7 +296,6 @@ class Collector:
         windows_data = analysis_windows
 
         # 是否需要完整 AI 分析：画面变化、AI 首次分析、或超过复用间隔
-        import time
         now_ts = time.time()
         should_analyze = (
             ai_enabled
@@ -313,8 +314,7 @@ class Collector:
             # 4.5 获取近期活动上下文，供 AI 综合分析（带缓存）
             recent_context = ""
             try:
-                import time as _time
-                now_ctx = _time.time()
+                now_ctx = time.time()
                 if (self._recent_context_cache is not None and
                     (now_ctx - self._recent_context_cache_time) < self._RECENT_CONTEXT_CACHE_TTL):
                     recent_context = self._recent_context_cache
