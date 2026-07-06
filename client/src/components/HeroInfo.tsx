@@ -6,7 +6,6 @@ import { request } from '../api/client'
 
 interface HeroInfoProps {
   todayDurationMin: number
-  goalHours?: number
 }
 
 interface WeatherInfo {
@@ -57,7 +56,7 @@ const tzCity = (() => {
   }
 })()
 
-export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoProps) {
+export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
   const [now, setNow] = useState(dayjs())
   const [weather, setWeather] = useState<WeatherInfo | null>(null)
   const [city, setCity] = useState<string>(tzCity)
@@ -400,113 +399,66 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
     return () => clearInterval(timer)
   }, [fetchInsight])
 
-  const progress = Math.min((todayDurationMin / (goalHours * 60)) * 100, 100)
-  const progressColor = progress >= 100 ? 'text-cd-green' : progress >= 50 ? 'text-yellow-400' : 'text-cd-text-secondary'
-
   return (
-    <div className="mb-6">
-      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
-        {/* 左侧：时间日期 */}
-        <div className="flex items-end gap-4">
-          <div className="text-6xl font-bold text-cd-text tracking-tight font-brand leading-none">
+    <div>
+      {/* 第一行：时间日期 + 天气 */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        {/* 时间日期 */}
+        <div className="flex items-end gap-3">
+          <div className="text-5xl font-bold text-cd-text tracking-tight font-brand leading-none">
             {now.format('HH:mm')}
           </div>
-          <div className="pb-1">
-            <div className="text-base text-cd-text font-medium font-display">{now.format('M月D日')}</div>
-            <div className="text-sm text-cd-text-secondary font-display">{WEEKDAYS[now.day()]}</div>
-            <div className="text-xs text-cd-text-tertiary mt-0.5 font-display">{lunarText}</div>
+          <div className="pb-0.5">
+            <div className="text-sm text-cd-text font-medium font-display">{now.format('M月D日')}</div>
+            <div className="text-xs text-cd-text-secondary font-display">{WEEKDAYS[now.day()]}</div>
+            <div className="text-[11px] text-cd-text-tertiary font-display">{lunarText}</div>
           </div>
         </div>
 
-        {/* 中间：天气定位 */}
-        <div className="flex items-center gap-4 lg:ml-auto">
-          <div className="flex items-start gap-2 text-sm text-cd-text-secondary">
-            <MapPin size={16} className="text-cd-text-tertiary mt-0.5 shrink-0" />
-            <div className="flex flex-col">
-              <span className="font-display leading-tight">{city || tzCity}</span>
-              {preciseLocation && (
-                <span className="text-[11px] text-cd-text-tertiary font-display leading-tight mt-0.5 flex items-center gap-1">
-                  <Navigation size={10} className="shrink-0" />
-                  {preciseLocation}
-                </span>
-              )}
-            </div>
+        {/* 位置 + 天气 */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs text-cd-text-secondary">
+            <MapPin size={13} className="text-cd-text-tertiary shrink-0" />
+            <span className="font-display">{city || tzCity}</span>
+            {preciseLocation && (
+              <span className="text-[10px] text-cd-text-tertiary font-display flex items-center gap-0.5">
+                <Navigation size={9} className="shrink-0" />
+                {preciseLocation}
+              </span>
+            )}
           </div>
           {loadingWeather ? (
-            <div className="flex items-center gap-2 text-sm text-cd-text-tertiary">
-              <Wind size={16} className="animate-spin" />
-              <span>天气获取中</span>
+            <div className="flex items-center gap-1.5 text-xs text-cd-text-tertiary">
+              <Wind size={13} className="animate-spin" />
             </div>
           ) : weather ? (
-            <div className="flex items-center gap-2 text-sm text-cd-text">
+            <div className="flex items-center gap-1.5 text-xs text-cd-text">
               {getWeatherIcon(weather.code)}
               <span className="font-brand font-semibold">{weather.temp}°C</span>
               <span className="text-cd-text-secondary font-display">{getWeatherText(weather.code)}</span>
             </div>
-          ) : (
-            <div className="flex items-center gap-2 text-sm text-cd-text-tertiary">
-              <CloudSun size={16} />
-              <span>天气暂不可用</span>
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {/* 下方：AI 洞察 + 图形化进度 */}
-      <div className="mt-5 flex flex-col sm:flex-row gap-5 items-start">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <Brain size={16} className="text-cd-green" />
-            <span className="text-xs text-cd-green font-medium uppercase tracking-wider">AI 今日洞察</span>
-            {!loadingInsight && insight && (
-              <button onClick={fetchInsight} className="ml-1 text-cd-text-tertiary hover:text-cd-text transition" title="刷新洞察">
-                <RefreshCw size={12} />
-              </button>
-            )}
-          </div>
-          {loadingInsight ? (
-            <p className="text-sm text-cd-text-tertiary animate-pulse">正在分析今日工作数据...</p>
-          ) : insight ? (
-            <p className="text-base text-cd-text leading-relaxed">{insight}</p>
-          ) : (
-            <p className="text-sm text-cd-text-tertiary">配置 AI 后，这里会基于你的真实工作数据给出深度洞察。</p>
+      {/* 第二行：AI 洞察 */}
+      <div className="mt-3">
+        <div className="flex items-center gap-1.5 mb-1">
+          <Brain size={13} className="text-cd-green" />
+          <span className="text-[10px] text-cd-green font-medium uppercase tracking-wider">AI 洞察</span>
+          {!loadingInsight && insight && (
+            <button onClick={fetchInsight} className="text-cd-text-tertiary hover:text-cd-text transition" title="刷新">
+              <RefreshCw size={10} />
+            </button>
           )}
         </div>
-
-        {/* 今日进度环 */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="relative w-16 h-16">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-              <path
-                className="text-cd-bg-secondary"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-              />
-              <path
-                className={progressColor}
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeDasharray={`${progress}, 100`}
-                strokeLinecap="round"
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[10px] font-brand font-semibold text-cd-text">{Math.round(progress)}%</span>
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-cd-text-tertiary">今日目标进度</div>
-            <div className="text-sm text-cd-text font-medium font-brand">
-              {todayDurationMin >= 60
-                ? `${(todayDurationMin / 60).toFixed(1)}h / ${goalHours}h`
-                : `${todayDurationMin}m / ${goalHours}h`}
-            </div>
-          </div>
-        </div>
+        {loadingInsight ? (
+          <p className="text-xs text-cd-text-tertiary animate-pulse">正在分析今日工作数据...</p>
+        ) : insight ? (
+          <p className="text-sm text-cd-text leading-relaxed">{insight}</p>
+        ) : (
+          <p className="text-xs text-cd-text-tertiary">配置 AI 后，这里会基于真实工作数据给出深度洞察。</p>
+        )}
       </div>
     </div>
   )
