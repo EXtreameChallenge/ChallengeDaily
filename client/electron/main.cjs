@@ -393,21 +393,40 @@ function setupIPC() {
     }
   })
 
-  // Windows 系统定位（调用 PowerShell Get-GeoLocation，需要系统开启定位服务）
+  // Windows 系统定位（通过 WinRT Geolocator API，精度 ~30-500m WiFi 定位）
   ipcMain.handle('get-windows-location', async () => {
     return new Promise((resolve) => {
-      const cmd = 'powershell -NoProfile -Command "$g=Get-GeoLocation; \\"$($g.Latitude),$($g.Longitude),$($g.Status)\\""'
-      exec(cmd, { timeout: 8000, windowsHide: true }, (err, stdout, stderr) => {
-        if (err || !stdout) {
-          console.error('[GeoLocation] PowerShell Get-GeoLocation failed:', err?.message || stderr)
+      const psScript = [
+        'Add-Type -AssemblyName System.Runtime.WindowsRuntime',
+        '[Windows.Devices.Geolocation.Geolocator, Windows.Devices.Geolocation, ContentType = WindowsRuntime] | Out-Null',
+        '[Windows.Devices.Geolocation.Geoposition, Windows.Devices.Geolocation, ContentType = WindowsRuntime] | Out-Null',
+        '$methods = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq "AsTask" -and $_.GetParameters().Count -eq 1 }',
+        '$asTask = $methods[0]',
+        '$locator = New-Object Windows.Devices.Geolocation.Geolocator',
+        '$locator.DesiredAccuracy = [Windows.Devices.Geolocation.PositionAccuracy]::High',
+        '$locator.DesiredAccuracyInMeters = 50',
+        '$asyncOp = $locator.GetGeopositionAsync()',
+        '$task = $asTask.MakeGenericMethod([Windows.Devices.Geolocation.Geoposition]).Invoke($null, @($asyncOp))',
+        '$task.Wait(15000)',
+        'if ($task.IsCompleted) {',
+        '  $pos = $task.Result',
+        '  $c = $pos.Coordinate',
+        '  Write-Output "$($c.Point.Position.Latitude),$($c.Point.Position.Longitude),$($c.Accuracy)"',
+        '} else { Write-Output "TIMEOUT" }',
+      ].join('; ')
+      const cmd = `powershell -NoProfile -Command "${psScript.replace(/"/g, '\\"')}"`
+      exec(cmd, { timeout: 20000, windowsHide: true }, (err, stdout, stderr) => {
+        if (err || !stdout || stdout.trim() === 'TIMEOUT') {
+          console.error('[GeoLocation] WinRT location failed:', err?.message || stderr || 'timeout')
           return resolve(null)
         }
         const parts = stdout.trim().split(',')
         if (parts.length < 2) return resolve(null)
         const lat = parseFloat(parts[0])
         const lon = parseFloat(parts[1])
+        const accuracy = parts[2] ? parseFloat(parts[2]) : null
         if (!isNaN(lat) && !isNaN(lon)) {
-          resolve({ lat, lon, status: parts[2]?.trim() || 'OK' })
+          resolve({ lat, lon, accuracy, status: 'OK' })
         } else {
           resolve(null)
         }

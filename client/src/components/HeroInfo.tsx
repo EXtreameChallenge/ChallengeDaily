@@ -104,7 +104,7 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
 
     // 逆地理编码：从坐标解析出城市 + 精确位置（街道/建筑/POI）
     const fetchCityByCoords = async (lat: number, lon: number, precise = false) => {
-      // ─ 第一层：BigDataCloud（免费，返回 neighbourhood / POI 字段）──
+      // ── 第一层：BigDataCloud（免费，返回 neighbourhood / POI / locality 字段）──
       try {
         const res = await fetch(
           `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=zh`,
@@ -114,12 +114,15 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
         const cityName = data.city || data.locality || data.principalSubdivision
         if (cityName && !cancelled) setCity(cityName)
 
-        // 提取精确位置：POI > neighbourhood > 商圈
+        // 提取精确位置：locality(区县) > POI > neighbourhood
         const poiParts: string[] = []
+        // 区县级别（BigDataCloud 对中国支持较好）
+        if (data.locality && data.locality !== data.city) poiParts.push(data.locality)
         if (data.poi) poiParts.push(data.poi)
-        if (data.neighbourhood && data.neighbourhood !== data.city) poiParts.push(data.neighbourhood)
+        if (data.neighbourhood && data.neighbourhood !== data.city && data.neighbourhood !== data.locality) {
+          poiParts.push(data.neighbourhood)
+        }
         if (data.poiDescription) {
-          // 补充描述，如 "university campus"
           const desc = data.poiDescription
           if (!poiParts.some(p => desc.toLowerCase().includes(p.toLowerCase()))) {
             poiParts.push(desc)
@@ -130,20 +133,19 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
         }
       } catch { /* ignore */ }
 
-      // ── 第二层：Nominatim（OSM，高精度坐标时解析到建筑/道路级）──
+      // ── 第二层：Nominatim（OSM，高精度坐标时解析到建筑/道路级，国内可能超时）──
       if (!precise) return
       try {
         const res = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=zh-CN`,
           {
-            signal: AbortSignal.timeout(8000),
+            signal: AbortSignal.timeout(5000),
             headers: { 'User-Agent': 'ChallengeDaily/1.5.0' },
           }
         )
         const data = await res.json()
         const addr = data.address || {}
 
-        // 优先取最精确的 POI 信息
         const place =
           addr.building ||
           addr.college ||
@@ -162,29 +164,25 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
           addr.road
 
         if (place && !cancelled) {
-          // 如果 BigDataCloud 没给出精确位置，用 Nominatim 的
           const currentPrecise = preciseLocation
           if (!currentPrecise) {
-            // 构建详细位置：道路 + 门牌号 + 建筑
             const detailParts: string[] = []
             if (addr.road) detailParts.push(addr.road)
             if (addr.house_number) detailParts.push(addr.house_number + '号')
             if (addr.building && addr.building !== addr.road) detailParts.push(addr.building)
             const detail = detailParts.join('')
-
             if (detail) {
               setPreciseLocation(detail)
             } else {
               setPreciseLocation(place)
             }
           }
-          // 同时更新城市名为更准确的
           const betterCity = addr.city || addr.town || addr.county || addr.state
           if (betterCity && betterCity !== city) {
             setCity(betterCity)
           }
         }
-      } catch { /* ignore */ }
+      } catch { /* Nominatim 国内经常超时，静默忽略 */ }
     }
 
     const fetchWeatherByCityName = async (name: string) => {
@@ -264,7 +262,7 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
       return false
     }
 
-    // 腾讯免费 IP 定位（返回区县级别，比搜狐/新浪更精细）
+    // 腾讯 IP 定位（需要 Key 才能返回坐标，无 Key 时仅返回城市名）
     const tryTencentIP = async (): Promise<boolean> => {
       try {
         const res = await fetch('https://apis.map.qq.com/ws/location/v1/ip', {
@@ -275,7 +273,6 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
           const r = data.result
           const loc = r.location
           const adInfo = r.ad_info
-          // 构建区县级别位置名
           const districtName = adInfo?.district || adInfo?.city || ''
           if (districtName && !cancelled) setCity(districtName)
           if (loc?.lat && loc?.lng) {
@@ -285,9 +282,9 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
             ])
             return true
           }
-          // 即使没有坐标，有城市名也算成功
           if (districtName) return true
         }
+        // status !== 0 说明需要 Key，静默跳过
       } catch { /* try next */ }
       return false
     }
