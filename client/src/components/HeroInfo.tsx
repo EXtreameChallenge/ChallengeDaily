@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import dayjs from 'dayjs'
 import { Solar } from 'lunar-javascript'
-import { MapPin, Navigation, CloudSun, Sparkles, Sunrise, Cloud, CloudRain, Snowflake, Wind, Zap, Droplets } from 'lucide-react'
+import { MapPin, Navigation, CloudSun, Cloud, CloudRain, Snowflake, Wind, Zap, Brain, RefreshCw } from 'lucide-react'
 import { request } from '../api/client'
 
 interface HeroInfoProps {
@@ -28,7 +28,7 @@ const WEATHER_EMOJI: Record<number, string> = {
 }
 
 function getWeatherIcon(code: number) {
-  if (code <= 1) return <Sunrise size={18} className="text-cd-green" />
+  if (code <= 1) return <CloudSun size={18} className="text-cd-green" />
   if (code <= 3) return <CloudSun size={18} className="text-cd-text-secondary" />
   if (code <= 48) return <Cloud size={18} className="text-cd-text-tertiary" />
   if (code <= 67) return <CloudRain size={18} className="text-blue-400" />
@@ -63,8 +63,8 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
   const [city, setCity] = useState<string>(tzCity)
   const [preciseLocation, setPreciseLocation] = useState<string>('')
   const [loadingWeather, setLoadingWeather] = useState(false)
-  const [greeting, setGreeting] = useState('')
-  const [loadingGreeting, setLoadingGreeting] = useState(false)
+  const [insight, setInsight] = useState('')
+  const [loadingInsight, setLoadingInsight] = useState(false)
 
   // 实时更新时间
   // 优化：从 1 秒调整为 10 秒，仅在分钟变化时重渲染
@@ -382,26 +382,23 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
     return () => { cancelled = true }
   }, [])
 
-  // 获取 AI 导语（天气/城市就绪后会带着真实信息再请求一次）
+  // 获取 AI 洞察（基于真实活动数据的分析，非空话寄语）
+  const fetchInsight = useCallback(() => {
+    setLoadingInsight(true)
+    request('/api/ai/overview-summary')
+      .then((data: { summary?: string }) => {
+        if (data.summary) setInsight(data.summary)
+      })
+      .catch(() => { /* 静默失败 */ })
+      .finally(() => setLoadingInsight(false))
+  }, [])
+
   useEffect(() => {
-    setLoadingGreeting(true)
-    const locationText = preciseLocation ? `${city || tzCity} · ${preciseLocation}` : (city || tzCity)
-    const params = new URLSearchParams({
-      time: now.format('HH:mm'),
-      date: now.format('M月D日'),
-      weekday: WEEKDAYS[now.day()],
-      lunar: lunarText,
-      location: locationText,
-    })
-    if (weather) {
-      params.set('weather', getWeatherText(weather.code))
-      params.set('temp', String(weather.temp))
-    }
-    request(`/api/greeting?${params.toString()}`)
-      .then((data: { greeting?: string }) => setGreeting(data.greeting || ''))
-      .catch(() => setGreeting(''))
-      .finally(() => setLoadingGreeting(false))
-  }, [weather, city, preciseLocation])
+    fetchInsight()
+    // 5 分钟刷新一次（与后端缓存 TTL 对齐）
+    const timer = setInterval(fetchInsight, 300000)
+    return () => clearInterval(timer)
+  }, [fetchInsight])
 
   const progress = Math.min((todayDurationMin / (goalHours * 60)) * 100, 100)
   const progressColor = progress >= 100 ? 'text-cd-green' : progress >= 50 ? 'text-yellow-400' : 'text-cd-text-secondary'
@@ -455,19 +452,24 @@ export default function HeroInfo({ todayDurationMin, goalHours = 8 }: HeroInfoPr
         </div>
       </div>
 
-      {/* 下方：AI 导语 + 图形化进度 */}
+      {/* 下方：AI 洞察 + 图形化进度 */}
       <div className="mt-5 flex flex-col sm:flex-row gap-5 items-start">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={16} className="text-cd-green" />
-            <span className="text-xs text-cd-green font-medium uppercase tracking-wider">AI 今日寄语</span>
+            <Brain size={16} className="text-cd-green" />
+            <span className="text-xs text-cd-green font-medium uppercase tracking-wider">AI 今日洞察</span>
+            {!loadingInsight && insight && (
+              <button onClick={fetchInsight} className="ml-1 text-cd-text-tertiary hover:text-cd-text transition" title="刷新洞察">
+                <RefreshCw size={12} />
+              </button>
+            )}
           </div>
-          {loadingGreeting ? (
-            <p className="text-sm text-cd-text-tertiary animate-pulse">正在为你准备今日寄语...</p>
+          {loadingInsight ? (
+            <p className="text-sm text-cd-text-tertiary animate-pulse">正在分析今日工作数据...</p>
+          ) : insight ? (
+            <p className="text-base text-cd-text leading-relaxed">{insight}</p>
           ) : (
-            <p className="text-base text-cd-text leading-relaxed">
-              {greeting || '早安！新的一天，愿你高效而从容。'}
-            </p>
+            <p className="text-sm text-cd-text-tertiary">配置 AI 后，这里会基于你的真实工作数据给出深度洞察。</p>
           )}
         </div>
 
