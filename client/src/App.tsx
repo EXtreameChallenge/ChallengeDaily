@@ -6,7 +6,6 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { ToastProvider } from './components/Toast'
 import { ThemeProvider } from './components/ThemeContext'
 import { BackendStatusBar } from './components/shared'
-import Pet from './components/Pet'
 import { healthCheck, getNotifications } from './api/client'
 
 // 懒加载页面组件 — 减少首屏加载体积
@@ -41,37 +40,33 @@ export default function App() {
   const [checking, setChecking] = useState(true)
   const [firstLaunchPhase, setFirstLaunchPhase] = useState<FirstLaunchPhase>('done')
 
-  // 桌面宠物可见性（简化版：主窗口内浮动 div）
-  const [petVisible, setPetVisible] = useState(() => localStorage.getItem('cd_pet_visible') !== '0')
-  useEffect(() => {
-    const sync = () => setPetVisible(localStorage.getItem('cd_pet_visible') !== '0')
-    window.addEventListener('cd-pet-visible-change', sync)
-    return () => window.removeEventListener('cd-pet-visible-change', sync)
-  }, [])
-  const handleTogglePet = (show: boolean) => {
-    setPetVisible(show)
-    localStorage.setItem('cd_pet_visible', show ? '1' : '0')
-    window.dispatchEvent(new CustomEvent('cd-pet-visible-change'))
-    // 简化版：宠物为主窗口内浮动 div，不调用独立窗口 IPC
-  }
-
   useEffect(() => {
     let attempts = 0
-    const interval = setInterval(async () => {
-      attempts++
-      try {
-        await healthCheck()
-        setBackendReady(true)
-        setChecking(false)
-        clearInterval(interval)
-      } catch {
-        if (attempts >= 120) {  // 2 minutes
+    let timerId: ReturnType<typeof setInterval> | null = null
+
+    const scheduleNext = (delay: number) => {
+      if (timerId !== null) clearInterval(timerId)
+      timerId = setInterval(async () => {
+        attempts++
+        try {
+          await healthCheck()
+          setBackendReady(true)
           setChecking(false)
-          clearInterval(interval)
+          if (timerId !== null) clearInterval(timerId)
+        } catch {
+          if (attempts === 120) {
+            setChecking(false)
+            // 停止 1 秒轮询，切换到 5 秒轮询，永不放弃
+            scheduleNext(5000)
+          }
         }
-      }
-    }, 1000)
-    return () => clearInterval(interval)
+      }, delay)
+    }
+
+    scheduleNext(1000)
+    return () => {
+      if (timerId !== null) clearInterval(timerId)
+    }
   }, [])
 
   useEffect(() => {
@@ -254,10 +249,6 @@ export default function App() {
             )}
           </div>
         </div>
-        {/* 桌面宠物（简化版：主窗口内浮动） */}
-        {backendReady && firstLaunchPhase === 'done' && (
-          <Pet visible={petVisible} onToggle={handleTogglePet} />
-        )}
       </ErrorBoundary>
     </ToastProvider>
   </ThemeProvider>

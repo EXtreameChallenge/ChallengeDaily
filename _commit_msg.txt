@@ -1,28 +1,26 @@
-feat: 周计划与任务分配 — 月/周/日三级层级+拖拽分配+番茄数据条
+fix: 修复后端断连+桌面宠物独立窗口+侧边栏分组
 
-后端:
-- db.py: SCHEMA_VERSION 17→20，V18 扩展 todos 表（parent_id/task_level/assigned_date/week_start/month_key/color），
-  V19 番茄钟关联 todo_id + 删除级联触发器，V20 plan_meta 元数据表
-- 新增 11 个数据访问函数（get_month_tasks/get_week_tasks/get_unassigned_todos/assign_todo/unassign_todo/
-  split_task/get_week_plan_stats/get_month_plan_stats/update_plan_meta/get_plan_meta）
-- routes/week_plan.py: 8 个端点（month/week/unassigned/assign/unassign/split/meta/stats/today）
-- routes/__init__.py: 注册 week_plan 蓝图（22 个蓝图）
-- routes/todos.py: create_todo 支持 task_level/parent_id/assigned_date/week_start/month_key
-- routes/pomodoro.py: start 支持 todo_id，stop 完成时自动回写 todo 进度
-- 修复 db.insert_todo SQL 占位符 bug（9 列 8 个 ? → 14 列 14 个 ?）
-- 修复 db.get_todos 支持 level/week_start/assigned_date/parent_id 筛选
+后端断连修复:
+- 根因: 打包版旧后端进程占用端口58888+token不匹配，restart-app.ps1只杀electron不杀python
+- 修复 restart-app.ps1: 添加Python进程清理(按进程名匹配)+端口58888等待释放(最多10秒)
+- 验证: Token匹配, Status/WeekPlan端点全部200 OK
 
-前端:
-- client/src/api/client.ts: 新增 12 组 API 封装 + 3 个工具函数（getWeekStart/getWeekDates/getMonthKey）
-- client/src/pages/WeekPlan.tsx (548 行): 三视图切换+纵向左右分栏+HTML5 拖拽+底部数据条
-- client/src/components/TaskDetailModal.tsx (181 行): 详情浮层+进度环+移至/专注/完成/删除
-- client/src/components/Sidebar.tsx: 新增 /week-plan 导航项（CalendarDays 图标）
-- client/src/App.tsx: 新增 WeekPlan lazy import + Route
-- client/src/pages/Focus.tsx: 关联任务下拉 + URL ?todo_id=xxx 自动选中 + startPomodoro 传 todo_id
-- client/src/api/client.ts: startPomodoro 签名新增 todo_id 可选字段
+桌面宠物独立窗口:
+- 新建 client/pet.html: 独立入口页面
+- 新建 client/src/pet-entry.tsx: 独立React入口，仅渲染Pet组件
+- 修改 client/vite.config.js: rollupOptions.input添加pet入口
+- 修改 client/src/App.tsx: 移除主窗口内Pet浮动div
+- 修改 client/electron/main.cjs: petWindow加载pet.html，新增pet-get-visible IPC
+- 修复 client/src/components/Pet.tsx: 气泡z-index从无到z-30，避免被宠物本体遮挡
+- 效果: 宠物作为独立透明窗口，应用外可见，应用后台时不消失
 
-设计文档:
-- docs/superpowers/specs/2026-07-07-week-plan-design.md: 完整 10 节设计文档
-  含数据模型、API、前端架构、错误处理、版本发布
+侧边栏分组:
+- 修改 client/src/components/Sidebar.tsx: 19项扁平列表改为5组分类
+  - 核心工作: 今日工作/生成报告/周计划
+  - 效率工具: 专注/待办清单/习惯追踪
+  - 数据回顾: 工作时间线/时段热力图/应用记录/历史报告/数据校准
+  - 生活记录: 每日日记/成就墙/倒数日
+  - AI智能: 个人画像/深度洞察/AI对话/接入Agent
+- 应用标签移到"更多"分组
 
-版本: 1.15.10 → 1.15.11
+版本: 1.15.15 → 1.15.16

@@ -37,9 +37,19 @@ export default function AIChat() {
     setMessages(prev => [...prev, { id: Date.now(), role: 'user', content: msg, created_at: new Date().toISOString() }])
     try {
       const { reply } = await aiChat(msg)
-      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: reply, created_at: new Date().toISOString() }])
-    } catch (e) {
-      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'AI暂时无法回复，请稍后再试。', created_at: new Date().toISOString() }])
+      // 检测后端返回的"未配置"提示，替换为更友好的引导
+      if (reply.includes('未配置') || reply.includes('not configured')) {
+        setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'AI 尚未配置，请先在「设置 → AI 分析」中配置智谱 GLM API Key。', created_at: new Date().toISOString() }])
+      } else {
+        setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: reply, created_at: new Date().toISOString() }])
+      }
+    } catch (e: any) {
+      const msg = e?.message || ''
+      const isNotConfigured = msg.includes('未配置') || msg.includes('not configured') || msg.includes('API')
+      const errorText = isNotConfigured
+        ? 'AI 尚未配置，请先在「设置 → AI 分析」中配置智谱 GLM API Key。'
+        : 'AI 暂时无法回复，请检查网络连接后重试。'
+      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: errorText, created_at: new Date().toISOString() }])
     }
     setLoading(false)
   }

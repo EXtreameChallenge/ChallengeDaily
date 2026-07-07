@@ -149,7 +149,7 @@ export function BackendStatusBar() {
   if (state === 'connecting') return null  // 连接中不显示，避免闪烁
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[9999] bg-cd-orange/90 text-white text-xs py-1.5 px-4 flex items-center justify-center gap-2 animate-fade-in">
+    <div className="fixed top-0 left-0 right-0 z-[9998] bg-cd-orange/90 text-white text-xs py-1.5 px-4 flex items-center justify-center gap-2 animate-fade-in">
       <AlertCircle size={14} className="shrink-0" />
       <span>后端服务断开，正在自动重连...{retryIn > 0 && `（${retryIn}s 后重试）`}</span>
     </div>

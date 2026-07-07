@@ -155,14 +155,14 @@ export default function Pet({ visible, onToggle }: PetProps) {
 
   return (
     <div
-      className="fixed z-[9999] select-none"
+      className="fixed z-[10000] select-none"
       style={{ left: position.x, top: position.y }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => { setHover(false); setMenuOpen(false) }}
     >
       {/* 气泡 */}
       <div
-        className={`absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full min-w-[140px] max-w-[260px] px-3 py-2 rounded-xl text-xs leading-relaxed text-center shadow-lg pointer-events-none transition-all duration-300 ${
+        className={`absolute z-30 -top-2 left-1/2 -translate-x-1/2 -translate-y-full min-w-[140px] max-w-[260px] px-3 py-2 rounded-xl text-xs leading-relaxed text-center shadow-lg pointer-events-none transition-all duration-300 ${
           bubbleVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
         }`}
         style={{

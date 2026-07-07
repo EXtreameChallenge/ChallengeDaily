@@ -378,6 +378,8 @@ function setupIPC() {
     if (show) petWindow?.show()
     else petWindow?.hide()
   })
+  // renderer 请求当前 pet 可见状态
+  ipcMain.handle('pet-get-visible', () => petWindow?.isVisible() ?? false)
 
   // 宠物气泡内容更新 → 中转到主窗口侧边栏状态
   ipcMain.on('pet-activity-update', (_event, data) => {

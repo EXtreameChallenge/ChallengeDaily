@@ -13,6 +13,10 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        pet: path.resolve(__dirname, 'pet.html'),
+      },
       output: {
         manualChunks: {
           // React 核心

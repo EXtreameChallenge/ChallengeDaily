@@ -31,34 +31,59 @@ import { useState, useEffect } from 'react'
 import { getStatus, pauseCollector, resumeCollector, getTodayStats, type CollectorStatus, type TodayStats } from '../api/client'
 import { useTheme } from './ThemeContext'
 
-const CORE_NAV = [
-  { to: '/',          icon: LayoutDashboard, label: '今日工作' },
-  { to: '/report',    icon: FileText,        label: '生成报告' },
-  { to: '/focus',     icon: Timer,      label: '专注' },
-  { to: '/week-plan', icon: CalendarDays, label: '周计划' },
-  { to: '/todos',      icon: CheckSquare, label: '待办清单' },
-  { to: '/diary',      icon: BookOpen,   label: '每日日记' },
-  { to: '/timeline',  icon: Clock,           label: '工作时间线' },
-  { to: '/heatmap',   icon: Grid3X3,         label: '时段热力图' },
-  { to: '/apps',      icon: AppWindow,       label: '应用记录' },
-  { to: '/app-tags',  icon: Tags,            label: '应用标签' },
-  { to: '/history',   icon: History,         label: '历史报告' },
-  { to: '/agent',     icon: Bot,             label: '接入Agent' },
-  { to: '/profile',       icon: Brain,           label: '个人画像' },
-  { to: '/deep-insight', icon: Sparkles,        label: '深度洞察' },
-  { to: '/achievements', icon: Trophy,     label: '成就墙' },
-  { to: '/countdowns',   icon: Calendar,   label: '倒数日' },
-  { to: '/ai-chat',      icon: Bot,         label: 'AI对话' },
-  { to: '/habits',       icon: Flame,       label: '习惯追踪' },
-  { to: '/health',       icon: Activity,        label: '数据校准' },
+const NAV_GROUPS = [
+  {
+    label: '核心工作',
+    items: [
+      { to: '/', icon: LayoutDashboard, label: '今日工作' },
+      { to: '/report', icon: FileText, label: '生成报告' },
+      { to: '/week-plan', icon: CalendarDays, label: '周计划' },
+    ]
+  },
+  {
+    label: '效率工具',
+    items: [
+      { to: '/focus', icon: Timer, label: '专注' },
+      { to: '/todos', icon: CheckSquare, label: '待办清单' },
+      { to: '/habits', icon: Flame, label: '习惯追踪' },
+    ]
+  },
+  {
+    label: '数据回顾',
+    items: [
+      { to: '/timeline', icon: Clock, label: '工作时间线' },
+      { to: '/heatmap', icon: Grid3X3, label: '时段热力图' },
+      { to: '/apps', icon: AppWindow, label: '应用记录' },
+      { to: '/history', icon: History, label: '历史报告' },
+      { to: '/health', icon: Activity, label: '数据校准' },
+    ]
+  },
+  {
+    label: '生活记录',
+    items: [
+      { to: '/diary', icon: BookOpen, label: '每日日记' },
+      { to: '/achievements', icon: Trophy, label: '成就墙' },
+      { to: '/countdowns', icon: Calendar, label: '倒数日' },
+    ]
+  },
+  {
+    label: 'AI 智能',
+    items: [
+      { to: '/profile', icon: Brain, label: '个人画像' },
+      { to: '/deep-insight', icon: Sparkles, label: '深度洞察' },
+      { to: '/ai-chat', icon: Bot, label: 'AI对话' },
+      { to: '/agent', icon: Bot, label: '接入Agent' },
+    ]
+  },
 ]
 
 const MORE_NAV = [
-  { to: '#subscribe', icon: CreditCard,  label: '订阅',     disabled: true },
-  { to: '#invite',    icon: Users,       label: '邀请激励', disabled: true },
-  { to: '#privacy',   icon: Shield,      label: '隐私保护', disabled: true },
+  { to: '/app-tags',  icon: Tags,         label: '应用标签' },
+  { to: '#subscribe', icon: CreditCard,   label: '订阅',     disabled: true },
+  { to: '#invite',    icon: Users,        label: '邀请激励', disabled: true },
+  { to: '#privacy',   icon: Shield,       label: '隐私保护', disabled: true },
   { to: '/settings',  icon: SettingsIcon, label: '设置' },
-  { to: '#help',      icon: HelpCircle,  label: '帮助',     disabled: true },
+  { to: '#help',      icon: HelpCircle,   label: '帮助',     disabled: true },
 ]
 
 export default function Sidebar() {
@@ -134,24 +159,31 @@ export default function Sidebar() {
 
       {/* ─── 核心导航 ─────────────────────── */}
       <div className="flex-1 overflow-y-auto px-2">
-        <div className="space-y-0.5">
-          {CORE_NAV.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${
-                  isActive
-                    ? 'bg-cd-green-light text-cd-green font-medium'
-                    : 'text-cd-text-secondary hover:bg-cd-hover hover:text-cd-text'
-                }`
-              }
-            >
-              <Icon size={16} />
-              {label}
-            </NavLink>
-          ))}
-        </div>
+        {NAV_GROUPS.map((group, gi) => (
+          <div key={group.label} className={gi === 0 ? '' : 'mt-4 mb-2'}>
+            <div className="px-3 text-[10px] font-medium text-cd-text-tertiary uppercase tracking-wider mb-1">
+              {group.label}
+            </div>
+            <div className="space-y-0.5">
+              {group.items.map(({ to, icon: Icon, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${
+                      isActive
+                        ? 'bg-cd-green-light text-cd-green font-medium'
+                        : 'text-cd-text-secondary hover:bg-cd-hover hover:text-cd-text'
+                    }`
+                  }
+                >
+                  <Icon size={16} />
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        ))}
 
         {/* ─── 更多 ──────────────────────── */}
         <div className="mt-4 mb-2">
