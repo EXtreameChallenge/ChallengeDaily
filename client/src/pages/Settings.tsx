@@ -3,7 +3,7 @@ import { getStatus, getSettings, updateSettings, testAiConnection, getExportActi
 import { ToggleSwitch, useTimeout, useAsyncData, ApiErrorDisplay } from '../components/shared'
 import { useToast } from '../components/Toast'
 import { useTheme, ACCENT_PRESETS, FONT_PRESETS } from '../components/ThemeContext'
-import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon } from 'lucide-react'
+import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon, Cat } from 'lucide-react'
 import dayjs from 'dayjs'
 
 export default function Settings() {
@@ -37,6 +37,14 @@ export default function Settings() {
   const [appVersion, setAppVersion] = useState('')
   const [updateChecking, setUpdateChecking] = useState(false)
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'available' | 'downloading' | 'downloaded' | 'up-to-date'>('idle')
+  // 桌面宠物可见性
+  const [petVisible, setPetVisible] = useState<boolean>(!!(window as any)._petVisible)
+
+  const handleTogglePet = (show: boolean) => {
+    setPetVisible(show)
+    ;(window as any)._petVisible = show
+    window.electronAPI?.togglePet?.(show)
+  }
 
   // 安全 setTimeout — saved 状态自动消失
   useTimeout(() => setSaved(false), saved ? 2000 : null)
@@ -232,7 +240,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="animate-fade-in space-y-5 max-w-2xl">
+    <div className="animate-fade-in space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-cd-text">设置</h1>
         <button
@@ -259,6 +267,18 @@ export default function Settings() {
               <span className="text-sm text-cd-text">深色模式</span>
             </div>
             <ToggleSwitch checked={theme === 'dark'} onChange={toggleTheme} />
+          </div>
+
+          {/* 桌面宠物 */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Cat size={14} className="text-cd-text-tertiary" />
+                <span className="text-sm text-cd-text">桌面宠物</span>
+              </div>
+              <p className="text-[10px] text-cd-text-tertiary ml-[22px] mt-0.5">在桌面上显示陪伴小宠物</p>
+            </div>
+            <ToggleSwitch checked={petVisible} onChange={handleTogglePet} />
           </div>
 
           {/* 主题色 */}

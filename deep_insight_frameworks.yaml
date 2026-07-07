@@ -1,0 +1,510 @@
+# ─── DeepInsight 知识库：学术框架定义 ────────────────────────────
+# 每个框架包含：理论基础、量化指标、测量方法、解释规则、文献引用
+# 引擎从原始活动数据中计算量化指标，AI 只负责自然语言解读
+# ───────────────────────────────────────────────────────────────
+
+frameworks:
+
+  # ━━━ 1. 心流理论 (Flow Theory) ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - id: flow_theory
+    name: 心流理论
+    name_en: Flow Theory
+    field: 工作心理学
+    scholar: Mihaly Csikszentmihalyi
+    year: 1990
+    source_book: "Flow: The Psychology of Optimal Experience"
+    core_concept: |
+      当个体的技能水平与面临的挑战相匹配时，会进入一种全神贯注、忘我投入的"心流"状态。
+      心流状态的特征：①清晰的目标 ②即时反馈 ③挑战与技能平衡 ④行动与意识融合
+      ⑤专注力集中 ⑥控制感 ⑦自我意识消失 ⑧时间感改变 ⑨自成性体验
+    metrics:
+      - id: flow_index
+        name: 心流指数
+        formula: "连续同任务时长(分) / sqrt(任务切换次数+1) * 专注度权重"
+        range: [0, 100]
+        interpretation:
+          high: ">=60: 深度沉浸，可能处于心流状态"
+          medium: "30-59: 部分专注，有进入心流的潜力"
+          low: "<30: 注意力分散，难以进入心流"
+      - id: focus_continuity
+        name: 专注连续性
+        formula: "最长未打断专注段(分) / 总工作时长(分)"
+        range: [0, 1]
+      - id: context_switch_cost
+        name: 上下文切换代价
+        formula: "切换次数 * 平均恢复时间(23分钟,参考Mark et al. 2008) / 总工作时长"
+        range: [0, 1]
+    data_signals:
+      - "连续同类活动>25分钟 → 心流候选段"
+      - "5分钟内3次以上切换应用 → 注意力碎片化"
+      - "深夜(22-2)长时间开发 → 可能心流但需警惕过度"
+    insights_templates:
+      high_flow: "今天有{flow_minutes}分钟的心流体验，这表明你当前任务的挑战度与技能匹配良好。Csikszentmihalyi指出心流状态是内在动机的核心来源。"
+      fragmented: "今日任务切换{switch_count}次，每次切换平均需要23分钟恢复注意力(Mark et al., 2008)，累计损失约{lost_minutes}分钟。建议使用时间块(Time Boxing)策略。"
+      challenge_skill: "心流理论强调挑战-技能平衡：当前你的{category}活动集中在熟悉操作区，适当增加挑战性任务(如新技术学习)有助于激发心流。"
+
+  # ━━━ 2. 刻意练习 (Deliberate Practice) ━━━━━━━━━━━━━━━━━━━
+  - id: deliberate_practice
+    name: 刻意练习
+    name_en: Deliberate Practice
+    field: 学习科学/专业技能发展
+    scholar: K. Anders Ericsson
+    year: 1993
+    source_paper: "The Role of Deliberate Practice in the Acquisition of Expert Performance, Psychological Review"
+    core_concept: |
+      Ericsson的研究表明，专家与新手的差异不在天赋，而在"刻意练习"的累积量。
+      刻意练习的四个条件：①有明确的目标 ②在舒适区之外(学习区) ③有即时反馈 ④大量重复
+      非刻意练习包括：机械重复(舒适区)、无反馈的练习、被动接受信息
+      10,000小时定律源自此研究，但Ericsson本人强调质量>数量。
+    metrics:
+      - id: deliberate_ratio
+        name: 刻意练习比
+        formula: "(学习区活动时长 + 新工具/新领域时长) / 总工作时长"
+        range: [0, 1]
+        interpretation:
+          high: ">=0.3: 刻意练习比例健康，持续成长中"
+          medium: "0.15-0.29: 有学习但偏少，可能停滞在舒适区"
+          low: "<0.15: 主要在舒适区操作，长期可能导致技能停滞"
+      - id: comfort_zone_ratio
+        name: 舒适区占比
+        formula: "重复性/熟悉任务时长 / 总工作时长"
+        range: [0, 1]
+      - id: skill_accumulation_hours
+        name: 技能累积小时数
+        formula: "SUM(历史刻意练习时长)"
+        range: [0, 10000]
+    data_signals:
+      - "连续多日同一工具同一操作模式 → 舒适区信号"
+      - "出现新工具/新分类 → 学习区信号"
+      - "学习分类下有活动 → 刻意练习候选"
+      - "短期高频搜索+编码交替 → 知识建构信号"
+    insights_templates:
+      low_deliberate: "今日刻意练习比为{ratio:.0%}，主要时间花费在熟悉操作上。Ericsson(1993)指出，仅在'学习区'的练习才能带来技能提升，舒适区的重复无法产生新的神经适应性。"
+      skill_growth: "累计{hours}小时的技能积累，按Ericsson的研究，达到领域专家通常需要10,000小时刻意练习。你当前的学习节奏预计在{years}年后达到专家水平。"
+      new_territory: "检测到你在探索{new_area}，这属于学习区活动。刻意练习理论表明，适度的不适感(约15%的错误率)是技能增长的最佳区间。"
+
+  # ━━━ 3. 布鲁姆认知分类 (Bloom's Taxonomy) ━━━━━━━━━━━━━━━━━
+  - id: bloom_taxonomy
+    name: 布鲁姆认知分类
+    name_en: Bloom's Revised Taxonomy
+    field: 教育心理学
+    scholar: Benjamin Bloom (1956) / Lorin Anderson (2001修订)
+    year: 2001
+    source_book: "A Taxonomy for Learning, Teaching, and Assessing"
+    core_concept: |
+      布鲁姆将认知过程分为6个由低到高的层级：
+      L1 记忆(Remember) — 识别、回忆事实
+      L2 理解(Understand) — 解释、分类、总结
+      L3 应用(Apply) — 执行、实施已知方法
+      L4 分析(Analyze) — 区分、组织、归因
+      L5 评价(Evaluate) — 检查、批判、评判
+      L6 创造(Create) — 生成、设计、建构
+      高阶思维(L4-L6)是深度学习和创新的关键。
+    metrics:
+      - id: cognitive_depth
+        name: 认知深度评分
+        formula: "加权平均(W*L1 + W*L2 + ... + W*L6)，L4-L6权重更高"
+        range: [1, 6]
+        interpretation:
+          deep: ">=4.0: 高阶思维主导，属于深度学习和创造性工作"
+          medium: "2.5-3.9: 中阶思维，以应用和理解为主"
+          surface: "<2.5: 低阶思维为主，以记忆和被动接受为主"
+      - id: higher_order_ratio
+        name: 高阶思维占比
+        formula: "(L4+L5+L6的时长) / 总工作时长"
+        range: [0, 1]
+    data_signals:
+      - "阅读文档/邮件 → L1-L2(记忆/理解)"
+      - "执行已知编码模式 → L3(应用)"
+      - "调试/代码审查/Data分析 → L4(分析)"
+      - "架构设计/性能优化决策 → L5(评价)"
+      - "新项目创建/设计UI/写新算法 → L6(创造)"
+    bloom_mapping:
+      开发: { primary: L3, secondary: L6, note: "重复开发=L3，新架构/新算法=L6" }
+      会议: { primary: L2, secondary: L4, note: "汇报=L2，讨论方案=L4" }
+      沟通: { primary: L2, secondary: L5, note: "传达信息=L2，说服谈判=L5" }
+      文档: { primary: L2, secondary: L5, note: "记录=L2，评审文档=L5" }
+      测试: { primary: L3, secondary: L4, note: "执行测试=L3，分析失败原因=L4" }
+      设计: { primary: L6, secondary: L5, note: "创意产出=L6，设计评审=L5" }
+      运维: { primary: L3, secondary: L4, note: "执行操作=L3，故障排查=L4" }
+      数据分析: { primary: L4, secondary: L5, note: "数据处理=L4，洞察发现=L5" }
+      学习: { primary: L2, secondary: L3, note: "听课=L2，练习=L3" }
+      管理: { primary: L5, secondary: L2, note: "决策=L5，信息传递=L2" }
+      产品: { primary: L5, secondary: L6, note: "需求评估=L5，产品创新=L6" }
+      生活: { primary: L1, secondary: L2, note: "日常事务=低阶认知" }
+    insights_templates:
+      low_bloom: "今日认知深度{depth}/6，主要集中在L{level}({level_name})。Anderson(2001)的修订版布鲁姆分类表明，长期停留在低阶思维会导致知识固化。建议增加分析和创造性任务。"
+      high_bloom: "今日高阶思维占比{ratio:.0%}，认知深度{depth}/6。这表明你正在进行真正的深度认知工作，而非机械性操作。"
+      bloom_imbalance: "L3(应用)占比较高但缺乏L6(创造)活动，这意味着你在'做'但不在'创'。尝试将20%的时间投入探索性/创造性项目。"
+
+  # ━━━ 4. 自我决定理论 (Self-Determination Theory) ━━━━━━━━━
+  - id: self_determination
+    name: 自我决定理论
+    name_en: Self-Determination Theory
+    field: 动机心理学
+    scholar: Edward L. Deci & Richard M. Ryan
+    year: 1985
+    source_book: "Intrinsic Motivation and Self-Determination in Human Behavior"
+    core_concept: |
+      SDT提出人类有三种基本心理需求，满足程度决定内在动机水平：
+      ①自主性(Autonomy) — 感到行为是自我选择的，非被迫
+      ②胜任感(Competence) — 感到有能力应对挑战，有效行动
+      ③归属感(Relatedness) — 感到与他人有连接，被理解和接纳
+      当三种需求被满足时，产生内在动机(intrinsic motivation)，行为持久且高质量；
+      当被阻碍时，转为外在动机(extrinsic motivation)，行为短暂且易倦怠。
+    metrics:
+      - id: autonomy_score
+        name: 自主性得分
+        formula: "基于主动选择的活动比例 (非被动响应如邮件/即时消息)"
+        range: [0, 100]
+      - id: competence_score
+        name: 胜任感得分
+        formula: "基于完成度(专注段结束+产出) vs 中断率"
+        range: [0, 100]
+      - id: relatedness_score
+        name: 归属感得分
+        formula: "基于协作活动(会议/沟通)占比和多样性"
+        range: [0, 100]
+      - id: intrinsic_motivation_index
+        name: 内在动机指数
+        formula: "(自主*0.4 + 胜任*0.35 + 归属*0.25)"
+        range: [0, 100]
+    data_signals:
+      - "主动打开开发工具并持续工作 → 自主性+"
+      - "被通知/消息打断后切换 → 自主性-"
+      - "完整完成一个专注段 → 胜任感+"
+      - "频繁中断未完成 → 胜任感-"
+      - "有团队沟通但不过多 → 归属感+"
+      - "完全没有社交/协作 → 归属感-"
+    insights_templates:
+      high_autonomy: "今日自主性得分{score}，{pct:.0%}的工作时间是主动发起的。Deci & Ryan(1985)研究表明，自主性是内在动机最强的预测因子。"
+      low_competence: "今日有{interrupts}次中断未恢复，胜任感得分{score}。SDT指出，当个体反复感到'做不完'时，会降低自我效能感，形成恶性循环。建议减少同时任务数。"
+      isolation: "连续{days}天协作活动<10%，归属感需求未被满足。SDT研究表明社会隔离会降低工作满意度和创造力。即便远程工作，定期的同步沟通也很重要。"
+
+  # ━━━ 5. 超日节律 (Ultradian Rhythm) ━━━━━━━━━━━━━━━━━━━━━
+  - id: ultradian_rhythm
+    name: 超日节律
+    name_en: Ultradian Rhythm
+    field: 生理心理学/时间管理
+    scholar: Basic Rest-Activity Cycle (BRAC), Ernst Rossi
+    year: 1991
+    source_book: "The 20-Minute Break, Ernst Rossi"
+    core_concept: |
+      人体的超日节律(BRAC)以90-120分钟为一个周期：高能期(约70分钟)后跟随低能期(约20分钟)。
+      在高能期专注工作，在低能期主动休息，可以最大化工作效率和避免下午崩溃。
+      违背节律强行工作会导致：认知下降、错误增加、情绪烦躁、恢复时间加倍。
+    metrics:
+      - id: rhythm_alignment
+        name: 节律对齐度
+        formula: "高能期专注工作时长 / 总高能期时长"
+        range: [0, 1]
+      - id: rest_adequacy
+        name: 休息充足度
+        formula: "实际休息段数 / 理论需要休息段数(工作时长/90min)"
+        range: [0, 1]
+      - id: afternoon_crash_risk
+        name: 下午崩溃风险
+        formula: "基于午餐后持续工作时长和之前累计工作时长"
+        range: [0, 100]
+    data_signals:
+      - "连续工作>90分钟无休息 → 节律违反"
+      - "下午2-3点效率骤降 → 可能崩溃区"
+      - "午间有明确休息 → 节律友好"
+    insights_templates:
+      no_rest: "连续工作{minutes}分钟未休息，超过90分钟超日节律周期。Rossi(1991)建议每70-90分钟主动休息15-20分钟，而非等到疲惫才停。"
+      crash_risk: "午间工作{hours}小时后仅休息{rest_min}分钟，下午崩溃风险为{risk}。研究显示午餐后20分钟休息可恢复50%的认知能力。"
+      good_rhythm: "今日工作-休息节律良好，平均每{interval}分钟有一个自然休息点，符合超日节律的90分钟周期。"
+
+  # ━━━ 6. 深度工作 (Deep Work) ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - id: deep_work
+    name: 深度工作
+    name_en: Deep Work
+    field: 生产力/认知科学
+    scholar: Cal Newport
+    year: 2016
+    source_book: "Deep Work: Rules for Focused Success in a Distracted World"
+    core_concept: |
+      Newport定义深度工作为：在无干扰状态下进行的专业活动，将认知能力推向极限。
+      这种努力创造新价值、提升技能，且难以复制。
+      浅层工作(Shallow Work)则是：在注意力分散中进行的非认知密集型后勤或事务性任务，
+      通常不会创造新价值，且容易复制。
+      Newport的核心公式：深度工作产出 = 深度工作时间 × 深度工作强度
+    metrics:
+      - id: deep_work_ratio
+        name: 深度工作比
+        formula: "深度工作时长(连续>30分钟专注同一高认知任务) / 总工作时长"
+        range: [0, 1]
+        interpretation:
+          high: ">=0.5: 深度工作占比优秀，符合Newport对高产者的描述"
+          medium: "0.25-0.49: 有深度工作但被浅层工作侵蚀"
+          low: "<0.25: 大部分时间在浅层工作，长期产出受限"
+      - id: shallow_work_ratio
+        name: 浅层工作比
+        formula: "浅层任务时长 / 总工作时长"
+        range: [0, 1]
+    data_signals:
+      - "连续>30分钟开发/设计/数据分析 → 深度工作"
+      - "频繁切换邮件/聊天/审批 → 浅层工作"
+      - "会议>2h/天 → 浅层工作为主的信号"
+    insights_templates:
+      deep_work_good: "深度工作比{ratio:.0%}，Newport(2016)指出，顶尖专家(如Carl Jung在塔楼写作)通常保持50%以上的深度工作时间。"
+      too_shallow: "今日浅层工作占比{ratio:.0%}，如果长期如此，Newport警告会导致'永久性注意力损害'——大脑失去长时间专注的能力。建议每天至少保留2小时不被打断的深度时间块。"
+
+  # ━━━ 7. 结构洞/社会资本理论 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - id: structural_holes
+    name: 结构洞与社会资本
+    name_en: Structural Holes & Social Capital
+    field: 社会学/组织行为学
+    scholar: Ronald S. Burt
+    year: 1992
+    source_book: "Structural Holes: The Social Structure of Competition"
+    core_concept: |
+      Burt的结构洞理论指出：在社交网络中，连接不同社群(跨越结构洞)的人拥有信息优势。
+      Granovetter的"弱关系的力量"(1973)进一步说明：非紧密联系的弱关系更可能提供新信息和新机会。
+      对开发者而言：仅在同一技术栈内交流=信息茧房；跨领域交流=结构洞桥接者=竞争优势。
+    metrics:
+      - id: tool_diversity
+        name: 工具多样性指数
+        formula: "Shannon多样性指数 H = -Σ(p_i * ln(p_i)), p_i为工具i的使用占比"
+        range: [0, 3.5]
+      - id: cross_domain_index
+        name: 跨域连接指数
+        formula: "涉及的不同一级分类数 / 总分类数"
+        range: [0, 1]
+      - id: knowledge_bridging
+        name: 知识桥接度
+        formula: "跨分类切换次数 * 多样性权重"
+        range: [0, 50]
+    data_signals:
+      - "使用5种以上不同工具 → 多样性+"
+      - "连续多日只在一个分类 → 信息茧房信号"
+      - "开发+设计+产品间切换 → 跨域桥接"
+    insights_templates:
+      low_diversity: "工具多样性指数{diversity}，集中使用{top_tool}占{pct:.0%}。Burt(1992)将此称为'网络闭合'——过度专注于一个领域会限制信息获取。Granovetter(1973)指出弱关系(跨界连接)是新机会的主要来源。"
+      bridge: "今日跨{domains}个领域工作，属于结构洞桥接者角色。Burt的研究表明，这类人在组织中更容易获得晋升和创新机会。"
+
+  # ━━━ 8. 最近发展区 (ZPD) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - id: zpd
+    name: 最近发展区
+    name_en: Zone of Proximal Development
+    field: 教育心理学/发展心理学
+    scholar: Lev Vygotsky
+    year: 1978
+    source_book: "Mind in Society: The Development of Higher Psychological Processes"
+    core_concept: |
+      Vygotsky定义ZPD为："独立解决问题的实际发展水平"与"在成人指导下或有经验同伴协作下
+      解决问题的潜在发展水平"之间的差距。
+      教学的最佳区域不是学生已掌握的(舒适区)，也不是完全超出能力的(恐慌区)，
+      而是ZPD——稍有挑战但可达的区域。在ZPD中工作，学习效率最高。
+    metrics:
+      - id: challenge_match_ratio
+        name: 挑战匹配度
+        formula: "在已知领域+新工具/新方法的活动时长 / 学习类总时长"
+        range: [0, 1]
+      - id: zpd_alignment
+        name: ZPD对齐度
+        formula: "基于活动分类的变化率和新元素占比推算"
+        range: [0, 100]
+    data_signals:
+      - "已知领域+新工具 → ZPD内(最佳学习区)"
+      - "完全陌生的分类且无积累 → 可能在恐慌区"
+      - "完全相同的重复 → 舒适区，无成长"
+    insights_templates:
+      in_zpd: "当前工作模式处于最近发展区内——在熟悉的{domain}领域使用新方法/工具。Vygotsky(1978)指出这是认知发展的最优区间，学习效率是舒适区的3-5倍。"
+      comfort_only: "连续{days}天工作内容无新元素，已完全进入舒适区。Vygotsky的ZPD理论警示：长期停留在舒适区会导致'发展停滞'，需要适度增加挑战。"
+
+  # ━━━ 9. 习惯回路与行为设计 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - id: habit_loop
+    name: 习惯回路与行为设计
+    name_en: Habit Loop & Behavior Design
+    field: 行为心理学/行为经济学
+    scholar: Charles Duhigg / BJ Fogg / James Clear
+    year: 2012/2019
+    source_books:
+      - "The Power of Habit, Charles Duhigg (2012)"
+      - "Tiny Habits, BJ Fogg (2019)"
+      - "Atomic Habits, James Clear (2018)"
+    core_concept: |
+      Duhigg的习惯回路：提示(Cue) → 惯例(Routine) → 奖励(Reward)
+      Fogg的行为模型：B = MAP (Behavior = Motivation × Ability × Prompt)
+      Clear的习惯定律：①让它显而易见 ②让它有吸引力 ③让它简便 ④让它满足
+      习惯形成的研究显示：平均66天(Lally et al., 2010)，范围18-254天
+    metrics:
+      - id: habit_consistency
+        name: 习惯一致性
+        formula: "连续天数 / 66(研究中位数) * 100"
+        range: [0, 385]
+      - id: routine_stability
+        name: 常规稳定性
+        formula: "每日相似时段做相似任务的比例"
+        range: [0, 1]
+      - id: cue_analysis
+        name: 触发线索分析
+        formula: "基于时间/应用序列的模式检测"
+        range: qualitative
+    data_signals:
+      - "每天上午9-10点开始编码 → 时间提示(Cue)"
+      - "打开IDE后总是先看某个项目 → 环境提示"
+      - "连续3天以上同一时段同一活动 → 习惯候选"
+    insights_templates:
+      habit_forming: "检测到{activity}在{time}连续{days}天出现，符合习惯形成模式。Lally et al.(2010)研究显示平均需要66天形成稳定习惯，当前进度{progress:.0%}。"
+      broken_chain: "之前连续{days}天的{activity}习惯今天中断。Clear(2018)建议'不要连续错过两次'——一次中断不会摧毁习惯，但两次连续中断开始瓦解回路。"
+
+  # ━━━ 10. 心理资本 (PsyCap) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - id: psychological_capital
+    name: 心理资本
+    name_en: Psychological Capital (PsyCap)
+    field: 积极心理学/组织行为学
+    scholar: Fred Luthans / Carolyn Youssef-Morgan
+    year: 2007
+    source_book: "Psychological Capital: Developing the Human Competitive Edge"
+    core_concept: |
+      心理资本(PsyCap)由四个维度构成(HERO)：
+      H - 希望(Hope)：有意愿和路径达成目标
+      E - 自我效能(Efficacy)：相信自己能完成挑战性任务
+      R - 韧性(Resilience)：从挫折中恢复的能力
+      O - 乐观(Optimism)：对结果持积极预期
+      Luthans的研究证明PsyCap与工作绩效的相关系数为0.3-0.5，且可被开发提升。
+    metrics:
+      - id: hope_score
+        name: 希望得分
+        formula: "基于目标设定活动(计划/排期)和路径多样性(工具/方法)" 
+        range: [0, 100]
+      - id: efficacy_score
+        name: 自我效能得分
+        formula: "基于任务完成率和挑战任务的成功比例"
+        range: [0, 100]
+      - id: resilience_score
+        name: 韧性得分
+        formula: "基于中断后恢复工作的速度和比例"
+        range: [0, 100]
+      - id: optimism_score
+        name: 乐观指数
+        formula: "基于工作时段选择(主动选择高能时段 vs 被动应付)"
+        range: [0, 100]
+      - id: psycap_index
+        name: 心理资本综合指数
+        formula: "(希望+效能+韧性+乐观) / 4"
+        range: [0, 100]
+    data_signals:
+      - "有计划行为 → 希望+"
+      - "完成挑战性任务 → 效能+"
+      - "中断后快速恢复 → 韧性+"
+      - "主动选择工作而非应付 → 乐观+"
+      - "长时间中断后未恢复 → 韧性-"
+    insights_templates:
+      high_psycap: "心理资本指数{score}，HERO四维度均衡。Luthans(2007)研究表明PsyCap每提升1个标准差，工作绩效提升约20%，且心理资本是可训练的。"
+      low_resilience: "韧性维度得分{score}——中断后平均{minutes}分钟才恢复工作。Seligman的习得性乐观研究指出，'解释风格'的调整(将挫折视为暂时的、特定的、外在的)可有效提升韧性。"
+      efficacy_gap: "自我效能得分{score}。Bandura(1997)指出四种提升途径：①掌握性经验(最重要的) ②替代性经验 ③社会说服 ④情绪唤醒。建议通过分解任务积累小胜利来提升。"
+
+# ━━━ 工具分类映射：用于计算各框架指标 ━━━━━━━━━━━━━━━━━━━━━
+category_profiles:
+  开发:
+    bloom_levels: [3, 6]  # 应用到创造
+    flow_relevant: true
+    deep_work_eligible: true
+    deliberate_practice_zone: learning  # 新项目=学习区, 重复=舒适区
+    sdt_nature: autonomous  # 通常是自主选择
+  会议:
+    bloom_levels: [2, 4]
+    flow_relevant: false
+    deep_work_eligible: false
+    deliberate_practice_zone: comfort
+    sdt_nature: relatedness
+  沟通:
+    bloom_levels: [2, 5]
+    flow_relevant: false
+    deep_work_eligible: false
+    deliberate_practice_zone: comfort
+    sdt_nature: relatedness
+  文档:
+    bloom_levels: [2, 5]
+    flow_relevant: true
+    deep_work_eligible: true
+    deliberate_practice_zone: comfort
+    sdt_nature: mixed
+  测试:
+    bloom_levels: [3, 4]
+    flow_relevant: true
+    deep_work_eligible: true
+    deliberate_practice_zone: learning
+    sdt_nature: mixed
+  设计:
+    bloom_levels: [5, 6]
+    flow_relevant: true
+    deep_work_eligible: true
+    deliberate_practice_zone: learning
+    sdt_nature: autonomous
+  运维:
+    bloom_levels: [3, 4]
+    flow_relevant: true
+    deep_work_eligible: true
+    deliberate_practice_zone: comfort
+    sdt_nature: controlled
+  数据分析:
+    bloom_levels: [4, 5]
+    flow_relevant: true
+    deep_work_eligible: true
+    deliberate_practice_zone: learning
+    sdt_nature: autonomous
+  学习:
+    bloom_levels: [2, 3]
+    flow_relevant: true
+    deep_work_eligible: true
+    deliberate_practice_zone: learning
+    sdt_nature: autonomous
+  管理:
+    bloom_levels: [2, 5]
+    flow_relevant: false
+    deep_work_eligible: false
+    deliberate_practice_zone: comfort
+    sdt_nature: mixed
+  产品:
+    bloom_levels: [5, 6]
+    flow_relevant: true
+    deep_work_eligible: true
+    deliberate_practice_zone: learning
+    sdt_nature: autonomous
+  生活:
+    bloom_levels: [1, 2]
+    flow_relevant: false
+    deep_work_eligible: false
+    deliberate_practice_zone: none
+    sdt_nature: autonomous
+
+# ━━━ 文献引用库 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+references:
+  - id: csikszentmihalyi1990
+    citation: "Csikszentmihalyi, M. (1990). Flow: The Psychology of Optimal Experience. Harper & Row."
+  - id: ericsson1993
+    citation: "Ericsson, K. A., Krampe, R. T., & Tesch-Römer, C. (1993). The Role of Deliberate Practice in the Acquisition of Expert Performance. Psychological Review, 100(3), 363-406."
+  - id: anderson2001
+    citation: "Anderson, L. W., & Krathwohl, D. R. (Eds.). (2001). A Taxonomy for Learning, Teaching, and Assessing: A Revision of Bloom's Taxonomy of Educational Objectives. Longman."
+  - id: deci_ryan1985
+    citation: "Deci, E. L., & Ryan, R. M. (1985). Intrinsic Motivation and Self-Determination in Human Behavior. Plenum Press."
+  - id: newport2016
+    citation: "Newport, C. (2016). Deep Work: Rules for Focused Success in a Distracted World. Grand Central Publishing."
+  - id: burt1992
+    citation: "Burt, R. S. (1992). Structural Holes: The Social Structure of Competition. Harvard University Press."
+  - id: granovetter1973
+    citation: "Granovetter, M. S. (1973). The Strength of Weak Ties. American Journal of Sociology, 78(6), 1360-1380."
+  - id: vygotsky1978
+    citation: "Vygotsky, L. S. (1978). Mind in Society: The Development of Higher Psychological Processes. Harvard University Press."
+  - id: rossi1991
+    citation: "Rossi, E. L. (1991). The 20-Minute Break: The New Science of Using Your Body's Rhythms for Maximum Performance. Tarcher."
+  - id: mark2008
+    citation: "Mark, G., Gudith, D., & Klocke, U. (2008). The Cost of Interrupted Work: More Speed and Stress. CHI '08, 107-110."
+  - id: lally2010
+    citation: "Lally, P., van Jaarsveld, C. H. M., Potts, H. W. W., & Wardle, J. (2010). How are habits formed: Modelling habit formation in the real world. European Journal of Social Psychology, 40(6), 998-1009."
+  - id: luthans2007
+    citation: "Luthans, F., Youssef, C. M., & Avolio, B. J. (2007). Psychological Capital: Developing the Human Competitive Edge. Oxford University Press."
+  - id: bandura1997
+    citation: "Bandura, A. (1997). Self-Efficacy: The Exercise of Control. W. H. Freeman."
+  - id: seligman2011
+    citation: "Seligman, M. E. P. (2011). Flourish: A Visionary New Understanding of Happiness and Well-Being. Free Press."
+  - id: duhigg2012
+    citation: "Duhigg, C. (2012). The Power of Habit: Why We Do What We Do in Life and Business. Random House."
+  - id: clear2018
+    citation: "Clear, J. (2018). Atomic Habits: An Easy & Proven Way to Build Good Habits & Break Bad Ones. Avery."
+  - id: fogg2019
+    citation: "Fogg, B. J. (2019). Tiny Habits: The Small Changes That Change Everything. Houghton Mifflin Harcourt."

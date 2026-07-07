@@ -8,6 +8,8 @@ export default function AppRecords() {
   const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [filterCategory, setFilterCategory] = useState<string>('全部')
   const [iconUrls, setIconUrls] = useState<Record<string, string>>({})
+  // 展开的内容维度 app_name_raw
+  const [expandedApp, setExpandedApp] = useState<string | null>(null)
 
   const { data, loading, error, refresh } = useAsyncData<{ apps: AppUsage[]; stats: TodayStats | null }>(
     async () => {
@@ -36,6 +38,9 @@ export default function AppRecords() {
     return () => { cancelled = true }
   }, [apps.map((a) => a.app_name_raw).join('|')])
 
+  // 切换日期时折叠所有展开项
+  useEffect(() => { setExpandedApp(null) }, [selectedDate])
+
   const filtered = filterCategory === '全部'
     ? apps
     : apps.filter((a) => a.category === filterCategory)
@@ -62,6 +67,13 @@ export default function AppRecords() {
       {/* ─── 错误提示 ──────────────────────── */}
       {error && <ApiErrorDisplay error={error} onRetry={refresh} />}
 
+      {/* ─── 提示：点击展开内容 ──────────────── */}
+      {filtered.length > 0 && (
+        <div className="text-[11px] text-cd-text-tertiary">
+          提示：点击应用可展开查看同应用下不同窗口标题的时长分布（多窗口分摊 + 内容维度）。
+        </div>
+      )}
+
       {/* ─── 应用列表 ──────────────────────── */}
       {loading ? (
         <div className="text-cd-text-tertiary animate-pulse">加载中...</div>
@@ -71,73 +83,125 @@ export default function AppRecords() {
         </div>
       ) : (
         <div className="card">
-          <div className="space-y-4">
+          <div className="space-y-2">
             {filtered.map((app, idx) => {
               const catColor = CATEGORY_COLORS[app.category] || 'var(--cd-text-tertiary)'
               const pct = app.percentage || (totalMin > 0 ? (app.duration_min / totalMin) * 100 : 0)
               const iconUrl = iconUrls[app.app_name_raw]
+              const isExpanded = expandedApp === app.app_name_raw
+              const hasContents = (app.contents?.length || 0) > 0
+              const defaultIcon = import.meta.env.DEV ? '/icon.png' : './icon.png'
               return (
-                <div key={app.app_name} className="flex items-center gap-4 group">
-                  {/* 排名 */}
-                  <div className="w-6 text-center text-xs text-cd-text-tertiary font-mono shrink-0">
-                    {idx + 1}
-                  </div>
-
-                  {/* 应用图标 */}
-                  {(() => {
-                    const defaultIcon = import.meta.env.DEV ? '/icon.png' : './icon.png'
-                    return (
-                      <div className="w-10 h-10 rounded-xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center text-sm font-medium text-cd-text-secondary shrink-0 overflow-hidden">
-                        <img
-                          src={iconUrl || defaultIcon}
-                          alt=""
-                          className="w-7 h-7 object-contain"
-                          onError={(e) => { e.currentTarget.src = defaultIcon }}
-                        />
-                      </div>
-                    )
-                  })()}
-
-                  {/* 内容 */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium text-cd-text truncate">{app.app_name}</span>
-                      <span
-                        className="px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0"
-                        style={{
-                          background: catColor + '18',
-                          color: catColor,
-                        }}
-                      >
-                        {app.category}
-                      </span>
-                      <Link
-                        to="/app-tags"
-                        className="opacity-0 group-hover:opacity-100 text-[10px] text-cd-green hover:underline transition-opacity"
-                      >
-                        编辑标签
-                      </Link>
+                <div key={app.app_name} className="rounded-lg transition-colors">
+                  <div
+                    className={`flex items-center gap-4 group px-2 py-2 rounded-lg cursor-pointer ${isExpanded ? 'bg-cd-bg-secondary' : 'hover:bg-cd-bg-secondary/50'}`}
+                    onClick={() => hasContents && setExpandedApp(isExpanded ? null : app.app_name_raw)}
+                  >
+                    {/* 排名 */}
+                    <div className="w-6 text-center text-xs text-cd-text-tertiary font-mono shrink-0">
+                      {idx + 1}
                     </div>
-                    <div className="progress-bar">
-                      <div
-                        className="progress-bar-fill"
-                        style={{
-                          width: `${Math.max(pct, 2)}%`,
-                          background: catColor,
-                        }}
+
+                    {/* 应用图标 */}
+                    <div className="w-10 h-10 rounded-xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center text-sm font-medium text-cd-text-secondary shrink-0 overflow-hidden">
+                      <img
+                        src={iconUrl || defaultIcon}
+                        alt=""
+                        className="w-7 h-7 object-contain"
+                        onError={(e) => { e.currentTarget.src = defaultIcon }}
                       />
                     </div>
+
+                    {/* 内容 */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-medium text-cd-text truncate">{app.app_name}</span>
+                        <span
+                          className="px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0"
+                          style={{
+                            background: catColor + '18',
+                            color: catColor,
+                          }}
+                        >
+                          {app.category}
+                        </span>
+                        {hasContents && (
+                          <span
+                            className="text-[10px] text-cd-text-tertiary flex items-center gap-0.5 shrink-0"
+                            title={`${app.window_count} 个不同窗口/标题`}
+                          >
+                            <span className={`inline-block transition-transform ${isExpanded ? 'rotate-90' : ''}`}>▸</span>
+                            {app.window_count} 个内容
+                          </span>
+                        )}
+                        <Link
+                          to="/app-tags"
+                          onClick={(e) => e.stopPropagation()}
+                          className="opacity-0 group-hover:opacity-100 text-[10px] text-cd-green hover:underline transition-opacity"
+                        >
+                          编辑标签
+                        </Link>
+                      </div>
+                      <div className="progress-bar">
+                        <div
+                          className="progress-bar-fill"
+                          style={{
+                            width: `${Math.max(pct, 2)}%`,
+                            background: catColor,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* 时长 */}
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-medium text-cd-text">
+                        {formatDuration(app.duration_min)}
+                      </div>
+                      <div className="text-[10px] text-cd-text-tertiary">
+                        {pct.toFixed(1)}%
+                      </div>
+                    </div>
                   </div>
 
-                  {/* 时长 */}
-                  <div className="text-right shrink-0">
-                    <div className="text-sm font-medium text-cd-text">
-                      {formatDuration(app.duration_min)}
+                  {/* ─── 内容维度展开区 ─── */}
+                  {isExpanded && hasContents && (
+                    <div className="ml-16 mr-2 mb-2 mt-1 border-l-2 border-cd-border-light pl-4 space-y-2 animate-fade-in">
+                      <div className="text-[10px] text-cd-text-tertiary uppercase tracking-wide">
+                        内容维度 · 同应用不同窗口标题时长
+                      </div>
+                      {app.contents!.map((c, cIdx) => {
+                        const cPct = c.percentage
+                        return (
+                          <div key={cIdx} className="flex items-center gap-3 py-1">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs text-cd-text truncate" title={c.title || '(无标题)'}>
+                                {c.title || '(无标题)'}
+                              </div>
+                              <div className="progress-bar mt-1" style={{ height: '4px' }}>
+                                <div
+                                  className="progress-bar-fill"
+                                  style={{
+                                    width: `${Math.max(cPct, 2)}%`,
+                                    background: catColor,
+                                    opacity: 0.7,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0 w-20">
+                              <div className="text-[11px] text-cd-text-secondary">
+                                {formatDuration(c.duration_min)}
+                              </div>
+                              <div className="text-[10px] text-cd-text-tertiary">
+                                {cPct.toFixed(1)}%
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
-                    <div className="text-[10px] text-cd-text-tertiary">
-                      {pct.toFixed(1)}%
-                    </div>
-                  </div>
+                  )}
                 </div>
               )
             })}

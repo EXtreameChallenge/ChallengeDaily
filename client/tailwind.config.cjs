@@ -30,6 +30,7 @@ module.exports = {
         'cd-purple': 'var(--cd-purple)',
         'cd-purple-light': 'var(--cd-purple-light)',
         'cd-yellow': 'var(--cd-yellow)',
+        'cd-gold': 'var(--cd-gold)',
         'cd-card': 'var(--cd-card)',
         'cd-hover': 'var(--cd-hover)',
         'cd-selected': 'var(--cd-selected)',

@@ -15,11 +15,10 @@ import {
   HelpCircle,
   Pause,
   Play,
-  Cat,
   Loader2,
-  Sun,
-  Moon,
   Brain,
+  Activity,
+  Sparkles,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { getStatus, pauseCollector, resumeCollector, getTodayStats, type CollectorStatus, type TodayStats } from '../api/client'
@@ -34,7 +33,9 @@ const CORE_NAV = [
   { to: '/app-tags',  icon: Tags,            label: '应用标签' },
   { to: '/history',   icon: History,         label: '历史报告' },
   { to: '/agent',     icon: Bot,             label: '接入Agent' },
-  { to: '/profile',   icon: Brain,           label: '个人画像' },
+  { to: '/profile',       icon: Brain,           label: '个人画像' },
+  { to: '/deep-insight', icon: Sparkles,        label: '深度洞察' },
+  { to: '/health',       icon: Activity,        label: '数据校准' },
 ]
 
 const MORE_NAV = [
@@ -48,7 +49,7 @@ const MORE_NAV = [
 export default function Sidebar() {
   const [status, setStatus] = useState<CollectorStatus | null>(null)
   const [todayStats, setTodayStats] = useState<TodayStats | null>(null)
-  const { theme, toggleTheme, sidebarTranslucent } = useTheme()
+  const { sidebarTranslucent } = useTheme()
 
   useEffect(() => {
     const refresh = () => {
@@ -169,39 +170,17 @@ export default function Sidebar() {
             ))}
           </div>
         </div>
-
-        {/* 宠物开关 */}
-        <button
-          onClick={() => {
-            const show = !window._petVisible
-            window._petVisible = show
-            window.electronAPI?.togglePet(show)
-          }}
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] text-cd-text-secondary hover:bg-cd-hover hover:text-cd-text transition-colors w-full"
-        >
-          <Cat size={16} />
-          桌面宠物
-        </button>
-
-        {/* 深色模式切换 */}
-        <button
-          onClick={toggleTheme}
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] text-cd-text-secondary hover:bg-cd-hover hover:text-cd-text transition-colors w-full"
-        >
-          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          {theme === 'dark' ? '浅色模式' : '深色模式'}
-        </button>
       </div>
 
       {/* ─── 底部用户信息 ─────────────────────── */}
       <div className="px-4 py-3 border-t border-cd-border">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-cd-green-light flex items-center justify-center text-cd-green text-[10px] font-bold">
-            U
+          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cd-purple to-cd-green flex items-center justify-center text-white text-[10px] font-bold">
+            橙
           </div>
           <div>
-            <div className="text-xs text-cd-text font-medium leading-tight">用户</div>
-            <div className="text-[10px] text-cd-text-tertiary leading-tight">免费版</div>
+            <div className="text-xs text-cd-text font-medium leading-tight">橙紫Challenge</div>
+            <div className="text-[10px] text-cd-gold leading-tight font-brand">EXtreame Ultra</div>
           </div>
         </div>
       </div>

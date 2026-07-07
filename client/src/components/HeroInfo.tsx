@@ -444,20 +444,20 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
       {/* 第二行：AI 洞察 */}
       <div className="mt-3">
         <div className="flex items-center gap-1.5 mb-1">
-          <Brain size={13} className="text-cd-green" />
-          <span className="text-[10px] text-cd-green font-medium uppercase tracking-wider">AI 洞察</span>
+          <Brain size={16} className="text-cd-green" />
+          <span className="text-xs text-cd-green font-medium uppercase tracking-wider">AI 洞察</span>
           {!loadingInsight && insight && (
             <button onClick={fetchInsight} className="text-cd-text-tertiary hover:text-cd-text transition" title="刷新">
-              <RefreshCw size={10} />
+              <RefreshCw size={12} />
             </button>
           )}
         </div>
         {loadingInsight ? (
-          <p className="text-xs text-cd-text-tertiary animate-pulse">正在分析今日工作数据...</p>
+          <p className="text-base text-cd-text-tertiary animate-pulse">正在分析今日工作数据...</p>
         ) : insight ? (
-          <p className="text-sm text-cd-text leading-relaxed">{insight}</p>
+          <p className="text-lg text-cd-text leading-relaxed">{insight}</p>
         ) : (
-          <p className="text-xs text-cd-text-tertiary">配置 AI 后，这里会基于真实工作数据给出深度洞察。</p>
+          <p className="text-base text-cd-text-tertiary">配置 AI 后，这里会基于真实工作数据给出深度洞察。</p>
         )}
       </div>
     </div>

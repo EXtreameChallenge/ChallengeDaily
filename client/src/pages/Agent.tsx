@@ -150,7 +150,7 @@ export default function AgentPage() {
   }
 
   return (
-    <div className="animate-fade-in space-y-5 max-w-2xl">
+    <div className="animate-fade-in space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-cd-text">接入Agent</h1>
         <button

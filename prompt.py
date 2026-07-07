@@ -157,6 +157,27 @@ def build_user_prompt(app_name: str, window_title: str, recent_context: str = ""
     except Exception:
         pass  # context_manager 加载失败不影响核心功能
 
+    # ── 注入 DeepInsight 学术框架分析 ──
+    try:
+        from deep_insight_engine import build_deep_insight_context
+        from db import get_activities
+        from datetime import date as _date
+        from config import SCREENSHOT_INTERVAL_SEC as _sis
+        today_str = _date.today().isoformat()
+        today_acts = get_activities(today_str, today_str)
+        if today_acts:
+            act_dicts = [
+                {"category": a["category"] if isinstance(a, dict) else a["category"],
+                 "app_name": a["app_name"] if isinstance(a, dict) else a["app_name"],
+                 "timestamp": a["timestamp"] if isinstance(a, dict) else a["timestamp"]}
+                for a in today_acts
+            ]
+            di_ctx = build_deep_insight_context(act_dicts, interval_sec=_sis)
+            if di_ctx:
+                parts.append(di_ctx)
+    except Exception:
+        pass  # DeepInsight 失败不影响截图分析
+
     # 追加用户自定义指令
     custom = _get_custom_instructions()
     if custom:

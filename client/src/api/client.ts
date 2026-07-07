@@ -145,12 +145,22 @@ export interface ReportContent {
   template: string
 }
 
+export interface AppUsageContent {
+  title: string
+  duration_min: number
+  percentage: number
+}
+
 export interface AppUsage {
   app_name: string
   app_name_raw: string
   category: string
   duration_min: number
   percentage: number
+  /** 内容维度：同应用下不同窗口标题的时长明细 */
+  contents?: AppUsageContent[]
+  /** 不同窗口标题数量 */
+  window_count?: number
 }
 
 export interface AppCategoryRule {
@@ -634,3 +644,125 @@ export const CATEGORIES = [
   '开发', '会议', '沟通', '文档', '测试', '设计',
   '运维', '数据分析', '学习', '管理', '产品', '生活',
 ]
+
+// ─── 数据校准 / 健康度 ──────────────────────────────
+
+export interface SystemSession {
+  start: string
+  end: string
+  raw_start?: string
+  raw_end?: string
+  duration_sec: number
+  type: 'boot_session' | 'login_session'
+  source: string
+  truncated_start?: boolean
+  truncated_end?: boolean
+}
+
+export interface HealthCoverage {
+  date: string
+  system: {
+    total_uptime_min: number
+    current_uptime_sec: number
+    boot_count: number
+    shutdown_count: number
+    crash_count: number
+    sessions: SystemSession[]
+  }
+  collected: {
+    total_app_usage_min: number
+    total_activities: number
+    first_activity_time: string | null
+    last_activity_time: string | null
+    collector_running_min: number
+  }
+  gap: {
+    missing_min: number
+    coverage_pct: number
+    missing_periods: Array<{
+      start: string
+      end: string
+      reason: string
+      duration_min?: number
+    }>
+  }
+}
+
+export interface HealthSystemEvents {
+  date: string
+  boot_events: Array<{ timestamp: string; event_type: string; source: string }>
+  login_events: Array<{ timestamp: string; event_type: string; username: string }>
+  sessions: SystemSession[]
+  current_boot_time: string | null
+  uptime_sec: number
+}
+
+export interface SamplingDeviation {
+  date: string
+  sample_count: number
+  interval_count: number
+  interval_stats: {
+    min_sec: number
+    max_sec: number
+    avg_sec: number
+    p50_sec: number
+    p95_sec: number
+  }
+  expected_interval_sec: number
+  deviation: {
+    over_60s_count: number
+    over_300s_count: number
+    missed_estimates: number
+  }
+  intervals: number[]
+}
+
+export async function getHealthCoverage(date?: string): Promise<HealthCoverage> {
+  const params = date ? `?date=${date}` : ''
+  return await request(`/api/health/coverage${params}`) as HealthCoverage
+}
+
+export async function getHealthSystemEvents(date?: string): Promise<HealthSystemEvents> {
+  const params = date ? `?date=${date}` : ''
+  return await request(`/api/health/system-events${params}`) as HealthSystemEvents
+}
+
+export async function getSamplingDeviation(date?: string): Promise<SamplingDeviation> {
+  const params = date ? `?date=${date}` : ''
+  return await request(`/api/health/sampling-deviation${params}`) as SamplingDeviation
+}
+
+// ─── DeepInsight 深度洞察 ──────────────────────────────
+
+export interface DeepInsightFramework {
+  name: string
+  scholar: string
+  metrics: Record<string, number | string | Record<string, number> | Array<unknown>>
+}
+
+export interface DeepInsightFinding {
+  dimension: string
+  verdict: 'positive' | 'negative' | 'neutral'
+  detail: string
+}
+
+export interface DeepInsightSummary {
+  findings: DeepInsightFinding[]
+  positive_count: number
+  negative_count: number
+  overall: string
+}
+
+export interface DeepInsightData {
+  status: string
+  date: string
+  data_points: number
+  frameworks: Record<string, DeepInsightFramework>
+  summary: DeepInsightSummary
+}
+
+/** 获取指定日期的深度洞察分析 */
+export async function getDeepInsight(date?: string): Promise<DeepInsightData> {
+  const params = date ? `?date=${date}` : ''
+  return await request(`/api/deep-insight${params}`) as DeepInsightData
+}

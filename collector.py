@@ -16,7 +16,7 @@ from app_tracker import get_foreground_app, get_display_name, get_idle_seconds, 
 from screenshot import take_screenshot, get_active_monitor_index
 from ai_client import analyze_screenshot
 from classifier import classify
-from db import insert_activity, upsert_app_usage, cleanup_old_data, get_recent_activities
+from db import insert_activity, upsert_app_usage_multi, cleanup_old_data, get_recent_activities
 from screenshot import cleanup_screenshots, get_screenshots_size_mb
 from config import CATEGORIES
 
@@ -130,10 +130,11 @@ class Collector:
     """核心采集器：定时截图 + 分析 + 存储"""
 
     def __init__(self):
-        self._last_app_key = None    # "app_name|window_title"
-        self._last_app_data = None   # {"app_name": ..., "window_title": ...}
-        self._segment_start = None   # 当前分段的起始时间
-        self._last_flush_time = None # 上次强制落盘 app_usage 的时间
+        # 多窗口分摊状态：上一采集周期内可见的窗口列表（带 area_ratio），用于结算 duration
+        self._last_visible_windows: list[dict] = []
+        self._last_fg_signature: str | None = None   # "app_name|window_title" 用于切换检测
+        self._segment_start: str | None = None       # 当前分段的起始时间
+        self._last_flush_time = None                  # 上次强制落盘 app_usage 的时间
         self._running = False
         self._capture_lock = threading.Lock()  # 防止定时和手动并发
         # AI 分析缓存：重复画面时复用，但每隔一段时间强制重新分析以结合新上下文
@@ -146,6 +147,26 @@ class Collector:
         self._recent_context_cache = None
         self._recent_context_cache_time = 0
         self._RECENT_CONTEXT_CACHE_TTL = 120  # 2分钟缓存
+
+    def _flush_segment(self, end_time: str):
+        """结算当前时间段：按 area_ratio 把 duration 分摊给所有可见窗口后写入 app_usage。
+
+        - 用 self._last_visible_windows 作为分摊依据
+        - 结算后清空状态，下一段由下次采集重新填充
+        - 在锁内被调用，但 IO 异常不应影响主流程
+        """
+        if not self._last_visible_windows or self._segment_start is None:
+            self._last_visible_windows = []
+            self._last_fg_signature = None
+            self._segment_start = None
+            return
+        try:
+            upsert_app_usage_multi(self._last_visible_windows, self._segment_start, end_time)
+        except Exception as e:
+            logger.warning(f"upsert_app_usage_multi 失败: {e}")
+        self._last_visible_windows = []
+        self._last_fg_signature = None
+        self._segment_start = None
 
     def capture_once(self) -> dict | None:
         """执行一次截图→分析→存储的完整流程（线程安全）"""
@@ -167,20 +188,8 @@ class Collector:
             idle_sec = get_idle_seconds()
             if idle_sec >= _IDLE_THRESHOLD_SEC:
                 logger.debug(f"用户已闲置 {idle_sec}s，跳过本次采集")
-                # 结算上一段 app_usage（成功后再重置状态，避免数据丢失）
-                if self._last_app_data is not None and self._segment_start is not None:
-                    try:
-                        upsert_app_usage(
-                            app_name=self._last_app_data["app_name"],
-                            window_title=self._last_app_data["window_title"],
-                            start_time=self._segment_start,
-                            end_time=timestamp,
-                        )
-                    except Exception as e:
-                        logger.error(f"闲置时保存 app_usage 失败: {e}")
-                    self._last_app_key = None
-                    self._last_app_data = None
-                    self._segment_start = None
+                # 结算上一段 app_usage（按多窗口面积分摊）
+                self._flush_segment(timestamp)
                 return None
         except Exception:
             pass  # 闲置检测失败时不阻断采集
@@ -228,56 +237,54 @@ class Collector:
         # 2.5 检查是否在排除列表中 — 跳过截图和分析，节省AI额度
         if is_app_excluded(app_name) or is_app_excluded(window_title):
             logger.info(f"应用在排除列表中，跳过: {display_name} / {window_title}")
-            # 结算上一段 app_usage（成功后再重置状态，避免数据丢失）
-            if self._last_app_data is not None and self._segment_start is not None:
-                try:
-                    upsert_app_usage(
-                        app_name=self._last_app_data["app_name"],
-                        window_title=self._last_app_data["window_title"],
-                        start_time=self._segment_start,
-                        end_time=timestamp,
-                    )
-                except Exception as e:
-                    logger.error(f"排除应用时保存 app_usage 失败: {e}")
-                self._last_app_key = None
-                self._last_app_data = None
-                self._segment_start = None
+            # 结算上一段（按多窗口面积分摊）
+            self._flush_segment(timestamp)
             return None
 
-        # 3. 记录应用使用时长
-        current_app_key = f"{app_name}|{window_title}"
-        should_flush = False
+        # 3. 记录应用使用时长 — 多窗口分摊写入
+        #    切换检测基于"前台签名"变化（避免过度细分），但写入时把 duration 分摊给所有可见窗口
+        current_fg_signature = f"{app_name}|{window_title}"
+        # 构建本次采集的可见窗口列表（≥15%面积），用于下一时段分摊
+        new_visible_windows: list[dict] = []
+        if visible_windows:
+            for w in visible_windows:
+                area_ratio = w.get("area_ratio", 0)
+                if area_ratio >= 0.15:
+                    new_visible_windows.append({
+                        "app_name": w.get("app_name", app_name),
+                        "window_title": w.get("window_title", "") or "",
+                        "area_ratio": area_ratio,
+                    })
+        # 过滤后为空则回退到前台窗口（占满 100%）
+        if not new_visible_windows:
+            new_visible_windows = [{
+                "app_name": app_name,
+                "window_title": window_title,
+                "area_ratio": 1.0,
+            }]
 
-        if current_app_key != self._last_app_key:
-            # 应用切换了，先写入上一段
-            if self._last_app_data is not None and self._segment_start is not None:
-                try:
-                    upsert_app_usage(
-                        app_name=self._last_app_data["app_name"],
-                        window_title=self._last_app_data["window_title"],
-                        start_time=self._segment_start,
-                        end_time=timestamp,
-                    )
-                except Exception as e:
-                    logger.warning(f"upsert_app_usage 失败（应用切换）: {e}")
+        should_flush = False
+        if current_fg_signature != self._last_fg_signature:
+            # 前台应用切换了，先结算上一段（用旧窗口列表分摊）
+            self._flush_segment(timestamp)
             # 开始新段
-            self._last_app_key = current_app_key
-            self._last_app_data = {"app_name": app_name, "window_title": window_title}
+            self._last_visible_windows = new_visible_windows
+            self._last_fg_signature = current_fg_signature
             self._segment_start = timestamp
             self._last_flush_time = now
         else:
-            # 同应用持续运行，定期强制落盘
+            # 前台未切换，但持续运行时定期强制落盘（用最新窗口列表分摊）
             if self._last_flush_time and (now - self._last_flush_time).total_seconds() >= _FLUSH_APP_USAGE_SEC:
                 should_flush = True
+            # 持续更新窗口列表，反映分屏布局变化（不重置段起点）
+            self._last_visible_windows = new_visible_windows
 
-        if should_flush and self._last_app_data is not None and self._segment_start is not None:
-            upsert_app_usage(
-                app_name=self._last_app_data["app_name"],
-                window_title=self._last_app_data["window_title"],
-                start_time=self._segment_start,
-                end_time=timestamp,
-            )
-            self._segment_start = timestamp  # 开始新的分段
+        if should_flush and self._last_visible_windows and self._segment_start is not None:
+            self._flush_segment(timestamp)
+            # 开始新段（仍用最新窗口列表）
+            self._last_visible_windows = new_visible_windows
+            self._last_fg_signature = current_fg_signature
+            self._segment_start = timestamp
             self._last_flush_time = now
 
         # 4. AI 分析 — 分析所有可见的并行大窗口（而不仅是前台窗口）
@@ -465,21 +472,16 @@ class Collector:
         self._running = False
         # 持锁读取和清空追踪状态，避免与 capture_once 并发导致数据损坏
         with self._capture_lock:
-            last_data = self._last_app_data
+            last_windows = self._last_visible_windows
             seg_start = self._segment_start
-            self._last_app_key = None
-            self._last_app_data = None
+            self._last_visible_windows = []
+            self._last_fg_signature = None
             self._segment_start = None
-        # 把最后一段 app_usage 写入（异常保护，不在锁内做 IO）
-        if last_data is not None and seg_start is not None:
+        # 把最后一段 app_usage 写入（多窗口分摊，异常保护，不在锁内做 IO）
+        if last_windows and seg_start is not None:
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             try:
-                upsert_app_usage(
-                    app_name=last_data["app_name"],
-                    window_title=last_data["window_title"],
-                    start_time=seg_start,
-                    end_time=now,
-                )
+                upsert_app_usage_multi(last_windows, seg_start, now)
             except Exception as e:
                 logger.error(f"保存最后 app_usage 失败: {e}")
         logger.info("采集器已停止")

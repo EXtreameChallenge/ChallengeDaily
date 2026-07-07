@@ -1202,6 +1202,16 @@ def _build_rich_data_context(target_date, summary_data, app_usage, activities) -
     except Exception:
         pass
 
+    # ── 注入 DeepInsight 学术框架分析 ──
+    try:
+        from deep_insight_engine import build_deep_insight_context
+        di_ctx = build_deep_insight_context(activities, interval_sec=config.SCREENSHOT_INTERVAL_SEC)
+        if di_ctx:
+            lines.append("")
+            lines.append(di_ctx)
+    except Exception as di_err:
+        logger.debug(f"DeepInsight context 注入失败(非致命): {di_err}")
+
     return "\n".join(lines)
 
 

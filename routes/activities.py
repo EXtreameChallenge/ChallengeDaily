@@ -310,9 +310,18 @@ def app_usage():
     if not validate_date(target_date):
         return jsonify({"error": f"Invalid date format: {target_date}"}), 400
 
-    from db import get_app_usage
+    from db import get_app_usage, get_app_usage_by_content
     apps = get_app_usage(target_date, end_date)
     total_min = sum(a["duration_min"] for a in apps)
+
+    # 内容维度：同应用下不同 window_title 的时长明细，按 app 分组
+    content_rows = get_app_usage_by_content(target_date, end_date)
+    contents_by_app: dict[str, list[dict]] = {}
+    for c in content_rows:
+        contents_by_app.setdefault(c["app_name"], []).append({
+            "title": c["window_title"],
+            "duration_min": c["duration_min"],
+        })
 
     from db import get_conn
     with get_conn() as conn:
@@ -338,11 +347,24 @@ def app_usage():
     result = []
     for a in apps:
         raw_name = a["app_name"]
+        contents = contents_by_app.get(raw_name, [])
+        # 内容维度百分比：基于该 app 自身总时长
+        app_total = a["duration_min"] if a["duration_min"] > 0 else 0
+        contents_payload = [
+            {
+                "title": c["title"],
+                "duration_min": c["duration_min"],
+                "percentage": round(c["duration_min"] / app_total * 100, 1) if app_total > 0 else 0,
+            }
+            for c in contents
+        ]
         result.append({
             "app_name": _gdn3(raw_name),
             "app_name_raw": raw_name,
             "category": app_primary_cat.get(raw_name, "其他"),
             "duration_min": a["duration_min"],
             "percentage": round(a["duration_min"] / total_min * 100, 1) if total_min > 0 else 0,
+            "contents": contents_payload,
+            "window_count": len(contents_payload),
         })
     return jsonify({"apps": result})

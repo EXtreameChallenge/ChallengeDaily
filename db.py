@@ -15,7 +15,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 # ── 持久连接（避免每分钟 5-7 次 connect/close）──
 _persistent_conn: Optional[sqlite3.Connection] = None
@@ -221,6 +221,31 @@ def init_db():
                 );
             """)
 
+        # V9: 唯一键改为 (app_name, window_title, start_time) 以支持多窗口分摊和内容维度统计
+        # 旧约束 UNIQUE(app_name, start_time) 会阻止同应用不同窗口共存
+        if current_version < 9:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS app_usage_v9 (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    app_name    TEXT NOT NULL,
+                    window_title TEXT,
+                    start_time  TEXT NOT NULL,
+                    end_time    TEXT,
+                    duration_sec INTEGER DEFAULT 0,
+                    UNIQUE(app_name, window_title, start_time)
+                );
+                -- 同 (app, title, start) 多条时取 duration 最大者，避免迁移时唯一冲突
+                INSERT OR IGNORE INTO app_usage_v9 (app_name, window_title, start_time, end_time, duration_sec)
+                SELECT app_name, window_title, start_time, end_time, MAX(duration_sec)
+                FROM app_usage
+                GROUP BY app_name, window_title, start_time;
+                DROP TABLE IF EXISTS app_usage;
+                ALTER TABLE app_usage_v9 RENAME TO app_usage;
+                CREATE INDEX IF NOT EXISTS idx_app_usage_app ON app_usage(app_name);
+                CREATE INDEX IF NOT EXISTS idx_app_usage_start ON app_usage(start_time);
+                CREATE INDEX IF NOT EXISTS idx_app_usage_title ON app_usage(app_name, window_title);
+            """)
+
         # 更新版本号
         conn.execute(
             "INSERT OR REPLACE INTO schema_version (key, value) VALUES ('version', ?)",
@@ -345,7 +370,10 @@ def get_daily_summary(start_date: str, end_date: str):
 
 
 def upsert_app_usage(app_name: str, window_title: str, start_time: str, end_time: str):
-    """记录应用使用时长 — 基于 (app_name, start_time) 的真正 UPSERT（批量提交优化）"""
+    """记录应用使用时长 — 基于 (app_name, window_title, start_time) 的 UPSERT（批量提交优化）
+
+    V9 起唯一键含 window_title，支持同应用不同窗口标题分别记录（内容维度）。
+    """
     global _pending_commits
     with get_conn() as conn:
         fmt = "%Y-%m-%d %H:%M:%S"
@@ -359,9 +387,8 @@ def upsert_app_usage(app_name: str, window_title: str, start_time: str, end_time
         _execute_with_retry(conn,
             "INSERT INTO app_usage (app_name, window_title, start_time, end_time, duration_sec) "
             "VALUES (?, ?, ?, ?, ?) "
-            "ON CONFLICT(app_name, start_time) DO UPDATE SET "
-            "end_time=excluded.end_time, duration_sec=excluded.duration_sec, "
-            "window_title=excluded.window_title",
+            "ON CONFLICT(app_name, window_title, start_time) DO UPDATE SET "
+            "end_time=excluded.end_time, duration_sec=excluded.duration_sec",
             (app_name, window_title, start_time, end_time, duration),
         )
         _pending_commits += 1
@@ -370,8 +397,64 @@ def upsert_app_usage(app_name: str, window_title: str, start_time: str, end_time
             _pending_commits = 0
 
 
+def upsert_app_usage_multi(windows: list, start_time: str, end_time: str):
+    """多窗口时长分摊写入 — 按 area_ratio 把 duration 分给所有可见窗口。
+
+    windows: [{"app_name", "window_title", "area_ratio"}]（已归一化或不归一化均可）
+    start_time/end_time: "%Y-%m-%d %H:%M:%S" 字符串
+
+    - 空列表：直接返回，不写入
+    - 单窗口：等价于 upsert_app_usage（duration 全归该窗口）
+    - 多窗口：duration × (area_ratio / sum(area_ratio)) 分给各窗口，向下取整
+    - 同一 (app_name, window_title) 出现多次时合并为一条
+    """
+    if not windows:
+        return
+    global _pending_commits
+
+    fmt = "%Y-%m-%d %H:%M:%S"
+    try:
+        dt_start = datetime.strptime(start_time, fmt)
+        dt_end = datetime.strptime(end_time, fmt)
+        total_duration = max(0, int((dt_end - dt_start).total_seconds()))
+    except Exception:
+        total_duration = 0
+    if total_duration <= 0:
+        return
+
+    # 归一化面积比例，合并相同 (app, title)
+    total_area = sum(float(w.get("area_ratio", 0)) for w in windows) or 1.0
+    merged: dict[tuple[str, str], int] = {}
+    for w in windows:
+        app_name = w.get("app_name", "Unknown")
+        window_title = w.get("window_title", "") or ""
+        ratio = float(w.get("area_ratio", 0)) / total_area
+        share = int(total_duration * ratio)  # 向下取整
+        key = (app_name, window_title)
+        merged[key] = merged.get(key, 0) + share
+    # 把取整损失补到面积最大的窗口，保证总和 = total_duration
+    assigned = sum(merged.values())
+    if assigned < total_duration and merged:
+        biggest = max(merged, key=merged.get)
+        merged[biggest] += (total_duration - assigned)
+
+    with get_conn() as conn:
+        for (app_name, window_title), duration in merged.items():
+            _execute_with_retry(conn,
+                "INSERT INTO app_usage (app_name, window_title, start_time, end_time, duration_sec) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(app_name, window_title, start_time) DO UPDATE SET "
+                "end_time=excluded.end_time, duration_sec=excluded.duration_sec",
+                (app_name, window_title, start_time, end_time, duration),
+            )
+            _pending_commits += 1
+            if _pending_commits >= _COMMIT_BATCH_SIZE:
+                conn.commit()
+                _pending_commits = 0
+
+
 def get_app_usage(start_date: str, end_date: str):
-    """查询应用使用时长统计"""
+    """查询应用使用时长统计（按 app_name 聚合，与历史接口兼容）"""
     _flush_pending_commits()
     with get_conn() as conn:
         rows = conn.execute(
@@ -381,6 +464,32 @@ def get_app_usage(start_date: str, end_date: str):
             (f"{start_date} 00:00:00", f"{end_date} 23:59:59"),
         ).fetchall()
     return [{"app_name": dict(r)["app_name"], "duration_min": round(dict(r)["total_sec"] / 60, 1)} for r in rows]
+
+
+def get_app_usage_by_content(start_date: str, end_date: str):
+    """按应用 + 窗口标题细分查询使用时长。
+
+    返回 [{"app_name", "window_title", "duration_min"}]，按 app_name 时长降序、同 app 内按 title 降序。
+    用于在应用记录页展开查看同应用下不同内容（标签页/文档）的占用时间。
+    """
+    _flush_pending_commits()
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT app_name, window_title, SUM(duration_sec) as total_sec "
+            "FROM app_usage "
+            "WHERE start_time >= ? AND start_time <= ? "
+            "GROUP BY app_name, window_title "
+            "ORDER BY app_name, total_sec DESC",
+            (f"{start_date} 00:00:00", f"{end_date} 23:59:59"),
+        ).fetchall()
+    return [
+        {
+            "app_name": dict(r)["app_name"],
+            "window_title": dict(r)["window_title"] or "",
+            "duration_min": round(dict(r)["total_sec"] / 60, 1),
+        }
+        for r in rows
+    ]
 
 
 def save_report(report_date: str, content: str):

@@ -11,6 +11,7 @@ from routes.exports import bp as exports_bp
 from routes.agent import bp as agent_bp
 from routes.app_rules import bp as app_rules_bp
 from routes.profile import bp as profile_bp
+from routes.deep_insight import bp as deep_insight_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -26,4 +27,5 @@ ALL_BLUEPRINTS = [
     agent_bp,
     app_rules_bp,
     profile_bp,
+    deep_insight_bp,
 ]

@@ -99,6 +99,22 @@ def overview_summary():
         except Exception:
             pass
 
+        # ── 注入 DeepInsight 学术框架分析 ──
+        try:
+            from deep_insight_engine import build_deep_insight_context
+            act_dicts = [
+                {"category": a["category"] if isinstance(a, dict) else a["category"],
+                 "app_name": a["app_name"] if isinstance(a, dict) else a["app_name"],
+                 "timestamp": a["timestamp"] if isinstance(a, dict) else a["timestamp"]}
+                for a in activities
+            ]
+            import config as _cfg
+            di_ctx = build_deep_insight_context(act_dicts, interval_sec=_cfg.SCREENSHOT_INTERVAL_SEC)
+            if di_ctx:
+                prompt += f"\n\n{di_ctx}"
+        except Exception:
+            pass
+
         from openai import OpenAI
         import httpx
         client = OpenAI(
