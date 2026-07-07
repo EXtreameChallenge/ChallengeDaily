@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, type ReactNode } from 'react'
 import dayjs from 'dayjs'
 import { Solar } from 'lunar-javascript'
 import { MapPin, Navigation, CloudSun, Cloud, CloudRain, Snowflake, Wind, Zap, Brain, RefreshCw, Lightbulb, AlertTriangle, Trophy, Sparkles, Eye, Compass } from 'lucide-react'
@@ -71,6 +71,30 @@ const tzCity = (() => {
     return '本地'
   }
 })()
+
+/** 把故事里的数字、时间、百分比高亮，方便一眼看到重点 */
+function highlightStory(text: string): ReactNode[] {
+  const result: ReactNode[] = []
+  const regex = /(\d{1,2}:\d{2})|(\d+\.?\d*)\s*(小时|分钟|条|%|\/100|h|min)/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  let key = 0
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      result.push(<span key={key++}>{text.slice(lastIndex, match.index)}</span>)
+    }
+    if (match[1]) {
+      result.push(<span key={key++} className="text-purple-300 font-semibold">{match[1]}</span>)
+    } else {
+      result.push(<span key={key++} className="text-cd-green font-semibold">{match[2]}{match[3]}</span>)
+    }
+    lastIndex = match.index + match[0].length
+  }
+  if (lastIndex < text.length) {
+    result.push(<span key={key++}>{text.slice(lastIndex)}</span>)
+  }
+  return result
+}
 
 export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
   const [now, setNow] = useState(dayjs())
@@ -485,12 +509,12 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
                     {insight.structured.mood === 'excited' && '✨'}
                     {(!insight.structured.mood || insight.structured.mood === 'warm') && '🌸'}
                   </span>
-                  <p className="text-lg text-cd-text font-semibold leading-snug">{insight.structured.headline || insight.summary}</p>
+                  <p className="text-xl text-cd-text font-semibold leading-snug">{insight.structured.headline || insight.summary}</p>
                 </div>
 
-                {/* 主体：朋友式小作文，字号加大、行距宽松 */}
+                {/* 主体：朋友式小作文，字号加大、行距宽松，数字高亮 */}
                 {insight.structured.story && (
-                  <p className="text-lg text-cd-text-secondary leading-[1.8]">{insight.structured.story}</p>
+                  <p className="text-lg text-cd-text-secondary leading-[1.8]">{highlightStory(insight.structured.story)}</p>
                 )}
 
                 {/* 可爱的情绪/关怀标签 */}
