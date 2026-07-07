@@ -20,6 +20,56 @@ def _parse_overview_json(raw: str) -> dict | None:
     """解析 AI 返回的结构化 JSON，失败返回 None"""
     import json as _json
     import re as _re
+    import unicodedata as _ucd
+
+    def _is_emoji(ch: str) -> bool:
+        """判断单个字符是否为 emoji（覆盖常用 emoji Unicode 区块）"""
+        cp = ord(ch)
+        if 0x2300 <= cp <= 0x23FF:
+            return True
+        if 0x2600 <= cp <= 0x27BF:
+            return True
+        if 0x2B00 <= cp <= 0x2BFF:
+            return True
+        if 0x1F000 <= cp <= 0x1F9FF:
+            return True
+        if 0x1FA00 <= cp <= 0x1FAFF:
+            return True
+        if 0xFE00 <= cp <= 0xFE0F:
+            return True  # variation selectors
+        cat = _ucd.category(ch)
+        return cat == "So"  # other symbols
+
+    def _clean_tag_text(text: str, tag_type: str = "mood") -> str | None:
+        """清理标签：保留 1 个前导 emoji，确保有文字；若无 emoji 则按类型补默认 emoji"""
+        default_emojis = {
+            "mood": "🌸",
+            "care": "🧡",
+            "achievement": "🌿",
+            "reminder": "💡",
+        }
+        chars = list(text.strip())
+        # 去掉前导空白
+        while chars and chars[0].isspace():
+            chars.pop(0)
+        # 提取 1 个前导 emoji（如有多个只取第一个）
+        leading_emoji = ""
+        if chars and _is_emoji(chars[0]):
+            leading_emoji = chars.pop(0)
+            # 跳过紧跟的额外 emoji/空白
+            while chars and (_is_emoji(chars[0]) or chars[0].isspace()):
+                chars.pop(0)
+        # 去掉尾部 emoji/空白
+        while chars and (_is_emoji(chars[-1]) or chars[-1].isspace()):
+            chars.pop()
+        cleaned = "".join(chars).strip()
+        # 必须包含至少一个文字/数字字符
+        if not cleaned or not any(c.isalnum() or _ucd.category(c).startswith("C") for c in cleaned):
+            return None
+        # 没有前导 emoji 时按类型补一个
+        if not leading_emoji:
+            leading_emoji = default_emojis.get(tag_type, "✨")
+        return f"{leading_emoji}{cleaned}"
     text = raw.strip()
     if not text:
         return None
@@ -56,7 +106,9 @@ def _parse_overview_json(raw: str) -> dict | None:
             t_type = t.get("type", "mood")
             if t_type not in valid_tag_types:
                 t_type = "mood"
-            cleaned_tags.append({"type": t_type, "text": str(t["text"]).strip()})
+            cleaned_text = _clean_tag_text(str(t["text"]), tag_type=t_type)
+            if cleaned_text:
+                cleaned_tags.append({"type": t_type, "text": cleaned_text})
     cleaned_tips = []
     for tip in tips[:2]:
         if isinstance(tip, str) and tip.strip():
@@ -142,8 +194,8 @@ def overview_summary():
             longest = patterns.get("longest_focus", {})
             focus_text = f"最长专注：{longest.get('category','')} {longest.get('duration_min',0)}分钟"
 
-        # 计算更丰富的今日数据（activities 里是 duration_sec）
-        total_min = round(sum(a.get("duration_sec", 0) for a in activities) / 60)
+        # 计算更丰富的今日数据（activities 里是 interval_sec，表示单次采样时长）
+        total_min = round(sum(a.get("interval_sec", 60) for a in activities) / 60)
         total_h = round(total_min / 60, 1)
         first_ts = acts_sorted[0].get("timestamp", "") if acts_sorted else ""
         first_time = first_ts[11:16] if len(first_ts) > 16 else "--:--"
@@ -166,7 +218,7 @@ def overview_summary():
             if len(ts) > 13:
                 try:
                     h = int(ts[11:13])
-                    hour_minutes[h] += a.get("duration_sec", 0) / 60
+                    hour_minutes[h] += a.get("interval_sec", 60) / 60
                 except ValueError:
                     pass
         peak_hour = max(hour_minutes.items(), key=lambda x: x[1])[0] if hour_minutes else None
@@ -180,7 +232,7 @@ def overview_summary():
             yd_summary = get_daily_summary(yd, yd)
             if yd_summary:
                 yd_acts = get_activities(yd, yd)
-                yd_total_min = round(sum(a.get("duration_sec", 0) for a in yd_acts) / 60)
+                yd_total_min = round(sum(a.get("interval_sec", 60) for a in yd_acts) / 60)
                 yesterday_total_text = f"{round(yd_total_min / 60, 1)}小时（{yd_total_min}分钟）"
         except Exception:
             pass
@@ -194,17 +246,18 @@ def overview_summary():
             f"\n"
             f"【语气要求】\n"
             f"- 活泼、可爱、温馨，像一个会吐槽也会关心你的朋友。\n"
-            f"- 可以带 emoji，但不要满屏都是。\n"
+            f"- 可以带 emoji，但不要满屏都是；标签必须同时有文字和 emoji，emoji 只放 1 个且在文字最前面（如\"🍃有点散\"）。\n"
             f"- 自然一点，像微信聊天，不要像在写年终总结。\n"
+            f"- 解读数据要逻辑自洽，不能自相矛盾。\n"
             f"\n"
-            f"【输出格式】必须且只输出下面的 JSON：\n"
+            f"【输出格式】必须且只输出下面的 JSON（注意使用英文逗号和英文冒号）：\n"
             f"{{\n"
-            f"  \"headline\": \"一句朋友式的总结，20字以内，可带 emoji\"，\n"
-            f"  \"mood\": \"proud|tired|focused|balanced|scattered|warm|excited\"，\n"
-            f"  \"story\": \"5-8 句完整的话，像聊天一样自然，把小作文写够，深度结合所有数据\"，\n"
+            f"  \"headline\": \"一句朋友式的总结，20字以内，可带 emoji\",\n"
+            f"  \"mood\": \"proud|tired|focused|balanced|scattered|warm|excited\",\n"
+            f"  \"story\": \"6-10 句完整的话，像微信聊天一样絮絮叨叨，把小作文写够，深度结合所有数据\",\n"
             f"  \"tags\": [\n"
-            f"    {{\"type\": \"mood|care|achievement|reminder\"，\"text\": \"带 emoji 的可爱标签\"}}\n"
-            f"  ]，\n"
+            f"    {{\"type\": \"mood|care|achievement|reminder\", \"text\": \"🍃带1个emoji的可爱标签\"}}\n"
+            f"  ],\n"
             f"  \"tips\": [\"1 条轻松的小建议，像朋友随口一提，不要说教\"]\n"
             f"}}\n"
             f"\n"
@@ -214,8 +267,9 @@ def overview_summary():
             f"【小作文写作要求】\n"
             f"1. 必须覆盖下面全部数据点：总时长、最早/最晚工作、峰值时段、使用应用数量、主力应用、分类占比、开发占比、专注效率、碎片化指数、深度工作占比、平均会话时长、与昨天对比。\n"
             f"2. 句子之间要有衔接，像朋友在连续说话，不要变成列表式总结。\n"
-            f"3. 数据多就多聊几句，数据少也不要硬夸，轻松说\"今天比较清闲，给自己放个假也超棒的～\"\n"
+            f"3. 数据多就多聊几句；如果总时长很短，直接说\"今天比较清闲\"\"今天没咋干活\"，不要硬夸\"效率满满\"\"超棒\"。\n"
             f"4. 可以有一点小吐槽或小感叹，但要基于数据，不要凭空想象。\n"
+            f"5. 注意逻辑一致：碎片化指数高就不要说\"没被分散\"；总时长短就不要说\"效率满满\"。\n"
             f"\n"
             f"【今日数据】\n"
             f"总时长：{total_h}小时（{total_min}分钟），昨天同口径：{yesterday_total_text}\n"
