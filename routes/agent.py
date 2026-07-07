@@ -11,8 +11,64 @@ logger = logging.getLogger(__name__)
 bp = Blueprint('agent', __name__)
 
 # ── 首页 AI 洞察缓存 ──
-_overview_cache = {"text": "", "timestamp": 0.0}
+_overview_cache = {"text": "", "structured": None, "timestamp": 0.0}
 _OVERVIEW_CACHE_TTL = 300  # 5 分钟缓存
+
+
+def _parse_overview_json(raw: str) -> dict | None:
+    """解析 AI 返回的结构化 JSON，失败返回 None"""
+    import json as _json
+    import re as _re
+    text = raw.strip()
+    if not text:
+        return None
+    # 去掉可能的 markdown 代码块
+    if text.startswith("```"):
+        text = _re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=_re.MULTILINE).strip()
+    try:
+        data = _json.loads(text)
+    except Exception:
+        # 尝试提取第一个 { ... }
+        match = _re.search(r"\{[\s\S]*\}", text)
+        if not match:
+            return None
+        try:
+            data = _json.loads(match.group(0))
+        except Exception:
+            return None
+    if not isinstance(data, dict):
+        return None
+    # 校验必要字段
+    if "headline" not in data:
+        return None
+    # 清理 tags / points
+    tags = data.get("tags") or []
+    points = data.get("points") or []
+    if not isinstance(tags, list):
+        tags = []
+    if not isinstance(points, list):
+        points = []
+    valid_tag_types = {"achievement", "warning", "insight", "suggestion"}
+    valid_point_types = {"observation", "suggestion"}
+    cleaned_tags = []
+    for t in tags[:4]:
+        if isinstance(t, dict) and t.get("text"):
+            t_type = t.get("type", "insight")
+            if t_type not in valid_tag_types:
+                t_type = "insight"
+            cleaned_tags.append({"type": t_type, "text": str(t["text"]).strip()})
+    cleaned_points = []
+    for p in points[:3]:
+        if isinstance(p, dict) and p.get("text"):
+            p_type = p.get("type", "observation")
+            if p_type not in valid_point_types:
+                p_type = "observation"
+            cleaned_points.append({"type": p_type, "text": str(p["text"]).strip()})
+    return {
+        "headline": str(data.get("headline", "")).strip(),
+        "tags": cleaned_tags,
+        "points": cleaned_points,
+    }
 
 
 @bp.route("/api/ai/overview-summary")
@@ -21,6 +77,11 @@ def overview_summary():
     import time as _time
     now = _time.time()
     if _overview_cache["text"] and (now - _overview_cache["timestamp"]) < _OVERVIEW_CACHE_TTL:
+        if _overview_cache.get("structured"):
+            return jsonify({
+                "summary": _overview_cache["structured"].get("headline", ""),
+                "structured": _overview_cache["structured"],
+            })
         return jsonify({"summary": _overview_cache["text"]})
 
     if not config.AI_API_KEY:
@@ -75,10 +136,23 @@ def overview_summary():
             focus_text = f"最长专注：{longest.get('category','')} {longest.get('duration_min',0)}分钟"
 
         prompt = (
-            f"以下是用户今天（{target_date}）的工作数据摘要，请用 2-3 句话给出有洞见的总结分析。\n"
-            f"要求：不要罗列数据，不要说空话（如'加油''继续努力'），要基于数据给出真正的观察和建议。\n"
-            f"比如：发现专注被频繁打断 → 建议关通知；发现某工具占用过多 → 提醒审视；发现分类分布不均 → 具体指出。\n"
-            f"语气像最懂你的朋友，温暖但直说。\n\n"
+            f"以下是用户今天（{target_date}）的工作数据摘要，请给出有洞见的总结分析。\n"
+            f"要求：\n"
+            f"1. 不要罗列数据，不要说空话（如'加油''继续努力'），要基于数据给出真正的观察和建议。\n"
+            f"2. 必须按下面 JSON 格式输出，不要输出其他内容：\n"
+            f"{{\n"
+            f"  \"headline\": \"一句话核心结论（25字以内）\"，\n"
+            f"  \"tags\": [\n"
+            f"    {{\"type\": \"achievement|warning|insight|suggestion\"，\"text\": \"3-6字标签\"}}，\n"
+            f"    ...（2-4个标签）\n"
+            f"  ]，\n"
+            f"  \"points\": [\n"
+            f"    {{\"type\": \"observation|suggestion\"，\"text\": \"具体观察或建议（40字以内）\"}}，\n"
+            f"    ...（2-3条）\n"
+            f"  ]\n"
+            f"}}\n"
+            f"3. type 说明：achievement 表示积极发现（绿色），warning 表示需要注意（橙色），insight 表示洞察（蓝色），suggestion 表示建议（紫色）。\n"
+            f"4. 如果某类标签没有，不要硬凑。\n\n"
             f"分类分布：{cat_summary}\n"
             f"工具使用：{app_summary}\n"
             f"注意力碎片化：{attention['fragmentation_index']}/100，专注效率：{attention['focus_efficiency']}/100\n"
@@ -137,7 +211,20 @@ def overview_summary():
         except Exception:
             pass
 
+        # 尝试解析结构化 JSON
+        structured = _parse_overview_json(text)
+        if structured:
+            _overview_cache["text"] = text
+            _overview_cache["structured"] = structured
+            _overview_cache["timestamp"] = now
+            return jsonify({
+                "summary": structured.get("headline", ""),
+                "structured": structured,
+            })
+
+        # fallback：把整段文字当作 summary
         _overview_cache["text"] = text
+        _overview_cache["structured"] = None
         _overview_cache["timestamp"] = now
         return jsonify({"summary": text})
 

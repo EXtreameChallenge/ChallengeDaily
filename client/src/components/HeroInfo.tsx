@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import dayjs from 'dayjs'
 import { Solar } from 'lunar-javascript'
-import { MapPin, Navigation, CloudSun, Cloud, CloudRain, Snowflake, Wind, Zap, Brain, RefreshCw } from 'lucide-react'
+import { MapPin, Navigation, CloudSun, Cloud, CloudRain, Snowflake, Wind, Zap, Brain, RefreshCw, Lightbulb, AlertTriangle, Trophy, Sparkles, Eye, Compass } from 'lucide-react'
 import { request } from '../api/client'
 
 interface HeroInfoProps {
@@ -12,6 +12,25 @@ interface WeatherInfo {
   temp: number
   code: number
   city?: string
+}
+
+interface InsightTag {
+  type: 'achievement' | 'warning' | 'insight' | 'suggestion'
+  text: string
+}
+
+interface InsightPoint {
+  type: 'observation' | 'suggestion'
+  text: string
+}
+
+interface InsightData {
+  summary: string
+  structured?: {
+    headline: string
+    tags: InsightTag[]
+    points: InsightPoint[]
+  }
 }
 
 const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
@@ -62,7 +81,7 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
   const [city, setCity] = useState<string>(tzCity)
   const [preciseLocation, setPreciseLocation] = useState<string>('')
   const [loadingWeather, setLoadingWeather] = useState(false)
-  const [insight, setInsight] = useState('')
+  const [insight, setInsight] = useState<InsightData | null>(null)
   const [loadingInsight, setLoadingInsight] = useState(false)
 
   // 实时更新时间
@@ -385,8 +404,8 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
   const fetchInsight = useCallback(() => {
     setLoadingInsight(true)
     request('/api/ai/overview-summary')
-      .then((data: { summary?: string }) => {
-        if (data.summary) setInsight(data.summary)
+      .then((data: InsightData) => {
+        if (data.summary || data.structured) setInsight(data)
       })
       .catch(() => { /* 静默失败 */ })
       .finally(() => setLoadingInsight(false))
@@ -443,7 +462,7 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
 
       {/* 第二行：AI 洞察 */}
       <div className="mt-3">
-        <div className="flex items-center gap-1.5 mb-1">
+        <div className="flex items-center gap-1.5 mb-2">
           <Brain size={16} className="text-cd-green" />
           <span className="text-xs text-cd-green font-medium uppercase tracking-wider">AI 洞察</span>
           {!loadingInsight && insight && (
@@ -453,11 +472,62 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
           )}
         </div>
         {loadingInsight ? (
-          <p className="text-lg text-cd-text-tertiary animate-pulse">正在分析今日工作数据...</p>
+          <p className="text-base text-cd-text-tertiary animate-pulse">正在分析今日工作数据...</p>
         ) : insight ? (
-          <p className="text-xl text-cd-text leading-relaxed">{insight}</p>
+          <div className="space-y-2">
+            {insight.structured ? (
+              <>
+                <p className="text-lg text-cd-text font-medium leading-snug">{insight.structured.headline || insight.summary}</p>
+                {insight.structured.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {insight.structured.tags.map((tag, idx) => {
+                      const styles = {
+                        achievement: 'text-green-400 bg-green-400/10 border-green-400/20',
+                        warning: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+                        insight: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+                        suggestion: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
+                      }
+                      const icons = {
+                        achievement: <Trophy size={12} />,
+                        warning: <AlertTriangle size={12} />,
+                        insight: <Lightbulb size={12} />,
+                        suggestion: <Sparkles size={12} />,
+                      }
+                      return (
+                        <span
+                          key={idx}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${styles[tag.type]}`}
+                        >
+                          {icons[tag.type]}
+                          {tag.text}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
+                {insight.structured.points.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    {insight.structured.points.map((point, idx) => {
+                      const isSuggestion = point.type === 'suggestion'
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex items-start gap-2 text-sm ${isSuggestion ? 'text-purple-300' : 'text-cd-text-secondary'}`}
+                        >
+                          {isSuggestion ? <Compass size={14} className="shrink-0 mt-0.5 text-purple-400" /> : <Eye size={14} className="shrink-0 mt-0.5 text-blue-400" />}
+                          <span className="leading-relaxed">{point.text}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-lg text-cd-text leading-relaxed">{insight.summary}</p>
+            )}
+          </div>
         ) : (
-          <p className="text-lg text-cd-text-tertiary">配置 AI 后，这里会基于真实工作数据给出深度洞察。</p>
+          <p className="text-base text-cd-text-tertiary">配置 AI 后，这里会基于真实工作数据给出深度洞察。</p>
         )}
       </div>
     </div>
