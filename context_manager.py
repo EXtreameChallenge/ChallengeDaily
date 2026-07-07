@@ -104,7 +104,7 @@ def generate_daily_profile(target_date: str) -> dict | None:
         client = OpenAI(
             api_key=config.AI_API_KEY,
             base_url=config.AI_BASE_URL,
-            timeout=httpx.Timeout(15.0, connect=5.0),
+            timeout=httpx.Timeout(30.0, connect=5.0),
         )
         response = client.chat.completions.create(
             model=config.AI_TEXT_MODEL,

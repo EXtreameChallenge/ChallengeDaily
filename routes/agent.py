@@ -272,6 +272,7 @@ def overview_summary():
             f"3. 数据多就多聊几句；如果总时长很短，直接说\"今天比较清闲\"\"今天没咋干活\"\"是不是偷偷摸鱼了\"，不要硬夸\"效率满满\"\"超棒\"。\n"
             f"4. 可以有一点小吐槽或小感叹，但要基于数据，不要凭空想象。只根据下方提供的活动详情描述，不要编造未出现的应用或行为。\n"
             f"5. 把数字、百分比、时长用口语化方式说出来，例如\"{total_h}小时\"\"{top_app_pct}%\"\"{peak_hour_text}\"，让读者一眼能看到重点。\n"
+            f"6. 【个性化】如果系统提示中包含了用户画像（角色、工作风格、习惯、应用用途说明、自定义规则），你必须在 story 中自然地引用这些信息。例如：用户是夜型选手，当数据符合夜型特征时可以说\"果然是你的高峰时段\"；用户自定义了应用用途，可以用用户描述的用途而非应用名本身。\n"
             f"\n"
             f"【今日数据】\n"
             f"总时长：{total_h}小时（{total_min}分钟），昨天同口径：{yesterday_total_text}\n"
@@ -325,7 +326,7 @@ def overview_summary():
         client = OpenAI(
             api_key=config.AI_API_KEY,
             base_url=config.AI_BASE_URL,
-            timeout=httpx.Timeout(15.0, connect=5.0),
+            timeout=httpx.Timeout(30.0, connect=5.0),
         )
         response = client.chat.completions.create(
             model=config.AI_TEXT_MODEL,
