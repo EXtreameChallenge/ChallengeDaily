@@ -36,7 +36,7 @@ def export_app_usage_route():
     )
 
 
-@bp.route('/excel', methods=['GET'])
+@bp.route('/api/exports/excel', methods=['GET'])
 def export_excel():
     """导出Excel（CSV格式，多Sheet用分页符分隔）"""
     import csv
@@ -81,7 +81,7 @@ def export_excel():
     )
 
 
-@bp.route('/json', methods=['GET'])
+@bp.route('/api/exports/json', methods=['GET'])
 def export_json():
     """导出JSON全量数据"""
     from datetime import timedelta

@@ -1158,11 +1158,12 @@ def log_habit(habit_id, log_date=None, count=1):
 
 def get_habit_logs(habit_id=None, days=30):
     _flush_pending_commits()
+    cutoff = (date.today() - timedelta(days=int(days))).isoformat()
     with get_conn() as conn:
         if habit_id:
-            rows = conn.execute("SELECT * FROM habit_logs WHERE habit_id=? AND log_date >= date('now','-? days','localtime') ORDER BY log_date DESC", (habit_id, days)).fetchall()
+            rows = conn.execute("SELECT * FROM habit_logs WHERE habit_id=? AND log_date >= ? ORDER BY log_date DESC", (habit_id, cutoff)).fetchall()
         else:
-            rows = conn.execute("SELECT * FROM habit_logs WHERE log_date >= date('now','-? days','localtime') ORDER BY log_date DESC", (days,)).fetchall()
+            rows = conn.execute("SELECT * FROM habit_logs WHERE log_date >= ? ORDER BY log_date DESC", (cutoff,)).fetchall()
         return [dict(r) for r in rows]
 
 def delete_habit(habit_id):
