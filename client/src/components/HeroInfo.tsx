@@ -453,11 +453,11 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
           )}
         </div>
         {loadingInsight ? (
-          <p className="text-base text-cd-text-tertiary animate-pulse">正在分析今日工作数据...</p>
+          <p className="text-lg text-cd-text-tertiary animate-pulse">正在分析今日工作数据...</p>
         ) : insight ? (
-          <p className="text-lg text-cd-text leading-relaxed">{insight}</p>
+          <p className="text-xl text-cd-text leading-relaxed">{insight}</p>
         ) : (
-          <p className="text-base text-cd-text-tertiary">配置 AI 后，这里会基于真实工作数据给出深度洞察。</p>
+          <p className="text-lg text-cd-text-tertiary">配置 AI 后，这里会基于真实工作数据给出深度洞察。</p>
         )}
       </div>
     </div>

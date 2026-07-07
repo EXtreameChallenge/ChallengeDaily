@@ -184,6 +184,8 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
             # 尝试提取 JSON
             result = _parse_json_response(raw)
             if result:
+                # 后校验：过滤 AI 幻觉
+                result = _sanitize_analysis_result(result, app_name, visible_windows)
                 _cb_record_success()
                 return result
 
@@ -202,6 +204,49 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
                 _reset_client()
                 _cb_record_failure()
                 return {"category": "生活", "summary": "分析异常", "detail": str(e)[:50]}
+
+
+# IDE/编辑器进程名列表
+_IDE_PROCESSES = {"trae soolo cn.exe", "trae.exe", "code.exe", "cursor.exe", "idea64.exe", "pycharm64.exe", "webstorm64.exe", "clion64.exe", "goland64.exe", "rubymine64.exe", "phpstorm64.exe", "datagrip64.exe", "rider64.exe", "visualstudio.exe", "devenv.exe", "notepad++.exe", "sublime_text.exe", "atom.exe", "brackets.exe"}
+
+
+def _is_ide_app(app_name: str) -> bool:
+    return app_name.lower().replace(" ", "") in {p.replace(" ", "").replace(".exe", "") for p in _IDE_PROCESSES}
+
+
+def _sanitize_analysis_result(result: dict, app_name: str, visible_windows: list[dict] | None) -> dict:
+    """
+    后校验 AI 返回结果，过滤幻觉：
+    1. windows 数组里的 app_name 必须来自传入的 visible_windows
+    2. 当前前台不是 IDE 时，summary/detail 不能出现具体代码相关元素
+    """
+    visible_apps = {w.get("app_name", "").lower() for w in (visible_windows or []) if w.get("app_name")}
+    # 清理 windows 数组中的幻觉窗口
+    windows = result.get("windows") or []
+    cleaned_windows = []
+    for w in windows:
+        w_app = w.get("app_name", "").lower()
+        if w_app in visible_apps:
+            cleaned_windows.append(w)
+        else:
+            logger.warning(f"[AI sanitize] 过滤掉不在可见窗口列表中的应用: {w_app}")
+    result["windows"] = cleaned_windows
+
+    foreground_is_ide = _is_ide_app(app_name or "")
+    if not foreground_is_ide:
+        # 如果前台不是 IDE，但 detail/summary 出现典型代码元素，说明是幻觉
+        code_signals = [".py", ".js", ".ts", ".java", ".go", ".cpp", ".c", ".h", ".rs", ".swift", ".kt",
+                        "函数", "login", "auth", "token", "api", "接口", "调试", "bug", "报错", "编译",
+                        "github", "gitlab", "commit", "pr", "merge", "仓库", "分支"]
+        summary = result.get("summary", "")
+        detail = result.get("detail", "")
+        combined = f"{summary} {detail}".lower()
+        if any(s in combined for s in code_signals):
+            logger.warning("[AI sanitize] 前台非 IDE 但出现代码相关描述，判定为幻觉并回退")
+            result["summary"] = f"使用 {app_name}"
+            result["detail"] = f"当前前台应用为 {app_name}，截图中未显示代码或开发相关内容，无法判断具体工作内容。"
+            result["category"] = "生活"
+    return result
 
 
 def _parse_json_response(raw: str) -> dict | None:
