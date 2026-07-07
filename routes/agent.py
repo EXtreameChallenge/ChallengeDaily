@@ -264,6 +264,7 @@ def overview_summary():
             f"\n"
             f"mood 只能选一个：proud（成就感）、tired（累了）、focused（专注）、balanced（平衡）、scattered（有点散）、warm（温暖）、excited（兴奋）。\n"
             f"tags 2-4 个即可，必须覆盖至少两种 type（不要全是 mood）。type 含义：mood 心情（粉紫）、care 关怀（暖橙）、achievement 成就（草绿）、reminder 提醒（浅蓝）。\n"
+            f"每个标签的 emoji 要和类型匹配，不要用同一个 emoji 敷衍：mood 用心情类 emoji（如 🌸/😴/🎯），care 用关怀类 emoji（如 🧡/🍵），achievement 用成就类 emoji（如 🌿/🌟），reminder 用提醒类 emoji（如 💡/⏰）。\n"
             f"\n"
             f"【小作文写作要求】\n"
             f"1. 必须覆盖下面全部数据点，并自然嵌入句子：总时长、最早/最晚工作、峰值时段、使用应用数量、主力应用、分类占比、开发占比、专注效率、碎片化指数、深度工作占比、平均会话时长、与昨天对比。\n"
