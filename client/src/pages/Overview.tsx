@@ -401,24 +401,25 @@ export default function Overview() {
           <CardHeader title="应用使用" linkTo="/apps" onNavigate={navigate} />
           <div className="flex-1 bg-cd-card border border-cd-border rounded-xl p-5 min-h-0 overflow-hidden">
             {topApps.length > 0 ? (
-              <div
-                className="grid gap-2 overflow-y-auto max-h-[280px] pr-1 scrollbar-thin content-start"
-                style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(92px, 1fr))' }}
-              >
+              <div className="space-y-2.5 overflow-y-auto max-h-[280px] pr-1 scrollbar-thin">
                 {topApps.map((app, idx) => {
                   const pct = totalMin > 0 ? (app.duration_min / totalMin) * 100 : 0
                   const iconUrl = iconUrls[app.app_name]
                   const defaultIcon = import.meta.env.DEV ? '/icon.png' : './icon.png'
                   const displayName = getDisplayAppName(app.app_name)
                   return (
-                    <div key={app.app_name} className="bg-cd-bg-secondary/40 border border-cd-border/50 rounded-lg p-2 flex flex-col items-center text-center hover:bg-cd-hover transition-colors">
-                      <div className="w-8 h-8 rounded-md bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden mb-1.5">
-                        <img src={iconUrl || defaultIcon} alt="" className="w-6 h-6 object-contain" onError={(e) => { e.currentTarget.src = defaultIcon }} />
+                    <div key={app.app_name} className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-md bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
+                        <img src={iconUrl || defaultIcon} alt="" className="w-5 h-5 object-contain" onError={(e) => { e.currentTarget.src = defaultIcon }} />
                       </div>
-                      <span className="text-xs text-cd-text truncate w-full" title={app.app_name}>{displayName}</span>
-                      <span className="text-[10px] font-brand font-semibold text-cd-text-tertiary leading-tight">{formatDur(app.duration_min)}</span>
-                      <div className="w-full h-1 rounded-full bg-cd-bg-secondary overflow-hidden mt-1">
-                        <div className="h-full rounded-full bg-cd-green/60 transition-all duration-500" style={{ width: `${Math.max(pct, 2)}%` }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-xs text-cd-text truncate" title={app.app_name}>{displayName}</span>
+                          <span className="text-xs font-brand font-semibold text-cd-text shrink-0 ml-2">{formatDur(app.duration_min)}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-cd-bg-secondary overflow-hidden">
+                          <div className="h-full rounded-full bg-cd-green/60 transition-all duration-500" style={{ width: `${Math.max(pct, 2)}%` }} />
+                        </div>
                       </div>
                     </div>
                   )

@@ -425,7 +425,8 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
   const fetchInsight = useCallback(() => {
     setLoadingInsight(true)
     request('/api/ai/overview-summary')
-      .then((data: InsightData) => {
+      .then((raw) => {
+        const data = raw as InsightData
         if (data.summary || data.structured) setInsight(data)
       })
       .catch(() => { /* 静默失败 */ })
@@ -434,10 +435,17 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
 
   useEffect(() => {
     fetchInsight()
+    // 启动后 3 秒再拉一次，避免后端初始化未完成导致空数据
+    const retryTimer = setTimeout(() => {
+      if (!insight) fetchInsight()
+    }, 3000)
     // 5 分钟刷新一次（与后端缓存 TTL 对齐）
     const timer = setInterval(fetchInsight, 300000)
-    return () => clearInterval(timer)
-  }, [fetchInsight])
+    return () => {
+      clearTimeout(retryTimer)
+      clearInterval(timer)
+    }
+  }, [fetchInsight, insight])
 
   return (
     <div>

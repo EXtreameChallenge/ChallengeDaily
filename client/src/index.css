@@ -193,10 +193,11 @@ code, pre, kbd, .font-mono {
 /* ─── 卡片通用样式 ──────────────────────── */
 .card {
   background: var(--cd-card);
-  border-radius: 12px;
+  border-radius: var(--cd-radius, 12px);
   border: 1px solid var(--cd-border);
   padding: 20px;
-  transition: background-color 0.2s, border-color 0.2s;
+  box-shadow: var(--cd-shadow, none);
+  transition: background-color 0.2s, border-color 0.2s, border-radius 0.15s, box-shadow 0.15s;
 }
 
 .line-clamp-2 {
@@ -354,12 +355,57 @@ code, pre, kbd, .font-mono {
   box-shadow: 0 0 0 1.5px var(--cd-green);
 }
 
+/* ─── 桌面宠物动画 ─────────────────────────── */
+@keyframes pet-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes pet-bounce {
+  0% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(-14px) scale(1.12); }
+  60% { transform: translateY(0) scale(0.98); }
+  80% { transform: translateY(-5px) scale(1.04); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes pet-blink {
+  0%, 45%, 55%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.1); }
+}
+
+@keyframes pet-tail {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(8deg); }
+}
+
+.animate-pet-float {
+  animation: pet-float 2.4s ease-in-out infinite;
+}
+
+.animate-pet-bounce {
+  animation: pet-bounce 0.55s ease-out;
+}
+
+.animate-pet-blink {
+  animation: pet-blink 3.2s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.animate-pet-tail {
+  animation: pet-tail 2s ease-in-out infinite;
+}
+
 /* ─── 减弱动画偏好 ─────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in,
   .animate-spin,
   .animate-slide-in,
-  .animate-pulse {
+  .animate-pulse,
+  .animate-pet-float,
+  .animate-pet-bounce,
+  .animate-pet-blink,
+  .animate-pet-tail {
     animation: none !important;
   }
   .transition-colors,

@@ -84,3 +84,10 @@ def get_weekly_context():
     from context_manager import build_weekly_context
     context = build_weekly_context(days)
     return jsonify({"context": context})
+
+
+@bp.route("/api/profile/distilled", methods=["GET"])
+def get_distilled_profile_route():
+    """返回聚合后的全周期用户画像（工作习惯、常用软件、工作内容、行为模式、效率趋势）"""
+    from context_manager import get_distilled_profile
+    return jsonify(get_distilled_profile())

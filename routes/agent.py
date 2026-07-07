@@ -288,15 +288,19 @@ def overview_summary():
             f"近期活动详情：\n{detail_text}"
         )
 
-        # ── 注入用户画像 + 周级上下文（长记忆） ──
+        # ── 注入用户画像 + 周级上下文（长记忆）到 system prompt ──
+        system_content = "你是工作数据分析助手，根据用户活动数据生成结构化的首页洞察总结。只输出要求的 JSON，不要其他内容。"
         try:
             from context_manager import get_user_profile_context, build_weekly_context
             user_ctx = get_user_profile_context()
-            if user_ctx:
-                prompt += f"\n\n用户画像：{user_ctx}"
             weekly_ctx = build_weekly_context(7)
+            parts = []
+            if user_ctx:
+                parts.append(f"用户画像：{user_ctx}")
             if weekly_ctx and len(weekly_ctx) > 50:
-                prompt += f"\n\n近一周上下文：\n{weekly_ctx}"
+                parts.append(f"近一周上下文：\n{weekly_ctx}")
+            if parts:
+                system_content += "\n\n" + "\n\n".join(parts)
         except Exception:
             pass
 
@@ -325,7 +329,10 @@ def overview_summary():
         )
         response = client.chat.completions.create(
             model=config.AI_TEXT_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": prompt},
+            ],
             max_tokens=800,
             temperature=0.7,
         )

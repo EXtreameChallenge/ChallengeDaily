@@ -1,463 +1,393 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  getProfile, saveProfile, addCorrection, deleteCorrection,
-  getDailyProfile, generateDailyProfile,
-  CATEGORIES,
-  type ProfileData, type UserCorrection, type DailyProfile,
+  getProfile,
+  getDistilledProfile,
+  getAppIconUrl,
+  deleteCorrection,
+  type ProfileData,
+  type DistilledProfile,
 } from '../api/client'
+import { useAsyncData, formatDuration } from '../components/shared'
+import { useToast } from '../components/Toast'
 import {
-  User, Briefcase, Wrench, Trash2, Plus, RefreshCw, ChevronDown, ChevronUp,
-  Loader2, Sparkles, Calendar, Brain, Save,
+  Brain,
+  User,
+  Briefcase,
+  Zap,
+  Clock,
+  Sunrise,
+  Activity,
+  Monitor,
+  Tag,
+  Wrench,
+  Trash2,
+  RefreshCw,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react'
-import dayjs from 'dayjs'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+  Tooltip,
+  Cell,
+} from 'recharts'
 
-/** 安全解析 JSON 字符串 */
-function parseJsonSafe<T>(s: string | undefined | null, fallback: T): T {
-  if (!s) return fallback
-  try { return JSON.parse(s) } catch { return fallback }
+const DEFAULT_ICON = import.meta.env.DEV ? '/icon.png' : './icon.png'
+
+function productivityValue(p: string): number {
+  const s = String(p || '').trim().toLowerCase()
+  if (/^(高|a|优|优秀|高产出|高效|很好|较好)/.test(s)) return 3
+  if (/^(中|b|良|良好|一般|普通)/.test(s)) return 2
+  if (/^(低|c|差|较差|低效|不好)/.test(s)) return 1
+  return 0
+}
+
+function productivityLabel(v: number): string {
+  if (v >= 3) return '高'
+  if (v >= 2) return '中'
+  if (v >= 1) return '低'
+  return '未评级'
+}
+
+function EfficiencyTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: { date: string; value: number; raw: string } }> }) {
+  if (!active || !payload?.length) return null
+  const item = payload[0].payload
+  return (
+    <div className="bg-cd-card border border-cd-border rounded-lg px-3 py-2 shadow-sm">
+      <p className="text-xs text-cd-text-tertiary mb-0.5">{item.date}</p>
+      <p className="text-sm text-cd-text font-medium">
+        生产力：{item.raw || '未评级'}（{productivityLabel(item.value)}）
+      </p>
+    </div>
+  )
 }
 
 export default function Profile() {
-  const [data, setData] = useState<ProfileData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<{ text: string; type: 'ok' | 'err' } | null>(null)
+  const toast = useToast()
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set())
+  const [iconUrls, setIconUrls] = useState<Record<string, string>>({})
 
-  // ─── 画像编辑状态 ───
-  const [roleDesc, setRoleDesc] = useState('')
-  const [workStyle, setWorkStyle] = useState('')
-  const [habits, setHabits] = useState<Record<string, string>>({})
-  const [appOverrides, setAppOverrides] = useState<Record<string, string>>({})
+  const {
+    data: profileData,
+    loading: profileLoading,
+    error: profileError,
+    refresh: refreshProfile,
+  } = useAsyncData<ProfileData>(() => getProfile(), [])
 
-  // ─── 纠正记录编辑 ───
-  const [newCorrApp, setNewCorrApp] = useState('')
-  const [newCorrCategory, setNewCorrCategory] = useState('')
-  const [newCorrDesc, setNewCorrDesc] = useState('')
+  const {
+    data: distilled,
+    loading: distilledLoading,
+    error: distilledError,
+    refresh: refreshDistilled,
+  } = useAsyncData<DistilledProfile>(() => getDistilledProfile(), [])
 
-  // ─── 日画像 ───
-  const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'))
-  const [dailyProfile, setDailyProfile] = useState<DailyProfile | null>(null)
-  const [dailyLoading, setDailyLoading] = useState(false)
-  const [dailyGenerating, setDailyGenerating] = useState(false)
-  const [dailyExpanded, setDailyExpanded] = useState(true)
+  const commonSoftware = distilled?.common_software || []
 
-  // ─── 新增习惯/用途 ───
-  const [newHabitApp, setNewHabitApp] = useState('')
-  const [newHabitDesc, setNewHabitDesc] = useState('')
-  const [newOverrideApp, setNewOverrideApp] = useState('')
-  const [newOverrideDesc, setNewOverrideDesc] = useState('')
-
-  const flash = (text: string, type: 'ok' | 'err' = 'ok') => {
-    setMessage({ text, type })
-    setTimeout(() => setMessage(null), 3000)
-  }
-
-  const loadData = useCallback(async () => {
-    try {
-      const d = await getProfile()
-      setData(d)
-      setRoleDesc(d.profile.role_desc || '')
-      setWorkStyle(d.profile.work_style || '')
-      setHabits(parseJsonSafe(d.profile.habits, {}))
-      setAppOverrides(parseJsonSafe(d.profile.app_overrides, {}))
-    } catch (err) {
-      flash('加载画像失败', 'err')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { loadData() }, [loadData])
-
-  // 加载日画像
   useEffect(() => {
-    if (!selectedDate) return
-    setDailyLoading(true)
-    getDailyProfile(selectedDate)
-      .then(r => setDailyProfile(r.profile))
-      .catch(() => setDailyProfile(null))
-      .finally(() => setDailyLoading(false))
-  }, [selectedDate])
+    let cancelled = false
+    ;(async () => {
+      const map: Record<string, string> = {}
+      for (const app of commonSoftware) {
+        try {
+          map[app.app_name] = await getAppIconUrl(app.app_name)
+        } catch {
+          map[app.app_name] = ''
+        }
+      }
+      if (!cancelled) setIconUrls(map)
+    })()
+    return () => { cancelled = true }
+  }, [commonSoftware.map(a => a.app_name).join('|')])
 
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      await saveProfile({
-        role_desc: roleDesc,
-        work_style: workStyle,
-        habits,
-        app_overrides: appOverrides,
-      })
-      flash('保存成功')
-      loadData()
-    } catch {
-      flash('保存失败', 'err')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleAddCorrection = async () => {
-    if (!newCorrApp.trim()) { flash('请填写应用名称', 'err'); return }
-    try {
-      await addCorrection({
-        app_name: newCorrApp.trim(),
-        correct_category: newCorrCategory,
-        correct_desc: newCorrDesc,
-      })
-      setNewCorrApp(''); setNewCorrCategory(''); setNewCorrDesc('')
-      flash('纠正已添加')
-      loadData()
-    } catch { flash('添加失败', 'err') }
-  }
-
-  const handleDeleteCorrection = async (id: number) => {
+  const handleDeleteCorrection = useCallback(async (id: number) => {
+    setDeletingIds(prev => new Set(prev).add(id))
     try {
       await deleteCorrection(id)
-      flash('已删除')
-      loadData()
-    } catch { flash('删除失败', 'err') }
+      toast.success('已删除纠正记录')
+      refreshProfile()
+    } catch {
+      toast.error('删除失败')
+    } finally {
+      setDeletingIds(prev => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }, [refreshProfile, toast])
+
+  const refreshAll = useCallback(() => {
+    refreshProfile()
+    refreshDistilled()
+  }, [refreshProfile, refreshDistilled])
+
+  const loading = profileLoading || distilledLoading
+  const error = profileError || distilledError
+
+  if (loading && !profileData && !distilled) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="animate-spin text-cd-green" size={28} />
+      </div>
+    )
   }
 
-  const handleAddHabit = () => {
-    if (!newHabitApp.trim() || !newHabitDesc.trim()) return
-    setHabits(prev => ({ ...prev, [newHabitApp.trim()]: newHabitDesc.trim() }))
-    setNewHabitApp(''); setNewHabitDesc('')
+  if (error) {
+    return (
+      <div className="animate-fade-in max-w-4xl mx-auto">
+        <div className="bg-cd-card border border-cd-border rounded-xl p-8 text-center">
+          <AlertCircle size={40} className="text-cd-red mx-auto mb-3" />
+          <h2 className="text-lg font-semibold text-cd-text mb-2">加载失败</h2>
+          <p className="text-sm text-cd-text-secondary mb-4">{error}</p>
+          <button
+            onClick={refreshAll}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-cd-green text-white text-sm hover:opacity-90 transition"
+          >
+            <RefreshCw size={14} /> 重试
+          </button>
+        </div>
+      </div>
+    )
   }
 
-  const handleRemoveHabit = (key: string) => {
-    setHabits(prev => { const n = { ...prev }; delete n[key]; return n })
-  }
+  const workHabits = distilled?.work_habits
+  const contentTypes = distilled?.work_content?.content_types || []
+  const behaviorTags = distilled?.behavior_patterns?.behavior_tags || []
+  const efficiencyTrend = (distilled?.efficiency_trend || []).slice().reverse()
+  const corrections = profileData?.corrections || []
 
-  const handleAddOverride = () => {
-    if (!newOverrideApp.trim() || !newOverrideDesc.trim()) return
-    setAppOverrides(prev => ({ ...prev, [newOverrideApp.trim()]: newOverrideDesc.trim() }))
-    setNewOverrideApp(''); setNewOverrideDesc('')
-  }
+  const chartData = efficiencyTrend.map(d => ({
+    date: d.date,
+    value: productivityValue(d.productivity),
+    raw: d.productivity,
+  }))
 
-  const handleRemoveOverride = (key: string) => {
-    setAppOverrides(prev => { const n = { ...prev }; delete n[key]; return n })
-  }
-
-  const handleGenerateDaily = async () => {
-    setDailyGenerating(true)
-    try {
-      const r = await generateDailyProfile(selectedDate, 60000)
-      if (r.ok) {
-        flash('日画像已生成')
-        const d = await getDailyProfile(selectedDate)
-        setDailyProfile(d.profile)
-      } else {
-        flash('该日期无足够数据', 'err')
-      }
-    } catch { flash('生成失败', 'err') }
-    finally { setDailyGenerating(false) }
-  }
-
-  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-cd-green" size={24} /></div>
-
-  const corrections = data?.corrections || []
+  const maxDuration = Math.max(...commonSoftware.map(a => a.duration_min), 1)
 
   return (
-    <div className="animate-fade-in max-w-4xl mx-auto space-y-6">
-      {/* 顶部标题 */}
+    <div className="animate-fade-in max-w-5xl mx-auto space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-cd-text font-display flex items-center gap-2">
-            <Brain size={22} className="text-cd-green" /> 个人画像
+          <h1 className="text-2xl font-bold text-cd-text font-display flex items-center gap-2">
+            <Brain size={26} className="text-cd-green" /> 个人画像
           </h1>
-          <p className="text-sm text-cd-text-tertiary mt-1">让 AI 更懂你 — 描述你的角色、习惯，系统会在分析时参考这些信息</p>
+          <p className="text-sm text-cd-text-secondary mt-1">
+            基于全周期数据聚合的工作画像 · {efficiencyTrend.length} 天趋势
+          </p>
         </div>
         <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-1.5 bg-cd-green text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 transition"
+          onClick={refreshAll}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cd-green/10 text-cd-green text-sm hover:bg-cd-green/20 transition disabled:opacity-50"
         >
-          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-          保存画像
+          {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          刷新
         </button>
       </div>
 
-      {/* Flash message */}
-      {message && (
-        <div className={`px-3 py-2 rounded-lg text-sm ${
-          message.type === 'ok' ? 'bg-cd-green/10 text-cd-green' : 'bg-cd-red/10 text-cd-red'
-        }`}>
-          {message.text}
-        </div>
-      )}
-
-      {/* ─── Section 1: 角色与风格 ─── */}
-      <Section icon={User} title="角色描述" subtitle="你的职业、主要工作内容">
-        <textarea
-          className="w-full bg-cd-bg-secondary border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:ring-1 focus:ring-cd-green/50 resize-none"
-          rows={2}
-          placeholder="例如：Java全栈开发工程师，负责后端服务架构和前端交互优化"
-          value={roleDesc}
-          onChange={e => setRoleDesc(e.target.value)}
-        />
-      </Section>
-
-      <Section icon={Briefcase} title="工作风格" subtitle="你的工作习惯和偏好">
-        <textarea
-          className="w-full bg-cd-bg-secondary border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:ring-1 focus:ring-cd-green/50 resize-none"
-          rows={2}
-          placeholder="例如：专注型，习惯长时间沉浸编码，间歇查看消息"
-          value={workStyle}
-          onChange={e => setWorkStyle(e.target.value)}
-        />
-      </Section>
-
-      {/* ─── Section 2: App 用途说明 ─── */}
-      <Section icon={Wrench} title="App 用途说明" subtitle="告诉 AI 你用每个 App 做什么，更精准分类">
-        <div className="space-y-2">
-          {Object.entries(appOverrides).map(([app, desc]) => (
-            <div key={app} className="flex items-center gap-2">
-              <span className="text-sm font-medium text-cd-text bg-cd-bg-secondary px-2.5 py-1 rounded-md min-w-[120px] truncate" title={app}>{app}</span>
-              <span className="text-sm text-cd-text-secondary flex-1 truncate">{desc}</span>
-              <button onClick={() => handleRemoveOverride(app)} className="text-cd-text-tertiary hover:text-cd-red transition p-1">
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))}
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              className="flex-1 bg-cd-bg-secondary border border-cd-border rounded-md px-2.5 py-1.5 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:ring-1 focus:ring-cd-green/50 min-w-0"
-              placeholder="应用名（如 WeChat）"
-              value={newOverrideApp}
-              onChange={e => setNewOverrideApp(e.target.value)}
-            />
-            <input
-              className="flex-[2] bg-cd-bg-secondary border border-cd-border rounded-md px-2.5 py-1.5 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:ring-1 focus:ring-cd-green/50 min-w-0"
-              placeholder="用途说明（如 团队沟通协调）"
-              value={newOverrideDesc}
-              onChange={e => setNewOverrideDesc(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddOverride()}
-            />
-            <button onClick={handleAddOverride} className="flex items-center gap-1 bg-cd-green/10 text-cd-green px-2.5 py-1.5 rounded-md text-sm hover:bg-cd-green/20 transition shrink-0">
-              <Plus size={14} /> 添加
-            </button>
-          </div>
-        </div>
-      </Section>
-
-      {/* ─── Section 3: 使用习惯 ─── */}
-      <Section icon={Sparkles} title="使用习惯" subtitle="常用软件的使用方式描述">
-        <div className="space-y-2">
-          {Object.entries(habits).map(([app, desc]) => (
-            <div key={app} className="flex items-center gap-2">
-              <span className="text-sm font-medium text-cd-text bg-cd-bg-secondary px-2.5 py-1 rounded-md min-w-[120px] truncate" title={app}>{app}</span>
-              <span className="text-sm text-cd-text-secondary flex-1 truncate">{desc}</span>
-              <button onClick={() => handleRemoveHabit(app)} className="text-cd-text-tertiary hover:text-cd-red transition p-1">
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))}
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              className="flex-1 bg-cd-bg-secondary border border-cd-border rounded-md px-2.5 py-1.5 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:ring-1 focus:ring-cd-green/50 min-w-0"
-              placeholder="应用名（如 IntelliJ IDEA）"
-              value={newHabitApp}
-              onChange={e => setNewHabitApp(e.target.value)}
-            />
-            <input
-              className="flex-[2] bg-cd-bg-secondary border border-cd-border rounded-md px-2.5 py-1.5 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:ring-1 focus:ring-cd-green/50 min-w-0"
-              placeholder="使用方式（如 项目开发和调试）"
-              value={newHabitDesc}
-              onChange={e => setNewHabitDesc(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddHabit()}
-            />
-            <button onClick={handleAddHabit} className="flex items-center gap-1 bg-cd-green/10 text-cd-green px-2.5 py-1.5 rounded-md text-sm hover:bg-cd-green/20 transition shrink-0">
-              <Plus size={14} /> 添加
-            </button>
-          </div>
-        </div>
-      </Section>
-
-      {/* ─── Section 4: 分类纠正 ─── */}
-      <Section icon={Wrench} title="分类纠正" subtitle="修正 AI 对 App 的分类错误，系统会学习你的偏好">
-        <div className="space-y-2">
-          {corrections.length > 0 && (
-            <div className="space-y-1.5">
-              {corrections.map(c => (
-                <div key={c.id} className="flex items-center gap-2 bg-cd-bg-secondary rounded-lg px-3 py-2">
-                  <span className="text-sm font-medium text-cd-text">{c.app_name}</span>
-                  <span className="text-cd-text-tertiary text-xs">→</span>
-                  <span className="text-sm text-cd-green font-medium">{c.correct_category || '重新分类'}</span>
-                  {c.correct_desc && <span className="text-xs text-cd-text-tertiary truncate flex-1">{c.correct_desc}</span>}
-                  <button onClick={() => handleDeleteCorrection(c.id)} className="text-cd-text-tertiary hover:text-cd-red transition p-1 shrink-0">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="grid grid-cols-[1fr_140px_1fr_auto] gap-2 items-end">
-            <div>
-              <label className="text-[10px] text-cd-text-tertiary mb-0.5 block">应用名称</label>
-              <input
-                className="w-full bg-cd-bg border border-cd-border rounded-md px-2.5 py-1.5 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:ring-1 focus:ring-cd-green/50"
-                placeholder="如 WeChat"
-                value={newCorrApp}
-                onChange={e => setNewCorrApp(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-[10px] text-cd-text-tertiary mb-0.5 block">正确分类</label>
-              <select
-                className="w-full bg-cd-bg border border-cd-border rounded-md px-2 py-1.5 text-sm text-cd-text focus:outline-none focus:ring-1 focus:ring-cd-green/50"
-                value={newCorrCategory}
-                onChange={e => setNewCorrCategory(e.target.value)}
-              >
-                <option value="">选择分类</option>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] text-cd-text-tertiary mb-0.5 block">说明（可选）</label>
-              <input
-                className="w-full bg-cd-bg border border-cd-border rounded-md px-2.5 py-1.5 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:ring-1 focus:ring-cd-green/50"
-                placeholder="为什么应该是这个分类"
-                value={newCorrDesc}
-                onChange={e => setNewCorrDesc(e.target.value)}
-              />
-            </div>
-            <button onClick={handleAddCorrection} className="flex items-center gap-1 bg-cd-green/10 text-cd-green px-3 py-1.5 rounded-md text-sm hover:bg-cd-green/20 transition shrink-0 h-[34px]">
-              <Plus size={14} /> 纠正
-            </button>
-          </div>
-          {corrections.length === 0 && (
-            <p className="text-xs text-cd-text-tertiary text-center py-2">
-              暂无纠正记录。当 AI 分类不准确时，在此添加纠正，系统会在后续分析中参考。
-            </p>
-          )}
-        </div>
-      </Section>
-
-      {/* ─── Section 5: 每日画像 ─── */}
-      <div className="bg-cd-card border border-cd-border rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Calendar size={18} className="text-cd-green" />
-            <h2 className="text-sm font-semibold text-cd-text">每日画像</h2>
-            <span className="text-[10px] text-cd-text-tertiary">AI 基于全天数据生成的结构化总结</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              className="bg-cd-bg-secondary border border-cd-border rounded-md px-2 py-1 text-sm text-cd-text focus:outline-none focus:ring-1 focus:ring-cd-green/50"
-              value={selectedDate}
-              onChange={e => setSelectedDate(e.target.value)}
-            />
-            <button
-              onClick={() => setDailyExpanded(!dailyExpanded)}
-              className="text-cd-text-tertiary hover:text-cd-text transition p-1"
-            >
-              {dailyExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-          </div>
-        </div>
-
-        {dailyExpanded && (
-          <>
-            {dailyLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="animate-spin text-cd-green" size={20} />
-              </div>
-            ) : dailyProfile ? (
-              <div className="space-y-4">
-                <div className="bg-cd-bg-secondary rounded-lg p-3">
-                  <p className="text-sm text-cd-text leading-relaxed">{dailyProfile.daily_summary}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <InfoBlock label="生产力评级" value={dailyProfile.productivity || '-'} />
-                  <InfoBlock label="主力应用" value={parseJsonSafe<string[]>(dailyProfile.top_apps, []).slice(0, 5).join('、') || '-'} />
-                  <InfoBlock label="专注时段" value={parseJsonSafe<number[]>(dailyProfile.focus_hours, []).map(h => `${h}:00`).join('、') || '-'} />
-                  <InfoBlock label="生成时间" value={dailyProfile.generated_at || '-'} />
-                </div>
-
-                {(() => {
-                  const patterns = parseJsonSafe<string[]>(dailyProfile.work_patterns, [])
-                  const insights = parseJsonSafe<string[]>(dailyProfile.key_insights, [])
-                  if (patterns.length === 0 && insights.length === 0) return null
-                  return (
-                    <div className="grid grid-cols-2 gap-3">
-                      {patterns.length > 0 && (
-                        <div>
-                          <h4 className="text-[10px] font-semibold text-cd-text-tertiary uppercase mb-1.5">工作模式</h4>
-                          <ul className="space-y-1">
-                            {patterns.map((p, i) => <li key={i} className="text-xs text-cd-text-secondary flex items-start gap-1.5"><span className="text-cd-green mt-0.5">•</span>{p}</li>)}
-                          </ul>
-                        </div>
-                      )}
-                      {insights.length > 0 && (
-                        <div>
-                          <h4 className="text-[10px] font-semibold text-cd-text-tertiary uppercase mb-1.5">关键洞察</h4>
-                          <ul className="space-y-1">
-                            {insights.map((ins, i) => <li key={i} className="text-xs text-cd-text-secondary flex items-start gap-1.5"><span className="text-cd-purple mt-0.5">•</span>{ins}</li>)}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })()}
-
-                <button
-                  onClick={handleGenerateDaily}
-                  disabled={dailyGenerating}
-                  className="flex items-center gap-1.5 text-xs text-cd-green hover:underline disabled:opacity-50"
-                >
-                  {dailyGenerating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                  重新生成
-                </button>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-sm text-cd-text-tertiary mb-3">该日期暂无日画像</p>
-                <button
-                  onClick={handleGenerateDaily}
-                  disabled={dailyGenerating}
-                  className="inline-flex items-center gap-1.5 bg-cd-green/10 text-cd-green px-4 py-2 rounded-lg text-sm hover:bg-cd-green/20 disabled:opacity-50 transition"
-                >
-                  {dailyGenerating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                  {dailyGenerating ? '正在生成...' : '生成日画像'}
-                </button>
-              </div>
-            )}
-          </>
-        )}
+      {/* Top summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <SummaryCard icon={User} label="角色 / 岗位" value={workHabits?.role_desc || '未设置'} />
+        <SummaryCard icon={Briefcase} label="工作风格" value={workHabits?.work_style || '未设置'} />
+        <SummaryCard icon={Zap} label="效率模式" value={workHabits?.efficiency_pattern || '暂无数据'} />
       </div>
+
+      {/* Work habits */}
+      <section className="bg-cd-card border border-cd-border rounded-xl p-5">
+        <h2 className="text-base font-semibold text-cd-text mb-4 flex items-center gap-2">
+          <Clock size={18} className="text-cd-green" /> 工作习惯
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <InfoBlock icon={Sunrise} label="作息规律" value={workHabits?.work_rhythm || '暂无数据'} />
+          <InfoBlock icon={Activity} label="活跃高峰" value={workHabits?.peak_hours || '暂无数据'} />
+        </div>
+        <div className="mt-5">
+          <div className="text-sm font-medium text-cd-text mb-3 flex items-center gap-2">
+            <Activity size={14} className="text-cd-green" /> 效率趋势
+          </div>
+          {chartData.length === 0 ? (
+            <p className="text-sm text-cd-text-tertiary">暂无效率趋势数据</p>
+          ) : (
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: 'var(--cd-text-tertiary)', fontSize: 11 }}
+                    tickFormatter={(v: string) => v.slice(5)}
+                    axisLine={{ stroke: 'var(--cd-border)' }}
+                    tickLine={{ stroke: 'var(--cd-border)' }}
+                  />
+                  <YAxis hide domain={[0, 3]} />
+                  <Tooltip content={<EfficiencyTooltip />} cursor={{ fill: 'var(--cd-hover)' }} />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                    {chartData.map((entry, index) => {
+                      const color = entry.value === 3 ? 'var(--cd-green)' : entry.value === 2 ? 'var(--cd-yellow)' : entry.value === 1 ? 'var(--cd-red)' : 'var(--cd-border)'
+                      return <Cell key={`cell-${index}`} fill={color} />
+                    })}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Common software */}
+      <section className="bg-cd-card border border-cd-border rounded-xl p-5">
+        <h2 className="text-base font-semibold text-cd-text mb-4 flex items-center gap-2">
+          <Monitor size={18} className="text-cd-green" /> 常用软件
+        </h2>
+        {commonSoftware.length === 0 ? (
+          <p className="text-sm text-cd-text-tertiary">暂无软件使用数据</p>
+        ) : (
+          <div className="space-y-3">
+            {commonSoftware.map((app, idx) => (
+              <div key={app.app_name} className="flex items-center gap-3">
+                <span className="w-6 text-center text-sm text-cd-text-tertiary font-mono shrink-0">
+                  {idx + 1}
+                </span>
+                <div className="w-9 h-9 rounded-lg bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
+                  <img
+                    src={iconUrls[app.app_name] || DEFAULT_ICON}
+                    alt=""
+                    className="w-6 h-6 object-contain"
+                    onError={(e) => { e.currentTarget.src = DEFAULT_ICON }}
+                  />
+                </div>
+                <span className="flex-1 text-sm font-medium text-cd-text truncate">{app.app_name}</span>
+                <span className="text-sm text-cd-text-secondary shrink-0">{formatDuration(app.duration_min)}</span>
+                <div className="w-24 h-2 bg-cd-bg-secondary rounded-full overflow-hidden shrink-0">
+                  <div
+                    className="h-full bg-cd-green rounded-full"
+                    style={{ width: `${(app.duration_min / maxDuration) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Work content types */}
+      <section className="bg-cd-card border border-cd-border rounded-xl p-5">
+        <h2 className="text-base font-semibold text-cd-text mb-4 flex items-center gap-2">
+          <Tag size={18} className="text-cd-green" /> 工作内容类型
+        </h2>
+        {contentTypes.length === 0 ? (
+          <p className="text-sm text-cd-text-tertiary">暂无工作内容类型数据</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {contentTypes.map(type => (
+              <span
+                key={type}
+                className="px-3 py-1.5 rounded-full bg-cd-green/10 text-cd-green text-sm font-medium"
+              >
+                {type}
+              </span>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Behavior patterns */}
+      <section className="bg-cd-card border border-cd-border rounded-xl p-5">
+        <h2 className="text-base font-semibold text-cd-text mb-4 flex items-center gap-2">
+          <Activity size={18} className="text-cd-green" /> 行为模式特征
+        </h2>
+        {behaviorTags.length === 0 ? (
+          <p className="text-sm text-cd-text-tertiary">暂无行为模式数据</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {behaviorTags.map((tag, i) => (
+              <div key={i} className="flex items-start gap-2 bg-cd-bg-secondary rounded-lg px-3 py-2">
+                <span className="text-cd-green mt-0.5 text-sm">•</span>
+                <span className="text-sm text-cd-text">{tag}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Corrections */}
+      <section className="bg-cd-card border border-cd-border rounded-xl p-5">
+        <h2 className="text-base font-semibold text-cd-text mb-4 flex items-center gap-2">
+          <Wrench size={18} className="text-cd-green" /> 分类纠正记录
+        </h2>
+        {corrections.length === 0 ? (
+          <p className="text-sm text-cd-text-tertiary">暂无纠正记录</p>
+        ) : (
+          <div className="space-y-2">
+            {corrections.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center gap-3 bg-cd-bg-secondary rounded-lg px-3 py-2"
+              >
+                <span className="text-sm font-medium text-cd-text shrink-0">{c.app_name}</span>
+                <span className="text-cd-text-tertiary text-sm shrink-0">→</span>
+                <span className="text-sm text-cd-green font-medium shrink-0">
+                  {c.correct_category || '重新分类'}
+                </span>
+                {c.correct_desc && (
+                  <span className="text-sm text-cd-text-secondary truncate flex-1 min-w-0">
+                    {c.correct_desc}
+                  </span>
+                )}
+                <button
+                  onClick={() => handleDeleteCorrection(c.id)}
+                  disabled={deletingIds.has(c.id)}
+                  className="text-cd-text-tertiary hover:text-cd-red transition p-1 shrink-0 disabled:opacity-50"
+                  title="删除"
+                >
+                  {deletingIds.has(c.id) ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={14} />
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }
 
-
-// ─── 辅助组件 ───
-
-function Section({ icon: Icon, title, subtitle, children }: {
-  icon: React.ComponentType<{ size?: number; className?: string }>
-  title: string
-  subtitle?: string
-  children: React.ReactNode
+function SummaryCard({ icon: Icon, label, value }: {
+  icon: React.ElementType<{ size?: number | string; className?: string }>
+  label: string
+  value: string
 }) {
   return (
-    <div className="bg-cd-card border border-cd-border rounded-xl p-5">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="bg-cd-card border border-cd-border rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-2">
         <Icon size={16} className="text-cd-green" />
-        <h2 className="text-sm font-semibold text-cd-text">{title}</h2>
-        {subtitle && <span className="text-[10px] text-cd-text-tertiary ml-1">{subtitle}</span>}
+        <span className="text-sm text-cd-text-secondary">{label}</span>
       </div>
-      {children}
+      <p className="text-base font-medium text-cd-text line-clamp-2" title={value}>
+        {value || '—'}
+      </p>
     </div>
   )
 }
 
-function InfoBlock({ label, value }: { label: string; value: string }) {
+function InfoBlock({ icon: Icon, label, value }: {
+  icon: React.ElementType<{ size?: number | string; className?: string }>
+  label: string
+  value: string
+}) {
   return (
-    <div className="bg-cd-bg-secondary rounded-lg px-3 py-2">
-      <p className="text-[10px] text-cd-text-tertiary mb-0.5">{label}</p>
-      <p className="text-sm text-cd-text font-medium truncate" title={value}>{value}</p>
+    <div className="bg-cd-bg-secondary rounded-lg p-3 border border-cd-border/50">
+      <div className="flex items-center gap-2 mb-1">
+        <Icon size={14} className="text-cd-green" />
+        <span className="text-sm text-cd-text-secondary">{label}</span>
+      </div>
+      <p className="text-base font-medium text-cd-text">{value || '—'}</p>
     </div>
   )
 }

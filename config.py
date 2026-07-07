@@ -10,7 +10,7 @@ from pathlib import Path
 from file_utils import atomic_write_text, backup_file
 
 # ── 加载 .env 文件 ──
-# 规则：空值不写入 os.environ，避免覆盖 vault 中已保存的敏感信息
+# 加载 .env 文件，但空值不会写入 os.environ，避免覆盖 vault 或环境变量中已保存的敏感信息
 _ENV_FILE = Path(__file__).resolve().parent / ".env"
 if _ENV_FILE.exists():
     with open(_ENV_FILE, "r", encoding="utf-8") as f:

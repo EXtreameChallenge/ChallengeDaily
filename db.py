@@ -15,7 +15,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 11
 
 # ── 持久连接（避免每分钟 5-7 次 connect/close）──
 _persistent_conn: Optional[sqlite3.Connection] = None
@@ -200,6 +200,11 @@ def init_db():
                     focus_hours    TEXT DEFAULT '[]',
                     productivity   TEXT DEFAULT '',
                     key_insights   TEXT DEFAULT '[]',
+                    peak_hours     TEXT DEFAULT '',
+                    work_rhythm    TEXT DEFAULT '',
+                    content_types  TEXT DEFAULT '[]',
+                    behavior_tags  TEXT DEFAULT '[]',
+                    efficiency_pattern TEXT DEFAULT '',
                     generated_at   TEXT DEFAULT (datetime('now','localtime'))
                 );
                 CREATE TABLE IF NOT EXISTS user_profile (
@@ -209,6 +214,11 @@ def init_db():
                     habits         TEXT DEFAULT '{}',
                     app_overrides  TEXT DEFAULT '{}',
                     custom_rules   TEXT DEFAULT '[]',
+                    peak_hours     TEXT DEFAULT '',
+                    work_rhythm    TEXT DEFAULT '',
+                    content_types  TEXT DEFAULT '[]',
+                    behavior_tags  TEXT DEFAULT '[]',
+                    efficiency_pattern TEXT DEFAULT '',
                     updated_at     TEXT DEFAULT (datetime('now','localtime'))
                 );
                 CREATE TABLE IF NOT EXISTS user_corrections (
@@ -245,6 +255,34 @@ def init_db():
                 CREATE INDEX IF NOT EXISTS idx_app_usage_start ON app_usage(start_time);
                 CREATE INDEX IF NOT EXISTS idx_app_usage_title ON app_usage(app_name, window_title);
             """)
+
+        # V10: 扩展 user_profile 表，支持用户画像蒸馏
+        if current_version < 10:
+            for col, deflt in [
+                ("peak_hours", "TEXT DEFAULT ''"),
+                ("work_rhythm", "TEXT DEFAULT ''"),
+                ("content_types", "TEXT DEFAULT '[]'"),
+                ("behavior_tags", "TEXT DEFAULT '[]'"),
+                ("efficiency_pattern", "TEXT DEFAULT ''"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE user_profile ADD COLUMN {col} {deflt}")
+                except sqlite3.OperationalError:
+                    pass  # 列已存在
+
+        # V11: 扩展 daily_profiles 表，支持日画像存储 AI 新增的蒸馏字段
+        if current_version < 11:
+            for col, deflt in [
+                ("peak_hours", "TEXT DEFAULT ''"),
+                ("work_rhythm", "TEXT DEFAULT ''"),
+                ("content_types", "TEXT DEFAULT '[]'"),
+                ("behavior_tags", "TEXT DEFAULT '[]'"),
+                ("efficiency_pattern", "TEXT DEFAULT ''"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE daily_profiles ADD COLUMN {col} {deflt}")
+                except sqlite3.OperationalError:
+                    pass  # 列已存在
 
         # 更新版本号
         conn.execute(

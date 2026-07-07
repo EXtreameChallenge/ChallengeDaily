@@ -1,6 +1,6 @@
 {
   "name": "challenge-daily",
-  "version": "1.15.6",
+  "version": "1.15.8",
   "description": "ChallengeDaily Windows版 - AI智能工作日报助手",
   "type": "module",
   "main": "electron/main.cjs",

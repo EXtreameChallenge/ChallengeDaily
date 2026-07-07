@@ -63,7 +63,7 @@ export async function request(endpoint: string, options?: RequestInit, timeoutMs
       // Token 失效：清除缓存，重试一次（后端可能重启生成了新 token）
       if (!_isRetry) {
         invalidateToken()
-        return request(endpoint, options, true)
+        return request(endpoint, options, 10000, true)
       }
       throw new Error('认证失败，请重新启动应用')
     }
@@ -108,6 +108,8 @@ export interface TodayStats {
   top_apps: Array<{ app_name: string; duration_min: number }>
   focus_sessions: number
   longest_focus_min: number
+  total_activities?: number
+  current_activity?: string | null
 }
 
 export interface VisibleWindow {
@@ -581,9 +583,40 @@ export interface ProfileData {
   corrections: UserCorrection[]
 }
 
+export interface DistilledAppItem {
+  app_name: string
+  duration_min: number
+}
+
+export interface DistilledProfile {
+  work_habits: {
+    role_desc: string
+    work_style: string
+    peak_hours: string
+    work_rhythm: string
+    efficiency_pattern: string
+    patterns: string[]
+    focus_hours: (string | number)[]
+  }
+  common_software: DistilledAppItem[]
+  work_content: {
+    content_types: string[]
+    daily_summaries: string[]
+  }
+  behavior_patterns: {
+    behavior_tags: string[]
+  }
+  efficiency_trend: Array<{ date: string; productivity: string }>
+}
+
 /** 获取用户画像 + 纠正记录 */
 export async function getProfile(): Promise<ProfileData> {
   return request('/api/profile') as Promise<ProfileData>
+}
+
+/** 获取聚合后的全周期用户画像 */
+export async function getDistilledProfile(): Promise<DistilledProfile> {
+  return request('/api/profile/distilled') as Promise<DistilledProfile>
 }
 
 /** 保存用户画像 */
