@@ -1,27 +1,31 @@
-feat: 新增番茄钟/待办清单/每日日记/白噪音/词云五大功能模块
+feat: 融合小黑日报+番茄ToDo+GoalDay精华 - P1+P2+P3 全功能上线
 
-融合番茄ToDo专注管理+小黑日报待办提炼+GoalDay一日一页日记：
+# P1 后端（成就系统+倒数日+AI对话+专注日报联动+导出扩展）
+- db.py: V15 (achievements+countdowns) V16 (chat_history) V17 (habits+habit_logs) 三张表迁移
+- routes/achievements.py: 10枚徽章成就系统，自动检测+解锁通知
+- routes/countdowns.py: 倒数日CRUD，6色选择，按距今天数排序
+- routes/chat.py: AI对话，注入 build_weekly_context+profile+chat_history 作为上下文
+- routes/exports.py: 新增 Excel(CSV多Sheet) + JSON 全量数据导出
+- routes/reports.py: 日报生成追加 _get_pomodoro_section 专注统计板块
 
-P0-1 番茄钟+专注模式 (Focus.tsx)
-- 25min专注+5min休息循环，支持15/25/45/60min自定义
-- 环形进度倒计时+沉浸模式+中断统计
-- 今日专注统计+连续打卡+本周趋势柱状图
+# P1 前端（成就页+倒数日+AI对话+格言条）
+- pages/Achievements.tsx: 10枚徽章网格，进入页面2秒后自动检测新成就
+- pages/Countdowns.tsx: 倒数日管理，今天/已过/未来三态显示
+- pages/AIChat.tsx: 5个预设问题，用户/助手气泡分列，30s超时
+- components/QuoteBar.tsx: 格言条组件，每60秒轮询刷新
+- api/client.ts: 新增10+组API封装
 
-P0-2 白噪音 (WhiteNoise.tsx)
-- Web Audio API合成5种音效：白噪音/粉红噪音/雨声/咖啡馆/篝火
-- 0体积0依赖，音量调节+专注自动播放
+# P2 习惯追踪（融合番茄ToDo习惯+GoalDay打卡清单自动进度）
+- routes/habits.py: 习惯CRUD，打卡log，连续天数streak计算
+- pages/Habits.tsx: 习惯管理，打卡按钮，多目标进度条
 
-P0-3 待办清单 (Todos.tsx) 融入GoalDay打卡清单
-- 三种模式：计时任务/目标时长/习惯养成
-- 优先级标记+进度条自动记录+番茄钟关联
+# P3 配置与导航
+- config.py: 新增9项配置（番茄钟时长/白噪音默认/专注阻断模式等）
+- components/Sidebar.tsx: CORE_NAV 新增4项导航（成就墙/倒数日/AI对话/习惯追踪）
+- App.tsx: 新增4条 lazy() 路由
+- routes/__init__.py: ALL_BLUEPRINTS 新增4个蓝图
+- client/package.json: 版本号 1.15.9 → 1.15.10
 
-P0-4 词云 (WordCloud.tsx)
-- Canvas手绘词云，0依赖
-
-P0-5 每日日记 (Diary.tsx) 融入GoalDay一日一页
-- 8种心情emoji+日记内容+亮点+感恩+标签
-- 日期翻页导航+历史日记快捷跳转
-
-后端：db.py V12/V13/V14新增三表+15个数据访问函数
-路由：routes/pomodoro.py + routes/todos.py + routes/diaries.py
-配置：config.py新增9项番茄钟/日记配置
+融合策略: 番茄ToDo专注+习惯+游戏化 + 小黑日报自动记录+待办提炼+词云
+         + GoalDay 一日一页+心情+翻页+打卡清单自动进度
+         融合到本产品AI深度分析基础上

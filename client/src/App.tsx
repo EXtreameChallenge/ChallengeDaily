@@ -27,6 +27,10 @@ const DeepInsightPage = lazy(() => import('./pages/DeepInsight'))
 const Focus = lazy(() => import('./pages/Focus'))
 const Todos = lazy(() => import('./pages/Todos'))
 const Diary = lazy(() => import('./pages/Diary'))
+const Achievements = lazy(() => import('./pages/Achievements'))
+const Countdowns = lazy(() => import('./pages/Countdowns'))
+const AIChat = lazy(() => import('./pages/AIChat'))
+const Habits = lazy(() => import('./pages/Habits'))
 
 // 首次启动流程：法律协议 → 新手引导 → 主界面
 type FirstLaunchPhase = 'legal' | 'onboarding' | 'done'
@@ -234,6 +238,10 @@ export default function App() {
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/deep-insight" element={<DeepInsightPage />} />
+                        <Route path="/achievements" element={<Achievements />} />
+                        <Route path="/countdowns" element={<Countdowns />} />
+                        <Route path="/ai-chat" element={<AIChat />} />
+                        <Route path="/habits" element={<Habits />} />
                         <Route path="/health" element={<Health />} />
                         <Route path="*" element={<NotFoundPage />} />
                       </Routes>

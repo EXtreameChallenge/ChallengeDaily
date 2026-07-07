@@ -3,6 +3,7 @@ from datetime import date
 
 from report import generate_daily_report, generate_weekly_report, generate_monthly_report, get_report_files
 from db import get_reports
+import db
 from routes.deps import safe_error, validate_date
 
 bp = Blueprint('reports', __name__)
@@ -16,6 +17,7 @@ def report_daily():
         return jsonify({"error": f"Invalid date format: {target_date}"}), 400
     try:
         content = generate_daily_report(target_date, template=template)
+        content += _get_pomodoro_section(target_date)
         return jsonify({"date": target_date, "content": content, "template": template})
     except Exception as e:
         return jsonify({"error": safe_error(e, "日报生成失败")}), 500
@@ -97,3 +99,24 @@ def report_by_date(d):
     if reports:
         return jsonify({"date": d, "content": reports[0]["content"], "template": "standard"})
     return jsonify({"date": d, "content": "", "template": "standard"})
+
+
+def _get_pomodoro_section(target_date):
+    """获取专注统计板块（专注+日报联动）"""
+    sessions = db.get_pomodoro_sessions(target_date)
+    completed = [s for s in sessions if s.get('status') == 'completed']
+    total_min = sum(s.get('duration_min', 0) for s in completed)
+    count = len(completed)
+    if count == 0:
+        return "\n\n## 专注统计\n今日暂无专注记录。"
+
+    tasks = [s.get('task', '') for s in completed if s.get('task')]
+    task_text = '、'.join(tasks[:5]) if tasks else '未指定任务'
+
+    return f"""
+## 专注统计
+- 完成番茄钟：{count} 个
+- 专注总时长：{total_min} 分钟
+- 主要任务：{task_text}
+- 平均专注时长：{total_min // count if count else 0} 分钟/个
+"""

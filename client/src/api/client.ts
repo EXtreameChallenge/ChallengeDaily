@@ -889,3 +889,110 @@ export async function saveDiary(data: Partial<Diary>): Promise<{ status: string;
 export async function getDiaries(limit?: number): Promise<{ diaries: Diary[]; dates: string[] }> {
   return request(`/api/diaries/list?limit=${limit || 30}`) as Promise<{ diaries: Diary[]; dates: string[] }>
 }
+
+// ── 成就系统 ──
+export interface Achievement {
+  id: number
+  code: string
+  name: string
+  description: string
+  icon: string
+  unlocked_at: string | null
+}
+
+export async function getAchievements(): Promise<{ achievements: Achievement[] }> {
+  return request('/api/achievements') as Promise<{ achievements: Achievement[] }>
+}
+
+export async function checkAchievements(): Promise<{ unlocked: Array<{ code: string; name: string; icon: string }> }> {
+  return request('/api/achievements/check', { method: 'POST' }) as Promise<{ unlocked: Array<{ code: string; name: string; icon: string }> }>
+}
+
+export async function getQuote(): Promise<{ quote: string }> {
+  return request('/api/achievements/quote') as Promise<{ quote: string }>
+}
+
+// ── 倒数日 ──
+export interface Countdown {
+  id: number
+  title: string
+  target_date: string
+  color: string
+  created_at: string
+}
+
+export async function getCountdowns(): Promise<{ countdowns: Countdown[] }> {
+  return request('/api/countdowns') as Promise<{ countdowns: Countdown[] }>
+}
+
+export async function createCountdown(data: { title: string; target_date: string; color?: string }): Promise<{ status: string; id: number }> {
+  return request('/api/countdowns', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; id: number }>
+}
+
+export async function deleteCountdown(id: number): Promise<{ status: string }> {
+  return request(`/api/countdowns/${id}`, { method: 'DELETE' }) as Promise<{ status: string }>
+}
+
+// ── AI对话 ──
+export interface ChatMessage {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  created_at: string
+}
+
+export async function aiChat(message: string): Promise<{ reply: string; role: string }> {
+  return request('/api/ai/chat', { method: 'POST', body: JSON.stringify({ message }) }, 30000) as Promise<{ reply: string; role: string }>
+}
+
+export async function getChatHistory(): Promise<{ history: ChatMessage[] }> {
+  return request('/api/ai/chat/history') as Promise<{ history: ChatMessage[] }>
+}
+
+export async function clearChatHistory(): Promise<{ status: string }> {
+  return request('/api/ai/chat/clear', { method: 'DELETE' }) as Promise<{ status: string }>
+}
+
+// ── 习惯追踪 ──
+export interface Habit {
+  id: number
+  name: string
+  target_count: number
+  period: string
+  color: string
+  sort_order: number
+}
+
+export interface HabitLog {
+  id: number
+  habit_id: number
+  log_date: string
+  count: number
+}
+
+export async function getHabits(): Promise<{ habits: Habit[]; logs: HabitLog[] }> {
+  return request('/api/habits') as Promise<{ habits: Habit[]; logs: HabitLog[] }>
+}
+
+export async function createHabit(data: { name: string; target_count?: number; period?: string; color?: string }): Promise<{ status: string; id: number }> {
+  return request('/api/habits', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; id: number }>
+}
+
+export async function logHabit(habitId: number, logDate?: string, count?: number): Promise<{ status: string }> {
+  return request(`/api/habits/${habitId}/log`, { method: 'POST', body: JSON.stringify({ log_date: logDate, count }) }) as Promise<{ status: string }>
+}
+
+export async function deleteHabit(id: number): Promise<{ status: string }> {
+  return request(`/api/habits/${id}`, { method: 'DELETE' }) as Promise<{ status: string }>
+}
+
+// ── 导出 ──
+export function getExportExcelUrl(date?: string): string {
+  const d = date || new Date().toISOString().substring(0, 10)
+  return `${BASE_URL}/api/exports/excel?date=${d}`
+}
+
+export function getExportJsonUrl(date?: string): string {
+  const d = date || new Date().toISOString().substring(0, 10)
+  return `${BASE_URL}/api/exports/json?date=${d}`
+}

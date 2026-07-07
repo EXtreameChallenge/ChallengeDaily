@@ -22,6 +22,9 @@ import {
   Timer,
   CheckSquare,
   BookOpen,
+  Trophy,
+  Calendar,
+  Flame,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { getStatus, pauseCollector, resumeCollector, getTodayStats, type CollectorStatus, type TodayStats } from '../api/client'
@@ -41,6 +44,10 @@ const CORE_NAV = [
   { to: '/agent',     icon: Bot,             label: '接入Agent' },
   { to: '/profile',       icon: Brain,           label: '个人画像' },
   { to: '/deep-insight', icon: Sparkles,        label: '深度洞察' },
+  { to: '/achievements', icon: Trophy,     label: '成就墙' },
+  { to: '/countdowns',   icon: Calendar,   label: '倒数日' },
+  { to: '/ai-chat',      icon: Bot,         label: 'AI对话' },
+  { to: '/habits',       icon: Flame,       label: '习惯追踪' },
   { to: '/health',       icon: Activity,        label: '数据校准' },
 ]
 

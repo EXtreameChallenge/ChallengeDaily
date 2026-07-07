@@ -7,6 +7,7 @@ import sqlite3
 import threading
 import time
 import logging
+import random
 from datetime import datetime, date, timedelta
 from typing import Optional
 from contextlib import contextmanager
@@ -15,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 17
 
 # ── 持久连接（避免每分钟 5-7 次 connect/close）──
 _persistent_conn: Optional[sqlite3.Connection] = None
@@ -344,6 +345,60 @@ def init_db():
                     updated_at  TEXT DEFAULT (datetime('now','localtime'))
                 );
                 CREATE INDEX IF NOT EXISTS idx_diary_date ON diaries(diary_date);
+            """)
+
+        # V15: 成就系统
+        if current_version < 15:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS achievements (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code        TEXT UNIQUE NOT NULL,
+                    name        TEXT NOT NULL,
+                    description TEXT DEFAULT '',
+                    icon        TEXT DEFAULT '🏆',
+                    unlocked_at TEXT
+                );
+                CREATE TABLE IF NOT EXISTS countdowns (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title       TEXT NOT NULL,
+                    target_date TEXT NOT NULL,
+                    color       TEXT DEFAULT '#7B68EE',
+                    created_at  TEXT DEFAULT (datetime('now','localtime'))
+                );
+            """)
+
+        # V16: AI对话历史
+        if current_version < 16:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS chat_history (
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    role       TEXT NOT NULL,
+                    content    TEXT NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now','localtime'))
+                );
+            """)
+
+        # V17: 习惯目标配置
+        if current_version < 17:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS habits (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name        TEXT NOT NULL,
+                    target_count INTEGER DEFAULT 1,
+                    period      TEXT DEFAULT 'daily',
+                    color       TEXT DEFAULT '#7B68EE',
+                    sort_order  INTEGER DEFAULT 0,
+                    created_at  TEXT DEFAULT (datetime('now','localtime'))
+                );
+                CREATE TABLE IF NOT EXISTS habit_logs (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    habit_id    INTEGER NOT NULL,
+                    log_date    TEXT NOT NULL,
+                    count       INTEGER DEFAULT 1,
+                    created_at  TEXT DEFAULT (datetime('now','localtime')),
+                    FOREIGN KEY (habit_id) REFERENCES habits(id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_habit_logs ON habit_logs(habit_id, log_date);
             """)
 
         # 更新版本号
@@ -987,3 +1042,160 @@ def get_diary_dates():
     with get_conn() as conn:
         rows = conn.execute("SELECT diary_date FROM diaries ORDER BY diary_date DESC").fetchall()
         return [r["diary_date"] for r in rows]
+
+# ── 成就系统 ──
+def get_achievements():
+    _flush_pending_commits()
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM achievements ORDER BY unlocked_at DESC").fetchall()
+        return [dict(r) for r in rows]
+
+def unlock_achievement(code, name, description="", icon="🏆"):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        existing = conn.execute("SELECT id FROM achievements WHERE code=?", (code,)).fetchone()
+        if existing:
+            return False
+        conn.execute("INSERT INTO achievements (code, name, description, icon, unlocked_at) VALUES (?,?,?,?,datetime('now','localtime'))",
+                     (code, name, description, icon))
+        conn.commit()
+        return True
+
+def check_and_unlock_achievements():
+    """检查并解锁成就"""
+    unlocked = []
+    # 获取番茄钟统计
+    today = get_pomodoro_today_count()
+    streak = get_pomodoro_streak()
+    stats = get_pomodoro_stats("month")
+    total_count = sum(s["cnt"] for s in stats) if stats else 0
+    total_min = sum(s["total_min"] for s in stats) if stats else 0
+
+    checks = [
+        ("first_pomodoro", "初心者", "完成第一个番茄钟", "🌱", today["count"] >= 1),
+        ("pomodoro_100", "百斩", "累计完成100个番茄钟", "💯", total_count >= 100),
+        ("pomodoro_1000", "千时", "累计专注1000小时", "⏰", total_min >= 60000),
+        ("streak_7", "连续7天", "连续7天完成专注", "🔥", streak >= 7),
+        ("streak_30", "坚持不懈", "连续30天完成专注", "💎", streak >= 30),
+    ]
+    for code, name, desc, icon, condition in checks:
+        if condition and unlock_achievement(code, name, desc, icon):
+            unlocked.append({"code": code, "name": name, "icon": icon})
+    return unlocked
+
+# ── 倒数日 ──
+def insert_countdown(title, target_date, color="#7B68EE"):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        conn.execute("INSERT INTO countdowns (title, target_date, color) VALUES (?,?,?)", (title, target_date, color))
+        conn.commit()
+        cur = conn.execute("SELECT last_insert_rowid()")
+        return cur.fetchone()[0]
+
+def get_countdowns():
+    _flush_pending_commits()
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM countdowns ORDER BY target_date ASC").fetchall()
+        return [dict(r) for r in rows]
+
+def delete_countdown(cid):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        conn.execute("DELETE FROM countdowns WHERE id=?", (cid,))
+        conn.commit()
+        return True
+
+# ── AI对话历史 ──
+def insert_chat(role, content):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        conn.execute("INSERT INTO chat_history (role, content) VALUES (?,?)", (role, content))
+        conn.commit()
+        cur = conn.execute("SELECT last_insert_rowid()")
+        return cur.fetchone()[0]
+
+def get_chat_history(limit=50):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM chat_history ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return list(reversed([dict(r) for r in rows]))
+
+def clear_chat_history():
+    _flush_pending_commits()
+    with get_conn() as conn:
+        conn.execute("DELETE FROM chat_history")
+        conn.commit()
+        return True
+
+# ── 习惯追踪 ──
+def insert_habit(name, target_count=1, period="daily", color="#7B68EE"):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        max_order = conn.execute("SELECT COALESCE(MAX(sort_order),0) FROM habits").fetchone()[0]
+        conn.execute("INSERT INTO habits (name, target_count, period, color, sort_order) VALUES (?,?,?,?,?)", (name, target_count, period, color, max_order+1))
+        conn.commit()
+        cur = conn.execute("SELECT last_insert_rowid()")
+        return cur.fetchone()[0]
+
+def get_habits():
+    _flush_pending_commits()
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM habits ORDER BY sort_order ASC").fetchall()
+        return [dict(r) for r in rows]
+
+def log_habit(habit_id, log_date=None, count=1):
+    _flush_pending_commits()
+    if log_date is None:
+        log_date = date.today().isoformat()
+    with get_conn() as conn:
+        existing = conn.execute("SELECT id, count FROM habit_logs WHERE habit_id=? AND log_date=?", (habit_id, log_date)).fetchone()
+        if existing:
+            conn.execute("UPDATE habit_logs SET count=? WHERE id=?", (existing["count"] + count, existing["id"]))
+        else:
+            conn.execute("INSERT INTO habit_logs (habit_id, log_date, count) VALUES (?,?,?)", (habit_id, log_date, count))
+        conn.commit()
+        return True
+
+def get_habit_logs(habit_id=None, days=30):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        if habit_id:
+            rows = conn.execute("SELECT * FROM habit_logs WHERE habit_id=? AND log_date >= date('now','-? days','localtime') ORDER BY log_date DESC", (habit_id, days)).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM habit_logs WHERE log_date >= date('now','-? days','localtime') ORDER BY log_date DESC", (days,)).fetchall()
+        return [dict(r) for r in rows]
+
+def delete_habit(habit_id):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        conn.execute("DELETE FROM habit_logs WHERE habit_id=?", (habit_id,))
+        conn.execute("DELETE FROM habits WHERE id=?", (habit_id,))
+        conn.commit()
+        return True
+
+# ── 格言 ──
+QUOTES = [
+    "种一棵树最好的时间是十年前，其次是现在。",
+    "不积跬步，无以至千里；不积小流，无以成江海。",
+    "业精于勤，荒于嬉；行成于思，毁于随。",
+    "天下事有难易乎？为之，则难者亦易矣；不为，则易者亦难矣。",
+    "合抱之木，生于毫末；九层之台，起于累土；千里之行，始于足下。",
+    "锲而舍之，朽木不折；锲而不舍，金石可镂。",
+    "路漫漫其修远兮，吾将上下而求索。",
+    "宝剑锋从磨砺出，梅花香自苦寒来。",
+    "千磨万击还坚劲，任尔东西南北风。",
+    "长风破浪会有时，直挂云帆济沧海。",
+    "莫等闲，白了少年头，空悲切。",
+    "盛年不重来，一日难再晨。及时当勉励，岁月不待人。",
+    "三更灯火五更鸡，正是男儿读书时。",
+    "黑发不知勤学早，白首方悔读书迟。",
+    "少年易老学难成，一寸光阴不可轻。",
+    "The best time to plant a tree was 20 years ago. The second best time is now.",
+    "Focus is a matter of deciding what things you're not going to do.",
+    "The successful warrior is the average man, with laser-like focus.",
+    "Discipline is the bridge between goals and accomplishment.",
+    "You don't have to be great to start, but you have to start to be great.",
+]
+
+def get_random_quote():
+    return random.choice(QUOTES)

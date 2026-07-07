@@ -15,6 +15,10 @@ from routes.deep_insight import bp as deep_insight_bp
 from routes.pomodoro import bp as pomodoro_bp
 from routes.todos import bp as todos_bp
 from routes.diaries import bp as diaries_bp
+from routes.achievements import bp as achievements_bp
+from routes.countdowns import bp as countdowns_bp
+from routes.chat import bp as chat_bp
+from routes.habits import bp as habits_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -34,4 +38,8 @@ ALL_BLUEPRINTS = [
     pomodoro_bp,
     todos_bp,
     diaries_bp,
+    achievements_bp,
+    countdowns_bp,
+    chat_bp,
+    habits_bp,
 ]
