@@ -1,4 +1,5 @@
 import logging
+import re
 
 from flask import Blueprint, jsonify, request
 
@@ -60,9 +61,17 @@ def _parse_overview_json(raw: str) -> dict | None:
     for tip in tips[:2]:
         if isinstance(tip, str) and tip.strip():
             cleaned_tips.append(tip.strip())
+    valid_moods = {"proud", "tired", "focused", "balanced", "scattered", "warm", "excited"}
+    raw_mood = str(data.get("mood", "warm")).strip().lower()
+    # AI 可能返回多个值用 |/、分隔，取第一个有效值
+    mood = "warm"
+    for m in re.split(r"[|\/、，, ]", raw_mood):
+        if m in valid_moods:
+            mood = m
+            break
     return {
         "headline": str(data.get("headline", "")).strip(),
-        "mood": str(data.get("mood", "warm")).strip(),
+        "mood": mood,
         "story": str(data.get("story", "")).strip(),
         "tags": cleaned_tags,
         "tips": cleaned_tips,
@@ -133,28 +142,48 @@ def overview_summary():
             longest = patterns.get("longest_focus", {})
             focus_text = f"最长专注：{longest.get('category','')} {longest.get('duration_min',0)}分钟"
 
+        # 计算更丰富的今日数据
+        total_min = sum(a.get("duration_min", 0) for a in activities)
+        total_h = round(total_min / 60, 1)
+        first_ts = acts_sorted[0].get("timestamp", "") if acts_sorted else ""
+        first_time = first_ts[11:16] if len(first_ts) > 16 else "--:--"
+        top_cat = top_cats[0][0] if top_cats else "无"
+        top_cat_pct = round(top_cats[0][1] / sum(cats.values()) * 100) if top_cats and cats else 0
+        top_app = top_apps[0] if top_apps else ("无", 0)
+        top_app_name = get_display_name(top_app[0]) if top_apps else "无"
+        top_app_min = round(top_app[1])
+        top_app_pct = round(top_app[1] / total_min * 100) if total_min else 0
+        dev_pct = round(cats.get("开发", 0) / sum(cats.values()) * 100) if cats else 0
+
         prompt = (
-            f"以下是用户今天（{target_date}）的工作数据摘要，请你扮演一个温柔、贴心、可爱的朋友，跟用户聊聊今天的工作状态。\n"
+            f"以下是用户今天（{target_date}）的工作数据摘要，请你扮演一个活泼可爱、温暖贴心的朋友，跟用户聊聊今天的工作状态。\n"
             f"要求：\n"
-            f"1. 语气要温暖、活泼、像老朋友一样，可以带 emoji，不要冷冰冰地罗列数据。\n"
-            f"2. 先给用户一句贴心的 headline，再写 2-3 句完整的总结文字（story），像在说悄悄话一样自然流畅。\n"
-            f"3. 基于数据给出 1 条温柔的小建议（tips），不要说教，要像朋友关心一样。\n"
-            f"4. 再配 2-4 个可爱的情绪/关怀标签（tags），让用户一眼看到今天的心情关键词。\n"
-            f"5. 必须按下面 JSON 格式输出，不要输出其他内容：\n"
+            f"1. 称呼用\"你\"，绝对不要用\"宝贝/亲爱的/好孩子/宝宝\"等肉麻称呼。\n"
+            f"2. 语气活泼、可爱、温馨，像知心朋友在分享日常，可以适当带 emoji。\n"
+            f"3. story 要写 4-6 句完整的话，深度结合下面所有数据，有小作文感，不要泛泛而谈。\n"
+            f"4. 每个观察都要落在具体数据上：总时长、主力应用、分类占比、专注时段、碎片化程度、和昨天/平时的对比等。\n"
+            f"5. 基于数据给出 1 条贴心的小建议（tips），活泼自然，不要说教。\n"
+            f"6. 配 2-4 个可爱的标签（tags），让用户一眼抓住情绪关键词。\n"
+            f"7. mood 只能选其中一个：proud（成就感）、tired（累了）、focused（专注）、balanced（平衡）、scattered（有点散）、warm（温暖）、excited（兴奋）。\n"
+            f"8. 必须按下面 JSON 格式输出，不要输出其他内容：\n"
             f"{{\n"
-            f"  \"headline\": \"一句温柔的总结（20字以内，可带 emoji）\"，\n"
+            f"  \"headline\": \"一句活泼温馨的总结（20字以内，可带 emoji）\"，\n"
             f"  \"mood\": \"proud|tired|focused|balanced|scattered|warm|excited\"，\n"
-            f"  \"story\": \"2-3 句温暖、贴心、活泼的完整文字，像朋友聊天一样\"，\n"
+            f"  \"story\": \"4-6 句活泼可爱、深度结合数据的完整文字\"，\n"
             f"  \"tags\": [\n"
             f"    {{\"type\": \"mood|care|achievement|reminder\"，\"text\": \"带 emoji 的可爱标签\"}}，\n"
             f"    ...（2-4个）\n"
             f"  ]，\n"
-            f"  \"tips\": [\"一条温柔的小建议\"]\n"
+            f"  \"tips\": [\"一条活泼贴心的小建议\"]\n"
             f"}}\n"
-            f"6. tag type 说明：mood 是心情（粉紫色），care 是关怀（暖橙色），achievement 是成就（草绿色），reminder 是提醒（浅蓝色）。\n"
-            f"7. 如果数据很少，不要硬夸，温柔地说'今天比较轻松呢，记得给自己留点空白时间'。\n\n"
+            f"9. tag type 说明：mood 是心情（粉紫色），care 是关怀（暖橙色），achievement 是成就（草绿色），reminder 是提醒（浅蓝色）。\n"
+            f"10. 如果数据很少，不要硬夸，轻松地说\"今天比较清闲呢，给自己放个假也超棒的～\"\n\n"
+            f"今日总时长：{total_h}小时（{total_min}分钟）\n"
+            f"最早开始工作：{first_time}\n"
             f"分类分布：{cat_summary}\n"
+            f"主要分类：{top_cat}（占比{top_cat_pct}%），开发类占比{dev_pct}%\n"
             f"工具使用：{app_summary}\n"
+            f"主力应用：{top_app_name} {top_app_min}分钟（占今天{top_app_pct}%）\n"
             f"注意力碎片化：{attention['fragmentation_index']}/100，专注效率：{attention['focus_efficiency']}/100\n"
             f"深度工作占比：{attention['deep_work_ratio']}%，平均会话：{attention['avg_session_min']}分钟\n"
             f"{focus_text}\n"
@@ -199,8 +228,8 @@ def overview_summary():
         response = client.chat.completions.create(
             model=config.AI_TEXT_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=300,
-            temperature=0.7,
+            max_tokens=500,
+            temperature=0.72,
         )
         text = response.choices[0].message.content.strip().strip('"')
 
