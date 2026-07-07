@@ -39,7 +39,7 @@ function getDisplayAppName(appName: string): string {
   return appName.replace(/\.exe$/i, '')
 }
 
-/** 卡片标题栏：标题在左，"查看详情→" 在右，hover 显示箭头 */
+/** 卡片标题栏：标题在左，"更多" 在右，hover 显示箭头 */
 function CardHeader({ title, subtitle, linkTo, onNavigate }: {
   title: string
   subtitle?: string
@@ -56,7 +56,7 @@ function CardHeader({ title, subtitle, linkTo, onNavigate }: {
         onClick={() => onNavigate(linkTo)}
         className="flex items-center gap-1 text-xs text-cd-text-tertiary hover:text-cd-green transition-colors group"
       >
-        查看详情
+        更多
         <ArrowRight size={12} className="opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
       </button>
     </div>
