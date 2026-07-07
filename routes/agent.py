@@ -43,31 +43,29 @@ def _parse_overview_json(raw: str) -> dict | None:
         return None
     # 清理 tags / points
     tags = data.get("tags") or []
-    points = data.get("points") or []
+    tips = data.get("tips") or []
     if not isinstance(tags, list):
         tags = []
-    if not isinstance(points, list):
-        points = []
-    valid_tag_types = {"achievement", "warning", "insight", "suggestion"}
-    valid_point_types = {"observation", "suggestion"}
+    if not isinstance(tips, list):
+        tips = []
+    valid_tag_types = {"mood", "care", "achievement", "reminder"}
     cleaned_tags = []
     for t in tags[:4]:
         if isinstance(t, dict) and t.get("text"):
-            t_type = t.get("type", "insight")
+            t_type = t.get("type", "mood")
             if t_type not in valid_tag_types:
-                t_type = "insight"
+                t_type = "mood"
             cleaned_tags.append({"type": t_type, "text": str(t["text"]).strip()})
-    cleaned_points = []
-    for p in points[:3]:
-        if isinstance(p, dict) and p.get("text"):
-            p_type = p.get("type", "observation")
-            if p_type not in valid_point_types:
-                p_type = "observation"
-            cleaned_points.append({"type": p_type, "text": str(p["text"]).strip()})
+    cleaned_tips = []
+    for tip in tips[:2]:
+        if isinstance(tip, str) and tip.strip():
+            cleaned_tips.append(tip.strip())
     return {
         "headline": str(data.get("headline", "")).strip(),
+        "mood": str(data.get("mood", "warm")).strip(),
+        "story": str(data.get("story", "")).strip(),
         "tags": cleaned_tags,
-        "points": cleaned_points,
+        "tips": cleaned_tips,
     }
 
 
@@ -136,23 +134,25 @@ def overview_summary():
             focus_text = f"最长专注：{longest.get('category','')} {longest.get('duration_min',0)}分钟"
 
         prompt = (
-            f"以下是用户今天（{target_date}）的工作数据摘要，请给出有洞见的总结分析。\n"
+            f"以下是用户今天（{target_date}）的工作数据摘要，请你扮演一个温柔、贴心、可爱的朋友，跟用户聊聊今天的工作状态。\n"
             f"要求：\n"
-            f"1. 不要罗列数据，不要说空话（如'加油''继续努力'），要基于数据给出真正的观察和建议。\n"
-            f"2. 必须按下面 JSON 格式输出，不要输出其他内容：\n"
+            f"1. 语气要温暖、活泼、像老朋友一样，可以带 emoji，不要冷冰冰地罗列数据。\n"
+            f"2. 先给用户一句贴心的 headline，再写 2-3 句完整的总结文字（story），像在说悄悄话一样自然流畅。\n"
+            f"3. 基于数据给出 1 条温柔的小建议（tips），不要说教，要像朋友关心一样。\n"
+            f"4. 再配 2-4 个可爱的情绪/关怀标签（tags），让用户一眼看到今天的心情关键词。\n"
+            f"5. 必须按下面 JSON 格式输出，不要输出其他内容：\n"
             f"{{\n"
-            f"  \"headline\": \"一句话核心结论（25字以内）\"，\n"
+            f"  \"headline\": \"一句温柔的总结（20字以内，可带 emoji）\"，\n"
+            f"  \"mood\": \"proud|tired|focused|balanced|scattered|warm|excited\"，\n"
+            f"  \"story\": \"2-3 句温暖、贴心、活泼的完整文字，像朋友聊天一样\"，\n"
             f"  \"tags\": [\n"
-            f"    {{\"type\": \"achievement|warning|insight|suggestion\"，\"text\": \"3-6字标签\"}}，\n"
-            f"    ...（2-4个标签）\n"
+            f"    {{\"type\": \"mood|care|achievement|reminder\"，\"text\": \"带 emoji 的可爱标签\"}}，\n"
+            f"    ...（2-4个）\n"
             f"  ]，\n"
-            f"  \"points\": [\n"
-            f"    {{\"type\": \"observation|suggestion\"，\"text\": \"具体观察或建议（40字以内）\"}}，\n"
-            f"    ...（2-3条）\n"
-            f"  ]\n"
+            f"  \"tips\": [\"一条温柔的小建议\"]\n"
             f"}}\n"
-            f"3. type 说明：achievement 表示积极发现（绿色），warning 表示需要注意（橙色），insight 表示洞察（蓝色），suggestion 表示建议（紫色）。\n"
-            f"4. 如果某类标签没有，不要硬凑。\n\n"
+            f"6. tag type 说明：mood 是心情（粉紫色），care 是关怀（暖橙色），achievement 是成就（草绿色），reminder 是提醒（浅蓝色）。\n"
+            f"7. 如果数据很少，不要硬夸，温柔地说'今天比较轻松呢，记得给自己留点空白时间'。\n\n"
             f"分类分布：{cat_summary}\n"
             f"工具使用：{app_summary}\n"
             f"注意力碎片化：{attention['fragmentation_index']}/100，专注效率：{attention['focus_efficiency']}/100\n"
