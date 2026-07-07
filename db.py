@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 17
+SCHEMA_VERSION = 20
 
 # ── 持久连接（避免每分钟 5-7 次 connect/close）──
 _persistent_conn: Optional[sqlite3.Connection] = None
@@ -399,6 +399,60 @@ def init_db():
                     FOREIGN KEY (habit_id) REFERENCES habits(id)
                 );
                 CREATE INDEX IF NOT EXISTS idx_habit_logs ON habit_logs(habit_id, log_date);
+            """)
+
+        # V18: 扩展 todos 表，增加层级与分配字段（周计划月/周/日三级层级）
+        if current_version < 18:
+            # SQLite ALTER TABLE ADD COLUMN 不支持 IF NOT EXISTS，需检查列存在性
+            existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(todos)").fetchall()}
+            new_cols = {
+                'parent_id': 'INTEGER',                                  # 父任务ID（周→月，日→周）
+                'task_level': "TEXT DEFAULT 'day'",                       # month | week | day
+                'assigned_date': 'TEXT',                                  # 分配到哪天 YYYY-MM-DD（day级）
+                'week_start': 'TEXT',                                      # 所属周起始 YYYY-MM-DD（week级，固定周一）
+                'month_key': 'TEXT',                                       # 所属月份 YYYY-MM（month级）
+                'color': "TEXT DEFAULT ''",                                # 自定义颜色
+            }
+            for col, typedef in new_cols.items():
+                if col not in existing_cols:
+                    conn.execute(f"ALTER TABLE todos ADD COLUMN {col} {typedef}")
+            conn.executescript("""
+                CREATE INDEX IF NOT EXISTS idx_todos_parent ON todos(parent_id);
+                CREATE INDEX IF NOT EXISTS idx_todos_assigned ON todos(assigned_date);
+                CREATE INDEX IF NOT EXISTS idx_todos_week ON todos(week_start);
+                CREATE INDEX IF NOT EXISTS idx_todos_month ON todos(month_key);
+                CREATE INDEX IF NOT EXISTS idx_todos_level ON todos(task_level);
+            """)
+
+        # V19: 番茄钟关联待办（修复历史脱钩）
+        if current_version < 19:
+            existing_pomodoro_cols = {row[1] for row in conn.execute("PRAGMA table_info(pomodoro_sessions)").fetchall()}
+            if 'todo_id' not in existing_pomodoro_cols:
+                conn.execute("ALTER TABLE pomodoro_sessions ADD COLUMN todo_id INTEGER")
+            conn.executescript("CREATE INDEX IF NOT EXISTS idx_pomodoro_todo ON pomodoro_sessions(todo_id);")
+            # 删除级联触发器：父任务删除时子任务 parent_id 置空
+            conn.executescript("""
+                CREATE TRIGGER IF NOT EXISTS todos_delete_cascade
+                AFTER DELETE ON todos
+                BEGIN
+                    UPDATE todos SET parent_id = NULL WHERE parent_id = OLD.id;
+                    UPDATE pomodoro_sessions SET todo_id = NULL WHERE todo_id = OLD.id;
+                END;
+            """)
+
+        # V20: 周计划元数据表（周/月目标描述）
+        if current_version < 20:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS plan_meta (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    plan_type       TEXT NOT NULL,
+                    plan_key        TEXT NOT NULL,
+                    title           TEXT DEFAULT '',
+                    goal            TEXT DEFAULT '',
+                    created_at      TEXT DEFAULT (datetime('now','localtime')),
+                    updated_at      TEXT DEFAULT (datetime('now','localtime')),
+                    UNIQUE(plan_type, plan_key)
+                );
             """)
 
         # 更新版本号
@@ -953,25 +1007,46 @@ def get_pomodoro_today_count():
         return {"count": row["cnt"], "total_min": row["total_min"]}
 
 # ── 待办清单 ──
-def insert_todo(title, category="开发", mode="timer", target_min=25, repeat_type="none", repeat_days="", due_date=None, priority=2):
+def insert_todo(title, category="开发", mode="timer", target_min=25, repeat_type="none", repeat_days="", due_date=None, priority=2,
+                task_level="day", parent_id=None, assigned_date=None, week_start=None, month_key=None):
     _flush_pending_commits()
     with get_conn() as conn:
         max_order = conn.execute("SELECT COALESCE(MAX(sort_order),0) FROM todos").fetchone()[0]
+        # 修复：原 SQL 9 列只有 8 个 ? 占位符，补齐为 9 个
+        # 扩展：支持 task_level/parent_id/assigned_date/week_start/month_key
         conn.execute(
-            "INSERT INTO todos (title, category, mode, target_min, repeat_type, repeat_days, due_date, priority, sort_order) VALUES (?,?,?,?,?,?,?,?)",
-            (title, category, mode, target_min, repeat_type, repeat_days, due_date, priority, max_order+1)
+            "INSERT INTO todos (title, category, mode, target_min, repeat_type, repeat_days, due_date, priority, sort_order, "
+            "task_level, parent_id, assigned_date, week_start, month_key) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (title, category, mode, target_min, repeat_type, repeat_days, due_date, priority, max_order+1,
+             task_level, parent_id, assigned_date, week_start, month_key)
         )
         conn.commit()
         cur = conn.execute("SELECT last_insert_rowid()")
         return cur.fetchone()[0]
 
-def get_todos(status_filter=None):
+def get_todos(status_filter=None, level=None, week_start=None, assigned_date=None, parent_id=None):
     _flush_pending_commits()
     with get_conn() as conn:
+        sql = "SELECT * FROM todos WHERE 1=1"
+        params = []
         if status_filter and status_filter != "all":
-            rows = conn.execute("SELECT * FROM todos WHERE status=? ORDER BY priority ASC, sort_order ASC", (status_filter,)).fetchall()
-        else:
-            rows = conn.execute("SELECT * FROM todos ORDER BY status ASC, priority ASC, sort_order ASC").fetchall()
+            sql += " AND status=?"
+            params.append(status_filter)
+        if level:
+            sql += " AND task_level=?"
+            params.append(level)
+        if week_start:
+            sql += " AND week_start=?"
+            params.append(week_start)
+        if assigned_date:
+            sql += " AND assigned_date=?"
+            params.append(assigned_date)
+        if parent_id is not None:
+            sql += " AND parent_id=?"
+            params.append(parent_id)
+        sql += " ORDER BY status ASC, priority ASC, sort_order ASC"
+        rows = conn.execute(sql, params).fetchall()
         return [dict(r) for r in rows]
 
 def update_todo(todo_id, **kwargs):
@@ -1200,3 +1275,247 @@ QUOTES = [
 
 def get_random_quote():
     return random.choice(QUOTES)
+
+
+# ── 周计划（月/周/日三级层级） ──
+def _week_start_of(d: date) -> str:
+    """返回 ISO 8601 周一日期字符串 YYYY-MM-DD"""
+    return (d - timedelta(days=d.weekday())).strftime('%Y-%m-%d')
+
+
+def get_month_tasks(month_key: str) -> list[dict]:
+    """获取月任务及其下所有周任务的进度汇总"""
+    _flush_pending_commits()
+    with get_conn() as conn:
+        months = conn.execute(
+            "SELECT * FROM todos WHERE task_level='month' AND month_key=? ORDER BY priority ASC, sort_order ASC",
+            (month_key,)
+        ).fetchall()
+        result = []
+        for m in months:
+            m_dict = dict(m)
+            # 子任务进度
+            children = conn.execute(
+                "SELECT id, title, status, progress_min, target_min, week_start, assigned_date FROM todos WHERE parent_id=? ORDER BY week_start ASC, sort_order ASC",
+                (m_dict['id'],)
+            ).fetchall()
+            total_target = sum(c['target_min'] or 0 for c in children)
+            total_progress = sum(c['progress_min'] or 0 for c in children)
+            m_dict['children'] = [dict(c) for c in children]
+            m_dict['total_target_min'] = total_target
+            m_dict['total_progress_min'] = total_progress
+            m_dict['progress_pct'] = int(total_progress / total_target * 100) if total_target > 0 else 0
+            result.append(m_dict)
+        return result
+
+
+def get_week_tasks(week_start: str) -> dict:
+    """获取周任务+七日日任务（周计划主视图数据）"""
+    _flush_pending_commits()
+    with get_conn() as conn:
+        # 周任务
+        week_tasks = conn.execute(
+            "SELECT * FROM todos WHERE task_level='week' AND week_start=? ORDER BY priority ASC, sort_order ASC",
+            (week_start,)
+        ).fetchall()
+        # 该周内所有日任务（含已分配和未分配但属于该周）
+        # 注意：待分配区是 task_level='day' AND assigned_date IS NULL，不属于特定周
+        start_date = datetime.strptime(week_start, '%Y-%m-%d').date()
+        dates = [(start_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7)]
+        day_tasks_by_date = {}
+        for d in dates:
+            rows = conn.execute(
+                "SELECT * FROM todos WHERE task_level='day' AND assigned_date=? ORDER BY priority ASC, sort_order ASC",
+                (d,)
+            ).fetchall()
+            day_tasks_by_date[d] = [dict(r) for r in rows]
+        return {
+            'week_start': week_start,
+            'dates': dates,
+            'week_tasks': [dict(r) for r in week_tasks],
+            'day_tasks': day_tasks_by_date,
+        }
+
+
+def get_unassigned_todos(limit: int = 50) -> list[dict]:
+    """获取待分配区任务（task_level='day' AND assigned_date IS NULL）"""
+    _flush_pending_commits()
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM todos WHERE task_level='day' AND assigned_date IS NULL ORDER BY priority ASC, sort_order ASC LIMIT ?",
+            (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def assign_todo(todo_id: int, assigned_date: str = None, week_start: str = None, task_level: str = 'day') -> bool:
+    """分配任务到某天/某周/升级层级"""
+    _flush_pending_commits()
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE todos SET assigned_date=?, week_start=?, task_level=?, updated_at=datetime('now','localtime') WHERE id=?",
+            (assigned_date, week_start, task_level, todo_id)
+        )
+        conn.commit()
+        return True
+
+
+def unassign_todo(todo_id: int) -> bool:
+    """移回待分配区（清空 assigned_date，task_level 保留为 day）"""
+    _flush_pending_commits()
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE todos SET assigned_date=NULL, updated_at=datetime('now','localtime') WHERE id=?",
+            (todo_id,)
+        )
+        conn.commit()
+        return True
+
+
+def split_task(parent_id: int, title: str, week_start: str, task_level: str = 'week',
+               category: str = '开发', mode: str = 'timer', target_min: int = 25, priority: int = 2) -> int:
+    """月任务拆解为周任务（或周任务拆解为日任务）"""
+    _flush_pending_commits()
+    with get_conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO todos (title, category, mode, target_min, priority, parent_id, task_level, week_start, status) "
+            "VALUES (?,?,?,?,?,?,?,?, 'pending')",
+            (title, category, mode, target_min, priority, parent_id, task_level, week_start)
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def get_week_plan_stats(week_start: str) -> dict:
+    """本周数据条统计：专注柱状图+完成率+深度+中断+连续"""
+    _flush_pending_commits()
+    start_date = datetime.strptime(week_start, '%Y-%m-%d').date()
+    dates = [(start_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7)]
+    with get_conn() as conn:
+        # 每日专注分钟
+        daily_focus = []
+        for d in dates:
+            row = conn.execute(
+                "SELECT COALESCE(SUM(duration_min),0) as total FROM pomodoro_sessions WHERE date(start_time)=? AND status='completed'",
+                (d,)
+            ).fetchone()
+            daily_focus.append({'date': d, 'focus_min': row['total'] or 0})
+        # 本周总专注
+        total_row = conn.execute(
+            "SELECT COALESCE(SUM(duration_min),0) as total FROM pomodoro_sessions "
+            "WHERE date(start_time)>=? AND date(start_time)<=? AND status='completed'",
+            (dates[0], dates[6])
+        ).fetchone()
+        total_focus = total_row['total'] or 0
+        # 本周深度工作（≥25min 完整番茄）
+        deep_row = conn.execute(
+            "SELECT COUNT(*) as cnt, COALESCE(SUM(duration_min),0) as total FROM pomodoro_sessions "
+            "WHERE date(start_time)>=? AND date(start_time)<=? AND status='completed' AND duration_min>=25 AND interrupted_count=0",
+            (dates[0], dates[6])
+        ).fetchone()
+        deep_focus = deep_row['total'] or 0
+        # 中断次数
+        interrupt_row = conn.execute(
+            "SELECT COALESCE(SUM(interrupted_count),0) as total FROM pomodoro_sessions "
+            "WHERE date(start_time)>=? AND date(start_time)<=?",
+            (dates[0], dates[6])
+        ).fetchone()
+        interrupts = interrupt_row['total'] or 0
+        # 完成率（本周日任务）
+        completed_row = conn.execute(
+            "SELECT COUNT(*) as total, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) as done FROM todos "
+            "WHERE task_level='day' AND assigned_date>=? AND assigned_date<=?",
+            (dates[0], dates[6])
+        ).fetchone()
+        total_tasks = completed_row['total'] or 0
+        completed_tasks = completed_row['done'] or 0
+        # 连续天数（从今日向前数）
+        streak = 0
+        today = date.today()
+        for i in range(365):
+            d = (today - timedelta(days=i)).strftime('%Y-%m-%d')
+            row = conn.execute(
+                "SELECT COUNT(*) as cnt FROM pomodoro_sessions WHERE date(start_time)=? AND status='completed'",
+                (d,)
+            ).fetchone()
+            if row['cnt'] > 0:
+                streak += 1
+            else:
+                if i == 0:
+                    continue
+                break
+        return {
+            'week_start': week_start,
+            'dates': dates,
+            'daily_focus': daily_focus,
+            'total_focus_min': total_focus,
+            'deep_focus_min': deep_focus,
+            'interrupt_count': interrupts,
+            'total_tasks': total_tasks,
+            'completed_tasks': completed_tasks,
+            'completion_rate': int(completed_tasks / total_tasks * 100) if total_tasks > 0 else 0,
+            'streak_days': streak,
+        }
+
+
+def get_month_plan_stats(month_key: str) -> dict:
+    """本月数据条统计"""
+    _flush_pending_commits()
+    with get_conn() as conn:
+        total_row = conn.execute(
+            "SELECT COALESCE(SUM(duration_min),0) as total FROM pomodoro_sessions "
+            "WHERE strftime('%Y-%m', start_time)=? AND status='completed'",
+            (month_key,)
+        ).fetchone()
+        deep_row = conn.execute(
+            "SELECT COALESCE(SUM(duration_min),0) as total FROM pomodoro_sessions "
+            "WHERE strftime('%Y-%m', start_time)=? AND status='completed' AND duration_min>=25 AND interrupted_count=0",
+            (month_key,)
+        ).fetchone()
+        interrupt_row = conn.execute(
+            "SELECT COALESCE(SUM(interrupted_count),0) as total FROM pomodoro_sessions "
+            "WHERE strftime('%Y-%m', start_time)=?",
+            (month_key,)
+        ).fetchone()
+        completed_row = conn.execute(
+            "SELECT COUNT(*) as total, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) as done FROM todos "
+            "WHERE task_level='day' AND strftime('%Y-%m', assigned_date)=?",
+            (month_key,)
+        ).fetchone()
+        total_tasks = completed_row['total'] or 0
+        completed_tasks = completed_row['done'] or 0
+        return {
+            'month_key': month_key,
+            'total_focus_min': total_row['total'] or 0,
+            'deep_focus_min': deep_row['total'] or 0,
+            'interrupt_count': interrupt_row['total'] or 0,
+            'total_tasks': total_tasks,
+            'completed_tasks': completed_tasks,
+            'completion_rate': int(completed_tasks / total_tasks * 100) if total_tasks > 0 else 0,
+        }
+
+
+def update_plan_meta(plan_type: str, plan_key: str, title: str = '', goal: str = '') -> bool:
+    """更新周/月元数据"""
+    _flush_pending_commits()
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO plan_meta (plan_type, plan_key, title, goal, updated_at) "
+            "VALUES (?, ?, ?, ?, datetime('now','localtime')) "
+            "ON CONFLICT(plan_type, plan_key) DO UPDATE SET title=excluded.title, goal=excluded.goal, updated_at=datetime('now','localtime')",
+            (plan_type, plan_key, title, goal)
+        )
+        conn.commit()
+        return True
+
+
+def get_plan_meta(plan_type: str, plan_key: str) -> dict | None:
+    """获取周/月元数据"""
+    _flush_pending_commits()
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM plan_meta WHERE plan_type=? AND plan_key=?",
+            (plan_type, plan_key)
+        ).fetchone()
+        return dict(row) if row else None
+

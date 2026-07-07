@@ -19,6 +19,7 @@ from routes.achievements import bp as achievements_bp
 from routes.countdowns import bp as countdowns_bp
 from routes.chat import bp as chat_bp
 from routes.habits import bp as habits_bp
+from routes.week_plan import bp as week_plan_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -42,4 +43,5 @@ ALL_BLUEPRINTS = [
     countdowns_bp,
     chat_bp,
     habits_bp,
+    week_plan_bp,
 ]

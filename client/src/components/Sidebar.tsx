@@ -24,6 +24,7 @@ import {
   BookOpen,
   Trophy,
   Calendar,
+  CalendarDays,
   Flame,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -34,6 +35,7 @@ const CORE_NAV = [
   { to: '/',          icon: LayoutDashboard, label: '今日工作' },
   { to: '/report',    icon: FileText,        label: '生成报告' },
   { to: '/focus',     icon: Timer,      label: '专注' },
+  { to: '/week-plan', icon: CalendarDays, label: '周计划' },
   { to: '/todos',      icon: CheckSquare, label: '待办清单' },
   { to: '/diary',      icon: BookOpen,   label: '每日日记' },
   { to: '/timeline',  icon: Clock,           label: '工作时间线' },

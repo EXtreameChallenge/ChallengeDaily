@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Play, Pause, Square, SkipForward, Coffee, Brain, Zap } from 'lucide-react'
-import { startPomodoro, stopPomodoro, getPomodoroStats, type PomodoroSession } from '../api/client'
+import { startPomodoro, stopPomodoro, getPomodoroStats, getTodayTodos, type PomodoroSession, type TodoV2 } from '../api/client'
 import WhiteNoise from '../components/WhiteNoise'
 
 type Phase = 'idle' | 'working' | 'break'
@@ -17,9 +18,13 @@ export default function Focus() {
   const [streak, setStreak] = useState(0)
   const [weekStats, setWeekStats] = useState<Array<{ d: string; cnt: number; total_min: number }>>([])
   const [immersive, setImmersive] = useState(false)
+  const [todayTodos, setTodayTodos] = useState<TodoV2[]>([])
+  const [selectedTodoId, setSelectedTodoId] = useState<number | null>(null)
+  const [searchParams] = useSearchParams()
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const startTimeRef = useRef<string>('')
   const durationRef = useRef(25)
+  const autoSelectedRef = useRef(false)
 
   const loadStats = useCallback(async () => {
     try {
@@ -32,6 +37,31 @@ export default function Focus() {
   }, [])
 
   useEffect(() => { loadStats() }, [loadStats])
+
+  // 加载今日任务
+  const loadTodos = useCallback(async () => {
+    try {
+      const { todos } = await getTodayTodos()
+      setTodayTodos(todos.filter(t => t.status !== 'completed' && t.status !== 'archived'))
+    } catch {}
+  }, [])
+
+  useEffect(() => { loadTodos() }, [loadTodos])
+
+  // 从 URL 参数 ?todo_id=xxx 自动选中对应任务
+  useEffect(() => {
+    if (autoSelectedRef.current || todayTodos.length === 0) return
+    const todoIdParam = searchParams.get('todo_id')
+    if (todoIdParam) {
+      const id = parseInt(todoIdParam, 10)
+      if (!isNaN(id)) {
+        setSelectedTodoId(id)
+        const todo = todayTodos.find(t => t.id === id)
+        if (todo) setTask(todo.title)
+      }
+    }
+    autoSelectedRef.current = true
+  }, [todayTodos, searchParams])
 
   // 倒计时
   useEffect(() => {
@@ -69,7 +99,7 @@ export default function Focus() {
     setInterruptedCount(0)
     setPhase('working')
     try {
-      const res = await startPomodoro({ task, duration_min: duration, category: '开发' })
+      const res = await startPomodoro({ task, duration_min: duration, category: '开发', todo_id: selectedTodoId ?? undefined })
       setSessionId(res.id)
     } catch {}
   }
@@ -163,6 +193,37 @@ export default function Focus() {
         {/* 任务输入 */}
         {phase === 'idle' && (
           <div className="w-full max-w-md space-y-3">
+            {/* 关联任务 */}
+            {todayTodos.length > 0 ? (
+              <select
+                value={selectedTodoId ?? ''}
+                onChange={e => {
+                  const val = e.target.value
+                  if (val === '') {
+                    setSelectedTodoId(null)
+                  } else {
+                    const id = parseInt(val, 10)
+                    setSelectedTodoId(id)
+                    const todo = todayTodos.find(t => t.id === id)
+                    if (todo) setTask(todo.title)
+                  }
+                }}
+                className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-4 py-3 text-cd-text focus:outline-none focus:border-purple-400/40"
+              >
+                <option value="">选择关联任务（可选）</option>
+                {[...todayTodos]
+                  .sort((a, b) => a.priority - b.priority)
+                  .map(t => (
+                    <option key={t.id} value={t.id}>
+                      [P{t.priority}] {t.title} ({t.target_min}min)
+                    </option>
+                  ))}
+              </select>
+            ) : (
+              <div className="text-xs text-cd-text-secondary bg-cd-bg-card rounded-lg px-4 py-3 border border-white/5">
+                今日还没有分配任务，<a href="#/week-plan" className="text-purple-300 hover:underline">前往周计划分配</a>
+              </div>
+            )}
             <input
               type="text" value={task} onChange={e => setTask(e.target.value)}
               placeholder="这次专注要做什么？"

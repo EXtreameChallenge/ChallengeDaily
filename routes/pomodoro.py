@@ -14,12 +14,16 @@ def start_pomodoro():
     task = data.get('task', '').strip()
     duration_min = int(data.get('duration_min', 25))
     category = data.get('category', '开发')
+    todo_id = data.get('todo_id')  # 关联日任务（可选）
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     session_id = db.insert_pomodoro_session(
         start_time=now, end_time=None, duration_min=duration_min,
         task=task, category=category, status='running', interrupted_count=0, source='manual'
     )
-    return jsonify({"status": "ok", "id": session_id, "start_time": now})
+    # 关联 todo_id（V19 新增字段）
+    if todo_id:
+        db.update_pomodoro_session(session_id, todo_id=int(todo_id))
+    return jsonify({"status": "ok", "id": session_id, "start_time": now, "todo_id": todo_id})
 
 
 @bp.route('/stop', methods=['POST'])
@@ -32,6 +36,13 @@ def stop_pomodoro():
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     if session_id:
         db.update_pomodoro_session(session_id, end_time=now, status=status, interrupted_count=interrupted_count)
+        # 完成时自动回写 todo 进度（V19 联动）
+        if status == 'completed':
+            # 查询 session 关联的 todo_id 和 duration
+            with db.get_conn() as conn:
+                row = conn.execute("SELECT todo_id, duration_min FROM pomodoro_sessions WHERE id=?", (session_id,)).fetchone()
+                if row and row['todo_id']:
+                    db.update_todo_progress(row['todo_id'], row['duration_min'])
     return jsonify({"status": "ok", "end_time": now})
 
 

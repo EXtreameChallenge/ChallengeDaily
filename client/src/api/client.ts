@@ -812,7 +812,7 @@ export interface PomodoroSession {
   interrupted_count: number
 }
 
-export async function startPomodoro(data: { task?: string; duration_min?: number; category?: string }): Promise<{ status: string; id: number; start_time: string }> {
+export async function startPomodoro(data: { task?: string; duration_min?: number; category?: string; todo_id?: number | null }): Promise<{ status: string; id: number; start_time: string }> {
   return request('/api/pomodoro/start', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; id: number; start_time: string }>
 }
 
@@ -995,4 +995,129 @@ export function getExportExcelUrl(date?: string): string {
 export function getExportJsonUrl(date?: string): string {
   const d = date || new Date().toISOString().substring(0, 10)
   return `${BASE_URL}/api/exports/json?date=${d}`
+}
+
+// ── 周计划（月/周/日三级层级 + 拖拽分配 + 番茄数据条） ──
+
+export type TaskLevel = 'month' | 'week' | 'day'
+
+export interface TodoV2 extends Todo {
+  parent_id: number | null
+  task_level: TaskLevel
+  assigned_date: string | null
+  week_start: string | null
+  month_key: string | null
+  color: string
+}
+
+export interface MonthTask extends TodoV2 {
+  children: TodoV2[]
+  total_target_min: number
+  total_progress_min: number
+  progress_pct: number
+}
+
+export interface MonthPlanData {
+  month_key: string
+  month_tasks: MonthTask[]
+  title: string
+  goal: string
+}
+
+export interface WeekPlanData {
+  week_start: string
+  dates: string[]
+  week_tasks: TodoV2[]
+  day_tasks: Record<string, TodoV2[]>
+  title: string
+  goal: string
+}
+
+export interface WeekPlanStats {
+  week_start: string
+  dates: string[]
+  daily_focus: Array<{ date: string; focus_min: number }>
+  total_focus_min: number
+  deep_focus_min: number
+  interrupt_count: number
+  total_tasks: number
+  completed_tasks: number
+  completion_rate: number
+  streak_days: number
+}
+
+export interface MonthPlanStats {
+  month_key: string
+  total_focus_min: number
+  deep_focus_min: number
+  interrupt_count: number
+  total_tasks: number
+  completed_tasks: number
+  completion_rate: number
+}
+
+export async function getMonthPlan(monthKey: string): Promise<MonthPlanData> {
+  return request(`/api/week-plan/month/${monthKey}`) as Promise<MonthPlanData>
+}
+
+export async function getWeekPlan(weekStart: string): Promise<WeekPlanData> {
+  return request(`/api/week-plan/week/${weekStart}`) as Promise<WeekPlanData>
+}
+
+export async function getUnassignedTodos(): Promise<{ todos: TodoV2[] }> {
+  return request('/api/week-plan/unassigned') as Promise<{ todos: TodoV2[] }>
+}
+
+export async function assignTodo(data: { todo_id: number; assigned_date?: string; week_start?: string; task_level?: TaskLevel }): Promise<{ status: string }> {
+  return request('/api/week-plan/assign', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string }>
+}
+
+export async function unassignTodo(todo_id: number): Promise<{ status: string }> {
+  return request('/api/week-plan/unassign', { method: 'POST', body: JSON.stringify({ todo_id }) }) as Promise<{ status: string }>
+}
+
+export async function splitTask(data: { parent_id: number; title: string; week_start: string; task_level?: TaskLevel; category?: string; mode?: string; target_min?: number; priority?: number }): Promise<{ status: string; id: number }> {
+  return request('/api/week-plan/split', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; id: number }>
+}
+
+export async function updatePlanMeta(data: { plan_type: 'month' | 'week'; plan_key: string; title?: string; goal?: string }): Promise<{ status: string }> {
+  return request('/api/week-plan/meta', { method: 'PUT', body: JSON.stringify(data) }) as Promise<{ status: string }>
+}
+
+export async function getWeekPlanStats(weekStart: string): Promise<WeekPlanStats> {
+  return request(`/api/week-plan/stats?range=week&date=${weekStart}`) as Promise<WeekPlanStats>
+}
+
+export async function getMonthPlanStats(monthKey: string): Promise<MonthPlanStats> {
+  return request(`/api/week-plan/stats?range=month&date=${monthKey}`) as Promise<MonthPlanStats>
+}
+
+export async function getTodayTodos(): Promise<{ todos: TodoV2[]; date: string }> {
+  return request('/api/week-plan/today') as Promise<{ todos: TodoV2[]; date: string }>
+}
+
+// 工具函数：ISO 8601 周一日期
+export function getWeekStart(d: Date = new Date()): string {
+  const date = new Date(d)
+  const day = date.getDay() // 0=周日, 1=周一
+  const diff = day === 0 ? -6 : 1 - day // 周日回到上周一
+  date.setDate(date.getDate() + diff)
+  return date.toISOString().substring(0, 10)
+}
+
+// 工具函数：从日期字符串获取周一开始的 7 天
+export function getWeekDates(weekStart: string): string[] {
+  const start = new Date(weekStart)
+  const dates: string[] = []
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    dates.push(d.toISOString().substring(0, 10))
+  }
+  return dates
+}
+
+// 工具函数：获取月份 key
+export function getMonthKey(d: Date = new Date()): string {
+  return d.toISOString().substring(0, 7)
 }

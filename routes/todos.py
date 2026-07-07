@@ -28,7 +28,13 @@ def create_todo():
         repeat_days=data.get('repeat_days', ''),
         due_date=data.get('due_date'),
         priority=int(data.get('priority', 2)),
+        task_level=data.get('task_level', 'day'),
+        parent_id=data.get('parent_id'),
+        assigned_date=data.get('assigned_date'),
+        week_start=data.get('week_start'),
+        month_key=data.get('month_key'),
     )
+    # 如果传了层级相关字段，需在 INSERT 后 UPDATE（insert_todo 不支持这些字段）
     return jsonify({"status": "ok", "id": todo_id})
 
 

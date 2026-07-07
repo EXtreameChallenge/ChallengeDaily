@@ -31,6 +31,7 @@ const Achievements = lazy(() => import('./pages/Achievements'))
 const Countdowns = lazy(() => import('./pages/Countdowns'))
 const AIChat = lazy(() => import('./pages/AIChat'))
 const Habits = lazy(() => import('./pages/Habits'))
+const WeekPlan = lazy(() => import('./pages/WeekPlan'))
 
 // 首次启动流程：法律协议 → 新手引导 → 主界面
 type FirstLaunchPhase = 'legal' | 'onboarding' | 'done'
@@ -228,6 +229,7 @@ export default function App() {
                         <Route path="/timeline" element={<Timeline />} />
                         <Route path="/report" element={<Report />} />
                         <Route path="/focus" element={<Focus />} />
+                        <Route path="/week-plan" element={<WeekPlan />} />
                         <Route path="/todos" element={<Todos />} />
                         <Route path="/diary" element={<Diary />} />
                         <Route path="/heatmap" element={<Heatmap />} />
