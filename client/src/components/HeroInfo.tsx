@@ -473,10 +473,10 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
         ) : insight ? (
           <div className="rounded-2xl bg-gradient-to-br from-[#1E1E2E] to-[#252538] border border-white/5 p-4 shadow-sm">
             {insight.structured ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {/* 顶部：心情 emoji + headline */}
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">
+                <div className="flex items-start gap-2.5">
+                  <span className="text-2xl shrink-0 leading-none mt-0.5">
                     {insight.structured.mood === 'proud' && '🌟'}
                     {insight.structured.mood === 'tired' && '😴'}
                     {insight.structured.mood === 'focused' && '🎯'}
@@ -485,12 +485,12 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
                     {insight.structured.mood === 'excited' && '✨'}
                     {(!insight.structured.mood || insight.structured.mood === 'warm') && '🌸'}
                   </span>
-                  <p className="text-base text-cd-text font-medium leading-snug">{insight.structured.headline || insight.summary}</p>
+                  <p className="text-lg text-cd-text font-semibold leading-snug">{insight.structured.headline || insight.summary}</p>
                 </div>
 
-                {/* 主体：温柔的 story 文字 */}
+                {/* 主体：朋友式小作文，字号加大、行距宽松 */}
                 {insight.structured.story && (
-                  <p className="text-base text-cd-text-secondary leading-relaxed">{insight.structured.story}</p>
+                  <p className="text-lg text-cd-text-secondary leading-[1.8]">{insight.structured.story}</p>
                 )}
 
                 {/* 可爱的情绪/关怀标签 */}
@@ -506,7 +506,7 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
                       return (
                         <span
                           key={idx}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${styles[tag.type]}`}
+                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium border ${styles[tag.type]}`}
                         >
                           {tag.text}
                         </span>
@@ -517,14 +517,14 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
 
                 {/* 温柔小建议 */}
                 {insight.structured.tips.length > 0 && (
-                  <div className="flex items-start gap-2 pt-1 border-t border-white/5">
-                    <Sparkles size={14} className="shrink-0 mt-0.5 text-purple-400" />
-                    <p className="text-sm text-purple-300 leading-relaxed">{insight.structured.tips[0]}</p>
+                  <div className="flex items-start gap-2.5 pt-2 border-t border-white/5">
+                    <Sparkles size={16} className="shrink-0 mt-1 text-purple-400" />
+                    <p className="text-base text-purple-300 leading-relaxed">{insight.structured.tips[0]}</p>
                   </div>
                 )}
               </div>
             ) : (
-              <p className="text-base text-cd-text leading-relaxed">{insight.summary}</p>
+              <p className="text-lg text-cd-text leading-relaxed">{insight.summary}</p>
             )}
           </div>
         ) : (

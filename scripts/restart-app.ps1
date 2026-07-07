@@ -6,6 +6,7 @@ $startVbs = Join-Path $rootDir "start.vbs"
 
 Write-Host "[Restart] Project: $rootDir"
 
+# 终止 ChallengeDaily Electron 进程
 $targetProcesses = Get-Process | Where-Object {
     $_.Path -and ($_.Path -like "*$rootDir*electron.exe*")
 }
@@ -18,6 +19,23 @@ if ($targetProcesses) {
     Write-Host "[Restart] Old process(es) stopped"
 } else {
     Write-Host "[Restart] No running ChallengeDaily process found"
+}
+
+# 终止项目相关的 Python 后端进程（避免旧代码残留）
+$allPy = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'"
+$pyToKill = @()
+foreach ($p in $allPy) {
+    if ($p.CommandLine -and ($p.CommandLine -like "*$rootDir*")) {
+        $pyToKill += $p
+    }
+}
+if ($pyToKill.Count -gt 0) {
+    Write-Host "[Restart] Found $($pyToKill.Count) project Python process(es), stopping..."
+    foreach ($p in $pyToKill) {
+        Stop-Process -Id $p.ProcessId -Force
+    }
+    Start-Sleep -Seconds 1
+    Write-Host "[Restart] Python process(es) stopped"
 }
 
 if (Test-Path $startVbs) {
