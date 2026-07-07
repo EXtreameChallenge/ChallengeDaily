@@ -19,6 +19,9 @@ import {
   Brain,
   Activity,
   Sparkles,
+  Timer,
+  CheckSquare,
+  BookOpen,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { getStatus, pauseCollector, resumeCollector, getTodayStats, type CollectorStatus, type TodayStats } from '../api/client'
@@ -27,6 +30,9 @@ import { useTheme } from './ThemeContext'
 const CORE_NAV = [
   { to: '/',          icon: LayoutDashboard, label: '今日工作' },
   { to: '/report',    icon: FileText,        label: '生成报告' },
+  { to: '/focus',     icon: Timer,      label: '专注' },
+  { to: '/todos',      icon: CheckSquare, label: '待办清单' },
+  { to: '/diary',      icon: BookOpen,   label: '每日日记' },
   { to: '/timeline',  icon: Clock,           label: '工作时间线' },
   { to: '/heatmap',   icon: Grid3X3,         label: '时段热力图' },
   { to: '/apps',      icon: AppWindow,       label: '应用记录' },

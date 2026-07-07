@@ -799,3 +799,93 @@ export async function getDeepInsight(date?: string): Promise<DeepInsightData> {
   const params = date ? `?date=${date}` : ''
   return await request(`/api/deep-insight${params}`) as DeepInsightData
 }
+
+// ── 番茄钟 ──
+export interface PomodoroSession {
+  id: number
+  start_time: string
+  end_time: string | null
+  duration_min: number
+  task: string
+  category: string
+  status: 'running' | 'completed' | 'interrupted'
+  interrupted_count: number
+}
+
+export async function startPomodoro(data: { task?: string; duration_min?: number; category?: string }): Promise<{ status: string; id: number; start_time: string }> {
+  return request('/api/pomodoro/start', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; id: number; start_time: string }>
+}
+
+export async function stopPomodoro(data: { id: number; status?: string; interrupted_count?: number }): Promise<{ status: string; end_time: string }> {
+  return request('/api/pomodoro/stop', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; end_time: string }>
+}
+
+export async function getPomodoroSessions(date?: string): Promise<{ sessions: PomodoroSession[] }> {
+  const params = date ? `?date=${date}` : ''
+  return request(`/api/pomodoro/sessions${params}`) as Promise<{ sessions: PomodoroSession[] }>
+}
+
+export async function getPomodoroStats(range?: string): Promise<{ stats: Array<{ d: string; cnt: number; total_min: number }>; today: { count: number; total_min: number }; streak: number }> {
+  return request(`/api/pomodoro/stats?range=${range || 'week'}`) as Promise<{ stats: Array<{ d: string; cnt: number; total_min: number }>; today: { count: number; total_min: number }; streak: number }>
+}
+
+// ── 待办清单 ──
+export interface Todo {
+  id: number
+  title: string
+  category: string
+  mode: 'timer' | 'goal' | 'habit'
+  target_min: number
+  repeat_type: string
+  repeat_days: string
+  due_date: string | null
+  priority: number
+  status: 'pending' | 'in_progress' | 'completed' | 'archived'
+  progress_min: number
+  pomodoro_count: number
+  created_at: string
+  completed_at: string | null
+}
+
+export async function getTodos(status?: string): Promise<{ todos: Todo[] }> {
+  const params = status ? `?status=${status}` : ''
+  return request(`/api/todos${params}`) as Promise<{ todos: Todo[] }>
+}
+
+export async function createTodo(data: { title: string; category?: string; mode?: string; target_min?: number; priority?: number; due_date?: string }): Promise<{ status: string; id: number }> {
+  return request('/api/todos', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; id: number }>
+}
+
+export async function updateTodo(id: number, data: Partial<Todo>): Promise<{ status: string }> {
+  return request(`/api/todos/${id}`, { method: 'PUT', body: JSON.stringify(data) }) as Promise<{ status: string }>
+}
+
+export async function deleteTodo(id: number): Promise<{ status: string }> {
+  return request(`/api/todos/${id}`, { method: 'DELETE' }) as Promise<{ status: string }>
+}
+
+// ── 每日日记 ──
+export interface Diary {
+  id: number
+  diary_date: string
+  mood: string
+  weather: string
+  content: string
+  tags: string
+  highlights: string
+  gratitude: string
+  created_at: string
+  updated_at: string
+}
+
+export async function getDiary(diaryDate: string): Promise<{ diary: Diary | null }> {
+  return request(`/api/diaries/${diaryDate}`) as Promise<{ diary: Diary | null }>
+}
+
+export async function saveDiary(data: Partial<Diary>): Promise<{ status: string; diary_date: string }> {
+  return request('/api/diaries', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; diary_date: string }>
+}
+
+export async function getDiaries(limit?: number): Promise<{ diaries: Diary[]; dates: string[] }> {
+  return request(`/api/diaries/list?limit=${limit || 30}`) as Promise<{ diaries: Diary[]; dates: string[] }>
+}

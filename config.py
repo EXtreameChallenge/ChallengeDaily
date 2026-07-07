@@ -92,6 +92,15 @@ _DEFAULT_SETTINGS = {
     "ai_base_url": "https://open.bigmodel.cn/api/paas/v4",
     "ai_vision_model": "glm-4v-flash",
     "ai_text_model": "glm-4-flash",
+    "pomodoro_work_min": 25,
+    "pomodoro_break_min": 5,
+    "pomodoro_long_break_min": 15,
+    "pomodoro_auto_start_break": True,
+    "pomodoro_sound_enabled": True,
+    "pomodoro_default_category": "开发",
+    "diary_auto_link_workdata": True,
+    "white_noise_default": "none",
+    "focus_blocking_mode": False,
 }
 
 # ── settings 缓存（避免每次 API 请求都读磁盘）──

@@ -15,7 +15,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 14
 
 # ── 持久连接（避免每分钟 5-7 次 connect/close）──
 _persistent_conn: Optional[sqlite3.Connection] = None
@@ -283,6 +283,68 @@ def init_db():
                     conn.execute(f"ALTER TABLE daily_profiles ADD COLUMN {col} {deflt}")
                 except sqlite3.OperationalError:
                     pass  # 列已存在
+
+        # V12: 番茄钟专注记录
+        if current_version < 12:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS pomodoro_sessions (
+                    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                    start_time       TEXT NOT NULL,
+                    end_time         TEXT,
+                    duration_min     INTEGER NOT NULL DEFAULT 25,
+                    task             TEXT DEFAULT '',
+                    category          TEXT DEFAULT '开发',
+                    status           TEXT DEFAULT 'completed',
+                    interrupted_count INTEGER DEFAULT 0,
+                    source           TEXT DEFAULT 'manual',
+                    created_at       TEXT DEFAULT (datetime('now','localtime'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_pomodoro_start ON pomodoro_sessions(start_time);
+                CREATE INDEX IF NOT EXISTS idx_pomodoro_status ON pomodoro_sessions(status);
+            """)
+
+        # V13: 待办清单（融入GoalDay打卡清单自动进度）
+        if current_version < 13:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS todos (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title           TEXT NOT NULL,
+                    category        TEXT DEFAULT '开发',
+                    mode            TEXT DEFAULT 'timer',
+                    target_min      INTEGER DEFAULT 25,
+                    repeat_type     TEXT DEFAULT 'none',
+                    repeat_days     TEXT DEFAULT '',
+                    due_date        TEXT,
+                    priority        INTEGER DEFAULT 2,
+                    status          TEXT DEFAULT 'pending',
+                    progress_min    INTEGER DEFAULT 0,
+                    pomodoro_count  INTEGER DEFAULT 0,
+                    sort_order      INTEGER DEFAULT 0,
+                    created_at      TEXT DEFAULT (datetime('now','localtime')),
+                    updated_at      TEXT DEFAULT (datetime('now','localtime')),
+                    completed_at    TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status);
+                CREATE INDEX IF NOT EXISTS idx_todos_due ON todos(due_date);
+            """)
+
+        # V14: 每日日记（融入GoalDay一日一页+心情+翻页）
+        if current_version < 14:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS diaries (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    diary_date  TEXT UNIQUE NOT NULL,
+                    mood        TEXT DEFAULT '',
+                    weather     TEXT DEFAULT '',
+                    content     TEXT DEFAULT '',
+                    tags         TEXT DEFAULT '',
+                    highlights  TEXT DEFAULT '',
+                    gratitude   TEXT DEFAULT '',
+                    created_at  TEXT DEFAULT (datetime('now','localtime')),
+                    updated_at  TEXT DEFAULT (datetime('now','localtime'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_diary_date ON diaries(diary_date);
+            """)
 
         # 更新版本号
         conn.execute(
@@ -758,3 +820,170 @@ def get_known_apps() -> list[dict]:
             "rule": rules.get(name),
         })
     return result
+
+
+# ── 番茄钟 ──
+def insert_pomodoro_session(start_time, end_time, duration_min, task="", category="开发", status="completed", interrupted_count=0, source="manual"):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO pomodoro_sessions (start_time, end_time, duration_min, task, category, status, interrupted_count, source) VALUES (?,?,?,?,?,?,?,?)",
+            (start_time, end_time, duration_min, task, category, status, interrupted_count, source)
+        )
+        conn.commit()
+        cur = conn.execute("SELECT last_insert_rowid()")
+        return cur.fetchone()[0]
+
+def update_pomodoro_session(session_id, **kwargs):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        sets = ", ".join([f"{k}=?" for k in kwargs])
+        vals = list(kwargs.values()) + [session_id]
+        conn.execute(f"UPDATE pomodoro_sessions SET {sets} WHERE id=?", vals)
+        conn.commit()
+        return True
+
+def get_pomodoro_sessions(date_str=None):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        if date_str:
+            rows = conn.execute("SELECT * FROM pomodoro_sessions WHERE start_time LIKE ? ORDER BY start_time DESC", (f"{date_str}%",)).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM pomodoro_sessions ORDER BY start_time DESC LIMIT 100").fetchall()
+        return [dict(r) for r in rows]
+
+def get_pomodoro_stats(range_type="week"):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        if range_type == "week":
+            rows = conn.execute("""
+                SELECT date(start_time) as d, COUNT(*) as cnt, SUM(duration_min) as total_min
+                FROM pomodoro_sessions WHERE status='completed' AND start_time >= date('now','-7 days','localtime')
+                GROUP BY date(start_time) ORDER BY d
+            """).fetchall()
+        else:
+            rows = conn.execute("""
+                SELECT date(start_time) as d, COUNT(*) as cnt, SUM(duration_min) as total_min
+                FROM pomodoro_sessions WHERE status='completed' AND start_time >= date('now','-30 days','localtime')
+                GROUP BY date(start_time) ORDER BY d
+            """).fetchall()
+        return [dict(r) for r in rows]
+
+def get_pomodoro_streak():
+    _flush_pending_commits()
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT DISTINCT date(start_time) as d FROM pomodoro_sessions
+            WHERE status='completed' ORDER BY d DESC
+        """).fetchall()
+        if not rows:
+            return 0
+        dates = [r["d"] for r in rows]
+        today = date.today().isoformat()
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        if today not in dates and yesterday not in dates:
+            return 0
+        streak = 0
+        check_date = today if today in dates else yesterday
+        while check_date in dates:
+            streak += 1
+            check_date = (datetime.strptime(check_date, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+        return streak
+
+def get_pomodoro_today_count():
+    _flush_pending_commits()
+    with get_conn() as conn:
+        today = date.today().isoformat()
+        row = conn.execute("SELECT COUNT(*) as cnt, COALESCE(SUM(duration_min),0) as total_min FROM pomodoro_sessions WHERE status='completed' AND date(start_time)=?", (today,)).fetchone()
+        return {"count": row["cnt"], "total_min": row["total_min"]}
+
+# ── 待办清单 ──
+def insert_todo(title, category="开发", mode="timer", target_min=25, repeat_type="none", repeat_days="", due_date=None, priority=2):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        max_order = conn.execute("SELECT COALESCE(MAX(sort_order),0) FROM todos").fetchone()[0]
+        conn.execute(
+            "INSERT INTO todos (title, category, mode, target_min, repeat_type, repeat_days, due_date, priority, sort_order) VALUES (?,?,?,?,?,?,?,?)",
+            (title, category, mode, target_min, repeat_type, repeat_days, due_date, priority, max_order+1)
+        )
+        conn.commit()
+        cur = conn.execute("SELECT last_insert_rowid()")
+        return cur.fetchone()[0]
+
+def get_todos(status_filter=None):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        if status_filter and status_filter != "all":
+            rows = conn.execute("SELECT * FROM todos WHERE status=? ORDER BY priority ASC, sort_order ASC", (status_filter,)).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM todos ORDER BY status ASC, priority ASC, sort_order ASC").fetchall()
+        return [dict(r) for r in rows]
+
+def update_todo(todo_id, **kwargs):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        sets = ", ".join([f"{k}=?" for k in kwargs if k != "id"])
+        vals = [v for k, v in kwargs.items() if k != "id"]
+        vals.append(todo_id)
+        conn.execute(f"UPDATE todos SET {sets}, updated_at=datetime('now','localtime') WHERE id=?", vals)
+        conn.commit()
+        return True
+
+def delete_todo(todo_id):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        conn.execute("DELETE FROM todos WHERE id=?", (todo_id,))
+        conn.commit()
+        return True
+
+def update_todo_progress(todo_id, minutes):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        row = conn.execute("SELECT progress_min, pomodoro_count, target_min, mode FROM todos WHERE id=?", (todo_id,)).fetchone()
+        if not row:
+            return False
+        new_progress = row["progress_min"] + minutes
+        new_count = row["pomodoro_count"] + 1
+        # 如果是 goal 模式且达到目标，自动标记完成
+        if row["mode"] == "goal" and new_progress >= row["target_min"]:
+            conn.execute("UPDATE todos SET progress_min=?, pomodoro_count=?, status='completed', completed_at=datetime('now','localtime'), updated_at=datetime('now','localtime') WHERE id=?", (new_progress, new_count, todo_id))
+        else:
+            conn.execute("UPDATE todos SET progress_min=?, pomodoro_count=?, updated_at=datetime('now','localtime') WHERE id=?", (new_progress, new_count, todo_id))
+        conn.commit()
+        return True
+
+# ── 每日日记 ──
+def upsert_diary(diary_date, mood="", weather="", content="", tags="", highlights="", gratitude=""):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        existing = conn.execute("SELECT id FROM diaries WHERE diary_date=?", (diary_date,)).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE diaries SET mood=?, weather=?, content=?, tags=?, highlights=?, gratitude=?, updated_at=datetime('now','localtime') WHERE diary_date=?",
+                (mood, weather, content, tags, highlights, gratitude, diary_date)
+            )
+        else:
+            conn.execute(
+                "INSERT INTO diaries (diary_date, mood, weather, content, tags, highlights, gratitude) VALUES (?,?,?,?,?,?,?)",
+                (diary_date, mood, weather, content, tags, highlights, gratitude)
+            )
+        conn.commit()
+        return True
+
+def get_diary(diary_date):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM diaries WHERE diary_date=?", (diary_date,)).fetchone()
+        return dict(row) if row else None
+
+def get_diaries(limit=30):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM diaries ORDER BY diary_date DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+def get_diary_dates():
+    _flush_pending_commits()
+    with get_conn() as conn:
+        rows = conn.execute("SELECT diary_date FROM diaries ORDER BY diary_date DESC").fetchall()
+        return [r["diary_date"] for r in rows]

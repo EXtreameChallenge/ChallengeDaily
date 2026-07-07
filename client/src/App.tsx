@@ -24,6 +24,9 @@ const Legal = lazy(() => import('./pages/Legal'))
 const Profile = lazy(() => import('./pages/Profile'))
 const Health = lazy(() => import('./pages/Health'))
 const DeepInsightPage = lazy(() => import('./pages/DeepInsight'))
+const Focus = lazy(() => import('./pages/Focus'))
+const Todos = lazy(() => import('./pages/Todos'))
+const Diary = lazy(() => import('./pages/Diary'))
 
 // 首次启动流程：法律协议 → 新手引导 → 主界面
 type FirstLaunchPhase = 'legal' | 'onboarding' | 'done'
@@ -220,6 +223,9 @@ export default function App() {
                         <Route path="/" element={<Overview />} />
                         <Route path="/timeline" element={<Timeline />} />
                         <Route path="/report" element={<Report />} />
+                        <Route path="/focus" element={<Focus />} />
+                        <Route path="/todos" element={<Todos />} />
+                        <Route path="/diary" element={<Diary />} />
                         <Route path="/heatmap" element={<Heatmap />} />
                         <Route path="/apps" element={<AppRecords />} />
                         <Route path="/app-tags" element={<AppTags />} />
