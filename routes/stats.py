@@ -63,7 +63,7 @@ def _build_stats(target_date: str):
     from app_tracker import get_display_name as _gdn2
     top_apps = [
         {"app_name": _gdn2(a["app_name"]), "duration_min": a["duration_min"]}
-        for a in apps[:5]
+        for a in apps[:15]
     ]
 
     # 当前活动：最近一条记录的摘要
