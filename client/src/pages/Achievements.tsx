@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import { Trophy, Lock, Sparkles } from 'lucide-react'
 import { getAchievements, checkAchievements, getQuote, type Achievement } from '../api/client'
+import { useToast } from '../components/Toast'
 
 const ALL_BADGES = [
   { code: 'first_pomodoro', name: '初心者', desc: '完成第一个番茄钟', icon: '🌱' },
@@ -19,6 +20,7 @@ export default function Achievements() {
   const [achievements, setAchievements] = useState<Achievement[]>([])
   const [quote, setQuote] = useState('')
   const [newlyUnlocked, setNewlyUnlocked] = useState<string[]>([])
+  const toast = useToast()
   // 用于在组件卸载时清理 newlyUnlocked 的 setTimeout
   const unlockTimerRef = useRef<number | undefined>(undefined)
 
@@ -31,8 +33,8 @@ export default function Achievements() {
       const [aRes, qRes] = await Promise.all([getAchievements(), getQuote()])
       setAchievements(aRes.achievements)
       setQuote(qRes.quote)
-    } catch {}
-  }, [])
+    } catch { toast.error('加载成就数据失败') }
+  }, [toast])
 
   useEffect(() => { load() }, [load])
 
@@ -45,7 +47,7 @@ export default function Achievements() {
         unlockTimerRef.current = window.setTimeout(() => setNewlyUnlocked([]), 5000)
         load()
       }
-    } catch {}
+    } catch { toast.error('检查成就失败') }
   }
 
   useEffect(() => { const t = setTimeout(handleCheck, 2000); return () => clearTimeout(t) }, [])
@@ -63,7 +65,7 @@ export default function Achievements() {
 
       {/* 格言 */}
       {quote && (
-        <div className="bg-gradient-to-r from-purple-500/10 to-gold/10 rounded-xl p-4 border border-purple-400/20 mb-6">
+        <div className="bg-gradient-to-r from-cd-accent/10 to-gold/10 rounded-xl p-4 border border-cd-accent/20 mb-6">
           <p className="text-base text-cd-text italic leading-relaxed">{quote}</p>
         </div>
       )}

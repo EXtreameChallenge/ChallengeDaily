@@ -28,12 +28,11 @@ export default function AppRecords() {
     let cancelled = false
     ;(async () => {
       const map: Record<string, string> = {}
-      for (const app of apps) {
-        try {
-          map[app.app_name_raw] = await getAppIconUrl(app.app_name_raw)
-        } catch {
-          map[app.app_name_raw] = ''
-        }
+      const results = await Promise.allSettled(
+        apps.map(app => getAppIconUrl(app.app_name_raw).then(url => ({ name: app.app_name_raw, url })))
+      )
+      for (const r of results) {
+        if (r.status === 'fulfilled') map[r.value.name] = r.value.url
       }
       if (!cancelled) setIconUrls(map)
     })()

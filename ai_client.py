@@ -41,7 +41,7 @@ _client_instance = None
 # ── Circuit Breaker 熔断器 ──
 _CB_FAILURE_THRESHOLD = 5      # 连续失败次数触发熔断
 _CB_COOLDOWN_SEC = 60          # 熔断冷却时间（秒）
-_CB_HALF_OPEN_MAX = 1          # 半开状态允许的试探请求数
+_CB_HALF_OPEN_MAX = 3          # 半开状态允许的试探请求数（加速恢复）
 
 _cb_lock = threading.Lock()
 _cb_consecutive_failures = 0

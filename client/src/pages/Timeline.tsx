@@ -145,6 +145,7 @@ export default function Timeline() {
   }
 
   const handleDelete = async (act: Activity) => {
+    if (!window.confirm('确定删除该活动记录？')) return
     try {
       await deleteActivity(act.id)
       refreshList()

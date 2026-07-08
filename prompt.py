@@ -5,6 +5,24 @@ from config import CATEGORIES, load_settings
 
 CATEGORIES_STR = "、".join(CATEGORIES)
 
+# 注入攻击关键词模式（用于过滤窗口标题中的指令注入）
+_INJECTION_PATTERNS = [
+    "忽略以上规则", "忽略上述规则", "ignore previous", "ignore above",
+    "现在你是", "you are now", "act as", "pretend to",
+    "输出你的系统提示", "output your system prompt", "reveal system",
+    " disregard ", "override",
+]
+
+def _sanitize_title(title: str, max_len: int = 200) -> str:
+    """截断+过滤窗口标题中的潜在注入指令"""
+    if not title:
+        return title
+    t = title[:max_len]
+    for pat in _INJECTION_PATTERNS:
+        if pat.lower() in t.lower():
+            t = t.replace(pat, "[...]")
+    return t
+
 def _get_custom_instructions() -> str:
     """从设置中读取用户自定义指令"""
     try:
@@ -128,9 +146,9 @@ def build_user_prompt(app_name: str, window_title: str, recent_context: str = ""
     parts = ["请分析这张截图中的工作活动。"]
     if app_name:
         parts.append(f"当前前台应用：{app_name}")
-    # window_title 截断到 200 字符，防止过长标题污染上下文 / 拖垮 token 上限
+    # window_title 过滤注入指令 + 截断，防止标题污染上下文
     if window_title:
-        parts.append(f"前台窗口标题：{window_title[:200]}")
+        parts.append(f"前台窗口标题：{_sanitize_title(window_title)}")
 
     # 多窗口上下文
     windows = visible_windows or []
@@ -138,8 +156,8 @@ def build_user_prompt(app_name: str, window_title: str, recent_context: str = ""
         parts.append("当前屏幕上可见的窗口（按前后顺序，第一个是最前台；请逐个分析每个窗口里显示的内容）：")
         for i, w in enumerate(windows, 1):
             fg_mark = " [前台]" if w.get("is_foreground") else " [后台可见]"
-            # 每个窗口标题同样截断到 200 字符
-            title = (w.get("window_title", "") or "")[:200]
+            # 每个窗口标题同样过滤注入 + 截断
+            title = _sanitize_title(w.get("window_title", "") or "")
             name = w.get("app_name", "")
             bounds = w.get("bounds", {})
             size = f"{bounds.get('width', 0)}x{bounds.get('height', 0)}"

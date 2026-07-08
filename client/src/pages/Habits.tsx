@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, Flame, Check } from 'lucide-react'
 import { getHabits, createHabit, logHabit, deleteHabit, type Habit, type HabitLog } from '../api/client'
+import { useToast } from '../components/Toast'
 
 const COLORS = ['#7B68EE', '#F0C040', '#22c55e', '#3b82f6', '#ec4899', '#f97316']
 
@@ -9,33 +10,50 @@ export default function Habits() {
   const [logs, setLogs] = useState<HabitLog[]>([])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', target_count: 1, color: COLORS[0] })
+  const toast = useToast()
 
   const load = useCallback(async () => {
     try {
       const { habits: h, logs: l } = await getHabits()
       setHabits(h)
       setLogs(l)
-    } catch {}
-  }, [])
+    } catch {
+      toast.error('加载习惯数据失败')
+    }
+  }, [toast])
 
   useEffect(() => { load() }, [load])
 
   const handleCreate = async () => {
     if (!form.name.trim()) return
-    await createHabit({ name: form.name, target_count: form.target_count, color: form.color })
-    setForm({ name: '', target_count: 1, color: COLORS[0] })
-    setShowForm(false)
-    load()
+    try {
+      await createHabit({ name: form.name, target_count: form.target_count, color: form.color })
+      setForm({ name: '', target_count: 1, color: COLORS[0] })
+      setShowForm(false)
+      load()
+    } catch {
+      toast.error('创建失败，请重试')
+    }
   }
 
   const handleLog = async (habitId: number) => {
-    await logHabit(habitId)
-    load()
+    try {
+      await logHabit(habitId)
+      load()
+    } catch {
+      toast.error('打卡失败')
+    }
   }
 
   const handleDelete = async (id: number) => {
-    await deleteHabit(id)
-    load()
+    if (!window.confirm('确定删除该习惯？相关打卡记录不会删除。')) return
+    try {
+      await deleteHabit(id)
+      toast.success('习惯已删除')
+      load()
+    } catch {
+      toast.error('删除失败，请重试')
+    }
   }
 
   const today = new Date().toISOString().substring(0, 10)
@@ -65,7 +83,7 @@ export default function Habits() {
           <Flame className="text-orange-400" /> 习惯追踪
         </h1>
         <button onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-300 rounded-lg border border-purple-400/30 hover:bg-purple-500/30 transition">
+          className="flex items-center gap-2 px-4 py-2 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition">
           <Plus size={18} /> 新建习惯
         </button>
       </div>
@@ -74,7 +92,7 @@ export default function Habits() {
         <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5 mb-4 space-y-3">
           <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
             placeholder="习惯名称..." autoFocus
-            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-4 py-2.5 text-cd-text focus:outline-none focus:border-purple-400/40" />
+            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-4 py-2.5 text-cd-text focus:outline-none focus:border-cd-accent/40" />
           <div className="flex gap-3 items-center">
             <div className="flex items-center gap-2">
               <span className="text-sm text-cd-text-secondary">每日目标</span>
@@ -91,7 +109,7 @@ export default function Habits() {
             </div>
           </div>
           <button onClick={handleCreate}
-            className="w-full py-2.5 bg-purple-500/20 text-purple-300 rounded-lg border border-purple-400/30 hover:bg-purple-500/30 transition font-medium">
+            className="w-full py-2.5 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition font-medium">
             创建习惯
           </button>
         </div>
@@ -121,7 +139,7 @@ export default function Habits() {
                   </div>
                   <button onClick={() => handleLog(habit.id)} disabled={completed}
                     className={`w-10 h-10 rounded-full flex items-center justify-center transition ${
-                      completed ? 'bg-green-500/20 text-green-400' : 'bg-purple-500/20 text-purple-300 hover:bg-purple-500/30'
+                      completed ? 'bg-green-500/20 text-green-400' : 'bg-cd-accent/20 text-cd-accent hover:bg-cd-accent/30'
                     } disabled:opacity-60`}>
                     <Check size={20} />
                   </button>

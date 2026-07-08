@@ -175,7 +175,7 @@ def compute_deliberate_practice_metrics(activities, interval_sec=60, history_act
     if history_activities is not None:
         try:
             skill_hours = round(len(history_activities) * interval_sec / 3600, 1)
-        except:
+        except (TypeError, ValueError, ZeroDivisionError):
             skill_hours = 0
     
     deliberate_ratio = round(learning_zone_min / total_duration if total_duration > 0 else 0, 3)
@@ -187,7 +187,7 @@ def compute_deliberate_practice_metrics(activities, interval_sec=60, history_act
         'learning_zone_min': round(learning_zone_min, 1),
         'comfort_zone_min': round(comfort_zone_min, 1),
         'skill_accumulation_hours': skill_hours,
-        'years_to_expert': round(max(0, 10000 - skill_hours) / max(skill_hours * 365 / max(len(history_activities or []) * interval_sec / 86400, 1), 1), 1) if skill_hours > 0 and history_activities else None,
+        'years_to_expert': round(max(0, 10000 - skill_hours) / max(skill_hours * 365 / max(len(history_activities or []) * interval_sec / 86400, 1), 0.01), 1) if skill_hours > 0 and history_activities and len(history_activities) > 0 else None,
     }
 
 

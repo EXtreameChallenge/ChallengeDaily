@@ -29,10 +29,12 @@ import {
   type AutoReportConfig,
 } from '../api/client'
 import { ToggleSwitch, useAsyncData, ApiErrorDisplay } from '../components/shared'
+import { useToast } from '../components/Toast'
 
 type AgentData = { webhooks: Webhook[]; autoConfig: AutoReportConfig }
 
 export default function AgentPage() {
+  const toast = useToast()
   // 添加表单
   const [showAdd, setShowAdd] = useState(false)
   const [newUrl, setNewUrl] = useState('')
@@ -86,11 +88,14 @@ export default function AgentPage() {
   }
 
   const handleDelete = async (id: string) => {
+    if (!window.confirm('确定删除该 Webhook？')) return
     try {
       await deleteWebhook(id)
+      toast.success('Webhook 已删除')
       refresh()
     } catch (err) {
       console.error('Failed to delete webhook:', err)
+      toast.error('删除 Webhook 失败')
     }
   }
 

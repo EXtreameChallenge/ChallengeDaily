@@ -91,12 +91,11 @@ export default function Profile() {
     let cancelled = false
     ;(async () => {
       const map: Record<string, string> = {}
-      for (const app of commonSoftware) {
-        try {
-          map[app.app_name] = await getAppIconUrl(app.app_name)
-        } catch {
-          map[app.app_name] = ''
-        }
+      const results = await Promise.allSettled(
+        commonSoftware.map(app => getAppIconUrl(app.app_name).then(url => ({ app_name: app.app_name, url })))
+      )
+      for (const r of results) {
+        if (r.status === 'fulfilled') map[r.value.app_name] = r.value.url
       }
       if (!cancelled) setIconUrls(map)
     })()

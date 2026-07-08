@@ -54,12 +54,11 @@ export default function AppTags() {
     let cancelled = false
     ;(async () => {
       const map: Record<string, string> = {}
-      for (const app of apps.slice(0, 50)) {
-        try {
-          map[app.app_name] = await getAppIconUrl(app.app_name)
-        } catch {
-          map[app.app_name] = ''
-        }
+      const results = await Promise.allSettled(
+        apps.slice(0, 50).map(app => getAppIconUrl(app.app_name).then(url => ({ name: app.app_name, url })))
+      )
+      for (const r of results) {
+        if (r.status === 'fulfilled') map[r.value.name] = r.value.url
       }
       if (!cancelled) setIconUrls(map)
     })()

@@ -253,8 +253,7 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
-      // 后台节流：窗口不可见时降低定时器频率
+      sandbox: true,
       backgroundThrottling: true,
     },
     show: false,
@@ -322,7 +321,7 @@ function createPetWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
       preload: path.join(__dirname, 'preload.cjs'),
     },
     show: false,

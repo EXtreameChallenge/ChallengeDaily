@@ -200,10 +200,10 @@ def _push_webhook_sync(wh: dict, content: str, target_date: str) -> bool:
         urllib.request.urlopen(req, timeout=10)
         return True
     except Exception as e:
-        # 记录推送失败的详情（含 URL 与异常堆栈），便于排查
+        # 日志脱敏：不记录完整 URL，避免泄露 webhook secret
+        safe_url = wh.get("url", "").split("?")[0][:60] + "..." if len(wh.get("url", "")) > 60 else wh.get("url", "").split("?")[0]
         logger.warning(
-            f"Webhook push failed for {wh.get('url', '')}: {e}",
-            exc_info=True,
+            f"Webhook push failed for {safe_url}: {type(e).__name__}",
         )
         return False
 

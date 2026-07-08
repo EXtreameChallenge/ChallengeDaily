@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import {
   Calendar, CalendarDays, ChevronLeft, ChevronRight, Plus, GripVertical, Play, Check, Trash2, X, Target,
 } from 'lucide-react'
@@ -344,7 +344,7 @@ export default function WeekPlan() {
     return (
       <div className="p-4 overflow-auto h-full">
         <div className="mb-3 flex items-center gap-3">
-          <CalendarDays size={16} className="text-purple-400" />
+          <CalendarDays size={16} className="text-cd-accent" />
           <h2 className="text-sm font-semibold text-cd-text">{monthPlan.title || `${monthKey} 月计划`}</h2>
           {monthPlan.goal && <span className="text-xs text-cd-text-tertiary">🎯 {monthPlan.goal}</span>}
         </div>
@@ -352,7 +352,7 @@ export default function WeekPlan() {
           <div className="flex gap-3 mb-3 text-xs">
             <span className="text-cd-text-secondary">任务 {monthStats.total_tasks}</span>
             <span className="text-green-400">完成 {monthStats.completed_tasks}</span>
-            <span className="text-purple-400">完成率 {Math.round(monthStats.completion_rate * 100)}%</span>
+            <span className="text-cd-accent">完成率 {Math.round(monthStats.completion_rate * 100)}%</span>
             <span className="text-cd-text-secondary">深度 {Math.round(monthStats.deep_focus_min)}m</span>
             <span className="text-red-400">中断 {monthStats.interrupt_count}</span>
           </div>
@@ -420,7 +420,7 @@ export default function WeekPlan() {
           {isToday && tasks.some(t => t.status !== 'completed') && (
             <button
               onClick={() => { const t = tasks.find(t => t.status !== 'completed'); if (t) startFocus(t.id) }}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-purple-500/20 text-purple-300 border border-purple-400/30 hover:bg-purple-500/30 transition"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition"
             >
               <Play size={12} /> 开始专注
             </button>
@@ -457,13 +457,13 @@ export default function WeekPlan() {
       {/* ── 顶部导航栏 ── */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-cd-border">
         <div className="flex items-center gap-3">
-          <Calendar size={18} className="text-purple-400" />
+          <Calendar size={18} className="text-cd-accent" />
           <h1 className="text-base font-semibold text-cd-text">周计划</h1>
           {/* 视图切换 */}
           <div className="flex bg-cd-bg-input rounded-lg p-0.5 ml-2">
             {(['month', 'week', 'day'] as const).map(v => (
               <button key={v} onClick={() => setViewMode(v)}
-                className={`px-2.5 py-1 text-xs rounded-md transition ${viewMode === v ? 'bg-purple-500/20 text-purple-300' : 'text-cd-text-secondary hover:text-cd-text'}`}>
+                className={`px-2.5 py-1 text-xs rounded-md transition ${viewMode === v ? 'bg-cd-accent/20 text-cd-accent' : 'text-cd-text-secondary hover:text-cd-text'}`}>
                 {v === 'month' ? '月视图' : v === 'week' ? '周视图' : '日视图'}
               </button>
             ))}
@@ -486,7 +486,7 @@ export default function WeekPlan() {
             今天
           </button>
           <button onClick={() => setShowNewForm(!showNewForm)}
-            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-purple-500/20 text-purple-300 border border-purple-400/30 hover:bg-purple-500/30 transition">
+            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
             <Plus size={12} /> 新建
           </button>
         </div>
@@ -497,7 +497,7 @@ export default function WeekPlan() {
         <div className="flex items-center gap-2 px-4 py-2 border-b border-cd-border animate-fade-in" style={{ background: 'var(--cd-card)' }}>
           <input autoFocus value={newForm.title} onChange={e => setNewForm({ ...newForm, title: e.target.value })}
             placeholder="任务标题..."
-            className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-3 py-1.5 text-xs text-cd-text focus:outline-none focus:border-purple-400/50"
+            className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-3 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50"
             onKeyDown={e => e.key === 'Enter' && handleCreate()} />
           <select value={newForm.category} onChange={e => setNewForm({ ...newForm, category: e.target.value })}
             className="bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text">
@@ -525,7 +525,7 @@ export default function WeekPlan() {
             ))}
           </div>
           <button onClick={handleCreate}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-purple-500/20 text-purple-300 border border-purple-400/30 hover:bg-purple-500/30 transition">
+            className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
             <Check size={12} /> 创建
           </button>
         </div>

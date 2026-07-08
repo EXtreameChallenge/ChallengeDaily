@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Play, Pause, Square, SkipForward, Coffee, Brain, Zap } from 'lucide-react'
 import { startPomodoro, stopPomodoro, getPomodoroStats, getTodayTodos, type PomodoroSession, type TodoV2 } from '../api/client'
@@ -215,7 +215,7 @@ export default function Focus() {
                     if (todo) setTask(todo.title)
                   }
                 }}
-                className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-4 py-3 text-cd-text focus:outline-none focus:border-purple-400/40"
+                className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-4 py-3 text-cd-text focus:outline-none focus:border-cd-accent/40"
               >
                 <option value="">选择关联任务（可选）</option>
                 {[...todayTodos]
@@ -228,18 +228,18 @@ export default function Focus() {
               </select>
             ) : (
               <div className="text-xs text-cd-text-secondary bg-cd-bg-card rounded-lg px-4 py-3 border border-white/5">
-                今日还没有分配任务，<a href="#/week-plan" className="text-purple-300 hover:underline">前往周计划分配</a>
+                今日还没有分配任务，<a href="#/week-plan" className="text-cd-accent hover:underline">前往周计划分配</a>
               </div>
             )}
             <input
               type="text" value={task} onChange={e => setTask(e.target.value)}
               placeholder="这次专注要做什么？"
-              className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-4 py-3 text-cd-text placeholder:text-cd-text-secondary focus:outline-none focus:border-purple-400/40"
+              className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-4 py-3 text-cd-text placeholder:text-cd-text-secondary focus:outline-none focus:border-cd-accent/40"
             />
             <div className="flex gap-2">
               {[15, 25, 45, 60].map(m => (
                 <button key={m} onClick={() => setDuration(m)}
-                  className={`flex-1 py-2 rounded-lg text-sm transition ${duration === m ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30' : 'bg-cd-bg-input text-cd-text-secondary border border-white/5'}`}>
+                  className={`flex-1 py-2 rounded-lg text-sm transition ${duration === m ? 'bg-cd-accent/20 text-cd-accent border border-cd-accent/30' : 'bg-cd-bg-input text-cd-text-secondary border border-white/5'}`}>
                   {m}分钟
                 </button>
               ))}
@@ -251,7 +251,7 @@ export default function Focus() {
         <div className="flex gap-3 mt-6">
           {phase === 'idle' && (
             <button onClick={handleStart}
-              className="px-8 py-3 bg-purple-500/20 text-purple-300 rounded-xl border border-purple-400/30 hover:bg-purple-500/30 transition flex items-center gap-2 font-medium">
+              className="px-8 py-3 bg-cd-accent/20 text-cd-accent rounded-xl border border-cd-accent/30 hover:bg-cd-accent/30 transition flex items-center gap-2 font-medium">
               <Play size={20} /> 开始专注
             </button>
           )}
@@ -282,7 +282,7 @@ export default function Focus() {
       {/* 今日统计 */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
-          <div className="text-2xl font-bold text-purple-400">{todayCount}</div>
+          <div className="text-2xl font-bold text-cd-accent">{todayCount}</div>
           <div className="text-sm text-cd-text-secondary mt-1">今日番茄</div>
         </div>
         <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
@@ -306,7 +306,7 @@ export default function Focus() {
               return (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
                   <div className="text-xs text-cd-text-secondary">{s.cnt}</div>
-                  <div className="w-full bg-purple-500/20 rounded-t" style={{ height: `${h}%`, minHeight: '4px' }} />
+                  <div className="w-full bg-cd-accent/20 rounded-t" style={{ height: `${h}%`, minHeight: '4px' }} />
                   <div className="text-xs text-cd-text-secondary">{s.d.substring(5)}</div>
                 </div>
               )

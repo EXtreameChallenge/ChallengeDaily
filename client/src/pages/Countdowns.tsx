@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, Calendar, Heart, Star } from 'lucide-react'
 import { getCountdowns, createCountdown, deleteCountdown, type Countdown } from '../api/client'
 import { useToast } from '../components/Toast'
@@ -43,6 +43,7 @@ export default function Countdowns() {
   }
 
   const handleDelete = async (id: number) => {
+    if (!window.confirm('确定删除该倒计时？')) return
     try {
       await deleteCountdown(id)
       load()
@@ -57,10 +58,10 @@ export default function Countdowns() {
     <div className="min-h-screen p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-cd-text flex items-center gap-2">
-          <Calendar className="text-purple-400" /> 未来计划
+          <Calendar className="text-cd-accent" /> 未来计划
         </h1>
         <button onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-300 rounded-lg border border-purple-400/30 hover:bg-purple-500/30 transition">
+          className="flex items-center gap-2 px-4 py-2 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition">
           <Plus size={18} /> 新建倒数日
         </button>
       </div>
@@ -69,7 +70,7 @@ export default function Countdowns() {
         <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5 mb-4 space-y-3">
           <input type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
             placeholder="事件标题..." autoFocus
-            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-4 py-2.5 text-cd-text focus:outline-none focus:border-purple-400/40" />
+            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-4 py-2.5 text-cd-text focus:outline-none focus:border-cd-accent/40" />
           <div className="flex gap-3 items-center">
             <input type="date" value={form.target_date} onChange={e => setForm({ ...form, target_date: e.target.value })}
               className="bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2 text-cd-text" />
@@ -82,7 +83,7 @@ export default function Countdowns() {
             </div>
           </div>
           <button onClick={handleCreate}
-            className="w-full py-2.5 bg-purple-500/20 text-purple-300 rounded-lg border border-purple-400/30 hover:bg-purple-500/30 transition font-medium">
+            className="w-full py-2.5 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition font-medium">
             创建
           </button>
         </div>
@@ -108,7 +109,7 @@ export default function Countdowns() {
                     <div className="text-sm text-cd-text-secondary">{cd.target_date}</div>
                   </div>
                   <div className="text-right">
-                    <div className={`text-3xl font-bold ${isToday ? 'text-red-400' : isPast ? 'text-gray-500' : 'text-purple-400'}`}>
+                    <div className={`text-3xl font-bold ${isToday ? 'text-red-400' : isPast ? 'text-gray-500' : 'text-cd-accent'}`}>
                       {isToday ? '今天' : isPast ? `已过${Math.abs(days)}天` : `${days}天`}
                     </div>
                     <button onClick={() => handleDelete(cd.id)} className="text-cd-text-secondary hover:text-red-400 transition mt-1">

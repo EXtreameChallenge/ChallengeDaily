@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Save, Calendar, Sparkles } from 'lucide-react'
 import { getDiary, saveDiary, getDiaries, type Diary as DiaryType } from '../api/client'
+import { useToast } from '../components/Toast'
 
 const MOODS = [
   { emoji: '😄', label: '开心', color: 'text-yellow-400' },
   { emoji: '😊', label: '平静', color: 'text-green-400' },
   { emoji: '😴', label: '疲惫', color: 'text-blue-400' },
   { emoji: '😤', label: '烦躁', color: 'text-red-400' },
-  { emoji: '🤔', label: '思考', color: 'text-purple-400' },
+  { emoji: '🤔', label: '思考', color: 'text-cd-accent' },
   { emoji: '😎', label: '充实', color: 'text-orange-400' },
   { emoji: '🥱', label: '无聊', color: 'text-gray-400' },
   { emoji: '🥳', label: '兴奋', color: 'text-pink-400' },
@@ -31,6 +32,7 @@ export default function Diary() {
   const [saving, setSaving] = useState(false)
   const [savedFlash, setSavedFlash] = useState(false)
   const [diaryDates, setDiaryDates] = useState<string[]>([])
+  const toast = useToast()
   // 用于在组件卸载时清理 savedFlash 的 setTimeout
   const flashTimerRef = useRef<number | undefined>(undefined)
 
@@ -44,15 +46,15 @@ export default function Diary() {
       setTags(d?.tags || '')
       setHighlights(d?.highlights || '')
       setGratitude(d?.gratitude || '')
-    } catch {}
-  }, [currentDate])
+    } catch { toast.error('加载日记失败') }
+  }, [currentDate, toast])
 
   const loadDates = useCallback(async () => {
     try {
       const { dates } = await getDiaries(90)
       setDiaryDates(dates)
-    } catch {}
-  }, [])
+    } catch { toast.error('加载日期列表失败') }
+  }, [toast])
 
   useEffect(() => { load() }, [load])
   useEffect(() => { loadDates() }, [loadDates])
@@ -72,7 +74,7 @@ export default function Diary() {
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
       flashTimerRef.current = window.setTimeout(() => setSavedFlash(false), 2000)
       loadDates()
-    } catch {}
+    } catch { toast.error('保存失败，请重试') }
     setSaving(false)
   }
 
@@ -98,7 +100,7 @@ export default function Diary() {
           <ChevronLeft size={20} />
         </button>
         <div className="flex items-center gap-2">
-          <Calendar size={18} className="text-purple-400" />
+          <Calendar size={18} className="text-cd-accent" />
           <h1 className="text-xl font-bold text-cd-text">{formatDate(currentDate)}</h1>
           {hasDiary && <span className="w-2 h-2 rounded-full bg-green-500/60" title="已写日记" />}
         </div>
@@ -127,7 +129,7 @@ export default function Diary() {
         <div className="text-sm text-cd-text-secondary mb-2">日记 · 一日一页</div>
         <textarea value={content} onChange={e => setContent(e.target.value)}
           placeholder="写下今天的故事..."
-          className="w-full bg-cd-bg-input border border-white/5 rounded-lg p-3 text-cd-text placeholder:text-cd-text-secondary min-h-[200px] resize-y focus:outline-none focus:border-purple-400/40 text-base leading-[1.8]" />
+          className="w-full bg-cd-bg-input border border-white/5 rounded-lg p-3 text-cd-text placeholder:text-cd-text-secondary min-h-[200px] resize-y focus:outline-none focus:border-cd-accent/40 text-base leading-[1.8]" />
       </div>
 
       {/* 亮点和感恩 */}
@@ -136,13 +138,13 @@ export default function Diary() {
           <div className="text-sm text-cd-text-secondary mb-2 flex items-center gap-1"><Sparkles size={14} className="text-gold" /> 今日亮点</div>
           <input type="text" value={highlights} onChange={e => setHighlights(e.target.value)}
             placeholder="今天最棒的事..."
-            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2 text-cd-text text-sm focus:outline-none focus:border-purple-400/40" />
+            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2 text-cd-text text-sm focus:outline-none focus:border-cd-accent/40" />
         </div>
         <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
           <div className="text-sm text-cd-text-secondary mb-2">感恩的事</div>
           <input type="text" value={gratitude} onChange={e => setGratitude(e.target.value)}
             placeholder="今天感谢..."
-            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2 text-cd-text text-sm focus:outline-none focus:border-purple-400/40" />
+            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2 text-cd-text text-sm focus:outline-none focus:border-cd-accent/40" />
         </div>
       </div>
 
@@ -151,12 +153,12 @@ export default function Diary() {
         <div className="text-sm text-cd-text-secondary mb-2">标签（逗号分隔）</div>
         <input type="text" value={tags} onChange={e => setTags(e.target.value)}
           placeholder="如：高效,开会,突破..."
-          className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2 text-cd-text text-sm focus:outline-none focus:border-purple-400/40" />
+          className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2 text-cd-text text-sm focus:outline-none focus:border-cd-accent/40" />
       </div>
 
       {/* 保存按钮 */}
       <button onClick={handleSave} disabled={saving}
-        className="w-full py-3 bg-purple-500/20 text-purple-300 rounded-xl border border-purple-400/30 hover:bg-purple-500/30 transition font-medium flex items-center justify-center gap-2 disabled:opacity-50">
+        className="w-full py-3 bg-cd-accent/20 text-cd-accent rounded-xl border border-cd-accent/30 hover:bg-cd-accent/30 transition font-medium flex items-center justify-center gap-2 disabled:opacity-50">
         <Save size={18} /> {saving ? '保存中...' : savedFlash ? '已保存 ✓' : '保存日记'}
       </button>
 
@@ -167,7 +169,7 @@ export default function Diary() {
           <div className="flex gap-1 flex-wrap">
             {diaryDates.slice(0, 30).map(d => (
               <button key={d} onClick={() => setCurrentDate(d)}
-                className={`px-2 py-1 rounded text-xs transition ${d === currentDate ? 'bg-purple-500/20 text-purple-300' : 'bg-cd-bg-input text-cd-text-secondary hover:bg-white/5'}`}>
+                className={`px-2 py-1 rounded text-xs transition ${d === currentDate ? 'bg-cd-accent/20 text-cd-accent' : 'bg-cd-bg-input text-cd-text-secondary hover:bg-white/5'}`}>
                 {d.substring(5)}
               </button>
             ))}

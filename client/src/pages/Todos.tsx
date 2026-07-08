@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { Plus, Check, Trash2, Clock, Target, Repeat, Flag, ListChecks } from 'lucide-react'
 import { getTodos, createTodo, updateTodo, deleteTodo, type Todo } from '../api/client'
 import { useToast } from '../components/Toast'
@@ -53,6 +53,7 @@ export default function Todos() {
   }
 
   const handleDelete = async (id: number) => {
+    if (!window.confirm('确定删除该待办？')) return
     try {
       await deleteTodo(id)
       load()
@@ -69,7 +70,7 @@ export default function Todos() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-cd-text">待办清单</h1>
         <button onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-300 rounded-lg border border-purple-400/30 hover:bg-purple-500/30 transition">
+          className="flex items-center gap-2 px-4 py-2 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition">
           <Plus size={18} /> 新建待办
         </button>
       </div>
@@ -78,7 +79,7 @@ export default function Todos() {
       <div className="flex gap-2 mb-4">
         {(['all', 'pending', 'completed'] as const).map(f => (
           <button key={f} onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-lg text-sm transition ${filter === f ? 'bg-purple-500/20 text-purple-300' : 'bg-cd-bg-input text-cd-text-secondary'}`}>
+            className={`px-3 py-1.5 rounded-lg text-sm transition ${filter === f ? 'bg-cd-accent/20 text-cd-accent' : 'bg-cd-bg-input text-cd-text-secondary'}`}>
             {f === 'all' ? '全部' : f === 'pending' ? '待完成' : '已完成'} ({f === 'all' ? todos.length : f === 'pending' ? pending.length : completed.length})
           </button>
         ))}
@@ -89,13 +90,13 @@ export default function Todos() {
         <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5 mb-4 space-y-3">
           <input type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
             placeholder="待办标题..." autoFocus
-            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-4 py-2.5 text-cd-text focus:outline-none focus:border-purple-400/40" />
+            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-4 py-2.5 text-cd-text focus:outline-none focus:border-cd-accent/40" />
           <div className="flex gap-2 flex-wrap">
             {(['timer', 'goal', 'habit'] as const).map(m => {
               const Icon = MODE_ICONS[m]
               return (
                 <button key={m} onClick={() => setForm({ ...form, mode: m })}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border ${form.mode === m ? 'bg-purple-500/20 text-purple-300 border-purple-400/30' : 'bg-cd-bg-input text-cd-text-secondary border-white/5'}`}>
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border ${form.mode === m ? 'bg-cd-accent/20 text-cd-accent border-cd-accent/30' : 'bg-cd-bg-input text-cd-text-secondary border-white/5'}`}>
                   <Icon size={14} /> {MODE_LABELS[m]}
                 </button>
               )
@@ -123,7 +124,7 @@ export default function Todos() {
             </div>
           </div>
           <button onClick={handleCreate}
-            className="w-full py-2.5 bg-purple-500/20 text-purple-300 rounded-lg border border-purple-400/30 hover:bg-purple-500/30 transition font-medium">
+            className="w-full py-2.5 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition font-medium">
             创建待办
           </button>
         </div>
@@ -144,7 +145,7 @@ export default function Todos() {
             <div key={todo.id} className={`bg-cd-bg-card rounded-xl p-3 border border-white/5 flex items-center gap-3 ${todo.status === 'completed' ? 'opacity-50' : ''}`}>
               <button onClick={() => handleToggle(todo)}
                 className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition ${
-                  todo.status === 'completed' ? 'bg-green-500/20 border-green-500/40 text-green-400' : 'border-white/20 hover:border-purple-400/40'
+                  todo.status === 'completed' ? 'bg-green-500/20 border-green-500/40 text-green-400' : 'border-white/20 hover:border-cd-accent/40'
                 }`}>
                 {todo.status === 'completed' && <Check size={14} />}
               </button>
@@ -156,10 +157,10 @@ export default function Todos() {
                 {todo.mode !== 'timer' && todo.target_min > 0 && (
                   <div className="mt-1.5 flex items-center gap-2">
                     <div className="flex-1 h-1.5 bg-cd-bg-input rounded-full overflow-hidden">
-                      <div className="h-full bg-purple-500/40 rounded-full" style={{ width: `${progress}%` }} />
+                      <div className="h-full bg-cd-accent/40 rounded-full" style={{ width: `${progress}%` }} />
                     </div>
                     <span className="text-xs text-cd-text-secondary tabular-nums">{todo.progress_min}/{todo.target_min}min</span>
-                    {todo.pomodoro_count > 0 && <span className="text-xs text-purple-400">🍅×{todo.pomodoro_count}</span>}
+                    {todo.pomodoro_count > 0 && <span className="text-xs text-cd-accent">🍅×{todo.pomodoro_count}</span>}
                   </div>
                 )}
               </div>
