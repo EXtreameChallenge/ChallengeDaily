@@ -107,8 +107,11 @@ export default function Settings() {
     if (profileData?.profile) {
       setRoleDesc(profileData.profile.role_desc || '')
       setWorkStyle(profileData.profile.work_style || '')
-      setHabits(profileData.profile.habits || '')
-      setAppOverrides(profileData.profile.app_overrides || '')
+      // app_overrides 和 habits 后端可能返回 JSON 对象，需要转为可读文本
+      const rawAppOverrides = profileData.profile.app_overrides || ''
+      const rawHabits = profileData.profile.habits || ''
+      setAppOverrides(typeof rawAppOverrides === 'object' ? Object.entries(rawAppOverrides as Record<string, string>).map(([k, v]) => `${k} = ${v}`).join('\n') : String(rawAppOverrides))
+      setHabits(typeof rawHabits === 'object' ? Object.entries(rawHabits as Record<string, string>).map(([k, v]) => `${k} = ${v}`).join('\n') : String(rawHabits))
       setCustomRules(profileData.profile.custom_rules || '')
     }
   }, [initialData])
@@ -194,11 +197,27 @@ export default function Settings() {
       // 同时保存个人习惯配置
       setProfileSaving(true)
       try {
+        // 将 "key = value" 格式的文本转回 JSON 对象
+        const textToObj = (text: string) => {
+          if (!text.trim()) return {}
+          try {
+            // 如果已经是 JSON，直接解析
+            return JSON.parse(text)
+          } catch {
+            // 按 "key = value" 行格式解析
+            const obj: Record<string, string> = {}
+            text.split('\n').forEach(line => {
+              const match = line.match(/^(.+?)\s*=\s*(.+)$/)
+              if (match) obj[match[1].trim()] = match[2].trim()
+            })
+            return obj
+          }
+        }
         await saveProfile({
           role_desc: roleDesc,
           work_style: workStyle,
-          habits: habits,
-          app_overrides: appOverrides,
+          habits: textToObj(habits),
+          app_overrides: textToObj(appOverrides),
           custom_rules: customRules,
         })
       } catch (profileErr) {
