@@ -470,7 +470,7 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
       {/* 第一行：时间日期 + 天气位置 + 进度 — 自适应布局 */}
       <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
         {/* 时间日期 */}
-        <div className="flex items-center gap-5 shrink-0">
+        <div className="flex items-center gap-7 shrink-0">
           <div className="text-5xl font-bold text-cd-text tracking-tight font-brand leading-none tabular-nums w-[8.5rem]">
             {now.format('HH:mm:ss')}
           </div>
