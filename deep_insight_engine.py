@@ -128,8 +128,6 @@ def _derive_hour(ts_str):
         return h if 0 <= h <= 23 else None
     except (ValueError, IndexError, AttributeError):
         return None
-    except (ValueError, IndexError):
-        return -1
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -721,6 +719,43 @@ def generate_deep_insight_report(activities, interval_sec=60, history_activities
         }
     except Exception as e:
         logger.warning(f"[DeepInsight] psychological_capital failed: {e}")
+
+    # ─── 新增框架 11-14 ───────────────────────────────────────
+    try:
+        report['frameworks']['mbti_inference'] = {
+            'name': 'MBTI 人格推断',
+            'scholar': 'Myers & Briggs (1962)',
+            'metrics': compute_mbti_metrics(activities, interval_sec, history_activities),
+        }
+    except Exception as e:
+        logger.warning(f"[DeepInsight] mbti_inference failed: {e}")
+
+    try:
+        report['frameworks']['jungian_functions'] = {
+            'name': '荣格八维认知功能',
+            'scholar': 'Jung (1921)',
+            'metrics': compute_jungian_metrics(activities, interval_sec, history_activities),
+        }
+    except Exception as e:
+        logger.warning(f"[DeepInsight] jungian_functions failed: {e}")
+
+    try:
+        report['frameworks']['big_five'] = {
+            'name': '大五人格维度',
+            'scholar': 'Costa & McCrae (1992)',
+            'metrics': compute_big_five_metrics(activities, interval_sec, history_activities),
+        }
+    except Exception as e:
+        logger.warning(f"[DeepInsight] big_five failed: {e}")
+
+    try:
+        report['frameworks']['cognitive_style'] = {
+            'name': '认知风格分析',
+            'scholar': 'Riding & Cheema (1991)',
+            'metrics': compute_cognitive_style_metrics(activities, interval_sec),
+        }
+    except Exception as e:
+        logger.warning(f"[DeepInsight] cognitive_style failed: {e}")
     
     # ─── 生成综合摘要 ────────────────────────────────────────
     report['summary'] = _generate_summary(report['frameworks'])
@@ -829,5 +864,401 @@ def build_deep_insight_context(activities, interval_sec=60, history_activities=N
     
     lines.append("")
     lines.append("要求：以上为基于学术框架的量化分析结果，请在解读时引用对应理论和学者，给出有深度的洞见和建议。不要泛泛而谈，要结合具体数据。")
-    
+
+    # ─── 累积理解：注入历史分析结果 ────────────────────────
+    cumulative = build_cumulative_context()
+    if cumulative:
+        lines.append(cumulative)
+
+    return "\n".join(lines)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 框架11: MBTI 人格推断 — 从工作行为推断 MBTI 四维度
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+def compute_mbti_metrics(activities, interval_sec=60, history_activities=None):
+    segments = _extract_focus_segments(activities, interval_sec)
+    if not segments:
+        return {'ei_score': 0, 'sn_score': 0, 'tf_score': 0, 'jp_score': 0,
+                'mbti_type': '----', 'confidence': 0}
+
+    total_duration = sum(s['duration_min'] for s in segments)
+
+    # E/I 维度：独立工作 vs 协作
+    independent_cats = {'开发', '设计', '学习', '数据分析', '运维'}
+    social_cats = {'会议', '沟通', '管理'}
+    independent_min = sum(s['duration_min'] for s in segments if s['category'] in independent_cats)
+    social_min = sum(s['duration_min'] for s in segments if s['category'] in social_cats)
+    if total_duration > 0:
+        ei_raw = (social_min - independent_min) / total_duration * 50
+    else:
+        ei_raw = 0
+
+    # S/N 维度：重复熟悉 vs 新探索
+    historical_apps = set()
+    if history_activities:
+        for act in history_activities:
+            historical_apps.add(act.get('app_name', ''))
+
+    novel_min = 0
+    familiar_min = 0
+    for seg in segments:
+        has_new = any(app not in historical_apps for app in seg['apps_set']) if historical_apps else len(seg['apps_set']) > 2
+        if has_new or seg['category'] in {'学习', '设计', '产品'}:
+            novel_min += seg['duration_min']
+        else:
+            familiar_min += seg['duration_min']
+
+    if total_duration > 0:
+        sn_raw = (novel_min - familiar_min) / total_duration * 50
+    else:
+        sn_raw = 0
+
+    # T/F 维度：逻辑 vs 人际
+    logical_cats = {'开发', '数据分析', '运维', '测试'}
+    people_cats = {'沟通', '管理', '产品', '会议'}
+    logical_min = sum(s['duration_min'] for s in segments if s['category'] in logical_cats)
+    people_min = sum(s['duration_min'] for s in segments if s['category'] in people_cats)
+    if total_duration > 0:
+        tf_raw = (people_min - logical_min) / total_duration * 50
+    else:
+        tf_raw = 0
+
+    # J/P 维度：计划 vs 灵活
+    # J: 高完成率、规律时段；P: 灵活切换、探索
+    from collections import Counter
+    hour_counts = Counter()
+    for act in activities:
+        h = _derive_hour(act.get('timestamp', ''))
+        if h is not None:
+            hour_counts[h] += 1
+    work_hours = len(hour_counts)
+    routine_score = min(1.0, work_hours / 8) if work_hours > 0 else 0  # 8小时分布=高规律
+
+    switch_count = len(segments) - 1
+    switch_rate = min(1.0, switch_count / 10) if switch_count > 0 else 0
+
+    jp_raw = (switch_rate - routine_score) * 50
+
+    # 得分归一化
+    ei_score = round(max(-50, min(50, ei_raw)), 1)
+    sn_score = round(max(-50, min(50, sn_raw)), 1)
+    tf_score = round(max(-50, min(50, tf_raw)), 1)
+    jp_score = round(max(-50, min(50, jp_raw)), 1)
+
+    # 推断 MBTI 类型
+    mbti_type = (
+        ('E' if ei_score > 5 else 'I') +
+        ('N' if sn_score > 5 else 'S') +
+        ('F' if tf_score > 5 else 'T') +
+        ('P' if jp_score > 5 else 'J')
+    )
+
+    # 置信度：基于数据量和偏好明确度
+    preference_clarity = (abs(ei_score) + abs(sn_score) + abs(tf_score) + abs(jp_score)) / 200
+    confidence = round(min(1.0, len(activities) / 100 * 0.3 + preference_clarity * 0.7), 2)
+
+    return {
+        'ei_score': ei_score,
+        'sn_score': sn_score,
+        'tf_score': tf_score,
+        'jp_score': jp_score,
+        'mbti_type': mbti_type,
+        'confidence': confidence,
+        'ei_label': '外向(E)' if ei_score > 5 else ('内向(I)' if ei_score < -5 else '中间型'),
+        'sn_label': '直觉(N)' if sn_score > 5 else ('感觉(S)' if sn_score < -5 else '中间型'),
+        'tf_label': '情感(F)' if tf_score > 5 else ('思考(T)' if tf_score < -5 else '中间型'),
+        'jp_label': '知觉(P)' if jp_score > 5 else ('判断(J)' if jp_score < -5 else '中间型'),
+    }
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 框架12: 荣格八维认知功能 — 从行为数据推断功能偏好强度
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+def compute_jungian_metrics(activities, interval_sec=60, history_activities=None):
+    segments = _extract_focus_segments(activities, interval_sec)
+    if not segments:
+        return {f: 0 for f in ['se_score', 'si_score', 'ne_score', 'ni_score',
+                                'te_score', 'ti_score', 'fe_score', 'fi_score']}
+
+    total_duration = sum(s['duration_min'] for s in segments)
+
+    # 按活动分类映射功能
+    se_min = 0  # 即时响应
+    si_min = 0  # 重复/稳定
+    ne_min = 0  # 跨域探索
+    ni_min = 0  # 深度同一主题
+    te_min = 0  # 组织/管理
+    ti_min = 0  # 分析/调试
+    fe_min = 0  # 协调/社交
+    fi_min = 0  # 独立/个人驱动
+
+    historical_apps = set()
+    if history_activities:
+        for act in history_activities:
+            historical_apps.add(act.get('app_name', ''))
+
+    for seg in segments:
+        cat = seg['category']
+        has_new = any(app not in historical_apps for app in seg['apps_set']) if historical_apps else len(seg['apps_set']) > 2
+        dur = seg['duration_min']
+
+        # 每个段按分类分配到功能
+        if cat == '沟通':
+            fe_min += dur * 0.6
+            se_min += dur * 0.3
+            fi_min += dur * 0.1
+        elif cat == '会议':
+            fe_min += dur * 0.5
+            te_min += dur * 0.4
+            se_min += dur * 0.1
+        elif cat == '管理':
+            te_min += dur * 0.6
+            fe_min += dur * 0.3
+            ti_min += dur * 0.1
+        elif cat == '开发':
+            if has_new:
+                ne_min += dur * 0.3
+                ti_min += dur * 0.4
+                ni_min += dur * 0.2
+                fi_min += dur * 0.1
+            else:
+                ti_min += dur * 0.5
+                si_min += dur * 0.3
+                te_min += dur * 0.2
+        elif cat == '设计':
+            ne_min += dur * 0.4
+            ni_min += dur * 0.3
+            fi_min += dur * 0.2
+            se_min += dur * 0.1
+        elif cat == '学习':
+            if has_new:
+                ne_min += dur * 0.4
+                ni_min += dur * 0.3
+                ti_min += dur * 0.2
+                fi_min += dur * 0.1
+            else:
+                si_min += dur * 0.4
+                ni_min += dur * 0.3
+                ti_min += dur * 0.2
+                se_min += dur * 0.1
+        elif cat == '数据分析':
+            ti_min += dur * 0.5
+            ni_min += dur * 0.3
+            te_min += dur * 0.2
+        elif cat == '运维':
+            te_min += dur * 0.4
+            ti_min += dur * 0.3
+            si_min += dur * 0.2
+            se_min += dur * 0.1
+        elif cat == '测试':
+            ti_min += dur * 0.4
+            te_min += dur * 0.3
+            si_min += dur * 0.2
+            se_min += dur * 0.1
+        elif cat == '产品':
+            ne_min += dur * 0.3
+            te_min += dur * 0.3
+            fe_min += dur * 0.2
+            ni_min += dur * 0.2
+        else:
+            si_min += dur * 0.3
+            se_min += dur * 0.3
+            fi_min += dur * 0.2
+            te_min += dur * 0.2
+
+    # 归一化到 0-100
+    max_score = max(se_min, si_min, ne_min, ni_min, te_min, ti_min, fe_min, fi_min, 1)
+
+    def norm(v):
+        return round(min(100, v / max_score * 100), 1)
+
+    scores = {
+        'se_score': norm(se_min),
+        'si_score': norm(si_min),
+        'ne_score': norm(ne_min),
+        'ni_score': norm(ni_min),
+        'te_score': norm(te_min),
+        'ti_score': norm(ti_min),
+        'fe_score': norm(fe_min),
+        'fi_score': norm(fi_min),
+    }
+
+    # 找主导功能
+    func_names = {
+        'se_score': 'Se 外向感觉', 'si_score': 'Si 内向感觉',
+        'ne_score': 'Ne 外向直觉', 'ni_score': 'Ni 内向直觉',
+        'te_score': 'Te 外向思考', 'ti_score': 'Ti 内向思考',
+        'fe_score': 'Fe 外向情感', 'fi_score': 'Fi 内向情感',
+    }
+    dominant_key = max(scores, key=scores.get)  # type: ignore
+    scores['dominant_function'] = func_names.get(dominant_key, dominant_key)
+    scores['dominant_score'] = scores[dominant_key]
+
+    # 功能栈（按得分排序）
+    sorted_funcs = sorted(scores.items(), key=lambda x: -(x[1] if isinstance(x[1], (int, float)) else 0))
+    stack_items = [(func_names.get(k, k), v) for k, v in sorted_funcs if k in func_names]
+    scores['function_stack'] = [f"{name}({score:.0f})" for name, score in stack_items[:4]]
+
+    return scores
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 框架13: 大五人格维度 — 从行为数据推断 OCEAN 五维度
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+def compute_big_five_metrics(activities, interval_sec=60, history_activities=None):
+    segments = _extract_focus_segments(activities, interval_sec)
+    if not segments:
+        return {'openness_score': 50, 'conscientiousness_score': 50,
+                'extraversion_score': 50, 'agreeableness_score': 50, 'neuroticism_score': 50}
+
+    total_duration = sum(s['duration_min'] for s in segments)
+
+    # 开放性(O)：新工具+跨域+非常规时段
+    historical_apps = set()
+    if history_activities:
+        for act in history_activities:
+            historical_apps.add(act.get('app_name', ''))
+
+    novel_count = 0
+    for seg in segments:
+        if any(app not in historical_apps for app in seg['apps_set']) if historical_apps else len(seg['apps_set']) > 2:
+            novel_count += 1
+
+    structural = compute_structural_holes_metrics(activities, interval_sec)
+    diversity = structural.get('tool_diversity', 0)
+
+    # 非常规时段工作（19点后+8点前）
+    off_hours_min = 0
+    for act in activities:
+        h = _derive_hour(act.get('timestamp', ''))
+        if h is not None and (h < 8 or h >= 19):
+            off_hours_min += interval_sec / 60
+
+    novelty_ratio = novel_count / len(segments) if segments else 0
+    openness = round(min(100, 30 + novelty_ratio * 40 + min(diversity / 3, 1) * 20 + min(off_hours_min / total_duration, 0.3) * 10), 0) if total_duration > 0 else 50
+
+    # 尽责性(C)：任务完成+规律+计划
+    habit = compute_habit_metrics(activities, interval_sec)
+    routine_stability = habit.get('routine_stability', 0)
+
+    completed_segs = [s for s in segments if s['duration_min'] >= 15]
+    completion_rate = len(completed_segs) / len(segments) if segments else 0
+
+    conscientiousness = round(min(100, 30 + completion_rate * 40 + routine_stability * 30), 0)
+
+    # 外向性(E)：协作沟通活动占比
+    social_cats = {'会议', '沟通', '管理'}
+    social_min = sum(s['duration_min'] for s in segments if s['category'] in social_cats)
+    social_ratio = social_min / total_duration if total_duration > 0 else 0
+    extraversion = round(min(100, 25 + social_ratio * 200), 0)
+
+    # 宜人性(A)：响应速度+协作配合度
+    # 代理：沟通活动中的主动/被动比例（简化用沟通占比）
+    agreeableness = round(min(100, 35 + social_ratio * 150 + min(diversity / 2, 1) * 20), 0)
+
+    # 神经质(N)：中断+非规律+恢复慢（逆向：低神经质=高稳定性）
+    flow = compute_flow_metrics(activities, interval_sec)
+    switch_cost = flow.get('context_switch_cost', 0)
+    switch_count = flow.get('switch_count', 0)
+
+    neuroticism = round(min(100, 20 + switch_count * 3 + switch_cost * 40), 0)
+
+    return {
+        'openness_score': int(openness),
+        'conscientiousness_score': int(conscientiousness),
+        'extraversion_score': int(extraversion),
+        'agreeableness_score': int(agreeableness),
+        'neuroticism_score': int(neuroticism),
+    }
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 框架14: 认知风格 — 从工作模式推断整体-分析/言语-表象/反思-冲动
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+def compute_cognitive_style_metrics(activities, interval_sec=60):
+    segments = _extract_focus_segments(activities, interval_sec)
+    if not segments:
+        return {'wholist_analytic_score': 0, 'verbal_imager_score': 0,
+                'reflective_impulsive_score': 0}
+
+    total_duration = sum(s['duration_min'] for s in segments)
+
+    # 整体-分析：跨域切换 vs 深度单域
+    structural = compute_structural_holes_metrics(activities, interval_sec)
+    cross_domain = structural.get('cross_domain_index', 0)
+    deep_work = compute_deep_work_metrics(activities, interval_sec)
+    deep_ratio = deep_work.get('deep_work_ratio', 0)
+    # 正值=分析型（深度专注），负值=整体型（跨域切换）
+    wa_raw = (deep_ratio - cross_domain) * 50
+    wa_score = round(max(-50, min(50, wa_raw)), 1)
+
+    # 言语-表象：文档/代码 vs 设计/可视化
+    verbal_cats = {'开发', '文档', '管理', '数据分析'}
+    imager_cats = {'设计', '产品'}
+    verbal_min = sum(s['duration_min'] for s in segments if s['category'] in verbal_cats)
+    imager_min = sum(s['duration_min'] for s in segments if s['category'] in imager_cats)
+    if total_duration > 0:
+        vi_raw = (imager_min - verbal_min) / total_duration * 50
+    else:
+        vi_raw = 0
+    vi_score = round(max(-50, min(50, vi_raw)), 1)
+
+    # 反思-冲动：平均专注长度 vs 切换频率
+    if segments:
+        avg_focus = sum(s['duration_min'] for s in segments) / len(segments)
+        switch_rate = (len(segments) - 1) / max(total_duration / 60, 1)
+        ri_raw = (avg_focus / 30 - switch_rate * 10) * 25  # 正值=反思型
+    else:
+        ri_raw = 0
+    ri_score = round(max(-50, min(50, ri_raw)), 1)
+
+    return {
+        'wholist_analytic_score': wa_score,
+        'verbal_imager_score': vi_score,
+        'reflective_impulsive_score': ri_score,
+        'wa_label': '分析型' if wa_score > 10 else ('整体型' if wa_score < -10 else '平衡型'),
+        'vi_label': '表象型' if vi_score > 10 else ('言语型' if vi_score < -10 else '平衡型'),
+        'ri_label': '反思型' if ri_score > 10 else ('冲动型' if ri_score < -10 else '平衡型'),
+    }
+
+
+# ─── 累积理解：注入已有分析结果作为上下文 ─────────────────────
+def build_cumulative_context():
+    """
+    从 profile_analysis_cache 表读取历史分析结果，
+    生成结构化上下文字符串，注入到后续 AI 分析提示词中。
+    这样 AI 每次不是从零开始，而是在已有理解基础上深化。
+    """
+    try:
+        from db import get_all_profile_analyses
+        analyses = get_all_profile_analyses()
+    except Exception as e:
+        logger.warning(f"[DeepInsight] Failed to load cumulative context: {e}")
+        return ""
+
+    if not analyses:
+        return ""
+
+    lines = ["\n━━━ 累积理解（历史分析结果，请在此基础上深化而非重复） ━━━", ""]
+
+    for analysis in analyses:
+        atype = analysis.get('analysis_type', '')
+        result = analysis.get('result_json', {})
+        confidence = analysis.get('confidence', 0)
+        data_points = analysis.get('data_points', 0)
+        updated = analysis.get('updated_at', '')
+
+        if isinstance(result, dict) and result:
+            lines.append(f"【{atype}】(置信度: {confidence:.0%}, 数据点: {data_points}, 更新于: {updated})")
+            for key, value in result.items():
+                if isinstance(value, (str, int, float)):
+                    lines.append(f"  {key}: {value}")
+                elif isinstance(value, dict):
+                    for k, v in value.items():
+                        lines.append(f"  {key}.{k}: {v}")
+            lines.append("")
+
+    lines.append("要求：以上为之前对你的分析结果，请不要重复而应在已有理解基础上深化和调整。如果新数据与之前推断矛盾，请更新理解。\n")
+
     return "\n".join(lines)

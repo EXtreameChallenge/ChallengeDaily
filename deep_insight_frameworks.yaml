@@ -397,7 +397,227 @@ frameworks:
       low_resilience: "韧性维度得分{score}——中断后平均{minutes}分钟才恢复工作。Seligman的习得性乐观研究指出，'解释风格'的调整(将挫折视为暂时的、特定的、外在的)可有效提升韧性。"
       efficacy_gap: "自我效能得分{score}。Bandura(1997)指出四种提升途径：①掌握性经验(最重要的) ②替代性经验 ③社会说服 ④情绪唤醒。建议通过分解任务积累小胜利来提升。"
 
-# ━━━ 工具分类映射：用于计算各框架指标 ━━━━━━━━━━━━━━━━━━━━━
+      low_resilience: "韧性维度得分{score}——中断后平均{minutes}分钟才恢复工作。Seligman的习得性乐观研究指出，'解释风格'的调整(将挫折视为暂时的、特定的、外在的)可有效提升韧性。"
+      efficacy_gap: "自我效能得分{score}。Bandura(1997)指出四种提升途径：①掌握性经验(最重要的) ②替代性经验 ③社会说服 ④情绪唤醒。建议通过分解任务积累小胜利来提升。"
+
+  # ━━━ 11. MBTI 人格推断 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - id: mbti_inference
+    name: MBTI 人格推断
+    name_en: MBTI Personality Inference
+    field: 人格心理学
+    scholar: Isabel Briggs Myers & Katharine Cook Briggs
+    year: 1962
+    source_book: "MBTI Manual (Myers & McCaulley, 1985)"
+    core_concept: |
+      MBTI 基于荣格的心理类型理论，将人格分为4个维度8个偏好：
+      E/I — 外向(Extraversion) vs 内向(Introversion)：能量来源
+      S/N — 感觉(Sensing) vs 直觉(iNtuition)：信息获取方式
+      T/F — 思考(Thinking) vs 情感(Feeling)：决策方式
+      J/P — 判断(Judging) vs 知觉(Perceiving)：生活方式
+      工作行为数据可间接反映偏好：如持续深度工作→I偏好，频繁沟通→E偏好，
+      多工具探索→N偏好，重复稳定操作→S偏好。
+    metrics:
+      - id: ei_score
+        name: E/I 偏好得分
+        formula: "(独立工作时长比例 vs 协作沟通时长比例) 归一化到 -50~+50"
+        range: [-50, 50]
+        interpretation:
+          introvert: "≤-10: 偏内向(I)，从独处中获取能量"
+          ambivert: "-10~10: 中间型，根据情境切换"
+          extravert: "≥10: 偏外向(E)，从社交中获取能量"
+      - id: sn_score
+        name: S/N 偏好得分
+        formula: "(新工具/新领域探索比例 vs 重复熟悉操作比例) 归一化"
+        range: [-50, 50]
+      - id: tf_score
+        name: T/F 偏好得分
+        formula: "(逻辑分析类活动 vs 人际沟通类活动比例) 归一化"
+        range: [-50, 50]
+      - id: jp_score
+        name: J/P 偏好得分
+        formula: "(计划性/完成率 vs 灵活切换/探索比例) 归一化"
+        range: [-50, 50]
+      - id: mbti_type
+        name: 推断 MBTI 类型
+        formula: "组合四维度偏好方向的4字母代码"
+        range: 16 types
+    data_signals:
+      - "长时间独立深度工作 → I偏好"
+      - "频繁会议+主动沟通 → E偏好"
+      - "持续使用新工具/新方法 → N偏好"
+      - "稳定重复同一工作流 → S偏好"
+      - "数据分析/架构设计为主 → T偏好"
+      - "团队协调/需求沟通为主 → F偏好"
+      - "高完成率+计划性工作 → J偏好"
+      - "灵活切换+多线程探索 → P偏好"
+    insights_templates:
+      type_inferred: "基于工作行为数据推断你的MBTI类型倾向为{mbti_type}，四维度偏好：E/I={ei}，S/N={sn}，T/F={tf}，J/P={jp}。注意：MBTI应作为理解偏好的框架，而非刻板标签。"
+      introvert_deep: "独立工作占比{pct:.0%}，符合内向(I)偏好特征。Myers指出I偏好者通过独处恢复能量，在深度工作中表现更优。"
+      intuitive_explore: "工具多样性指数{diversity}，新工具探索频繁，符合直觉(N)偏好。N偏好者倾向于关注可能性和模式，而非仅关注当下事实。"
+
+  # ━━━ 12. 荣格八维认知功能 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - id: jungian_functions
+    name: 荣格八维认知功能
+    name_en: Jungian Cognitive Functions
+    field: 分析心理学
+    scholar: Carl G. Jung
+    year: 1921
+    source_book: "Psychological Types, C.G. Jung (1921)"
+    core_concept: |
+      荣格提出8种认知功能，分为感知功能(S/N)和判断功能(T/F)，各有外向(e)和内向(i)态度：
+      Se — 外向感觉：关注当下感官体验和实际行动
+      Si — 内向感觉：依赖内部经验库和已验证方法
+      Ne — 外向直觉：探索可能性、联系和模式
+      Ni — 内向直觉：内部洞察、长期愿景和意义
+      Te — 外向思考：系统化组织、效率、客观标准
+      Ti — 内向思考：逻辑框架、原理分析、精确性
+      Fe — 外向情感：社交和谐、他人需求、团队氛围
+      Fi — 内向情感：个人价值、真实性和内在准则
+      每种MBTI类型有独特的功能栈（主导→辅助→第三→劣势）。
+    metrics:
+      - id: se_score
+        name: Se 外向感觉
+        formula: "即时响应/快速切换活动占比"
+        range: [0, 100]
+      - id: si_score
+        name: Si 内向感觉
+        formula: "重复模式/稳定工作流占比"
+        range: [0, 100]
+      - id: ne_score
+        name: Ne 外向直觉
+        formula: "跨域探索/工具多样性/新尝试频率"
+        range: [0, 100]
+      - id: ni_score
+        name: Ni 内向直觉
+        formula: "长期专注同一主题/深度洞察类活动"
+        range: [0, 100]
+      - id: te_score
+        name: Te 外向思考
+        formula: "组织管理/效率优化/项目管理类活动"
+        range: [0, 100]
+      - id: ti_score
+        name: Ti 内向思考
+        formula: "分析/调试/架构设计/逻辑推理类活动"
+        range: [0, 100]
+      - id: fe_score
+        name: Fe 外向情感
+        formula: "团队沟通/协调/社交类活动占比"
+        range: [0, 100]
+      - id: fi_score
+        name: Fi 内向情感
+        formula: "个人项目/学习/独立创造性活动"
+        range: [0, 100]
+    data_signals:
+      - "快速响应即时消息 → Se 信号"
+      - "每天固定时段重复相同工作流 → Si 信号"
+      - "同时探索多个新工具/新领域 → Ne 信号"
+      - "长时间钻研单一复杂问题 → Ni 信号"
+      - "排优先级+项目规划 → Te 信号"
+      - "深度调试+底层分析 → Ti 信号"
+      - "主动沟通协调团队 → Fe 信号"
+      - "独立个人驱动项目 → Fi 信号"
+    insights_templates:
+      dominant_function: "主导认知功能推断为{dominant_func}（得分{score}），这解释了你{explanation}的工作模式。Jung指出主导功能是意识的核心，约60-70%的精力由其驱动。"
+      function_stack: "功能栈推断：{stack}。辅助功能{auxiliary}为你的主导功能提供平衡，而劣势功能{inferior}在压力下可能浮现。"
+
+  # ━━━ 13. 大五人格维度 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - id: big_five
+    name: 大五人格维度
+    name_en: Big Five Personality Traits (OCEAN)
+    field: 人格心理学
+    scholar: Costa & McCrae
+    year: 1992
+    source_book: "Revised NEO Personality Inventory (NEO-PI-R)"
+    core_concept: |
+      大五模型是人格心理学中最广泛验证的特质模型，包含5个正交维度：
+      O — 开放性(Openness)：创新、探索、审美、好奇心
+      C — 尽责性(Conscientiousness)：自律、计划、条理、可靠
+      E — 外向性(Extraversion)：社交、活力、果断、积极情绪
+      A — 宜人性(Agreeableness)：合作、信任、利他、温和
+      N — 神经质(Neuroticism)：焦虑、脆弱、情绪不稳定
+      每个维度是连续谱而非二分法，工作中可从行为数据间接推断。
+      Costa & McCrae(1992)元分析显示大五与工作绩效有显著相关。
+    metrics:
+      - id: openness_score
+        name: 开放性(O)得分
+        formula: "(新工具使用率 + 跨域切换频率 + 非常规时段工作) 综合评分"
+        range: [0, 100]
+      - id: conscientiousness_score
+        name: 尽责性(C)得分
+        formula: "(任务完成率 + 工作规律性 + 计划执行度) 综合评分"
+        range: [0, 100]
+      - id: extraversion_score
+        name: 外向性(E)得分
+        formula: "(协作活动占比 + 主动沟通频率) 综合评分"
+        range: [0, 100]
+      - id: agreeableness_score
+        name: 宜人性(A)得分
+        formula: "(响应速度 + 会议参与度 + 协作配合度) 综合评分"
+        range: [0, 100]
+      - id: neuroticism_score
+        name: 神经质(N)得分
+        formula: "(中断频率 + 非规律时段工作情绪 + 恢复速度) 逆向评分"
+        range: [0, 100]
+    data_signals:
+      - "频繁试用新工具/新方法 → O+"
+      - "严格按时间表工作 → C+"
+      - "主动发起沟通/会议 → E+"
+      - "迅速响应他人请求 → A+"
+      - "频繁中断+恢复慢 → N+"
+      - "稳定不中断专注 → N-"
+    insights_templates:
+      high_openness: "开放性得分{score}，工具多样性指数{diversity}，跨{domains}个领域工作。Costa & McCrae(1992)指出高开放性与创造力和学习速度正相关。"
+      high_conscientiousness: "尽责性得分{score}，习惯一致性{consistency}%，任务完成率{completion_rate}%。Barrick & Mount(1991)元分析发现尽责性是唯一所有职业都预测绩效的大五维度。"
+      high_neuroticism: "神经质维度得分{score}，今日{interrupts}次中断且平均恢复时间{recovery_min}分钟。研究表明适度的情绪敏感性可以提升对问题的警觉性，但需注意工作-休息平衡。"
+
+  # ━━━ 14. 认知风格分析 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - id: cognitive_style
+    name: 认知风格分析
+    name_en: Cognitive Style Analysis
+    field: 认知心理学
+    scholar: Riding & Cheema
+    year: 1991
+    source_paper: "Cognitive Style — An Overview and Integration, Educational Psychology"
+    core_concept: |
+      Riding & Cheema(1991)将认知风格归纳为两个独立维度：
+      1. 整体-分析(Wholist-Analytic)：信息组织方式
+         整体型：先看全局再关注细节，偏好宏观框架
+         分析型：先关注细节再构建整体，偏好逐步分解
+      2. 言语-表象(Verbal-Imager)：信息表征方式
+         言语型：以文字和概念思考，偏好文档和文字沟通
+         表象型：以图像和空间思考，偏好可视化和设计
+      此外，Kagan(1964)的反思-冲动维度也很相关：
+      反思型：考虑周全后行动，偏好深度分析
+      冲动型：快速行动，偏好快速迭代和试错
+    metrics:
+      - id: wholist_analytic_score
+        name: 整体-分析维度
+        formula: "(跨域切换频率 vs 深度单域专注) 归一化"
+        range: [-50, 50]
+        interpretation:
+          wholist: "≤-10: 偏整体型，擅长把握全局和跨领域联系"
+          balanced: "-10~10: 平衡型，灵活切换"
+          analytic: "≥10: 偏分析型，擅长深度分解和精确执行"
+      - id: verbal_imager_score
+        name: 言语-表象维度
+        formula: "(文档/代码占比 vs 设计/可视化占比) 归一化"
+        range: [-50, 50]
+      - id: reflective_impulsive_score
+        name: 反思-冲动维度
+        formula: "(平均决策时长 vs 快速试错频率) 归一化"
+        range: [-50, 50]
+    data_signals:
+      - "频繁跨域切换+概览多项目 → 整体型"
+      - "长时间深度钻研单一领域 → 分析型"
+      - "大量文档/代码/笔记活动 → 言语型"
+      - "设计/可视化/原型活动 → 表象型"
+      - "长时间考虑后执行 → 反思型"
+      - "快速切换+频繁试错 → 冲动型"
+    insights_templates:
+      analytic_style: "认知风格偏分析型（得分{score}），每次专注{focus_min}分钟深入单一领域。Riding(1991)指出分析型在需要精确性的任务中表现更优，但可能忽略全局联系。"
+      wholist_style: "认知风格偏整体型（得分{score}），每日跨{domains}个领域切换。整体型善于发现跨领域联系，但在需要精确细节时可能失误。"
+
+  # ━━━ 工具分类映射：用于计算各框架指标 ━━━━━━━━━━━━━━━━━━━━━
 category_profiles:
   开发:
     bloom_levels: [3, 6]  # 应用到创造
@@ -508,3 +728,13 @@ references:
     citation: "Clear, J. (2018). Atomic Habits: An Easy & Proven Way to Build Good Habits & Break Bad Ones. Avery."
   - id: fogg2019
     citation: "Fogg, B. J. (2019). Tiny Habits: The Small Changes That Change Everything. Houghton Mifflin Harcourt."
+  - id: myers1985
+    citation: "Myers, I. B., & McCaulley, M. H. (1985). Manual: A Guide to the Development and Use of the Myers-Briggs Type Indicator. Consulting Psychologists Press."
+  - id: jung1921
+    citation: "Jung, C. G. (1921). Psychological Types. Rascher Verlag. (English translation: Collected Works Vol. 6, Princeton University Press, 1971)"
+  - id: costa_mccrae1992
+    citation: "Costa, P. T., Jr., & McCrae, R. R. (1992). Revised NEO Personality Inventory (NEO-PI-R) and NEO Five-Factor Inventory (NEO-FFI) Manual. Psychological Assessment Resources."
+  - id: barrick_mount1991
+    citation: "Barrick, M. R., & Mount, M. K. (1991). The Big Five Personality Dimensions and Job Performance: A Meta-Analysis. Personnel Psychology, 44(1), 1-26."
+  - id: riding_cheema1991
+    citation: "Riding, R. J., & Cheema, I. (1991). Cognitive Styles — An Overview and Integration. Educational Psychology, 11(3-4), 193-215."

@@ -20,9 +20,8 @@ const AgentPage = lazy(() => import('./pages/Agent'))
 const AppTags = lazy(() => import('./pages/AppTags'))
 const Onboarding = lazy(() => import('./pages/Onboarding'))
 const Legal = lazy(() => import('./pages/Legal'))
-const Profile = lazy(() => import('./pages/Profile'))
+const DeepProfile = lazy(() => import('./pages/DeepProfile'))
 const Health = lazy(() => import('./pages/Health'))
-const DeepInsightPage = lazy(() => import('./pages/DeepInsight'))
 const Focus = lazy(() => import('./pages/Focus'))
 const Todos = lazy(() => import('./pages/Todos'))
 const Diary = lazy(() => import('./pages/Diary'))
@@ -247,8 +246,8 @@ export default function App() {
                         <Route path="/history" element={<HistoryReports />} />
                         <Route path="/agent" element={<AgentPage />} />
                         <Route path="/settings" element={<Settings />} />
-                        <Route path="/profile" element={<Profile />} />
-                        <Route path="/deep-insight" element={<DeepInsightPage />} />
+                        <Route path="/profile" element={<DeepProfile />} />
+                        <Route path="/deep-insight" element={<DeepProfile />} />
                         <Route path="/achievements" element={<Achievements />} />
                         <Route path="/countdowns" element={<Countdowns />} />
                         <Route path="/ai-chat" element={<AIChat />} />

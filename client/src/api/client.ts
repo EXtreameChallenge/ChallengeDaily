@@ -844,6 +844,53 @@ export async function getDeepInsight(date?: string): Promise<DeepInsightData> {
   return await request(`/api/deep-insight${params}`) as DeepInsightData
 }
 
+// ─── AI 自我认知分析（累积理解系统） ──────────────────────
+
+export interface ProfileAnalysisItem {
+  id: number
+  analysis_type: string
+  result_json: Record<string, unknown>
+  confidence: number
+  data_points: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ProfileAnalysesResponse {
+  analyses: ProfileAnalysisItem[]
+}
+
+export interface TriggerAnalysisResult {
+  metrics: Record<string, unknown>
+  confidence: number
+  data_points: number
+  error?: string
+}
+
+export interface TriggerAnalysisResponse {
+  ok: boolean
+  results: Record<string, TriggerAnalysisResult>
+  error?: string
+}
+
+/** 获取所有 AI 自我认知分析结果 */
+export async function getProfileAnalyses(): Promise<ProfileAnalysesResponse> {
+  return await request('/api/profile/analysis') as ProfileAnalysesResponse
+}
+
+/** 获取特定类型的 AI 自我认知分析结果 */
+export async function getProfileAnalysisByType(analysisType: string): Promise<{ analysis: ProfileAnalysisItem | null }> {
+  return await request(`/api/profile/analysis/${analysisType}`) as { analysis: ProfileAnalysisItem | null }
+}
+
+/** 触发 AI 自我认知分析（后台计算+写入缓存） */
+export async function triggerProfileAnalysis(types?: string[]): Promise<TriggerAnalysisResponse> {
+  return await request('/api/profile/analysis/trigger', {
+    method: 'POST',
+    body: JSON.stringify({ types: types || ['mbti_inference', 'jungian_functions', 'big_five', 'cognitive_style'] }),
+  }, 30000) as TriggerAnalysisResponse
+}
+
 // ── 番茄钟 ──
 export interface PomodoroSession {
   id: number

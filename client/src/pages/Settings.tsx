@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getStatus, getSettings, updateSettings, testAiConnection, downloadExportActivities, downloadExportAppUsage, getBackupInfo, downloadBackup, restoreBackup, getProfile, saveProfile, type CollectorStatus, type BackendSettings } from '../api/client'
+import { getStatus, getSettings, updateSettings, testAiConnection, downloadExportActivities, downloadExportAppUsage, getBackupInfo, downloadBackup, restoreBackup, type CollectorStatus, type BackendSettings } from '../api/client'
 import { ToggleSwitch, useTimeout, useAsyncData, ApiErrorDisplay } from '../components/shared'
 import { useToast } from '../components/Toast'
 import { useTheme, ACCENT_PRESETS, FONT_PRESETS, RADIUS_PRESETS, SHADOW_PRESETS, OPACITY_PRESETS } from '../components/ThemeContext'
-import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon, Cat, UserCircle, Sparkles } from 'lucide-react'
+import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon, Cat } from 'lucide-react'
 import dayjs from 'dayjs'
 
 export default function Settings() {
@@ -54,13 +54,7 @@ export default function Settings() {
     window.addEventListener('cd-pet-visible-change', sync)
     return () => window.removeEventListener('cd-pet-visible-change', sync)
   }, [])
-  // 个人习惯配置
-  const [roleDesc, setRoleDesc] = useState('')
-  const [workStyle, setWorkStyle] = useState('')
-  const [habits, setHabits] = useState('')
-  const [appOverrides, setAppOverrides] = useState('')
-  const [customRules, setCustomRules] = useState('')
-  const [profileSaving, setProfileSaving] = useState(false)
+  // 个人习惯配置已迁移至「深度画像」页面
 
   const handleTogglePet = (show: boolean) => {
     setPetVisible(show)
@@ -74,13 +68,12 @@ export default function Settings() {
   useTimeout(() => setSaved(false), saved ? 2000 : null)
 
   const { data: initialData, loading, error, refresh: refreshData } = useAsyncData(async () => {
-    const [s, settings, bInfo, pInfo] = await Promise.all([
+    const [s, settings, bInfo] = await Promise.all([
       getStatus(),
       getSettings(),
       getBackupInfo().catch(() => null),
-      getProfile().catch(() => null),
     ])
-    return { status: s, settings, backupInfo: bInfo, profileData: pInfo }
+    return { status: s, settings, backupInfo: bInfo }
   }, [])
 
   const status = initialData?.status ?? null
@@ -88,7 +81,7 @@ export default function Settings() {
 
   useEffect(() => {
     if (!initialData) return
-    const { status: s, settings, profileData } = initialData
+    const { status: s, settings } = initialData
     // 优先使用 settings 中用户显式设置的 ai_enabled，避免 status 因 key 缺失而返回 false 导致开关被强制关闭
     setAiEnabled(settings.ai_enabled ?? s.ai_enabled)
     setApiKeySet(!!(settings as any).ai_api_key_set)
@@ -103,17 +96,6 @@ export default function Settings() {
     const legacyModel = (settings as any).ai_model
     setApiVisionModel(settings.ai_vision_model || legacyModel || 'glm-4v-flash')
     setApiTextModel(settings.ai_text_model || legacyModel || 'glm-4-flash')
-    // 加载个人习惯配置
-    if (profileData?.profile) {
-      setRoleDesc(profileData.profile.role_desc || '')
-      setWorkStyle(profileData.profile.work_style || '')
-      // app_overrides 和 habits 后端可能返回 JSON 对象，需要转为可读文本
-      const rawAppOverrides = profileData.profile.app_overrides || ''
-      const rawHabits = profileData.profile.habits || ''
-      setAppOverrides(typeof rawAppOverrides === 'object' ? Object.entries(rawAppOverrides as Record<string, string>).map(([k, v]) => `${k} = ${v}`).join('\n') : String(rawAppOverrides))
-      setHabits(typeof rawHabits === 'object' ? Object.entries(rawHabits as Record<string, string>).map(([k, v]) => `${k} = ${v}`).join('\n') : String(rawHabits))
-      setCustomRules(profileData.profile.custom_rules || '')
-    }
   }, [initialData])
 
   // 获取应用版本
@@ -194,40 +176,6 @@ export default function Settings() {
       }
 
       const res = await updateSettings(settings)
-      // 同时保存个人习惯配置
-      setProfileSaving(true)
-      try {
-        // 将 "key = value" 格式的文本转回 JSON 对象
-        const textToObj = (text: string) => {
-          if (!text.trim()) return {}
-          try {
-            // 如果已经是 JSON，直接解析
-            return JSON.parse(text)
-          } catch {
-            // 按 "key = value" 行格式解析
-            const obj: Record<string, string> = {}
-            text.split('\n').forEach(line => {
-              const match = line.match(/^(.+?)\s*=\s*(.+)$/)
-              if (match) obj[match[1].trim()] = match[2].trim()
-            })
-            return obj
-          }
-        }
-        await saveProfile({
-          role_desc: roleDesc,
-          work_style: workStyle,
-          habits: textToObj(habits),
-          app_overrides: textToObj(appOverrides),
-          custom_rules: customRules,
-        })
-      } catch (profileErr) {
-        console.error('Failed to save profile:', profileErr)
-        toast.error('习惯配置保存失败')
-        setProfileSaving(false)
-        return
-      } finally {
-        setProfileSaving(false)
-      }
       setSaved(true)
       // 如果用户输入了新的 API Key，保存成功后标记为已配置并隐藏输入框
       if (apiKey.trim()) {
@@ -601,80 +549,6 @@ export default function Settings() {
         </div>
       </section>
 
-      {/* ─── 个人习惯配置 ─────────────────────── */}
-      <section className="card space-y-4">
-        <div className="flex items-center gap-2">
-          <UserCircle size={16} className="text-cd-green" />
-          <h2 className="text-sm font-semibold text-cd-text">个人习惯配置</h2>
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs text-cd-text-secondary block mb-1">角色 / 岗位描述</label>
-            <textarea
-              value={roleDesc}
-              onChange={(e) => setRoleDesc(e.target.value)}
-              rows={3}
-              placeholder="例如：全栈开发工程师，主要负责后端服务与内部工具开发"
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-cd-text-secondary block mb-1">工作风格 / 作息</label>
-            <textarea
-              value={workStyle}
-              onChange={(e) => setWorkStyle(e.target.value)}
-              rows={3}
-              placeholder="例如：上午 10 点到 12 点专注编码，下午开会较多，晚上 8 点后不处理工作"
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-cd-text-secondary block mb-1">常用软件实际用途</label>
-            <textarea
-              value={appOverrides}
-              onChange={(e) => setAppOverrides(e.target.value)}
-              rows={4}
-              placeholder="例如：&#10;Cursor = 开发 IDE&#10;Obsidian = 个人知识管理&#10;Figma = 产品原型设计"
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-cd-text-secondary block mb-1">特定场景行为说明</label>
-            <textarea
-              value={habits}
-              onChange={(e) => setHabits(e.target.value)}
-              rows={4}
-              placeholder="例如：看到我在微信和浏览器之间切换，通常是在查找资料或确认需求"
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-cd-text-secondary block mb-1 flex items-center gap-1">
-              <Sparkles size={12} />
-              偏好分析规则
-            </label>
-            <textarea
-              value={customRules}
-              onChange={(e) => setCustomRules(e.target.value)}
-              rows={4}
-              placeholder="例如：请优先按「开发 / 会议 / 沟通 / 文档」归类；遇到无法判断的应用时，标记为「其他」并注明原因"
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
-            />
-          </div>
-        </div>
-
-        <div className="text-xs text-cd-text-tertiary space-y-1">
-          <p>• 这些信息会作为 AI 分析上下文的补充，提升分类和日报的准确度</p>
-          <p>• 内容仅保存在本地数据库，不会上传到任何服务器</p>
-          <p>• 点击底部「保存设置」按钮一并保存</p>
-        </div>
-      </section>
-
       {/* ─── AI 配置 ──────────────────────────── */}
       <section className="card space-y-4">
         <div className="flex items-center gap-2">
@@ -997,23 +871,13 @@ export default function Settings() {
       {/* ─── 保存按钮 ─────────────────────────── */}
       <button
         onClick={handleSave}
-        disabled={profileSaving}
         className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors ${
           saved
             ? 'bg-cd-green-light text-cd-green'
             : 'bg-cd-green hover:bg-cd-green-dark text-white'
-        } disabled:opacity-60 disabled:cursor-not-allowed`}
+        }`}
       >
-        {profileSaving ? (
-          <span className="flex items-center justify-center gap-2">
-            <Loader2 size={14} className="animate-spin" />
-            保存中...
-          </span>
-        ) : saved ? (
-          '已保存'
-        ) : (
-          '保存设置'
-        )}
+        {saved ? '已保存' : '保存设置'}
       </button>
     </div>
   )

@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 22
+SCHEMA_VERSION = 23
 
 # ── 持久连接（避免每分钟 5-7 次 connect/close）──
 _persistent_conn: Optional[sqlite3.Connection] = None
@@ -575,6 +575,22 @@ def init_db():
             conn.execute("CREATE INDEX IF NOT EXISTS idx_activities_app_cat ON activities(app_name, category)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_start_app ON app_usage(start_time, app_name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_pomodoro_start_status ON pomodoro_sessions(start_time, status)")
+
+        # V23: AI 自我认知分析缓存表（累积理解系统）
+        if current_version < 23:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS profile_analysis_cache (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    analysis_type TEXT NOT NULL,
+                    result_json TEXT NOT NULL DEFAULT '{}',
+                    confidence REAL DEFAULT 0.0,
+                    data_points INTEGER DEFAULT 0,
+                    created_at  TEXT DEFAULT (datetime('now','localtime')),
+                    updated_at  TEXT DEFAULT (datetime('now','localtime')),
+                    UNIQUE(analysis_type)
+                );
+                CREATE INDEX IF NOT EXISTS idx_profile_analysis_type ON profile_analysis_cache(analysis_type);
+            """)
 
         # 更新版本号
         conn.execute(
@@ -1695,4 +1711,56 @@ def get_plan_meta(plan_type: str, plan_key: str) -> dict | None:
             (plan_type, plan_key)
         ).fetchone()
         return dict(row) if row else None
+
+
+# ── AI 自我认知分析缓存（累积理解系统） ──
+
+def get_profile_analysis(analysis_type: str) -> dict | None:
+    """获取指定类型的 AI 分析缓存"""
+    _flush_pending_commits()
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM profile_analysis_cache WHERE analysis_type=?",
+            (analysis_type,)
+        ).fetchone()
+        if not row:
+            return None
+        item = dict(row)
+        item['result_json'] = _parse_json(item.get('result_json', '{}'), {})
+        return item
+
+
+def get_all_profile_analyses() -> list[dict]:
+    """获取所有 AI 分析缓存"""
+    _flush_pending_commits()
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM profile_analysis_cache ORDER BY updated_at DESC"
+        ).fetchall()
+    result = []
+    for r in rows:
+        item = dict(r)
+        item['result_json'] = _parse_json(item.get('result_json', '{}'), {})
+        result.append(item)
+    return result
+
+
+def upsert_profile_analysis(analysis_type: str, result_json: dict, confidence: float = 0.0, data_points: int = 0) -> bool:
+    """创建或更新 AI 分析缓存"""
+    _flush_pending_commits()
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO profile_analysis_cache (analysis_type, result_json, confidence, data_points, created_at, updated_at)
+            VALUES (?, ?, ?, ?, datetime('now','localtime'), datetime('now','localtime'))
+            ON CONFLICT(analysis_type) DO UPDATE SET
+                result_json=excluded.result_json,
+                confidence=excluded.confidence,
+                data_points=excluded.data_points,
+                updated_at=datetime('now','localtime')
+            """,
+            (analysis_type, _serialize_json(result_json), confidence, data_points)
+        )
+        conn.commit()
+        return True
 

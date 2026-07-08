@@ -69,8 +69,7 @@ const NAV_GROUPS = [
   {
     label: 'AI 智能',
     items: [
-      { to: '/profile', icon: Brain, label: '个人画像' },
-      { to: '/deep-insight', icon: Sparkles, label: '深度洞察' },
+      { to: '/profile', icon: Brain, label: '深度画像' },
       { to: '/ai-chat', icon: Bot, label: 'AI对话' },
       { to: '/agent', icon: Bot, label: '接入Agent' },
     ]
