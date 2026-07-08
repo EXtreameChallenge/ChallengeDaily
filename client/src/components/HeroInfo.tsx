@@ -455,21 +455,41 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
     }
   }, [fetchInsight])
 
+  // 日/周/月进度
+  const progressData = useMemo(() => {
+    const nowMin = now.hour() * 60 + now.minute()
+    const dayPct = Math.round(nowMin / (24 * 60) * 100)
+
+    // 周进度：周一 00:00 为起点，周日 23:59 为终点
+    const dayOfWeek = now.day() === 0 ? 6 : now.day() - 1  // 周一=0 ... 周日=6
+    const weekPct = Math.round(((dayOfWeek * 24 * 60 + nowMin) / (7 * 24 * 60)) * 100)
+
+    // 月进度
+    const daysInMonth = now.daysInMonth()
+    const dayOfMonth = now.date()
+    const monthPct = Math.round(((dayOfMonth - 1 + nowMin / (24 * 60)) / daysInMonth) * 100)
+
+    return { dayPct, weekPct, monthPct }
+  }, [now])
+
   return (
     <div>
-      {/* 第一行：时间日期 + 天气位置 + 今日进度 */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        {/* 时间日期 */}
-        <div className="flex items-end gap-3">
+      {/* 第一行：时间日期 + 天气位置 */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        {/* 时间日期 — items-center 对齐消除高度差 */}
+        <div className="flex items-center gap-3">
           <div className="text-5xl font-bold text-cd-text tracking-tight font-brand leading-none">
             {now.format('HH:mm')}
           </div>
-          <div className="pb-0.5 flex flex-col gap-0.5">
+          <div className="flex flex-col justify-center leading-tight">
             <div className="text-base text-cd-text font-semibold font-display">{now.format('M月D日')}</div>
-            <div className="text-sm text-cd-text-secondary font-semibold font-display">{WEEKDAYS[now.day()]}</div>
+            <div className="text-sm text-cd-text-secondary font-display">{WEEKDAYS[now.day()]}</div>
             <div className="text-sm text-cd-text-tertiary font-display">{lunarText}</div>
           </div>
         </div>
+
+        {/* 分隔线 */}
+        <div className="h-10 w-px bg-cd-border shrink-0" />
 
         {/* 位置 + 天气 */}
         <div className="flex items-center gap-3">
@@ -496,26 +516,31 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
           ) : null}
         </div>
 
-        {/* 今日进度 */}
-        {(() => {
-          const nowMin = now.hour() * 60 + now.minute()
-          const dayPct = Math.round(nowMin / (24 * 60) * 100)
-          return (
-            <div className="flex items-center gap-2 ml-auto">
-              <span className="text-xs text-cd-text-tertiary font-display whitespace-nowrap">今日进度</span>
-              <div className="w-24 h-2 rounded-full bg-cd-bg-tertiary overflow-hidden">
+        {/* 分隔线 */}
+        <div className="h-10 w-px bg-cd-border shrink-0" />
+
+        {/* 日/周/月进度 — 三条紧凑排列 */}
+        <div className="flex items-center gap-4 ml-auto">
+          {[
+            { label: '今日', pct: progressData.dayPct },
+            { label: '本周', pct: progressData.weekPct },
+            { label: '本月', pct: progressData.monthPct },
+          ].map((p) => (
+            <div key={p.label} className="flex items-center gap-1.5">
+              <span className="text-xs text-cd-text-tertiary font-display whitespace-nowrap">{p.label}</span>
+              <div className="w-16 h-1.5 rounded-full bg-cd-bg-tertiary overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{
-                    width: `${dayPct}%`,
+                    width: `${p.pct}%`,
                     background: `linear-gradient(90deg, var(--cd-green), var(--cd-blue))`,
                   }}
                 />
               </div>
-              <span className="text-xs font-brand font-semibold text-cd-green whitespace-nowrap">{dayPct}%</span>
+              <span className="text-xs font-brand font-semibold text-cd-text-secondary whitespace-nowrap w-7 text-right">{p.pct}%</span>
             </div>
-          )
-        })()}
+          ))}
+        </div>
       </div>
 
       {/* 第二行：AI 洞察（温柔朋友风格） */}
