@@ -474,10 +474,10 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
 
   return (
     <div>
-      {/* 第一行：时间日期 + 天气位置 */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        {/* 时间日期 — items-center 对齐消除高度差 */}
-        <div className="flex items-center gap-3">
+      {/* 第一行：时间日期 + 天气位置 + 进度 — 自适应布局 */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+        {/* 时间日期 */}
+        <div className="flex items-center gap-3 shrink-0">
           <div className="text-5xl font-bold text-cd-text tracking-tight font-brand leading-none">
             {now.format('HH:mm')}
           </div>
@@ -489,12 +489,12 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
         </div>
 
         {/* 分隔线 */}
-        <div className="h-10 w-px bg-cd-border shrink-0" />
+        <div className="h-10 w-px bg-cd-border shrink-0 hidden sm:block" />
 
-        {/* 位置 + 天气 */}
-        <div className="flex items-center gap-3">
+        {/* 位置 + 天气 — 纵向排列 */}
+        <div className="flex flex-col gap-1 shrink-0">
           <div className="flex items-center gap-1.5 text-sm text-cd-text-secondary">
-            <MapPin size={16} className="text-cd-green shrink-0" />
+            <MapPin size={15} className="text-cd-green shrink-0" />
             <span className="font-display font-medium">{city || tzCity}</span>
             {preciseLocation && (
               <span className="text-xs text-cd-text-tertiary font-display flex items-center gap-0.5">
@@ -505,30 +505,31 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
           </div>
           {loadingWeather ? (
             <div className="flex items-center gap-1.5 text-sm text-cd-text-tertiary">
-              <Wind size={16} className="animate-spin" />
+              <Wind size={15} className="animate-spin" />
+              <span className="font-display">获取天气...</span>
             </div>
           ) : weather ? (
             <div className="flex items-center gap-1.5 text-sm text-cd-text">
               {getWeatherIcon(weather.code)}
-              <span className="font-brand font-semibold text-base">{weather.temp}°C</span>
+              <span className="font-brand font-semibold">{weather.temp}°C</span>
               <span className="text-cd-text-secondary font-display">{getWeatherText(weather.code)}</span>
             </div>
           ) : null}
         </div>
 
         {/* 分隔线 */}
-        <div className="h-10 w-px bg-cd-border shrink-0" />
+        <div className="h-10 w-px bg-cd-border shrink-0 hidden sm:block" />
 
-        {/* 日/周/月进度 — 三条紧凑排列 */}
-        <div className="flex items-center gap-4 ml-auto">
+        {/* 日/周/月进度 — 纵向排列，靠右 */}
+        <div className="flex flex-col gap-1 ml-auto shrink-0">
           {[
             { label: '今日', pct: progressData.dayPct },
             { label: '本周', pct: progressData.weekPct },
             { label: '本月', pct: progressData.monthPct },
           ].map((p) => (
-            <div key={p.label} className="flex items-center gap-1.5">
-              <span className="text-xs text-cd-text-tertiary font-display whitespace-nowrap">{p.label}</span>
-              <div className="w-16 h-1.5 rounded-full bg-cd-bg-tertiary overflow-hidden">
+            <div key={p.label} className="flex items-center gap-2">
+              <span className="text-xs text-cd-text-tertiary font-display whitespace-nowrap w-6">{p.label}</span>
+              <div className="w-20 sm:w-24 h-1.5 rounded-full bg-cd-bg-tertiary overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{
@@ -537,7 +538,7 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
                   }}
                 />
               </div>
-              <span className="text-xs font-brand font-semibold text-cd-text-secondary whitespace-nowrap w-7 text-right">{p.pct}%</span>
+              <span className="text-xs font-brand font-semibold text-cd-text-secondary whitespace-nowrap w-8 text-right">{p.pct}%</span>
             </div>
           ))}
         </div>
