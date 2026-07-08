@@ -457,44 +457,65 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
 
   return (
     <div>
-      {/* 第一行：时间日期 + 天气 */}
+      {/* 第一行：时间日期 + 天气位置 + 今日进度 */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
         {/* 时间日期 */}
         <div className="flex items-end gap-3">
           <div className="text-5xl font-bold text-cd-text tracking-tight font-brand leading-none">
             {now.format('HH:mm')}
           </div>
-          <div className="pb-0.5">
-            <div className="text-sm text-cd-text font-medium font-display">{now.format('M月D日')}</div>
-            <div className="text-xs text-cd-text-secondary font-display">{WEEKDAYS[now.day()]}</div>
-            <div className="text-[11px] text-cd-text-tertiary font-display">{lunarText}</div>
+          <div className="pb-0.5 flex flex-col gap-0.5">
+            <div className="text-base text-cd-text font-semibold font-display">{now.format('M月D日')}</div>
+            <div className="text-sm text-cd-text-secondary font-semibold font-display">{WEEKDAYS[now.day()]}</div>
+            <div className="text-sm text-cd-text-tertiary font-display">{lunarText}</div>
           </div>
         </div>
 
         {/* 位置 + 天气 */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-cd-text-secondary">
-            <MapPin size={13} className="text-cd-text-tertiary shrink-0" />
-            <span className="font-display">{city || tzCity}</span>
+          <div className="flex items-center gap-1.5 text-sm text-cd-text-secondary">
+            <MapPin size={16} className="text-cd-green shrink-0" />
+            <span className="font-display font-medium">{city || tzCity}</span>
             {preciseLocation && (
-              <span className="text-[10px] text-cd-text-tertiary font-display flex items-center gap-0.5">
-                <Navigation size={9} className="shrink-0" />
+              <span className="text-xs text-cd-text-tertiary font-display flex items-center gap-0.5">
+                <Navigation size={10} className="shrink-0" />
                 {preciseLocation}
               </span>
             )}
           </div>
           {loadingWeather ? (
-            <div className="flex items-center gap-1.5 text-xs text-cd-text-tertiary">
-              <Wind size={13} className="animate-spin" />
+            <div className="flex items-center gap-1.5 text-sm text-cd-text-tertiary">
+              <Wind size={16} className="animate-spin" />
             </div>
           ) : weather ? (
-            <div className="flex items-center gap-1.5 text-xs text-cd-text">
+            <div className="flex items-center gap-1.5 text-sm text-cd-text">
               {getWeatherIcon(weather.code)}
-              <span className="font-brand font-semibold">{weather.temp}°C</span>
+              <span className="font-brand font-semibold text-base">{weather.temp}°C</span>
               <span className="text-cd-text-secondary font-display">{getWeatherText(weather.code)}</span>
             </div>
           ) : null}
         </div>
+
+        {/* 今日进度 */}
+        {(() => {
+          const nowMin = now.hour() * 60 + now.minute()
+          const dayPct = Math.round(nowMin / (24 * 60) * 100)
+          return (
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-xs text-cd-text-tertiary font-display whitespace-nowrap">今日进度</span>
+              <div className="w-24 h-2 rounded-full bg-cd-bg-tertiary overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${dayPct}%`,
+                    background: `linear-gradient(90deg, var(--cd-green), var(--cd-blue))`,
+                  }}
+                />
+              </div>
+              <span className="text-xs font-brand font-semibold text-cd-green whitespace-nowrap">{dayPct}%</span>
+            </div>
+          )
+        })()}
       </div>
 
       {/* 第二行：AI 洞察（温柔朋友风格） */}
