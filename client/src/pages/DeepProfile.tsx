@@ -513,23 +513,23 @@ export default function DeepProfile() {
         <SectionHeader icon={Activity} title="行为画像" subtitle="软件、内容与行为模式" />
 
         {/* 常用软件 */}
-        <section className="bg-cd-card border border-cd-border rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-cd-text mb-4 flex items-center gap-2">
+        <section className="bg-cd-card border border-cd-border rounded-xl p-3.5">
+          <h3 className="text-sm font-semibold text-cd-text mb-2.5 flex items-center gap-2">
             <Monitor size={16} className="text-cd-green" /> 常用软件
           </h3>
           {commonSoftware.length === 0 ? (
             <p className="text-sm text-cd-text-tertiary">暂无软件使用数据</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-1.5">
               {commonSoftware.map((app, idx) => (
-                <div key={app.app_name} className="flex items-center gap-3">
-                  <span className="w-6 text-center text-sm text-cd-text-tertiary font-mono shrink-0">{idx + 1}</span>
-                  <div className="w-9 h-9 rounded-lg bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
-                    <img src={iconUrls[app.app_name] || DEFAULT_ICON} alt="" className="w-6 h-6 object-contain" onError={(e) => { e.currentTarget.src = DEFAULT_ICON }} />
+                <div key={app.app_name} className="flex items-center gap-2">
+                  <span className="w-5 text-center text-xs text-cd-text-tertiary font-mono shrink-0">{idx + 1}</span>
+                  <div className="w-7 h-7 rounded-md bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
+                    <img src={iconUrls[app.app_name] || DEFAULT_ICON} alt="" className="w-5 h-5 object-contain" onError={(e) => { e.currentTarget.src = DEFAULT_ICON }} />
                   </div>
                   <span className="flex-1 text-sm font-medium text-cd-text truncate">{app.app_name}</span>
-                  <span className="text-sm text-cd-text-secondary shrink-0">{formatDuration(app.duration_min)}</span>
-                  <div className="w-24 h-2 bg-cd-bg-secondary rounded-full overflow-hidden shrink-0">
+                  <span className="text-xs text-cd-text-secondary shrink-0 tabular-nums">{formatDuration(app.duration_min)}</span>
+                  <div className="w-20 h-1.5 bg-cd-bg-secondary rounded-full overflow-hidden shrink-0">
                     <div className="h-full bg-cd-green rounded-full" style={{ width: `${(app.duration_min / maxDuration) * 100}%` }} />
                   </div>
                 </div>
