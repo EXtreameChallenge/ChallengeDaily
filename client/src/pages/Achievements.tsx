@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Trophy, Lock, Sparkles } from 'lucide-react'
 import { getAchievements, checkAchievements, getQuote, type Achievement } from '../api/client'
 
@@ -19,6 +19,12 @@ export default function Achievements() {
   const [achievements, setAchievements] = useState<Achievement[]>([])
   const [quote, setQuote] = useState('')
   const [newlyUnlocked, setNewlyUnlocked] = useState<string[]>([])
+  // 用于在组件卸载时清理 newlyUnlocked 的 setTimeout
+  const unlockTimerRef = useRef<number | undefined>(undefined)
+
+  useEffect(() => {
+    return () => { if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current) }
+  }, [])
 
   const load = useCallback(async () => {
     try {
@@ -35,7 +41,8 @@ export default function Achievements() {
       const { unlocked } = await checkAchievements()
       if (unlocked.length > 0) {
         setNewlyUnlocked(unlocked.map(u => `${u.icon} ${u.name}`))
-        setTimeout(() => setNewlyUnlocked([]), 5000)
+        if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current)
+        unlockTimerRef.current = window.setTimeout(() => setNewlyUnlocked([]), 5000)
         load()
       }
     } catch {}

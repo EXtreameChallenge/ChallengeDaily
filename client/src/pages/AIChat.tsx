@@ -15,6 +15,8 @@ export default function AIChat() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  // 用于取消前一次未完成的请求，避免快速连续发送导致回答顺序错乱
+  const abortRef = useRef<AbortController | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -35,8 +37,14 @@ export default function AIChat() {
     setInput('')
     setLoading(true)
     setMessages(prev => [...prev, { id: Date.now(), role: 'user', content: msg, created_at: new Date().toISOString() }])
+    // 取消前一次未完成的请求，避免快速连续发送导致回答顺序错乱
+    if (abortRef.current) abortRef.current.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     try {
-      const { reply } = await aiChat(msg)
+      const { reply } = await aiChat(msg, controller.signal)
+      // 已被后续请求取消，丢弃本次结果
+      if (controller.signal.aborted) return
       // 检测后端返回的"未配置"提示，替换为更友好的引导
       if (reply.includes('未配置') || reply.includes('not configured')) {
         setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'AI 尚未配置，请先在「设置 → AI 分析」中配置智谱 GLM API Key。', created_at: new Date().toISOString() }])
@@ -44,14 +52,22 @@ export default function AIChat() {
         setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: reply, created_at: new Date().toISOString() }])
       }
     } catch (e: any) {
+      // 被后续请求主动取消，静默忽略
+      if (controller.signal.aborted || (e?.name === 'AbortError')) {
+        return
+      }
       const msg = e?.message || ''
       const isNotConfigured = msg.includes('未配置') || msg.includes('not configured') || msg.includes('API')
       const errorText = isNotConfigured
         ? 'AI 尚未配置，请先在「设置 → AI 分析」中配置智谱 GLM API Key。'
         : 'AI 暂时无法回复，请检查网络连接后重试。'
       setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: errorText, created_at: new Date().toISOString() }])
+    } finally {
+      // 仅当本次请求仍是最新一次时才解除 loading
+      if (abortRef.current === controller) {
+        setLoading(false)
+      }
     }
-    setLoading(false)
   }
 
   const handleClear = async () => {

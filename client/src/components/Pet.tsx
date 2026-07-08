@@ -56,6 +56,9 @@ export default function Pet({ visible, onToggle }: PetProps) {
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null)
   const didDragRef = useRef(false)
   const bubbleTimer = useRef<number | null>(null)
+  // 用于统一管理零散 setTimeout，便于卸载或重复触发时清理
+  const happyTimer = useRef<number | null>(null)
+  const dragResetTimer = useRef<number | null>(null)
 
   // 读取当前工作状态
   const refreshActivity = useCallback(async () => {
@@ -83,6 +86,13 @@ export default function Pet({ visible, onToggle }: PetProps) {
     return () => window.clearTimeout(timer)
   }, [visible, style])
 
+  // 组件卸载时清理点击产生的 happy 状态定时器，避免卸载后 setState
+  useEffect(() => {
+    return () => {
+      if (happyTimer.current) window.clearTimeout(happyTimer.current)
+    }
+  }, [])
+
   const showBubble = useCallback((text: string, duration = 3000) => {
     setBubbleText(text)
     setBubbleVisible(true)
@@ -94,7 +104,8 @@ export default function Pet({ visible, onToggle }: PetProps) {
   const handlePetClick = useCallback(() => {
     if (didDragRef.current) return
     setHappy(true)
-    window.setTimeout(() => setHappy(false), 800)
+    if (happyTimer.current) window.clearTimeout(happyTimer.current)
+    happyTimer.current = window.setTimeout(() => setHappy(false), 800)
 
     const pool = currentActivity ? [currentActivity, ...WORK_MESSAGES] : WORK_MESSAGES
     const msg = pool[Math.floor(Math.random() * pool.length)]
@@ -131,7 +142,8 @@ export default function Pet({ visible, onToggle }: PetProps) {
         localStorage.setItem('cd_pet_position', JSON.stringify(positionRef.current))
       }
       dragRef.current = null
-      window.setTimeout(() => {
+      if (dragResetTimer.current) window.clearTimeout(dragResetTimer.current)
+      dragResetTimer.current = window.setTimeout(() => {
         didDragRef.current = false
       }, 60)
     }
@@ -140,6 +152,7 @@ export default function Pet({ visible, onToggle }: PetProps) {
     return () => {
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
+      if (dragResetTimer.current) window.clearTimeout(dragResetTimer.current)
     }
   }, [])
 

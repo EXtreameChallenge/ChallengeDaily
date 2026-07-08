@@ -113,9 +113,9 @@ export default function HistoryReports() {
               </button>
             ))}
 
-            {/* 加载更多 */}
-            <button className="w-full text-xs text-cd-text-tertiary hover:text-cd-green transition-colors py-2">
-              查看更早的报告...
+            {/* 仅显示最近 14 天报告 */}
+            <button disabled className="w-full text-xs text-cd-text-tertiary cursor-default py-2">
+              仅显示最近14天报告
             </button>
           </div>
 
@@ -141,7 +141,17 @@ export default function HistoryReports() {
                   </div>
                 </div>
                 <div className="prose prose-sm max-w-none prose-headings:text-cd-text prose-p:text-cd-text-secondary prose-strong:text-cd-text prose-li:text-cd-text-secondary prose-code:bg-cd-bg-secondary prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-cd-green prose-code:before:content-none prose-code:after:content-none prose-hr:border-cd-border">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{selectedReport.content}</ReactMarkdown>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    urlTransform={(url) => {
+                      // 过滤 javascript: 等危险协议，防止 XSS
+                      const trimmed = url.trim().toLowerCase()
+                      if (trimmed.startsWith('javascript:') || trimmed.startsWith('data:') || trimmed.startsWith('vbscript:')) {
+                        return ''
+                      }
+                      return url
+                    }}
+                  >{selectedReport.content}</ReactMarkdown>
                 </div>
               </div>
             ) : (

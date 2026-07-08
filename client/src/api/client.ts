@@ -43,12 +43,22 @@ function invalidateToken() {
 
 /** 带指数退避重试的 fetch（参考 resilience4j / Polly 模式）
  * @param timeoutMs - 自定义超时时间（毫秒），默认 10000ms
+ * 如果调用方在 options.signal 中传入外部 signal（如 AbortController），
+ * 则该 signal 触发 abort 时也会同步中断 fetch；同时保留超时机制。
  */
 export async function request(endpoint: string, options?: RequestInit, timeoutMs = 10000, _isRetry = false): Promise<unknown> {
   const token = await getApiToken()
   const controller = new AbortController()
   // 连接超时：后端是本地服务，默认 10 秒；生成报告等长耗时操作可自定义
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  // 若调用方提供外部 signal，则联动中断 fetch
+  const externalSignal = options?.signal
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort()
+    else externalSignal.addEventListener('abort', () => controller.abort(), { once: true })
+  }
+  // 剥离外部 signal，避免覆盖 timeout controller（fetch 仍使用 controller.signal）
+  const { signal: _stripped, ...restOptions } = options || {}
   try {
     setBackendState('connecting')
     const res = await fetch(`${BASE_URL}${endpoint}`, {
@@ -57,7 +67,7 @@ export async function request(endpoint: string, options?: RequestInit, timeoutMs
         ...(token ? { 'X-API-Token': token } : {}),
       },
       signal: controller.signal,
-      ...options,
+      ...restOptions,
     })
     if (res.status === 401) {
       // Token 失效：清除缓存，重试一次（后端可能重启生成了新 token）
@@ -74,6 +84,10 @@ export async function request(endpoint: string, options?: RequestInit, timeoutMs
     setBackendState('connected')
     return data
   } catch (err: unknown) {
+    // 外部 signal 主动取消：不更新断连状态，向上抛出 AbortError 供调用方识别
+    if (externalSignal?.aborted) {
+      throw new DOMException('请求已被取消', 'AbortError')
+    }
     // 标记后端断连，触发 UI 重连提示
     setBackendState('disconnected')
     if (err instanceof DOMException && err.name === 'AbortError') {
@@ -941,8 +955,8 @@ export interface ChatMessage {
   created_at: string
 }
 
-export async function aiChat(message: string): Promise<{ reply: string; role: string }> {
-  return request('/api/ai/chat', { method: 'POST', body: JSON.stringify({ message }) }, 30000) as Promise<{ reply: string; role: string }>
+export async function aiChat(message: string, signal?: AbortSignal): Promise<{ reply: string; role: string }> {
+  return request('/api/ai/chat', { method: 'POST', body: JSON.stringify({ message }), signal }, 30000) as Promise<{ reply: string; role: string }>
 }
 
 export async function getChatHistory(): Promise<{ history: ChatMessage[] }> {

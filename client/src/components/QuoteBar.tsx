@@ -6,11 +6,15 @@ export default function QuoteBar() {
   const [quote, setQuote] = useState('')
 
   useEffect(() => {
-    getQuote().then(data => setQuote(data.quote)).catch(() => {})
-    const interval = setInterval(() => {
-      getQuote().then(data => setQuote(data.quote)).catch(() => {})
-    }, 60000)
-    return () => clearInterval(interval)
+    let cancelled = false
+    const fetchQuote = () => {
+      getQuote()
+        .then(data => { if (!cancelled) setQuote(data.quote) })
+        .catch(() => {})
+    }
+    fetchQuote()
+    const interval = setInterval(fetchQuote, 60000)
+    return () => { cancelled = true; clearInterval(interval) }
   }, [])
 
   if (!quote) return null

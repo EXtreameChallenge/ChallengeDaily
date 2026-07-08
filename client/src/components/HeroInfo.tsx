@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef, type ReactNode } from 'react'
 import dayjs from 'dayjs'
 import { Solar } from 'lunar-javascript'
 import { MapPin, Navigation, CloudSun, Cloud, CloudRain, Snowflake, Wind, Zap, Brain, RefreshCw, Lightbulb, AlertTriangle, Trophy, Sparkles, Eye, Compass } from 'lucide-react'
@@ -104,6 +104,9 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
   const [loadingWeather, setLoadingWeather] = useState(false)
   const [insight, setInsight] = useState<InsightData | null>(null)
   const [loadingInsight, setLoadingInsight] = useState(false)
+  // 用于在 setTimeout/setInterval 闭包中读取最新的 insight，避免陈旧闭包
+  const insightRef = useRef<InsightData | null>(null)
+  useEffect(() => { insightRef.current = insight }, [insight])
 
   // 实时更新时间
   // 优化：从 1 秒调整为 10 秒，仅在分钟变化时重渲染
@@ -422,14 +425,18 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
   }, [])
 
   // 获取 AI 洞察（基于真实活动数据的分析，非空话寄语）
-  const fetchInsight = useCallback(() => {
+  const fetchInsight = useCallback((force = false) => {
     setLoadingInsight(true)
-    request('/api/ai/overview-summary')
+    const url = force ? '/api/ai/overview-summary?refresh=1' : '/api/ai/overview-summary'
+    // AI 生成可能耗时较长，给 30 秒超时
+    request(url, {}, 30000)
       .then((raw) => {
         const data = raw as InsightData
         if (data.summary || data.structured) setInsight(data)
       })
-      .catch(() => { /* 静默失败 */ })
+      .catch((err) => {
+        console.error('[AI洞察] 获取失败:', err)
+      })
       .finally(() => setLoadingInsight(false))
   }, [])
 
@@ -437,7 +444,8 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
     fetchInsight()
     // 启动后 3 秒再拉一次，避免后端初始化未完成导致空数据
     const retryTimer = setTimeout(() => {
-      if (!insight) fetchInsight()
+      // 通过 ref 读取最新值，避免闭包陈旧导致重复拉取
+      if (!insightRef.current) fetchInsight()
     }, 3000)
     // 5 分钟刷新一次（与后端缓存 TTL 对齐）
     const timer = setInterval(fetchInsight, 300000)
@@ -445,7 +453,7 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
       clearTimeout(retryTimer)
       clearInterval(timer)
     }
-  }, [fetchInsight, insight])
+  }, [fetchInsight])
 
   return (
     <div>
@@ -495,7 +503,7 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
           <Brain size={16} className="text-cd-green" />
           <span className="text-xs text-cd-green font-medium uppercase tracking-wider">AI 洞察</span>
           {!loadingInsight && insight && (
-            <button onClick={fetchInsight} className="text-cd-text-tertiary hover:text-cd-text transition" title="刷新">
+            <button onClick={() => fetchInsight(true)} className="text-cd-text-tertiary hover:text-cd-text transition" title="刷新">
               <RefreshCw size={12} />
             </button>
           )}

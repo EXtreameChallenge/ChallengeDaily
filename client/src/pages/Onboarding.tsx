@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { updateSettings, testAiConnection } from '../api/client'
 import {
   Sparkles,
@@ -35,6 +35,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const [showKey, setShowKey] = useState(false)
   const [aiTesting, setAiTesting] = useState(false)
   const [aiTestResult, setAiTestResult] = useState<{ ok: boolean; message: string } | null>(null)
+  // 用于取消进行中的 AI 连接测试，避免组件卸载或重复触发后 setState 产生竞态
+  const testAiAbortRef = useRef<AbortController | null>(null)
 
   // 工作时间
   const [workStart, setWorkStart] = useState(9)
@@ -43,14 +45,19 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const handleTestAi = async () => {
     setAiTesting(true)
     setAiTestResult(null)
+    testAiAbortRef.current?.abort()
+    const controller = new AbortController()
+    testAiAbortRef.current = controller
     try {
       // 新手引导默认测试识图模型
       const result = await testAiConnection(apiKey, apiBase, apiVisionModel)
+      if (controller.signal.aborted) return
       setAiTestResult(result)
     } catch (err: any) {
+      if (controller.signal.aborted) return
       setAiTestResult({ ok: false, message: err.message || '测试失败' })
     } finally {
-      setAiTesting(false)
+      if (!controller.signal.aborted) setAiTesting(false)
     }
   }
 
@@ -60,6 +67,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     setApiVisionModel('glm-4v-flash')
     setApiTextModel('glm-4-flash')
   }
+
+  // 组件卸载时取消进行中的 AI 测试请求，避免卸载后 setState 产生竞态
+  useEffect(() => {
+    return () => testAiAbortRef.current?.abort()
+  }, [])
 
   const handleComplete = async () => {
     // 保存设置到后端

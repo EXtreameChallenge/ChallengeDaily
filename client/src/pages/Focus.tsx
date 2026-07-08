@@ -25,6 +25,9 @@ export default function Focus() {
   const startTimeRef = useRef<string>('')
   const durationRef = useRef(25)
   const autoSelectedRef = useRef(false)
+  // 用于在 setInterval 闭包中引用最新的回调，避免陈旧闭包
+  const handleWorkCompleteRef = useRef<() => void>(() => {})
+  const handleBreakCompleteRef = useRef<() => void>(() => {})
 
   const loadStats = useCallback(async () => {
     try {
@@ -69,11 +72,11 @@ export default function Focus() {
     timerRef.current = setInterval(() => {
       setRemaining(prev => {
         if (prev <= 1) {
-          // 时间到
+          // 时间到，通过 ref 调用最新版本以避免闭包陈旧
           if (phase === 'working') {
-            handleWorkComplete()
+            handleWorkCompleteRef.current()
           } else {
-            handleBreakComplete()
+            handleBreakCompleteRef.current()
           }
           return 0
         }
@@ -124,6 +127,10 @@ export default function Focus() {
     setRemaining(duration * 60)
     loadStats()
   }
+
+  // 将最新版本的回调同步到 ref，供 setInterval 闭包使用
+  useEffect(() => { handleWorkCompleteRef.current = handleWorkComplete }, [handleWorkComplete])
+  useEffect(() => { handleBreakCompleteRef.current = handleBreakComplete }, [handleBreakComplete])
 
   const handleStop = async () => {
     if (sessionId) {

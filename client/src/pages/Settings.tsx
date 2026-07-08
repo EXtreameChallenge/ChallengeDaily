@@ -41,6 +41,8 @@ export default function Settings() {
   // 备份/恢复
   const [restoring, setRestoring] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // 检查更新 setTimeout 计时器引用，用于组件卸载时清理
+  const checkUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // 关于与更新
   const [appVersion, setAppVersion] = useState('')
   const [updateChecking, setUpdateChecking] = useState(false)
@@ -126,13 +128,22 @@ export default function Settings() {
     window.electronAPI.onUpdateDownloaded(() => setUpdateStatus('downloaded'))
   }, [])
 
+  // 组件卸载时清理检查更新的定时器，防止 setState 作用于已卸载组件
+  useEffect(() => {
+    return () => {
+      if (checkUpdateTimerRef.current) clearTimeout(checkUpdateTimerRef.current)
+    }
+  }, [])
+
   const handleCheckUpdate = async () => {
     setUpdateChecking(true)
     try {
       await window.electronAPI?.checkForUpdates()
-      setTimeout(() => {
+      if (checkUpdateTimerRef.current) clearTimeout(checkUpdateTimerRef.current)
+      checkUpdateTimerRef.current = setTimeout(() => {
         setUpdateChecking(false)
         if (updateStatus === 'idle') setUpdateStatus('up-to-date')
+        checkUpdateTimerRef.current = null
       }, 2000)
     } catch {
       setUpdateChecking(false)

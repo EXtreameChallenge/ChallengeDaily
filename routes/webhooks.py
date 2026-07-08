@@ -1,6 +1,7 @@
 import json as _json
 import secrets
 import logging
+import atexit
 
 from flask import Blueprint, jsonify, request
 from datetime import date
@@ -17,6 +18,18 @@ _WEBHOOK_PATH = BASE_DIR / "data" / "webhooks.json"
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 _webhook_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="wh_push")
+
+
+def _shutdown_webhook_executor():
+    """进程退出时优雅关闭线程池，避免资源泄漏"""
+    try:
+        _webhook_executor.shutdown(wait=False)
+    except Exception:
+        pass
+
+
+# 注册退出钩子：进程结束时关闭 webhook 线程池
+atexit.register(_shutdown_webhook_executor)
 
 
 def _load_webhooks() -> list:
@@ -186,8 +199,12 @@ def _push_webhook_sync(wh: dict, content: str, target_date: str) -> bool:
         req = urllib.request.Request(wh["url"], data=data, headers={"Content-Type": "application/json"}, method="POST")
         urllib.request.urlopen(req, timeout=10)
         return True
-    except Exception:
-        logger.warning(f"Webhook push failed for {wh.get('name', wh.get('id'))}")
+    except Exception as e:
+        # 记录推送失败的详情（含 URL 与异常堆栈），便于排查
+        logger.warning(
+            f"Webhook push failed for {wh.get('url', '')}: {e}",
+            exc_info=True,
+        )
         return False
 
 

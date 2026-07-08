@@ -182,6 +182,9 @@ def stats_rhythm():
 def daily_summary():
     start = request.args.get("startDate", date.today().isoformat())
     end = request.args.get("endDate", date.today().isoformat())
+    # 日期格式校验：防止非法字符串直接落库或导致 SQL 异常
+    if not validate_date(start) or not validate_date(end):
+        return jsonify({"error": "日期格式无效，需 YYYY-MM-DD"}), 400
     data = get_daily_summary(start, end)
     return jsonify(data)
 

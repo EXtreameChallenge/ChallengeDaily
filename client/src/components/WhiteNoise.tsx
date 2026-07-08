@@ -102,7 +102,15 @@ export default function WhiteNoise({ autoPlay = false }: { autoPlay?: boolean })
   }, [volume, active])
 
   // 清理
-  useEffect(() => () => { if (sourceRef.current) { try { sourceRef.current.stop() } catch {} } }, [])
+  useEffect(() => () => {
+    if (sourceRef.current) {
+      try { sourceRef.current.stop() } catch {}
+      sourceRef.current.disconnect()
+      sourceRef.current = null
+    }
+    audioCtxRef.current?.close().catch(() => {})
+    audioCtxRef.current = null
+  }, [])
 
   return (
     <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">

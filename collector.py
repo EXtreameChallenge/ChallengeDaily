@@ -147,6 +147,9 @@ class Collector:
         self._recent_context_cache = None
         self._recent_context_cache_time = 0
         self._RECENT_CONTEXT_CACHE_TTL = 120  # 2分钟缓存
+        # 上一次非闲置采集的时间戳（字符串 "YYYY-MM-DD HH:MM:SS"），
+        # 闲置时段 flush 时用它作为 end_time，避免把闲置时长算入应用使用时长
+        self._last_active_time: str | None = None
 
     def _flush_segment(self, end_time: str):
         """结算当前时间段：按 area_ratio 把 duration 分摊给所有可见窗口后写入 app_usage。
@@ -171,6 +174,7 @@ class Collector:
     def capture_once(self) -> dict | None:
         """执行一次截图→分析→存储的完整流程（线程安全）"""
         if not self._capture_lock.acquire(blocking=False):
+            # 采集被并发拒绝时记录到日志，便于排查是否存在手动+定时并发冲突
             logger.warning("capture_once 并发调用被拒绝")
             return None
         try:
@@ -188,11 +192,15 @@ class Collector:
             idle_sec = get_idle_seconds()
             if idle_sec >= _IDLE_THRESHOLD_SEC:
                 logger.debug(f"用户已闲置 {idle_sec}s，跳过本次采集")
-                # 结算上一段 app_usage（按多窗口面积分摊）
-                self._flush_segment(timestamp)
+                # 闲置时 flush 的 end_time 应为上一次活动时间，而非当前时间，
+                # 避免把闲置时长算入应用使用时长
+                self._flush_segment(self._last_active_time or timestamp)
                 return None
         except Exception:
             pass  # 闲置检测失败时不阻断采集
+
+        # 非闲置时记录本次活动时间，供闲置时段 flush 用作 end_time
+        self._last_active_time = timestamp
 
         # 1. 截图（获取前台窗口所在显示器）
         try:

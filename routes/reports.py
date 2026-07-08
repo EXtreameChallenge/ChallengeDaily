@@ -8,11 +8,19 @@ from routes.deps import safe_error, validate_date
 
 bp = Blueprint('reports', __name__)
 
+# 模板白名单：防止任意字符串传入触发未预期分支或注入
+_VALID_TEMPLATES = ('standard', 'simple', 'technical', 'okr', 'ai', 'deep')
+
+
+def _validate_template(template: str) -> str:
+    """校验模板参数，非法值回退 standard"""
+    return template if template in _VALID_TEMPLATES else 'standard'
+
 
 @bp.route("/api/report/daily")
 def report_daily():
     target_date = request.args.get("date", date.today().isoformat())
-    template = request.args.get("template", "standard")
+    template = _validate_template(request.args.get("template", "standard"))
     if not validate_date(target_date):
         return jsonify({"error": f"Invalid date format: {target_date}"}), 400
     try:
@@ -59,11 +67,14 @@ def report_list():
 def generate_report():
     data = request.get_json(silent=True) or {}
     target_date = data.get("date") or request.args.get("date", date.today().isoformat())
-    template = data.get("template") or request.args.get("template", "standard")
+    template = _validate_template(data.get("template") or request.args.get("template", "standard"))
     if not validate_date(target_date):
         return jsonify({"error": f"Invalid date format: {target_date}"}), 400
-    content = generate_daily_report(target_date, template=template)
-    return jsonify({"status": "ok", "date": target_date, "length": len(content), "template": template})
+    try:
+        content = generate_daily_report(target_date, template=template)
+        return jsonify({"status": "ok", "date": target_date, "length": len(content), "template": template})
+    except Exception as e:
+        return jsonify({"error": safe_error(e, "日报生成失败")}), 500
 
 
 @bp.route("/api/report/weekly")

@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify
 from datetime import date, datetime, timedelta
 import db
+from routes.deps import safe_error, validate_date
 
 bp = Blueprint('week_plan', __name__, url_prefix='/api/week-plan')
 
@@ -9,6 +10,14 @@ bp = Blueprint('week_plan', __name__, url_prefix='/api/week-plan')
 def _week_start_of(d: date) -> str:
     """ISO 8601 周一 YYYY-MM-DD"""
     return (d - timedelta(days=d.weekday())).strftime('%Y-%m-%d')
+
+
+def _safe_int(value, default):
+    """安全的 int 转换：非法值返回 default，避免 ValueError 直接 500"""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 @bp.route('/month/<month_key>', methods=['GET'])
@@ -24,7 +33,7 @@ def get_month(month_key: str):
             'goal': meta.get('goal', ''),
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': safe_error(e, "操作失败")}), 500
 
 
 @bp.route('/week/<week_start>', methods=['GET'])
@@ -39,7 +48,7 @@ def get_week(week_start: str):
             'goal': meta.get('goal', ''),
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': safe_error(e, "操作失败")}), 500
 
 
 @bp.route('/unassigned', methods=['GET'])
@@ -49,7 +58,7 @@ def unassigned():
         tasks = db.get_unassigned_todos()
         return jsonify({'todos': tasks})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': safe_error(e, "操作失败")}), 500
 
 
 @bp.route('/assign', methods=['POST'])
@@ -63,10 +72,10 @@ def assign():
     week_start = data.get('week_start')
     task_level = data.get('task_level', 'day')
     try:
-        db.assign_todo(int(todo_id), assigned_date, week_start, task_level)
+        db.assign_todo(_safe_int(todo_id, 0), assigned_date, week_start, task_level)
         return jsonify({'status': 'ok'})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': safe_error(e, "操作失败")}), 500
 
 
 @bp.route('/unassign', methods=['POST'])
@@ -77,10 +86,10 @@ def unassign_route():
     if not todo_id:
         return jsonify({'error': 'todo_id 必填'}), 400
     try:
-        db.unassign_todo(int(todo_id))
+        db.unassign_todo(_safe_int(todo_id, 0))
         return jsonify({'status': 'ok'})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': safe_error(e, "操作失败")}), 500
 
 
 @bp.route('/split', methods=['POST'])
@@ -92,20 +101,23 @@ def split():
     week_start = data.get('week_start')
     if not parent_id or not title or not week_start:
         return jsonify({'error': 'parent_id/title/week_start 必填'}), 400
+    # week_start 格式校验：防止非法字符串直接落库
+    if not validate_date(week_start):
+        return jsonify({'error': 'week_start 日期格式无效，需 YYYY-MM-DD'}), 400
     try:
         new_id = db.split_task(
-            parent_id=int(parent_id),
+            parent_id=_safe_int(parent_id, 0),
             title=title,
             week_start=week_start,
             task_level=data.get('task_level', 'week'),
             category=data.get('category', '开发'),
             mode=data.get('mode', 'timer'),
-            target_min=int(data.get('target_min', 25)),
-            priority=int(data.get('priority', 2)),
+            target_min=_safe_int(data.get('target_min', 25), 25),
+            priority=_safe_int(data.get('priority', 2), 2),
         )
         return jsonify({'status': 'ok', 'id': new_id})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': safe_error(e, "操作失败")}), 500
 
 
 @bp.route('/meta', methods=['PUT'])
@@ -125,7 +137,7 @@ def update_meta():
         )
         return jsonify({'status': 'ok'})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': safe_error(e, "操作失败")}), 500
 
 
 @bp.route('/stats', methods=['GET'])
@@ -147,7 +159,7 @@ def stats():
             week_start = _week_start_of(d)
             return jsonify(db.get_week_plan_stats(week_start))
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': safe_error(e, "操作失败")}), 500
 
 
 @bp.route('/today', methods=['GET'])
@@ -162,8 +174,7 @@ def today():
             ).fetchall()
         return jsonify({'todos': [dict(r) for r in rows], 'date': today_str})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': safe_error(e, "操作失败")}), 500
 
 
 # 导入 datetime 用于 stats 端点
-

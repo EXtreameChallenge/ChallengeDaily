@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Check, Trash2, Clock, Target, Repeat, Flag, ListChecks } from 'lucide-react'
 import { getTodos, createTodo, updateTodo, deleteTodo, type Todo } from '../api/client'
+import { useToast } from '../components/Toast'
 
 const CATEGORIES = ['开发', '会议', '沟通', '文档', '测试', '设计', '学习', '管理', '产品', '生活']
 const MODE_LABELS = { timer: '计时任务', goal: '目标时长', habit: '习惯养成' }
@@ -12,13 +13,16 @@ export default function Todos() {
   const [showForm, setShowForm] = useState(false)
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all')
   const [form, setForm] = useState({ title: '', category: '开发', mode: 'timer' as Todo['mode'], target_min: 25, priority: 2, due_date: '', repeat_type: 'none', repeat_days: '' })
+  const toast = useToast()
 
   const load = useCallback(async () => {
     try {
       const { todos: data } = await getTodos(filter === 'all' ? undefined : filter)
       setTodos(data)
-    } catch {}
-  }, [filter])
+    } catch (e) {
+      toast.error('加载失败，请重试')
+    }
+  }, [filter, toast])
 
   useEffect(() => { load() }, [load])
 
@@ -33,18 +37,28 @@ export default function Todos() {
       setForm({ title: '', category: '开发', mode: 'timer', target_min: 25, priority: 2, due_date: '', repeat_type: 'none', repeat_days: '' })
       setShowForm(false)
       load()
-    } catch {}
+    } catch (e) {
+      toast.error('操作失败，请重试')
+    }
   }
 
   const handleToggle = async (todo: Todo) => {
     const newStatus = todo.status === 'completed' ? 'pending' : 'completed'
-    await updateTodo(todo.id, { status: newStatus })
-    load()
+    try {
+      await updateTodo(todo.id, { status: newStatus })
+      load()
+    } catch (e) {
+      toast.error('更新失败，请重试')
+    }
   }
 
   const handleDelete = async (id: number) => {
-    await deleteTodo(id)
-    load()
+    try {
+      await deleteTodo(id)
+      load()
+    } catch (e) {
+      toast.error('删除失败，请重试')
+    }
   }
 
   const pending = todos.filter(t => t.status !== 'completed')

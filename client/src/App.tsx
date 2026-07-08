@@ -41,31 +41,45 @@ export default function App() {
   const [firstLaunchPhase, setFirstLaunchPhase] = useState<FirstLaunchPhase>('done')
 
   useEffect(() => {
+    let isCancelled = false
     let attempts = 0
-    let timerId: ReturnType<typeof setInterval> | null = null
+    let timerId: ReturnType<typeof setTimeout> | null = null
+    const MAX_ATTEMPTS = 600 // 最大重试次数（约 10 分钟内 1s 间隔 + 后续 5s 间隔）
 
+    // 改用 setTimeout 链：每次完成后调度下一次，避免多个 interval 并存
     const scheduleNext = (delay: number) => {
-      if (timerId !== null) clearInterval(timerId)
-      timerId = setInterval(async () => {
+      if (isCancelled) return
+      if (timerId !== null) clearTimeout(timerId)
+      timerId = setTimeout(async () => {
+        if (isCancelled) return
         attempts++
         try {
           await healthCheck()
+          if (isCancelled) return
           setBackendReady(true)
           setChecking(false)
-          if (timerId !== null) clearInterval(timerId)
         } catch {
+          if (isCancelled) return
           if (attempts === 120) {
+            // 1 秒轮询仍失败，切换到 5 秒轮询
             setChecking(false)
-            // 停止 1 秒轮询，切换到 5 秒轮询，永不放弃
             scheduleNext(5000)
+            return
           }
+          if (attempts >= MAX_ATTEMPTS) {
+            // 达到上限，停止轮询，由 ErrorScreen 提供手动重试
+            setChecking(false)
+            return
+          }
+          scheduleNext(delay)
         }
       }, delay)
     }
 
     scheduleNext(1000)
     return () => {
-      if (timerId !== null) clearInterval(timerId)
+      isCancelled = true
+      if (timerId !== null) clearTimeout(timerId)
     }
   }, [])
 

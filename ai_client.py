@@ -17,6 +17,22 @@ from prompt import SYSTEM_PROMPT, build_user_prompt
 logger = logging.getLogger(__name__)
 
 
+# ── 日志脱敏：过滤 Bearer token / api_key 等敏感串 ──
+_BEARER_RE = re.compile(r"(Bearer\s+)[^\s]+")
+_APIKEY_RE = re.compile(r"(sk-[A-Za-z0-9]{6})[A-Za-z0-9]*")
+
+
+def _sanitize_log(msg) -> str:
+    """对日志消息做脱敏：屏蔽 Bearer token 与疑似 API Key，防止密钥泄漏到日志文件"""
+    try:
+        s = str(msg)
+        s = _BEARER_RE.sub(r"\1***", s)
+        s = _APIKEY_RE.sub(r"\1******", s)
+        return s
+    except Exception:
+        return "<sanitize failed>"
+
+
 # ── 单例 OpenAI Client ──
 _client_lock = threading.Lock()
 _client_instance = None
@@ -197,10 +213,10 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
         except Exception as e:
             wait = 1.0 * (2 ** attempt)  # 1s, 2s, 4s
             if attempt < max_retries - 1:
-                logger.warning(f"AI 分析失败 (尝试 {attempt+1}/{max_retries})，{wait:.0f}s 后重试: {e}")
+                logger.warning(_sanitize_log(f"AI 分析失败 (尝试 {attempt+1}/{max_retries})，{wait:.0f}s 后重试: {e}"))
                 time.sleep(wait)
             else:
-                logger.error(f"AI 分析最终失败 (已重试 {max_retries} 次): {e}")
+                logger.error(_sanitize_log(f"AI 分析最终失败 (已重试 {max_retries} 次): {e}"))
                 _reset_client()
                 _cb_record_failure()
                 return {"category": "生活", "summary": "分析异常", "detail": str(e)[:50]}
@@ -396,10 +412,10 @@ def generate_greeting(context: dict) -> str:
         except Exception as e:
             wait = 1.0 * (2 ** attempt)
             if attempt < max_retries - 1:
-                logger.warning(f"AI 导语生成失败 (尝试 {attempt+1}/{max_retries})，{wait:.0f}s 后重试: {e}")
+                logger.warning(_sanitize_log(f"AI 导语生成失败 (尝试 {attempt+1}/{max_retries})，{wait:.0f}s 后重试: {e}"))
                 time.sleep(wait)
             else:
-                logger.error(f"AI 导语生成最终失败: {e}")
+                logger.error(_sanitize_log(f"AI 导语生成最终失败: {e}"))
                 _reset_client()
                 _cb_record_failure()
                 return draft

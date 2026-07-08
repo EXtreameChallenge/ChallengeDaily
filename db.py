@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 20
+SCHEMA_VERSION = 21
 
 # ── 持久连接（避免每分钟 5-7 次 connect/close）──
 _persistent_conn: Optional[sqlite3.Connection] = None
@@ -47,9 +47,23 @@ def _get_persistent_conn() -> sqlite3.Connection:
 
 @contextmanager
 def get_conn():
-    """获取数据库连接（contextmanager，使用持久连接不关闭）"""
+    """获取数据库连接（contextmanager，使用持久连接不关闭）
+
+    异常时重置连接，避免持久连接损坏后影响后续操作。
+    """
     conn = _get_persistent_conn()
-    yield conn
+    try:
+        yield conn
+    except sqlite3.DatabaseError as e:
+        # 连接可能损坏，重置以便下次重建
+        global _persistent_conn
+        logger.error(f"数据库连接异常，将重建: {e}")
+        try:
+            _persistent_conn.close()
+        except Exception:
+            pass
+        _persistent_conn = None
+        raise
 
 
 def _execute_with_retry(conn, sql, params=(), max_retries=3):
@@ -63,6 +77,9 @@ def _execute_with_retry(conn, sql, params=(), max_retries=3):
                 logger.warning(f"SQLite busy, retry {attempt+1}/{max_retries} after {wait:.1f}s")
                 time.sleep(wait)
                 continue
+            raise
+        except sqlite3.IntegrityError as e:
+            logger.error(f"SQLite IntegrityError: {e}, SQL: {sql[:100]}")
             raise
     raise sqlite3.OperationalError(f"Failed after {max_retries} retries")
 
@@ -234,28 +251,59 @@ def init_db():
 
         # V9: 唯一键改为 (app_name, window_title, start_time) 以支持多窗口分摊和内容维度统计
         # 旧约束 UNIQUE(app_name, start_time) 会阻止同应用不同窗口共存
+        # 迁移加事务保护：备份 + 行数校验 + BEGIN/COMMIT
         if current_version < 9:
-            conn.executescript("""
-                CREATE TABLE IF NOT EXISTS app_usage_v9 (
-                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    app_name    TEXT NOT NULL,
-                    window_title TEXT,
-                    start_time  TEXT NOT NULL,
-                    end_time    TEXT,
-                    duration_sec INTEGER DEFAULT 0,
-                    UNIQUE(app_name, window_title, start_time)
-                );
-                -- 同 (app, title, start) 多条时取 duration 最大者，避免迁移时唯一冲突
-                INSERT OR IGNORE INTO app_usage_v9 (app_name, window_title, start_time, end_time, duration_sec)
-                SELECT app_name, window_title, start_time, end_time, MAX(duration_sec)
-                FROM app_usage
-                GROUP BY app_name, window_title, start_time;
-                DROP TABLE IF EXISTS app_usage;
-                ALTER TABLE app_usage_v9 RENAME TO app_usage;
-                CREATE INDEX IF NOT EXISTS idx_app_usage_app ON app_usage(app_name);
-                CREATE INDEX IF NOT EXISTS idx_app_usage_start ON app_usage(start_time);
-                CREATE INDEX IF NOT EXISTS idx_app_usage_title ON app_usage(app_name, window_title);
-            """)
+            try:
+                conn.execute("BEGIN")
+                # 迁移前备份（防止迁移失败导致数据丢失）
+                conn.execute("DROP TABLE IF EXISTS app_usage_v9_backup")
+                conn.execute("CREATE TABLE app_usage_v9_backup AS SELECT * FROM app_usage")
+                old_count = conn.execute("SELECT COUNT(*) FROM app_usage").fetchone()[0]
+                # 创建新表
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS app_usage_v9 (
+                        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                        app_name    TEXT NOT NULL,
+                        window_title TEXT,
+                        start_time  TEXT NOT NULL,
+                        end_time    TEXT,
+                        duration_sec INTEGER DEFAULT 0,
+                        UNIQUE(app_name, window_title, start_time)
+                    )
+                """)
+                # 同 (app, title, start) 多条时取 duration 最大者，避免迁移时唯一冲突
+                conn.execute("""
+                    INSERT OR IGNORE INTO app_usage_v9 (app_name, window_title, start_time, end_time, duration_sec)
+                    SELECT app_name, window_title, start_time, end_time, MAX(duration_sec)
+                    FROM app_usage
+                    GROUP BY app_name, window_title, start_time
+                """)
+                # INSERT 后校验：若新表行数少于旧表，说明可能有数据丢失
+                new_count = conn.execute("SELECT COUNT(*) FROM app_usage_v9").fetchone()[0]
+                if new_count < old_count:
+                    logger.warning(f"V9迁移: 数据可能丢失 {old_count} -> {new_count}")
+                # 校验通过后再 DROP 旧表
+                conn.execute("DROP TABLE IF EXISTS app_usage")
+                conn.execute("ALTER TABLE app_usage_v9 RENAME TO app_usage")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_app ON app_usage(app_name)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_start ON app_usage(start_time)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_title ON app_usage(app_name, window_title)")
+                conn.execute("COMMIT")
+                # 迁移成功后清理备份表
+                conn.execute("DROP TABLE IF EXISTS app_usage_v9_backup")
+            except Exception as e:
+                logger.error(f"V9迁移失败，回滚: {e}")
+                try:
+                    conn.execute("ROLLBACK")
+                except Exception:
+                    pass
+                # 迁移失败时从备份恢复
+                try:
+                    conn.execute("DROP TABLE IF EXISTS app_usage")
+                    conn.execute("ALTER TABLE app_usage_v9_backup RENAME TO app_usage")
+                except Exception:
+                    pass
+                raise
 
         # V10: 扩展 user_profile 表，支持用户画像蒸馏
         if current_version < 10:
@@ -455,6 +503,44 @@ def init_db():
                 );
             """)
 
+        # V21: habit_logs 唯一约束 + 复合索引
+        if current_version < 21:
+            # habit_logs 表加唯一索引（替代 UNIQUE 约束，避免重建表）
+            # 注意：若已存在重复 (habit_id, log_date) 行，CREATE UNIQUE INDEX 会失败；
+            # 此时先合并重复行再建索引
+            try:
+                conn.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_habit_logs_unique ON habit_logs(habit_id, log_date)"
+                )
+            except sqlite3.IntegrityError:
+                # 合并重复行：保留最大 id 的行，其余删除并把 count 累加到保留行
+                logger.warning("V21: habit_logs 存在重复行，开始合并...")
+                dup_rows = conn.execute("""
+                    SELECT habit_id, log_date, COUNT(*) as cnt
+                    FROM habit_logs GROUP BY habit_id, log_date HAVING COUNT(*) > 1
+                """).fetchall()
+                for dup in dup_rows:
+                    hid, ld = dup["habit_id"], dup["log_date"]
+                    rows = conn.execute(
+                        "SELECT id, count FROM habit_logs WHERE habit_id=? AND log_date=? ORDER BY id",
+                        (hid, ld)
+                    ).fetchall()
+                    keep_id = rows[-1]["id"]
+                    total = sum(r["count"] for r in rows)
+                    conn.execute("UPDATE habit_logs SET count=? WHERE id=?", (total, keep_id))
+                    conn.execute(
+                        "DELETE FROM habit_logs WHERE habit_id=? AND log_date=? AND id<>?",
+                        (hid, ld, keep_id)
+                    )
+                conn.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_habit_logs_unique ON habit_logs(habit_id, log_date)"
+                )
+                logger.info("V21: habit_logs 重复行合并完成")
+            # 复合索引优化（提升常用查询性能）
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_activities_app_cat ON activities(app_name, category)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_start_app ON app_usage(start_time, app_name)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_pomodoro_start_status ON pomodoro_sessions(start_time, status)")
+
         # 更新版本号
         conn.execute(
             "INSERT OR REPLACE INTO schema_version (key, value) VALUES ('version', ?)",
@@ -469,7 +555,7 @@ def init_db():
 # 避免每次 insert 都 fsync，改为延迟提交
 # 参考 SQLite 性能指南：https://www.sqlite.org/withoutrowid.html
 _pending_commits = 0
-_COMMIT_BATCH_SIZE = 5  # 攒够 5 条或下次读取时提交
+_COMMIT_BATCH_SIZE = 1  # activities 数据价值高，每条都立即提交
 _write_lock = threading.Lock()  # 保护 _pending_commits 和写操作
 
 
@@ -729,6 +815,20 @@ def cleanup_old_data(days: int):
         conn.execute("DELETE FROM activities WHERE timestamp < ?", (f"{cutoff} 00:00:00",))
         conn.execute("DELETE FROM app_usage WHERE start_time < ?", (f"{cutoff} 00:00:00",))
         conn.execute("DELETE FROM reports WHERE report_date < ?", (cutoff,))
+        # 扩展清理范围：番茄钟、对话历史、习惯日志、每日画像、用户纠错
+        conn.execute("DELETE FROM pomodoro_sessions WHERE start_time < ?", (f"{cutoff} 00:00:00",))
+        conn.execute("DELETE FROM chat_history WHERE created_at < ?", (f"{cutoff} 00:00:00",))
+        conn.execute("DELETE FROM habit_logs WHERE log_date < ?", (cutoff,))
+        conn.execute("DELETE FROM daily_profiles WHERE date < ?", (cutoff,))
+        conn.execute("DELETE FROM user_corrections WHERE created_at < ?", (f"{cutoff} 00:00:00",))
+        # activities_deleted 表可能不存在，加 try/except 保护
+        try:
+            conn.execute("DELETE FROM activities_deleted WHERE deleted_at < ?", (f"{cutoff} 00:00:00",))
+        except sqlite3.OperationalError as e:
+            if "no such table" in str(e).lower():
+                logger.debug("cleanup_old_data: activities_deleted 表不存在，跳过")
+            else:
+                raise
         conn.commit()
 
 
@@ -786,6 +886,14 @@ def get_multi_day_stats(days: int = 7):
     return results
 
 
+def _sanitize_csv_cell(val):
+    """防止 CSV 公式注入：以 = + - @ 开头的单元格加单引号前缀"""
+    s = str(val) if val is not None else ""
+    if s and s[0] in ('=', '+', '-', '@'):
+        return "'" + s
+    return s
+
+
 def export_activities_csv(start_date: str, end_date: str) -> str:
     """导出活动记录为 CSV 格式"""
     import csv
@@ -796,11 +904,11 @@ def export_activities_csv(start_date: str, end_date: str) -> str:
     writer.writeheader()
     for r in rows:
         writer.writerow({
-            "timestamp": r.get("timestamp", ""),
-            "app_name": r.get("app_name", ""),
-            "window_title": r.get("window_title", ""),
-            "category": r.get("category", ""),
-            "summary": r.get("summary", ""),
+            "timestamp": _sanitize_csv_cell(r.get("timestamp", "")),
+            "app_name": _sanitize_csv_cell(r.get("app_name", "")),
+            "window_title": _sanitize_csv_cell(r.get("window_title", "")),
+            "category": _sanitize_csv_cell(r.get("category", "")),
+            "summary": _sanitize_csv_cell(r.get("summary", "")),
         })
     return output.getvalue()
 
@@ -814,7 +922,10 @@ def export_app_usage_csv(start_date: str, end_date: str) -> str:
     writer = csv.DictWriter(output, fieldnames=["app_name", "duration_min"])
     writer.writeheader()
     for r in rows:
-        writer.writerow(r)
+        writer.writerow({
+            "app_name": _sanitize_csv_cell(r.get("app_name", "")),
+            "duration_min": _sanitize_csv_cell(r.get("duration_min", "")),
+        })
     return output.getvalue()
 
 
@@ -935,19 +1046,23 @@ def get_known_apps() -> list[dict]:
 def insert_pomodoro_session(start_time, end_time, duration_min, task="", category="开发", status="completed", interrupted_count=0, source="manual"):
     _flush_pending_commits()
     with get_conn() as conn:
-        conn.execute(
+        cursor = conn.execute(
             "INSERT INTO pomodoro_sessions (start_time, end_time, duration_min, task, category, status, interrupted_count, source) VALUES (?,?,?,?,?,?,?,?)",
             (start_time, end_time, duration_min, task, category, status, interrupted_count, source)
         )
         conn.commit()
-        cur = conn.execute("SELECT last_insert_rowid()")
-        return cur.fetchone()[0]
+        return cursor.lastrowid
 
 def update_pomodoro_session(session_id, **kwargs):
+    # 白名单校验：防止通过 kwargs 注入非法列名
+    safe = {k: v for k, v in kwargs.items() if k in _ALLOWED_POMODORO_FIELDS}
+    if not safe:
+        logger.warning(f"update_pomodoro_session: 无合法字段可更新, kwargs={list(kwargs.keys())}")
+        return False
     _flush_pending_commits()
     with get_conn() as conn:
-        sets = ", ".join([f"{k}=?" for k in kwargs])
-        vals = list(kwargs.values()) + [session_id]
+        sets = ", ".join([f"{k}=?" for k in safe])
+        vals = list(safe.values()) + [session_id]
         conn.execute(f"UPDATE pomodoro_sessions SET {sets} WHERE id=?", vals)
         conn.commit()
         return True
@@ -990,10 +1105,11 @@ def get_pomodoro_streak():
         dates = [r["d"] for r in rows]
         today = date.today().isoformat()
         yesterday = (date.today() - timedelta(days=1)).isoformat()
-        if today not in dates and yesterday not in dates:
+        # 如果今天没完成，从昨天开始数
+        check_date = today if today in dates else yesterday
+        if check_date not in dates:
             return 0
         streak = 0
-        check_date = today if today in dates else yesterday
         while check_date in dates:
             streak += 1
             check_date = (datetime.strptime(check_date, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -1003,27 +1119,38 @@ def get_pomodoro_today_count():
     _flush_pending_commits()
     with get_conn() as conn:
         today = date.today().isoformat()
-        row = conn.execute("SELECT COUNT(*) as cnt, COALESCE(SUM(duration_min),0) as total_min FROM pomodoro_sessions WHERE status='completed' AND date(start_time)=?", (today,)).fetchone()
+        # 跨午夜修复：番茄钟可能从昨晚开始到今早结束，仅按 start_time 过滤会漏掉这些
+        row = conn.execute(
+            "SELECT COUNT(*) as cnt, COALESCE(SUM(duration_min),0) as total_min "
+            "FROM pomodoro_sessions "
+            "WHERE status='completed' AND (date(start_time)=? OR date(end_time)=?)",
+            (today, today)
+        ).fetchone()
         return {"count": row["cnt"], "total_min": row["total_min"]}
 
 # ── 待办清单 ──
+_ALLOWED_TODO_FIELDS = {"title", "category", "mode", "target_min", "repeat_type", "repeat_days",
+                        "due_date", "priority", "status", "completed_at", "task_level",
+                        "parent_id", "assigned_date", "week_start", "month_key", "color", "progress_min", "pomodoro_count"}
+
+# 番茄钟允许更新的字段白名单（防 SQL 注入：列名不能参数化，必须白名单校验）
+_ALLOWED_POMODORO_FIELDS = {"status", "end_time", "duration_min", "interrupted_count", "task", "category", "todo_id"}
+
 def insert_todo(title, category="开发", mode="timer", target_min=25, repeat_type="none", repeat_days="", due_date=None, priority=2,
-                task_level="day", parent_id=None, assigned_date=None, week_start=None, month_key=None):
+                task_level="day", parent_id=None, assigned_date=None, week_start=None, month_key=None, color=None):
     _flush_pending_commits()
     with get_conn() as conn:
         max_order = conn.execute("SELECT COALESCE(MAX(sort_order),0) FROM todos").fetchone()[0]
-        # 修复：原 SQL 9 列只有 8 个 ? 占位符，补齐为 9 个
-        # 扩展：支持 task_level/parent_id/assigned_date/week_start/month_key
-        conn.execute(
+        # 扩展：支持 task_level/parent_id/assigned_date/week_start/month_key/color
+        cursor = conn.execute(
             "INSERT INTO todos (title, category, mode, target_min, repeat_type, repeat_days, due_date, priority, sort_order, "
-            "task_level, parent_id, assigned_date, week_start, month_key) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "task_level, parent_id, assigned_date, week_start, month_key, color) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (title, category, mode, target_min, repeat_type, repeat_days, due_date, priority, max_order+1,
-             task_level, parent_id, assigned_date, week_start, month_key)
+             task_level, parent_id, assigned_date, week_start, month_key, color)
         )
         conn.commit()
-        cur = conn.execute("SELECT last_insert_rowid()")
-        return cur.fetchone()[0]
+        return cursor.lastrowid
 
 def get_todos(status_filter=None, level=None, week_start=None, assigned_date=None, parent_id=None):
     _flush_pending_commits()
@@ -1050,11 +1177,15 @@ def get_todos(status_filter=None, level=None, week_start=None, assigned_date=Non
         return [dict(r) for r in rows]
 
 def update_todo(todo_id, **kwargs):
+    # 白名单校验：防止通过 kwargs 注入非法列名（id 不能被外部更新）
+    safe = {k: v for k, v in kwargs.items() if k in _ALLOWED_TODO_FIELDS}
+    if not safe:
+        logger.warning(f"update_todo: 无合法字段可更新, kwargs={list(kwargs.keys())}")
+        return False
     _flush_pending_commits()
     with get_conn() as conn:
-        sets = ", ".join([f"{k}=?" for k in kwargs if k != "id"])
-        vals = [v for k, v in kwargs.items() if k != "id"]
-        vals.append(todo_id)
+        sets = ", ".join([f"{k}=?" for k in safe])
+        vals = list(safe.values()) + [todo_id]
         conn.execute(f"UPDATE todos SET {sets}, updated_at=datetime('now','localtime') WHERE id=?", vals)
         conn.commit()
         return True
@@ -1067,18 +1198,26 @@ def delete_todo(todo_id):
         return True
 
 def update_todo_progress(todo_id, minutes):
+    # 原子更新：避免 read-modify-write 在并发场景下丢失更新
     _flush_pending_commits()
     with get_conn() as conn:
-        row = conn.execute("SELECT progress_min, pomodoro_count, target_min, mode FROM todos WHERE id=?", (todo_id,)).fetchone()
-        if not row:
+        # 先检查任务是否存在
+        exists = conn.execute("SELECT 1 FROM todos WHERE id=?", (todo_id,)).fetchone()
+        if not exists:
             return False
-        new_progress = row["progress_min"] + minutes
-        new_count = row["pomodoro_count"] + 1
-        # 如果是 goal 模式且达到目标，自动标记完成
-        if row["mode"] == "goal" and new_progress >= row["target_min"]:
-            conn.execute("UPDATE todos SET progress_min=?, pomodoro_count=?, status='completed', completed_at=datetime('now','localtime'), updated_at=datetime('now','localtime') WHERE id=?", (new_progress, new_count, todo_id))
-        else:
-            conn.execute("UPDATE todos SET progress_min=?, pomodoro_count=?, updated_at=datetime('now','localtime') WHERE id=?", (new_progress, new_count, todo_id))
+        # 直接原子加，避免读取后再写入造成竞态
+        conn.execute(
+            "UPDATE todos SET progress_min = progress_min + ?, pomodoro_count = pomodoro_count + 1, "
+            "updated_at=datetime('now','localtime') WHERE id=?",
+            (minutes, todo_id)
+        )
+        # 然后检查是否需要自动完成
+        row = conn.execute("SELECT progress_min, target_min, mode FROM todos WHERE id=?", (todo_id,)).fetchone()
+        if row and row["mode"] == "goal" and row["progress_min"] >= row["target_min"]:
+            conn.execute(
+                "UPDATE todos SET status='completed', completed_at=datetime('now','localtime') WHERE id=?",
+                (todo_id,)
+            )
         conn.commit()
         return True
 
@@ -1162,10 +1301,9 @@ def check_and_unlock_achievements():
 def insert_countdown(title, target_date, color="#7B68EE"):
     _flush_pending_commits()
     with get_conn() as conn:
-        conn.execute("INSERT INTO countdowns (title, target_date, color) VALUES (?,?,?)", (title, target_date, color))
+        cursor = conn.execute("INSERT INTO countdowns (title, target_date, color) VALUES (?,?,?)", (title, target_date, color))
         conn.commit()
-        cur = conn.execute("SELECT last_insert_rowid()")
-        return cur.fetchone()[0]
+        return cursor.lastrowid
 
 def get_countdowns():
     _flush_pending_commits()
@@ -1184,10 +1322,9 @@ def delete_countdown(cid):
 def insert_chat(role, content):
     _flush_pending_commits()
     with get_conn() as conn:
-        conn.execute("INSERT INTO chat_history (role, content) VALUES (?,?)", (role, content))
+        cursor = conn.execute("INSERT INTO chat_history (role, content) VALUES (?,?)", (role, content))
         conn.commit()
-        cur = conn.execute("SELECT last_insert_rowid()")
-        return cur.fetchone()[0]
+        return cursor.lastrowid
 
 def get_chat_history(limit=50):
     _flush_pending_commits()
@@ -1207,10 +1344,9 @@ def insert_habit(name, target_count=1, period="daily", color="#7B68EE"):
     _flush_pending_commits()
     with get_conn() as conn:
         max_order = conn.execute("SELECT COALESCE(MAX(sort_order),0) FROM habits").fetchone()[0]
-        conn.execute("INSERT INTO habits (name, target_count, period, color, sort_order) VALUES (?,?,?,?,?)", (name, target_count, period, color, max_order+1))
+        cursor = conn.execute("INSERT INTO habits (name, target_count, period, color, sort_order) VALUES (?,?,?,?,?)", (name, target_count, period, color, max_order+1))
         conn.commit()
-        cur = conn.execute("SELECT last_insert_rowid()")
-        return cur.fetchone()[0]
+        return cursor.lastrowid
 
 def get_habits():
     _flush_pending_commits()
@@ -1219,15 +1355,18 @@ def get_habits():
         return [dict(r) for r in rows]
 
 def log_habit(habit_id, log_date=None, count=1):
+    # UPSERT：依赖 V21 创建的唯一索引 idx_habit_logs_unique(habit_id, log_date)
     _flush_pending_commits()
     if log_date is None:
         log_date = date.today().isoformat()
     with get_conn() as conn:
-        existing = conn.execute("SELECT id, count FROM habit_logs WHERE habit_id=? AND log_date=?", (habit_id, log_date)).fetchone()
-        if existing:
-            conn.execute("UPDATE habit_logs SET count=? WHERE id=?", (existing["count"] + count, existing["id"]))
-        else:
-            conn.execute("INSERT INTO habit_logs (habit_id, log_date, count) VALUES (?,?,?)", (habit_id, log_date, count))
+        conn.execute(
+            """
+            INSERT INTO habit_logs (habit_id, log_date, count) VALUES (?, ?, ?)
+            ON CONFLICT(habit_id, log_date) DO UPDATE SET count = count + ?
+            """,
+            (habit_id, log_date, count, count)
+        )
         conn.commit()
         return True
 

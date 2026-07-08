@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Save, Calendar, Sparkles } from 'lucide-react'
 import { getDiary, saveDiary, getDiaries, type Diary as DiaryType } from '../api/client'
 
@@ -31,6 +31,8 @@ export default function Diary() {
   const [saving, setSaving] = useState(false)
   const [savedFlash, setSavedFlash] = useState(false)
   const [diaryDates, setDiaryDates] = useState<string[]>([])
+  // 用于在组件卸载时清理 savedFlash 的 setTimeout
+  const flashTimerRef = useRef<number | undefined>(undefined)
 
   const load = useCallback(async () => {
     try {
@@ -55,6 +57,11 @@ export default function Diary() {
   useEffect(() => { load() }, [load])
   useEffect(() => { loadDates() }, [loadDates])
 
+  // 组件卸载时清理 flash 定时器
+  useEffect(() => {
+    return () => { if (flashTimerRef.current) clearTimeout(flashTimerRef.current) }
+  }, [])
+
   const handleSave = async () => {
     setSaving(true)
     try {
@@ -62,7 +69,8 @@ export default function Diary() {
         diary_date: currentDate, mood, weather, content, tags, highlights, gratitude,
       })
       setSavedFlash(true)
-      setTimeout(() => setSavedFlash(false), 2000)
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
+      flashTimerRef.current = window.setTimeout(() => setSavedFlash(false), 2000)
       loadDates()
     } catch {}
     setSaving(false)

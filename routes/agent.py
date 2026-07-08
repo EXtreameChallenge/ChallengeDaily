@@ -11,8 +11,9 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint('agent', __name__)
 
-# ── 首页 AI 洞察缓存 ──
-_overview_cache = {"text": "", "structured": None, "timestamp": 0.0}
+# ── 首页 AI 洞察缓存（按日期隔离，避免跨天数据被错误复用）──
+# 缓存 key 为 (target_date,)，value 为 {"text","structured","timestamp"}
+_overview_cache: dict[tuple, dict] = {}
 _OVERVIEW_CACHE_TTL = 300  # 5 分钟缓存
 
 
@@ -134,14 +135,21 @@ def _parse_overview_json(raw: str) -> dict | None:
 def overview_summary():
     """基于今日实际活动数据，生成首页 AI 洞察总结（5-8 句朋友式小作文）"""
     import time as _time
+    from datetime import date as _date
     now = _time.time()
-    if _overview_cache["text"] and (now - _overview_cache["timestamp"]) < _OVERVIEW_CACHE_TTL:
-        if _overview_cache.get("structured"):
+    target_date = request.args.get("date", _date.today().isoformat())
+    # 缓存按日期隔离：key 为 (target_date,)，避免跨天数据被错误复用
+    cache_key = (target_date,)
+    cached = _overview_cache.get(cache_key)
+    force_refresh = request.args.get("refresh", "") == "1"
+    if (not force_refresh and cached and cached.get("text")
+            and (now - cached.get("timestamp", 0.0)) < _OVERVIEW_CACHE_TTL):
+        if cached.get("structured"):
             return jsonify({
-                "summary": _overview_cache["structured"].get("headline", ""),
-                "structured": _overview_cache["structured"],
+                "summary": cached["structured"].get("headline", ""),
+                "structured": cached["structured"],
             })
-        return jsonify({"summary": _overview_cache["text"]})
+        return jsonify({"summary": cached["text"]})
 
     if not config.AI_API_KEY:
         return jsonify({"summary": ""})
@@ -156,29 +164,93 @@ def overview_summary():
 
     try:
         from db import get_activities, get_daily_summary, get_app_usage, _flush_pending_commits
-        from datetime import date as _date
-        target_date = request.args.get("date", _date.today().isoformat())
+        from datetime import datetime as _datetime, time as _time
         _flush_pending_commits()
         activities = get_activities(target_date, target_date)
         if not activities:
             return jsonify({"summary": ""})
 
+        # ── 时间进度感知 ──
+        now = _datetime.now()
+        current_hour = now.hour
+        current_minute = now.minute
+        day_progress_pct = round((current_hour * 60 + current_minute) / (24 * 60) * 100)
+
+        # 判断当前时段（用户自定义 7 段划分）
+        if 6 <= current_hour < 8:
+            time_period = "早晨"
+            is_early = True
+            time_context = f"现在是{time_period}{current_hour:02d}:{current_minute:02d}，一天才刚开始{day_progress_pct}%，大部分工作时间还在后面。"
+        elif 8 <= current_hour < 11:
+            time_period = "上午"
+            is_early = True
+            time_context = f"现在是{time_period}{current_hour:02d}:{current_minute:02d}，一天刚过{day_progress_pct}%，才刚开始进入工作状态。"
+        elif 11 <= current_hour < 14:
+            time_period = "中午"
+            is_early = current_hour < 12
+            time_context = f"现在是{time_period}{current_hour:02d}:{current_minute:02d}，一天过了{day_progress_pct}%，到午休时间了。"
+        elif 14 <= current_hour < 19:
+            time_period = "下午"
+            is_early = False
+            time_context = f"现在是{time_period}{current_hour:02d}:{current_minute:02d}，一天过了{day_progress_pct}%，正是工作黄金时段。"
+        elif 19 <= current_hour < 22:
+            time_period = "晚间"
+            is_early = False
+            time_context = f"现在是{time_period}{current_hour:02d}:{current_minute:02d}，一天过了{day_progress_pct}%，该收尾或者继续冲刺了。"
+        elif 22 <= current_hour < 24:
+            time_period = "夜间"
+            is_early = False
+            time_context = f"现在是{time_period}{current_hour:02d}:{current_minute:02d}，一天快结束了，可以做个总结了。"
+        else:  # 00:00-06:00
+            time_period = "凌晨"
+            is_early = True
+            time_context = f"现在是{time_period}{current_hour:02d}:{current_minute:02d}，属于前一天的夜间时段，不要评判效率。"
+
+        # ── 凌晨数据处理（00:00-06:00 的活动属于前一天夜间，不算入"今天刚开始"的数据）──
+        # 如果当前时间 >= 06:00，标记凌晨数据为熬夜时段，不以此评判今天效率
+        has_overnight_data = False
+        if current_hour >= 6:
+            morning_cutoff = f"{target_date} 06:00:00"
+            original_count = len(activities)
+            overnight_acts = [a for a in activities if a.get("timestamp", "") < morning_cutoff]
+            daytime_acts = [a for a in activities if a.get("timestamp", "") >= morning_cutoff]
+            has_overnight_data = len(overnight_acts) > 0
+            logger.info(f"凌晨00:00-06:00数据：{len(overnight_acts)}条，白天数据：{len(daytime_acts)}条")
+            # 如果白天数据足够（>=5条或总时长>=10分钟），只用白天数据；否则保留全部但标注
+            daytime_total_min = round(sum(a.get("interval_sec", 60) for a in daytime_acts) / 60)
+            if len(daytime_acts) >= 5 or daytime_total_min >= 10:
+                activities = daytime_acts
+            else:
+                # 白天数据太少，保留全部，但在prompt里说明凌晨是前一天熬夜
+                has_overnight_data = True
+            if not activities:
+                return jsonify({"summary": ""})
+
         # 取最近 15 条有 ai_detail 的活动
         detailed = [a for a in activities if a.get("ai_detail")][:15]
-        summary_data = get_daily_summary(target_date, target_date)
-        app_usage = get_app_usage(target_date, target_date)
 
         # 构建简洁的数据上下文
         from report import _compute_attention_index, _analyze_work_patterns
+        from collections import defaultdict
         acts_sorted = sorted(activities, key=lambda a: a.get("timestamp", ""))
         attention = _compute_attention_index(activities)
         patterns = _analyze_work_patterns(activities)
 
-        cats = summary_data.get("categories", {}) if summary_data else {}
+        # ── 基于过滤后的 activities 重新计算分类和应用统计（保证数据一致性）──
+        cats = defaultdict(int)
+        app_durations = defaultdict(float)
+        for a in activities:
+            cat = a.get("category", "其他")
+            cats[cat] += 1
+            app_name = a.get("app_name", "")
+            if app_name:
+                app_durations[app_name] += a.get("interval_sec", 60) / 60
+
+        cats = dict(cats)
         top_cats = sorted(cats.items(), key=lambda x: x[1], reverse=True)[:4]
         cat_summary = "、".join(f"{k}{v}条" for k, v in top_cats) if top_cats else "无"
 
-        top_apps = [(a["app_name"], a["duration_min"]) for a in (app_usage or [])][:5]
+        top_apps = sorted(app_durations.items(), key=lambda x: x[1], reverse=True)[:5]
         from app_tracker import get_display_name
         app_summary = "、".join(f"{get_display_name(n)}{round(d)}分钟" for n, d in top_apps) if top_apps else "无"
 
@@ -208,10 +280,9 @@ def overview_summary():
         top_app_min = round(top_app[1])
         top_app_pct = round(top_app[1] / total_min * 100) if total_min else 0
         dev_pct = round(cats.get("开发", 0) / sum(cats.values()) * 100) if cats else 0
-        app_count = len(app_usage) if app_usage else 0
+        app_count = len(app_durations)
 
         # 每小时分布，找峰值时段
-        from collections import defaultdict
         hour_minutes = defaultdict(int)
         for a in activities:
             ts = a.get("timestamp", "")
@@ -224,69 +295,86 @@ def overview_summary():
         peak_hour = max(hour_minutes.items(), key=lambda x: x[1])[0] if hour_minutes else None
         peak_hour_text = f"{peak_hour:02d}:00-{peak_hour + 1:02d}:00" if peak_hour is not None else "暂无"
 
-        # 昨天同口径数据，用于对比
-        yesterday_total_text = "暂无"
-        try:
-            from datetime import timedelta
-            yd = (_date.fromisoformat(target_date) - timedelta(days=1)).isoformat()
-            yd_summary = get_daily_summary(yd, yd)
-            if yd_summary:
-                yd_acts = get_activities(yd, yd)
-                yd_total_min = round(sum(a.get("interval_sec", 60) for a in yd_acts) / 60)
-                yesterday_total_text = f"{round(yd_total_min / 60, 1)}小时（{yd_total_min}分钟）"
-        except Exception:
-            pass
+        # ── 早期时段特殊语气规则 ──
+        early_time_rules = ""
+        writing_rule_3 = ""
+        overnight_note = ""
+        if is_early:
+            early_time_rules = (
+                f"\n【⚠️ 重要：现在才{time_period}，一天才刚开始！】\n"
+                f"- {time_context}\n"
+                f'- 绝对禁止说"效率低""效率差""有点散""没进入状态"这类评判全天效率的话！\n'
+                f'- headline 必须是鼓励/早安/刚开始的语气，比如"🌱 早上好呀，新的一天开始啦""☕ 刚开工，慢慢来""✨ 今天起步不错哦"。\n'
+                f'- story 开头必须提到"现在才{time_period}{current_hour:02d}点多""一天才刚开始"，不要把当前少量数据当成全天总结。\n'
+                f'- 可以说"已经工作了{total_min}分钟啦""开局不错""先活动活动"，不要吐槽时长短。\n'
+                f'- mood 优先选 warm 或 excited，绝对不要选 scattered 或 tired。\n'
+                f'- tags 要以 care 和 achievement 为主，比如"🧡 慢慢来不着急""🌿 开局不错"。\n'
+            )
+            writing_rule_3 = f"现在是{time_period}，不要做全天效率评判，不要说效率低、有点散，多鼓励，聊到目前为止的进度即可"
+        else:
+            writing_rule_3 = "数据多就多聊几句；如果总时长很短，可以说今天比较清闲、今天没咋干活，但要结合时间判断"
+
+        if has_overnight_data:
+            overnight_note = (
+                f'\n【⚠️ 注意：00:00-06:00有{len(overnight_acts)}条活动记录，属于前一天夜间熬夜/晚睡时段】\n'
+                f'- 不要把凌晨时段的工作算成"今天的工作效率"来评判！\n'
+                f'- 可以关心一句"昨晚熬到挺晚呀"或者"凌晨还在忙，注意休息"，但不要说"今天效率低"。\n'
+                f'- 今天的工作从06:00之后才算正式开始。\n'
+            )
 
         prompt = (
-            f"下面是你朋友今天（{target_date}）的工作数据，请你用\"你\"来跟TA聊天，像最好的朋友一样絮絮叨叨地复盘今天。\n"
-            f"【绝对禁止】\n"
-            f"- 不准叫\"宝贝/亲爱的/宝宝/好孩子/乖乖/小可爱/宝\"等任何肉麻或油腻称呼，统一用\"你\"。\n"
-            f"- 不准说空话、鸡汤、煽情、模板感句子（如\"你真的很棒\"\"又是充满希望的一天\"\"加油哦\"）。\n"
-            f"- 不准泛泛而谈，每个观察必须带上具体数据，但不要列清单。\n"
-            f"- 不准自相矛盾：碎片化指数高就不能说\"很专注\"；总时长短就不能说\"效率满满\"。\n"
-            f"\n"
-            f"【语气要求】\n"
-            f"- 活泼、可爱、温馨，像一个会吐槽也会关心你的朋友，自然一点，像微信聊天。\n"
-            f"- 可以带 emoji，但不要满屏都是；标签必须同时有文字和 emoji，emoji 只放 1 个且在文字最前面（如\"🍃有点散\"）。\n"
-            f"- 多用口语化表达，\"啦/呢/呀/吧/嘛\"都可以，不要像在写年终总结。\n"
-            f"- 温馨不等于肉麻：可以关心累不累、提醒喝水，但别说教、别油腻。\n"
-            f"\n"
-            f"【输出格式】必须且只输出下面的 JSON（注意使用英文逗号和英文冒号）：\n"
-            f"{{\n"
-            f"  \"headline\": \"一句朋友式的总结，20字以内，必须带1个emoji\",\n"
-            f"  \"mood\": \"proud|tired|focused|balanced|scattered|warm|excited\",\n"
-            f"  \"story\": \"8-12 句完整的话，像微信聊天一样絮絮叨叨，把小作文写够，深度结合所有数据\",\n"
-            f"  \"tags\": [\n"
-            f"    {{\"type\": \"mood|care|achievement|reminder\", \"text\": \"🍃带1个emoji的可爱标签\"}}\n"
-            f"  ],\n"
-            f"  \"tips\": [\"1 条轻松的小建议，像朋友随口一提，不要说教\"]\n"
-            f"}}\n"
-            f"\n"
-            f"mood 只能选一个：proud（成就感）、tired（累了）、focused（专注）、balanced（平衡）、scattered（有点散）、warm（温暖）、excited（兴奋）。\n"
-            f"tags 2-4 个即可，必须覆盖至少两种 type（不要全是 mood）。type 含义：mood 心情（粉紫）、care 关怀（暖橙）、achievement 成就（草绿）、reminder 提醒（浅蓝）。\n"
-            f"每个标签的 emoji 要和类型匹配，不要用同一个 emoji 敷衍：mood 用心情类 emoji（如 🌸/😴/🎯），care 用关怀类 emoji（如 🧡/🍵），achievement 用成就类 emoji（如 🌿/🌟），reminder 用提醒类 emoji（如 💡/⏰）。\n"
-            f"\n"
-            f"【小作文写作要求】\n"
-            f"1. 必须覆盖下面全部数据点，并自然嵌入句子：总时长、最早/最晚工作、峰值时段、使用应用数量、主力应用、分类占比、开发占比、专注效率、碎片化指数、深度工作占比、平均会话时长、与昨天对比。\n"
-            f"2. 句子之间要有衔接，像朋友在连续说话，不要变成\"1. 2. 3.\"列表式总结。\n"
-            f"3. 数据多就多聊几句；如果总时长很短，直接说\"今天比较清闲\"\"今天没咋干活\"\"是不是偷偷摸鱼了\"，不要硬夸\"效率满满\"\"超棒\"。\n"
-            f"4. 可以有一点小吐槽或小感叹，但要基于数据，不要凭空想象。只根据下方提供的活动详情描述，不要编造未出现的应用或行为。\n"
-            f"5. 把数字、百分比、时长用口语化方式说出来，例如\"{total_h}小时\"\"{top_app_pct}%\"\"{peak_hour_text}\"，让读者一眼能看到重点。\n"
-            f"6. 【个性化】如果系统提示中包含了用户画像（角色、工作风格、习惯、应用用途说明、自定义规则），你必须在 story 中自然地引用这些信息。例如：用户是夜型选手，当数据符合夜型特征时可以说\"果然是你的高峰时段\"；用户自定义了应用用途，可以用用户描述的用途而非应用名本身。\n"
-            f"\n"
-            f"【今日数据】\n"
-            f"总时长：{total_h}小时（{total_min}分钟），昨天同口径：{yesterday_total_text}\n"
-            f"最早开始：{first_time}，最晚记录：{last_time}\n"
-            f"峰值时段：{peak_hour_text}\n"
-            f"今天共用到 {app_count} 个应用\n"
-            f"主力应用：{top_app_name} {top_app_min}分钟（占今天{top_app_pct}%）\n"
-            f"分类分布：{cat_summary}\n"
-            f"主要分类：{top_cat}（占比{top_cat_pct}%），开发类占比{dev_pct}%\n"
-            f"工具使用：{app_summary}\n"
-            f"注意力碎片化：{attention['fragmentation_index']}/100，专注效率：{attention['focus_efficiency']}/100\n"
-            f"深度工作占比：{attention['deep_work_ratio']}%，平均会话：{attention['avg_session_min']}分钟\n"
-            f"{focus_text}\n"
-            f"近期活动详情：\n{detail_text}"
+            f'下面是你朋友今天（{target_date}）到目前为止的工作数据，请你用"你"来跟TA聊天，像最好的朋友一样。\n'
+            f'{early_time_rules}\n'
+            f'{overnight_note}\n'
+            f'【绝对禁止】\n'
+            f'- 不准叫"宝贝/亲爱的/宝宝/好孩子/乖乖/小可爱/宝"等任何肉麻或油腻称呼，统一用"你"。\n'
+            f'- 不准说空话、鸡汤、煽情、模板感句子（如"你真的很棒""又是充满希望的一天""加油哦"）。\n'
+            f'- 不准泛泛而谈，每个观察必须带上具体数据，但不要列清单。\n'
+            f'- 不准自相矛盾：碎片化指数高就不能说"很专注"；总时长短且是晚上才能说"效率一般"。\n'
+            f'\n'
+            f'【语气要求】\n'
+            f'- 活泼、可爱、温馨，像一个会吐槽也会关心你的朋友，自然一点，像微信聊天。\n'
+            f'- 可以带 emoji，但不要满屏都是；标签必须同时有文字和 emoji，emoji 只放 1 个且在文字最前面（如"🍃有点散"）。\n'
+            f'- 多用口语化表达，"啦/呢/呀/吧/嘛"都可以，不要像在写年终总结。\n'
+            f'- 温馨不等于肉麻：可以关心累不累、提醒喝水，但别说教、别油腻。\n'
+            f'\n'
+            f'【输出格式】必须且只输出下面的 JSON（注意使用英文逗号和英文冒号）：\n'
+            f'{{\n'
+            f'  "headline": "一句朋友式的总结，20字以内，必须带1个emoji",\n'
+            f'  "mood": "proud|tired|focused|balanced|scattered|warm|excited",\n'
+            f'  "story": "8-12 句完整的话，像微信聊天一样絮絮叨叨，把小作文写够，深度结合所有数据",\n'
+            f'  "tags": [\n'
+            f'    {{"type": "mood|care|achievement|reminder", "text": "🍃带1个emoji的可爱标签"}}\n'
+            f'  ],\n'
+            f'  "tips": ["1 条轻松的小建议，像朋友随口一提，不要说教"]\n'
+            f'}}\n'
+            f'\n'
+            f'mood 只能选一个：proud（成就感）、tired（累了）、focused（专注）、balanced（平衡）、scattered（有点散）、warm（温暖）、excited（兴奋）。\n'
+            f'tags 2-4 个即可，必须覆盖至少两种 type（不要全是 mood）。type 含义：mood 心情（粉紫）、care 关怀（暖橙）、achievement 成就（草绿）、reminder 提醒（浅蓝）。\n'
+            f'每个标签的 emoji 要和类型匹配，不要用同一个 emoji 敷衍：mood 用心情类 emoji（如 🌸/😴/🎯），care 用关怀类 emoji（如 🧡/🍵），achievement 用成就类 emoji（如 🌿/🌟），reminder 用提醒类 emoji（如 💡/⏰）。\n'
+            f'\n'
+            f'【小作文写作要求】\n'
+            f'1. 必须覆盖下面全部数据点，并自然嵌入句子：总时长、最早/最晚工作、峰值时段、使用应用数量、主力应用、分类占比、开发占比、专注效率、碎片化指数、深度工作占比、平均会话时长。\n'
+            f'2. 句子之间要有衔接，像朋友在连续说话，不要变成"1. 2. 3."列表式总结。\n'
+            f'3. {writing_rule_3}\n'
+            f'4. 可以有一点小吐槽或小感叹，但要基于数据，不要凭空想象。只根据下方提供的活动详情描述，不要编造未出现的应用或行为。\n'
+            f'5. 把数字、百分比、时长用口语化方式说出来，例如"{total_h}小时""{top_app_pct}%""{peak_hour_text}"，让读者一眼能看到重点。\n'
+            f'6. 【个性化】如果系统提示中包含了用户画像（角色、工作风格、习惯、应用用途说明、自定义规则），你必须在 story 中自然地引用这些信息。\n'
+            f'\n'
+            f'【当前时间】{time_period} {current_hour:02d}:{current_minute:02d}，一天进度 {day_progress_pct}%\n'
+            f'【今日到目前为止的数据】\n'
+            f'总时长：{total_h}小时（{total_min}分钟）\n'
+            f'最早开始：{first_time}，最晚记录：{last_time}\n'
+            f'峰值时段：{peak_hour_text}\n'
+            f'共用到 {app_count} 个应用\n'
+            f'主力应用：{top_app_name} {top_app_min}分钟（占{top_app_pct}%）\n'
+            f'分类分布：{cat_summary}\n'
+            f'主要分类：{top_cat}（占比{top_cat_pct}%），开发类占比{dev_pct}%\n'
+            f'工具使用：{app_summary}\n'
+            f'注意力碎片化：{attention["fragmentation_index"]}/100，专注效率：{attention["focus_efficiency"]}/100\n'
+            f'深度工作占比：{attention["deep_work_ratio"]}%，平均会话：{attention["avg_session_min"]}分钟\n'
+            f'{focus_text}\n'
+            f'近期活动详情：\n{detail_text}'
         )
 
         # ── 注入用户画像 + 周级上下文（长记忆）到 system prompt ──
@@ -349,22 +437,23 @@ def overview_summary():
         # 尝试解析结构化 JSON
         structured = _parse_overview_json(text)
         if structured:
-            _overview_cache["text"] = text
-            _overview_cache["structured"] = structured
-            _overview_cache["timestamp"] = now
+            _overview_cache[cache_key] = {
+                "text": text, "structured": structured, "timestamp": now,
+            }
             return jsonify({
                 "summary": structured.get("headline", ""),
                 "structured": structured,
             })
 
         # fallback：把整段文字当作 summary
-        _overview_cache["text"] = text
-        _overview_cache["structured"] = None
-        _overview_cache["timestamp"] = now
+        _overview_cache[cache_key] = {
+            "text": text, "structured": None, "timestamp": now,
+        }
         return jsonify({"summary": text})
 
     except Exception as e:
-        logger.warning(f"overview-summary 生成失败: {e}")
+        # 异常日志脱敏：只记录异常类型，避免把可能含密钥/敏感上下文的错误串直接落盘
+        logger.warning(f"overview-summary 生成失败: {type(e).__name__}")
         try:
             from ai_client import _cb_record_failure
             _cb_record_failure()
@@ -404,7 +493,8 @@ def test_ai_connection():
         reply = response.choices[0].message.content.strip()
         return jsonify({"ok": True, "message": f"连接成功，模型回复：{reply}"})
     except Exception as e:
-        logger.error(f"AI connection test failed: {e}")
+        # 异常日志脱敏：仅记录异常类型，避免把可能含 api_key 的错误串直接落盘
+        logger.error(f"AI connection test failed: {type(e).__name__}")
         error_str = str(e)
         if "401" in error_str or "Unauthorized" in error_str:
             error_msg = "API Key 无效或已过期，请检查后重试"

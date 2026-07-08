@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, Calendar, Heart, Star } from 'lucide-react'
 import { getCountdowns, createCountdown, deleteCountdown, type Countdown } from '../api/client'
+import { useToast } from '../components/Toast'
 
 const COLORS = ['#7B68EE', '#F0C040', '#22c55e', '#3b82f6', '#ec4899', '#f97316']
 
@@ -16,13 +17,16 @@ export default function Countdowns() {
   const [countdowns, setCountdowns] = useState<Countdown[]>([])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ title: '', target_date: '', color: COLORS[0] })
+  const toast = useToast()
 
   const load = useCallback(async () => {
     try {
       const { countdowns: data } = await getCountdowns()
       setCountdowns(data)
-    } catch {}
-  }, [])
+    } catch (e) {
+      toast.error('加载失败，请重试')
+    }
+  }, [toast])
 
   useEffect(() => { load() }, [load])
 
@@ -33,12 +37,18 @@ export default function Countdowns() {
       setForm({ title: '', target_date: '', color: COLORS[0] })
       setShowForm(false)
       load()
-    } catch {}
+    } catch (e) {
+      toast.error('操作失败，请重试')
+    }
   }
 
   const handleDelete = async (id: number) => {
-    await deleteCountdown(id)
-    load()
+    try {
+      await deleteCountdown(id)
+      load()
+    } catch (e) {
+      toast.error('删除失败，请重试')
+    }
   }
 
   const sorted = [...countdowns].sort((a, b) => daysUntil(a.target_date) - daysUntil(b.target_date))

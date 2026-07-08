@@ -222,7 +222,17 @@ export default function Report() {
             prose-img:rounded-lg prose-img:shadow-md
             prose-a:text-cd-green prose-a:no-underline hover:prose-a:underline
           ">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              urlTransform={(url) => {
+                // 过滤 javascript: 等危险协议，防止 XSS
+                const trimmed = url.trim().toLowerCase()
+                if (trimmed.startsWith('javascript:') || trimmed.startsWith('data:') || trimmed.startsWith('vbscript:')) {
+                  return ''
+                }
+                return url
+              }}
+            >{content}</ReactMarkdown>
           </div>
         </div>
       )}

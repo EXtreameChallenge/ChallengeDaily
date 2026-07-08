@@ -31,8 +31,15 @@ def _format_duration(total_seconds: float) -> str:
     return f"{hours:.1f}h"
 
 
-def _estimate_focus_hours(activities: list) -> str:
-    """根据活动数量粗略估算专注时长"""
+def _estimate_focus_hours(activities: list, app_usage: list = None) -> str:
+    """根据 app_usage 表的实际 duration_sec 聚合专注时长；
+    若未传入 app_usage，回退到按活动条数估算。"""
+    if app_usage:
+        # app_usage 中 duration_min 已经是分钟，转回秒聚合
+        total_seconds = sum((au.get("duration_min", 0) or 0) * 60 for au in app_usage)
+        if total_seconds > 0:
+            return _format_duration(total_seconds)
+    # 回退：按活动条数 × 采样间隔估算
     if not activities:
         return "0s"
     total_seconds = len(activities) * config.SCREENSHOT_INTERVAL_SEC
@@ -319,7 +326,7 @@ def _template_standard(target_date: str, activities, summary_data, app_usage) ->
     total = summary_data["total"]
     first_ts = summary_data.get("first_ts", "")
     last_ts = summary_data.get("last_ts", "")
-    focus_hours = _estimate_focus_hours(activities)
+    focus_hours = _estimate_focus_hours(activities, app_usage)
     focus_sessions = _count_focus_sessions(activities)
 
     blocks = _group_into_blocks(activities)
@@ -385,7 +392,7 @@ def _template_simple(target_date: str, activities, summary_data, app_usage) -> s
         return f"# {target_date} 日报\n\n今天暂无工作记录。\n"
 
     total = summary_data["total"]
-    focus_hours = _estimate_focus_hours(activities)
+    focus_hours = _estimate_focus_hours(activities, app_usage)
     first_ts = summary_data.get("first_ts", "")
     last_ts = summary_data.get("last_ts", "")
 
@@ -439,7 +446,7 @@ def _template_technical(target_date: str, activities, summary_data, app_usage) -
         return f"# {target_date} 技术日报\n\n今天暂无工作记录。\n"
 
     total = summary_data["total"]
-    focus_hours = _estimate_focus_hours(activities)
+    focus_hours = _estimate_focus_hours(activities, app_usage)
     focus_sessions = _count_focus_sessions(activities)
     first_ts = summary_data.get("first_ts", "")
     last_ts = summary_data.get("last_ts", "")
@@ -522,7 +529,7 @@ def _template_okr(target_date: str, activities, summary_data, app_usage) -> str:
         return f"# {target_date} OKR 日报\n\n今天暂无工作记录。\n"
 
     total = summary_data["total"]
-    focus_hours = _estimate_focus_hours(activities)
+    focus_hours = _estimate_focus_hours(activities, app_usage)
     focus_sessions = _count_focus_sessions(activities)
     first_ts = summary_data.get("first_ts", "")
     last_ts = summary_data.get("last_ts", "")
@@ -1019,7 +1026,7 @@ def _build_rich_data_context(target_date, summary_data, app_usage, activities) -
     first_ts = summary_data.get("first_ts", "") if summary_data else ""
     last_ts = summary_data.get("last_ts", "") if summary_data else ""
     time_span = _natural_time_span(first_ts, last_ts) if first_ts and last_ts else ""
-    focus_hours = _estimate_focus_hours(activities)
+    focus_hours = _estimate_focus_hours(activities, app_usage)
     focus_sessions = _count_focus_sessions(activities)
 
     lines = []
@@ -1494,7 +1501,7 @@ def _build_ai_report_prompt(target_date: str, activities, summary_data, app_usag
     blocks = _group_into_blocks(activities)
     cat_narratives = _build_category_narrative(blocks)
 
-    focus_hours = _estimate_focus_hours(activities)
+    focus_hours = _estimate_focus_hours(activities, app_usage)
     focus_sessions = _count_focus_sessions(activities)
     total = summary_data.get("total", 0)
 
@@ -1631,12 +1638,12 @@ def generate_weekly_report(start_date: str = None, template: str = "standard") -
     """
     if not start_date:
         start_date = date.today().isoformat()
-    end_date = start_date
     from datetime import timedelta
     sd = datetime.strptime(start_date, "%Y-%m-%d").date()
-    week_start = (sd - timedelta(days=sd.weekday())).isoformat()  # 本周一
-    # 如果 start_date 是周末，week_start 取上周一
-    start_date = week_start
+    week_start = (sd - timedelta(days=sd.weekday()))  # 本周一
+    # 周报范围：本周一到本周日（共 7 天）
+    start_date = week_start.isoformat()
+    end_date = (week_start + timedelta(days=6)).isoformat()
 
     # 聚合多日数据
     activities = get_activities(start_date, end_date)
@@ -1658,7 +1665,7 @@ def generate_weekly_report(start_date: str = None, template: str = "standard") -
     # 按分类聚合
     blocks = _group_into_blocks(activities)
     cat_narratives = _build_category_narrative(blocks)
-    focus_hours = _estimate_focus_hours(activities)
+    focus_hours = _estimate_focus_hours(activities, app_usage)
     focus_sessions = _count_focus_sessions(activities)
     total_act_count = sum(summary_data["categories"].values()) or 1  # avoid ZeroDivision
 
@@ -1764,7 +1771,7 @@ def generate_monthly_report(year_month: str = None, template: str = "standard") 
 
     blocks = _group_into_blocks(activities)
     cat_narratives = _build_category_narrative(blocks)
-    focus_hours = _estimate_focus_hours(activities)
+    focus_hours = _estimate_focus_hours(activities, app_usage)
     focus_sessions = _count_focus_sessions(activities)
     total_act_count = sum(summary_data["categories"].values()) or 1  # avoid ZeroDivision
 

@@ -1,8 +1,9 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, globalShortcut, Notification } = require('electron')
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, globalShortcut, Notification, session, dialog, shell } = require('electron')
 const path = require('path')
 const { spawn, exec } = require('child_process')
 const http = require('http')
 const fs = require('fs')
+const crypto = require('crypto')
 
 // 把主进程 console 输出持久化到文件，方便排查无窗口启动问题
 const mainLogDir = path.join(__dirname, '..', '..', 'data', 'logs')
@@ -160,7 +161,12 @@ async function startBackend() {
     log('Main', `Starting backend: ${pythonExe} ${mainScript} cwd=${backendDir}`)
 
     // Clean PYTHONHOME/PYTHONPATH - they may point to broken paths with Chinese chars
-    const cleanEnv = { ...process.env }
+    // 安全：仅向子进程传递白名单环境变量，避免泄露主进程潜在的敏感信息
+    const allowedEnvKeys = ['PORT', 'PYTHONIOENCODING', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'SystemRoot', 'TEMP', 'PATH', 'ELECTRON_IS_DEV']
+    const cleanEnv = {}
+    for (const key of allowedEnvKeys) {
+      if (process.env[key]) cleanEnv[key] = process.env[key]
+    }
     delete cleanEnv.PYTHONHOME
     delete cleanEnv.PYTHONPATH
     cleanEnv.PORT = String(BACKEND_PORT)
@@ -247,6 +253,7 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
       // 后台节流：窗口不可见时降低定时器频率
       backgroundThrottling: true,
     },
@@ -279,6 +286,19 @@ function createMainWindow() {
     mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
   }
 
+  // 限制导航：仅允许本地开发服务器或 file:// 资源
+  mainWindow.webContents.on('will-navigate', (e, url) => {
+    if (!url.startsWith('http://localhost:5173') && !url.startsWith('file://')) {
+      e.preventDefault()
+    }
+  })
+
+  // 新窗口一律转交系统浏览器打开，禁止 Electron 内部创建新窗口
+  mainWindow.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
+
   mainWindow.on('close', (e) => {
     e.preventDefault()
     mainWindow.hide()
@@ -302,6 +322,7 @@ function createPetWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
       preload: path.join(__dirname, 'preload.cjs'),
     },
     show: false,
@@ -360,6 +381,16 @@ function quitApp() {
 }
 
 // ─── IPC 通信 ────────────────────────────────────
+// IPC sender 校验：仅允许主窗口来源调用敏感通道
+const isFromMainWindow = (sender) => {
+  try {
+    const url = sender.getURL()
+    return url.includes('localhost:5173') || url.includes('file://') || url.includes('index.html')
+  } catch (_) {
+    return false
+  }
+}
+
 function setupIPC() {
   // 窗口控制
   ipcMain.on('window-minimize', () => mainWindow?.minimize())
@@ -392,12 +423,28 @@ function setupIPC() {
   ipcMain.handle('get-backend-port', () => BACKEND_PORT)
 
   // API Token（sandbox 模式下 renderer 无法直接用 fs，必须通过主进程读取）
-  ipcMain.handle('get-api-token', () => readApiToken())
+  // 敏感通道：校验 sender 来源，仅允许主窗口
+  ipcMain.handle('get-api-token', (event) => {
+    if (!isFromMainWindow(event.sender)) return null
+    return readApiToken()
+  })
 
-  // 自动更新
-  ipcMain.handle('check-for-updates', () => { checkForUpdates(); return true })
-  ipcMain.handle('download-update', () => { downloadUpdate(); return true })
-  ipcMain.handle('install-update', () => { installUpdate(); return true })
+  // 自动更新（敏感通道：校验 sender 来源）
+  ipcMain.handle('check-for-updates', (event) => {
+    if (!isFromMainWindow(event.sender)) return false
+    checkForUpdates()
+    return true
+  })
+  ipcMain.handle('download-update', (event) => {
+    if (!isFromMainWindow(event.sender)) return false
+    downloadUpdate()
+    return true
+  })
+  ipcMain.handle('install-update', (event) => {
+    if (!isFromMainWindow(event.sender)) return false
+    installUpdate()
+    return true
+  })
   ipcMain.handle('get-app-version', () => app.getVersion())
 
   // 桌面通知
@@ -418,13 +465,16 @@ function setupIPC() {
   })
 
   // Windows 系统定位（通过 WinRT Geolocator API，精度 ~30-500m WiFi 定位）
-  ipcMain.handle('get-windows-location', async () => {
+  // 敏感通道：校验 sender 来源，仅允许主窗口
+  ipcMain.handle('get-windows-location', async (event) => {
+    if (!isFromMainWindow(event.sender)) return null
     return new Promise((resolve) => {
       // 写临时脚本文件避免 -Command 中 $ 变量被外层 shell 吞掉
+      // 使用随机文件名，避免被攻击者预创建同名文件进行劫持/竞争
       const os = require('os')
       const path = require('path')
       const fs = require('fs')
-      const tmpScript = path.join(os.tmpdir(), 'cd_geo.ps1')
+      const tmpScript = path.join(os.tmpdir(), 'cd_geo_' + crypto.randomBytes(8).toString('hex') + '.ps1')
       const scriptContent =
         'Add-Type -AssemblyName System.Runtime.WindowsRuntime\n' +
         '[Windows.Devices.Geolocation.Geolocator, Windows.Devices.Geolocation, ContentType = WindowsRuntime] | Out-Null\n' +
@@ -480,45 +530,53 @@ function setupIPC() {
 }
 
 // ─── 全局快捷键 ────────────────────────────────────
+// 安全调用后端：Token 走 HTTP header（X-API-Token），避免泄露到 URL query / 日志
+function backendGet(apiPath, cb) {
+  const options = {
+    hostname: '127.0.0.1',
+    port: BACKEND_PORT,
+    path: apiPath,
+    method: 'GET',
+    headers: { 'X-API-Token': readApiToken() },
+  }
+  const req = http.request(options, (res) => {
+    let body = ''
+    res.on('data', (d) => { body += d })
+    res.on('end', () => cb(null, body, res))
+  })
+  req.on('error', (err) => cb(err))
+  req.setTimeout(10000, () => { req.destroy() })
+  req.end()
+}
+
 function registerShortcuts() {
   // Ctrl+Shift+S — 手动截图
   const ret1 = globalShortcut.register('CommandOrControl+Shift+S', () => {
-    http.get(`http://127.0.0.1:${BACKEND_PORT}/api/capture?token=${readApiToken()}`, (res) => {
-      let body = ''
-      res.on('data', (d) => body += d)
-      res.on('end', () => {
-        sendToRenderer('collector-action', 'capture')
-      })
-    }).on('error', () => {})
+    backendGet('/api/capture', () => {
+      sendToRenderer('collector-action', 'capture')
+    })
   })
 
   // Ctrl+Shift+P — 暂停/恢复采集
   globalShortcut.register('CommandOrControl+Shift+P', () => {
-    http.get(`http://127.0.0.1:${BACKEND_PORT}/api/status?token=${readApiToken()}`, (res) => {
-      let body = ''
-      res.on('data', (d) => body += d)
-      res.on('end', () => {
-        try {
-          const status = JSON.parse(body)
-          const action = status.paused ? 'resume' : 'pause'
-          http.get(`http://127.0.0.1:${BACKEND_PORT}/api/collector/${action}?token=${readApiToken()}`, () => {
-            sendToRenderer('collector-action', action)
-          }).on('error', () => {})
-        } catch (_) {}
-      })
-    }).on('error', () => {})
+    backendGet('/api/status', (err, body) => {
+      if (err) return
+      try {
+        const status = JSON.parse(body)
+        const action = status.paused ? 'resume' : 'pause'
+        backendGet(`/api/collector/${action}`, () => {
+          sendToRenderer('collector-action', action)
+        })
+      } catch (_) {}
+    })
   })
 
   // Ctrl+Shift+R — 生成日报
   globalShortcut.register('CommandOrControl+Shift+R', () => {
-    http.get(`http://127.0.0.1:${BACKEND_PORT}/api/report/daily?token=${readApiToken()}`, (res) => {
-      let body = ''
-      res.on('data', (d) => body += d)
-      res.on('end', () => {
-        sendToRenderer('generate-report', 'daily')
-        mainWindow?.show()
-      })
-    }).on('error', () => {})
+    backendGet('/api/report/daily', () => {
+      sendToRenderer('generate-report', 'daily')
+      mainWindow?.show()
+    })
   })
 
   // Ctrl+Shift+H — 显示/隐藏主窗口
@@ -533,9 +591,10 @@ function registerShortcuts() {
 
   console.log('[Main] Global shortcuts registered')
 
-  // F12 to toggle DevTools (manual, not auto-open)
+  // F12 to toggle DevTools (manual, not auto-open) — 仅开发环境允许
   mainWindow?.webContents.on('before-input-event', (_event, input) => {
     if (input.key === 'F12') {
+      if (!isDev) return  // 生产环境禁用
       if (mainWindow.webContents.isDevToolsOpened()) {
         mainWindow.webContents.closeDevTools()
       } else {
@@ -543,6 +602,13 @@ function registerShortcuts() {
       }
     }
   })
+
+  // 生产环境：若 DevTools 被以其他方式打开，则强制关闭
+  if (!isDev && mainWindow) {
+    mainWindow.webContents.on('devtools-opened', () => {
+      mainWindow.webContents.closeDevTools()
+    })
+  }
 }
 
 function readApiToken() {
@@ -648,19 +714,51 @@ process.on('uncaughtException', (err) => {
 
 // ─── 崩溃监控 & Watchdog & 心跳检测 ──────────────────
 // 参考 Kubernetes liveness/readiness probe 模式：
-//   1. 进程崩溃：指数退避重启（3s → 5s → 10s → 20s → 30s），不放弃
-//   2. 心跳检测：每 30 秒探测 /api/health，连续 3 次失败则强制重启后端
-//   3. 重启次数上限：设为 999（实际不放弃），避免后端偶尔崩溃后永久无法恢复
+//   1. 进程崩溃：指数退避重启（3s → 5s → 10s → 20s → 30s）
+//   2. 心跳检测：每 60 秒探测 /api/health，连续 3 次失败则强制重启后端
+//   3. 重启次数上限：10 次，超过后停止自动重启并提示用户
 let _crashCount = 0
-const _CRASH_THRESHOLD = 999      // 不放弃，持续重试
+const _CRASH_THRESHOLD = 10       // 崩溃重启上限
 const _CRASH_WINDOW_SEC = 60      // 60秒内崩溃计数窗口
+
+// 全局定时器引用（在 before-quit 中清理，防止退出后定时器继续触发导致异常）
+let _healthInterval = null
+let _updateInterval = null
+
+// 重启互斥锁：避免心跳重启与崩溃重启同时进行导致重复 spawn
+let _restartMutex = false
+async function safeRestartBackend() {
+  if (_restartMutex) return false
+  _restartMutex = true
+  try {
+    stopBackend()
+    await new Promise(r => setTimeout(r, 3000))
+    await startBackend()
+    watchBackend()  // re-attach watcher
+    return true
+  } catch (e) {
+    safeLog(console.error, '[safeRestartBackend] failed:', e)
+    return false
+  } finally {
+    _restartMutex = false
+  }
+}
 
 function watchBackend() {
   if (!backendProcess) return
   backendProcess.on('exit', (code) => {
     if (code !== 0 && code !== null) {
       _crashCount++
-      safeLog(console.error, `[Watchdog] Backend crashed (code=${code}), crash count: ${_crashCount}`)
+      safeLog(console.error, `[Watchdog] Backend crashed (code=${code}), crash count: ${_crashCount}/${_CRASH_THRESHOLD}`)
+
+      // 超过崩溃上限：停止自动重启并提示用户
+      if (_crashCount >= _CRASH_THRESHOLD) {
+        safeLog(console.error, `[Watchdog] Crash threshold (${_CRASH_THRESHOLD}) reached, stopping auto-restart`)
+        try {
+          dialog.showErrorBox('后端服务异常', '后端服务多次崩溃，已停止自动重启。请检查日志或联系技术支持。')
+        } catch (_) {}
+        return
+      }
 
       // 指数退避重启：3s → 5s → 10s → 20s → 30s
       const delay = _crashCount <= 1 ? 3000
@@ -671,14 +769,11 @@ function watchBackend() {
       safeLog(console.log, `[Watchdog] Restarting backend in ${delay/1000}s (attempt ${_crashCount})...`)
 
       setTimeout(async () => {
-        try {
-          await startBackend()
-          watchBackend()  // re-attach watcher
+        const ok = await safeRestartBackend()
+        if (ok) {
           safeLog(console.log, '[Watchdog] Backend restarted successfully')
-        } catch (e) {
-          safeLog(console.error, '[Watchdog] Restart failed:', e)
-          // 递归重试
-          watchBackend()
+        } else {
+          safeLog(console.error, '[Watchdog] Restart skipped or failed')
         }
       }, delay)
     } else {
@@ -707,17 +802,11 @@ function startHealthCheck() {
         if (_healthFailCount >= _HEALTH_FAIL_THRESHOLD) {
           safeLog(console.error, '[HealthCheck] Backend unresponsive, forcing restart...')
           _healthFailCount = 0
-          // 强制杀掉后端进程并重启
-          stopBackend()
-          setTimeout(async () => {
-            try {
-              await startBackend()
-              watchBackend()
-              safeLog(console.log, '[HealthCheck] Backend restarted after health check failure')
-            } catch (e) {
-              safeLog(console.error, '[HealthCheck] Restart after health check failed:', e)
-            }
-          }, 3000)
+          // 通过互斥锁安全重启
+          safeRestartBackend().then((ok) => {
+            if (ok) safeLog(console.log, '[HealthCheck] Backend restarted after health check failure')
+            else safeLog(console.error, '[HealthCheck] Restart skipped or failed')
+          })
         }
       }
     } catch (e) {
@@ -728,7 +817,7 @@ function startHealthCheck() {
 
   // 延迟 10 秒后开始心跳检测（给后端启动时间）
   setTimeout(() => {
-    setInterval(checkHealth, _HEALTH_CHECK_INTERVAL_MS)
+    _healthInterval = setInterval(checkHealth, _HEALTH_CHECK_INTERVAL_MS)
   }, 10000)
 }
 
@@ -741,6 +830,12 @@ function _addNotification_dedup(title, body, type) {
 // ─── 应用生命周期 ────────────────────────────────────
 app.whenReady().then(async () => {
   console.log('[Main] app ready, starting backend...')
+
+  // 权限请求处理器：仅允许 notifications 与 geolocation，其他一律拒绝
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => {
+    const allowed = new Set(['notifications', 'geolocation'])
+    cb(allowed.has(permission))
+  })
   try {
     await startBackend()
     watchBackend()  // 启动崩溃监控
@@ -760,7 +855,7 @@ app.whenReady().then(async () => {
   // 启动后30秒检查更新（仅打包版）
   setTimeout(checkForUpdates, 30000)
   // 每8小时检查一次更新（降低频率，减少网络请求和 CPU 唤醒）
-  setInterval(checkForUpdates, 8 * 60 * 60 * 1000)
+  _updateInterval = setInterval(checkForUpdates, 8 * 60 * 60 * 1000)
 })
 
 app.on('window-all-closed', () => {
@@ -768,6 +863,9 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  // 清理定时器，防止退出后定时器继续触发导致异常
+  if (_healthInterval) clearInterval(_healthInterval)
+  if (_updateInterval) clearInterval(_updateInterval)
   stopBackend()
 })
 

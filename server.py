@@ -31,8 +31,9 @@ def add_cors_headers(response):
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-API-Token"
         response.headers["Access-Control-Max-Age"] = "86400"
     elif not origin:
-        # 非浏览器请求（如 Electron ipcRenderer），允许
-        response.headers["Access-Control-Allow-Origin"] = "*"
+        # 非浏览器请求（如 Electron ipcRenderer）：
+        # 不返回通配 *，避免反射型 CORS 漏洞；本地桌面应用鉴权依赖 X-API-Token
+        pass
     # 未知 origin 不设置 CORS 头，浏览器会自动拒绝跨域请求
     return response
 

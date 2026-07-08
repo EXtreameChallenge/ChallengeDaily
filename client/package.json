@@ -1,6 +1,6 @@
 {
   "name": "challenge-daily",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "ChallengeDaily Windows版 - AI智能工作日报助手",
   "type": "module",
   "main": "electron/main.cjs",
@@ -83,7 +83,11 @@
     "portable": {
       "artifactName": "ChallengeDaily-${version}-Portable.${ext}"
     },
-    "publish": null,
+    "publish": {
+      "provider": "github",
+      "owner": "ChallengeDaily",
+      "repo": "ChallengeDaily"
+    },
     "extraResources": [
       {
         "from": "../main.py",
@@ -140,10 +144,6 @@
       {
         "from": "../icon_extractor.py",
         "to": "backend/icon_extractor.py"
-      },
-      {
-        "from": "../.env",
-        "to": "backend/.env"
       },
       {
         "from": "../install_deps.py",
