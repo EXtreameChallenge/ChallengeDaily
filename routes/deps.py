@@ -52,7 +52,7 @@ def save_token():
 
 
 def check_token(req) -> bool:
-    token = req.headers.get("X-API-Token", "") or req.args.get("token", "")
+    token = req.headers.get("X-API-Token", "")
     return hmac.compare_digest(token, LOCAL_TOKEN)
 
 

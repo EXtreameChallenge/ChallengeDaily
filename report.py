@@ -633,7 +633,15 @@ import json as _json
 import urllib.request
 import urllib.error
 
-_weather_cache: dict = {}
+_weather_cache: OrderedDict = OrderedDict()
+
+def _weather_cache_set(key, value):
+    """带 LRU 驱逐的天气缓存写入（最多保留 7 天数据）"""
+    if key in _weather_cache:
+        _weather_cache.move_to_end(key)
+    _weather_cache[key] = value
+    while len(_weather_cache) > 7:
+        _weather_cache.popitem(last=False)
 _WEEKDAYS_DEEP = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 _CREATIVE_CATS = {"开发", "设计", "学习"}
 _FOCUS_CATS_DEEP = {"开发", "设计", "文档", "测试", "数据分析", "学习"}
@@ -725,7 +733,7 @@ def _get_weather_info(target_date: str) -> dict:
         logger.debug(f"天气获取失败: {e}")
     # 只缓存成功结果，避免网络瞬断导致当天天气永久为空
     if result:
-        _weather_cache[target_date] = result
+        _weather_cache_set(target_date, result)
     return result
 
 
@@ -1302,13 +1310,8 @@ def _template_deep(target_date: str, activities, summary_data, app_usage) -> str
             "- 引用数字要有出处：如说'专注效率 72 分'就必须是数据中给出的数字，不能自己编\n"
         )
 
-        from openai import OpenAI
-        import httpx
-        client = OpenAI(
-            api_key=config.AI_API_KEY,
-            base_url=config.AI_BASE_URL,
-            timeout=httpx.Timeout(180.0, connect=10.0),
-        )
+        from ai_client import _get_client
+        client = _get_client()
         response = client.chat.completions.create(
             model=config.AI_TEXT_MODEL,
             messages=[
@@ -1559,13 +1562,8 @@ def _template_ai(target_date: str, activities, summary_data, app_usage) -> str:
     prompt = _build_ai_report_prompt(target_date, activities, summary_data, app_usage)
 
     try:
-        from openai import OpenAI
-        import httpx
-        client = OpenAI(
-            api_key=config.AI_API_KEY,
-            base_url=config.AI_BASE_URL,
-            timeout=httpx.Timeout(60.0, connect=10.0),
-        )
+        from ai_client import _get_client
+        client = _get_client()
         response = client.chat.completions.create(
             model=config.AI_TEXT_MODEL,
             messages=[

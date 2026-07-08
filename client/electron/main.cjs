@@ -253,7 +253,7 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      sandbox: false,
       // 后台节流：窗口不可见时降低定时器频率
       backgroundThrottling: true,
     },
@@ -294,7 +294,7 @@ function createMainWindow() {
   })
 
   // 新窗口一律转交系统浏览器打开，禁止 Electron 内部创建新窗口
-  mainWindow.setWindowOpenHandler(({ url }) => {
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }
   })
@@ -322,7 +322,7 @@ function createPetWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      sandbox: false,
       preload: path.join(__dirname, 'preload.cjs'),
     },
     show: false,
@@ -387,7 +387,7 @@ const isFromMainWindow = (sender) => {
     const url = sender.getURL()
     return url.includes('localhost:5173') || url.includes('file://') || url.includes('index.html')
   } catch (_) {
-    return false
+    return false // 校验失败时默认拒绝，防止未授权渲染进程调用敏感通道
   }
 }
 
@@ -422,11 +422,17 @@ function setupIPC() {
   // 后端状态
   ipcMain.handle('get-backend-port', () => BACKEND_PORT)
 
-  // API Token（sandbox 模式下 renderer 无法直接用 fs，必须通过主进程读取）
-  // 敏感通道：校验 sender 来源，仅允许主窗口
-  ipcMain.handle('get-api-token', (event) => {
-    if (!isFromMainWindow(event.sender)) return null
-    return readApiToken()
+  // API Token
+  ipcMain.handle('get-api-token', (_event) => {
+    console.log('[IPC] get-api-token called')
+    try {
+      const token = readApiToken()
+      console.log('[IPC] get-api-token returning, length:', token.length)
+      return token
+    } catch (e) {
+      console.error('[IPC] get-api-token error:', e?.message || e, e?.stack || '')
+      return ''
+    }
   })
 
   // 自动更新（敏感通道：校验 sender 来源）

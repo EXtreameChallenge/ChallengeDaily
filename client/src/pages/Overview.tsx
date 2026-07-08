@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ResponsiveContainer, Tooltip,
@@ -128,6 +128,8 @@ export default function Overview() {
     }
   }, [])
 
+  const topAppsKey = useMemo(() => stats?.top_apps?.map((a) => a.app_name).join('|'), [stats?.top_apps])
+
   useEffect(() => {
     if (!stats?.top_apps?.length) return
     let cancelled = false
@@ -145,7 +147,7 @@ export default function Overview() {
       if (!cancelled) setIconUrls(map)
     })()
     return () => { cancelled = true }
-  }, [stats?.top_apps?.map((a) => a.app_name).join('|')])
+  }, [topAppsKey])
 
   if (loading) {
     return <div className="animate-pulse text-cd-text-tertiary text-base p-6">加载中...</div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getStatus, getSettings, updateSettings, testAiConnection, getExportActivitiesUrl, getExportAppUsageUrl, getBackupInfo, getBackupDownloadUrl, restoreBackup, getProfile, saveProfile, type CollectorStatus, type BackendSettings } from '../api/client'
+import { getStatus, getSettings, updateSettings, testAiConnection, downloadExportActivities, downloadExportAppUsage, getBackupInfo, downloadBackup, restoreBackup, getProfile, saveProfile, type CollectorStatus, type BackendSettings } from '../api/client'
 import { ToggleSwitch, useTimeout, useAsyncData, ApiErrorDisplay } from '../components/shared'
 import { useToast } from '../components/Toast'
 import { useTheme, ACCENT_PRESETS, FONT_PRESETS, RADIUS_PRESETS, SHADOW_PRESETS, OPACITY_PRESETS } from '../components/ThemeContext'
@@ -831,7 +831,7 @@ export default function Settings() {
 
         <div className="flex gap-3">
           <a
-            onClick={async (e) => { e.preventDefault(); window.open(await getExportActivitiesUrl(exportStart, exportEnd), '_blank') }}
+            onClick={async (e) => { e.preventDefault(); try { await downloadExportActivities(exportStart, exportEnd) } catch (err) { toast.error('导出失败') } }}
             href="#"
             download
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border cursor-pointer"
@@ -840,7 +840,7 @@ export default function Settings() {
             导出活动记录
           </a>
           <a
-            onClick={async (e) => { e.preventDefault(); window.open(await getExportAppUsageUrl(exportStart, exportEnd), '_blank') }}
+            onClick={async (e) => { e.preventDefault(); try { await downloadExportAppUsage(exportStart, exportEnd) } catch (err) { toast.error('导出失败') } }}
             href="#"
             download
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border cursor-pointer"
@@ -880,7 +880,7 @@ export default function Settings() {
 
         <div className="flex gap-3">
           <a
-            onClick={async (e) => { e.preventDefault(); window.open(await getBackupDownloadUrl(), '_blank') }}
+            onClick={async (e) => { e.preventDefault(); try { await downloadBackup() } catch (err) { toast.error('备份下载失败') } }}
             href="#"
             download
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border cursor-pointer"

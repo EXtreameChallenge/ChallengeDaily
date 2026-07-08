@@ -117,7 +117,10 @@ def get_circuit_breaker_status() -> dict:
 
 
 def _get_client() -> OpenAI:
-    """获取或创建单例 OpenAI 客户端（线程安全）"""
+    """获取或创建单例 OpenAI 客户端（线程安全）。
+    注意：timeout 设为 180s 以适配深度日报等长时间请求，
+    短请求不会因此变慢，timeout 只是上限。
+    """
     global _client_instance
     if _client_instance is not None:
         return _client_instance
@@ -128,7 +131,7 @@ def _get_client() -> OpenAI:
         _client_instance = OpenAI(
             api_key=config.AI_API_KEY,
             base_url=config.AI_BASE_URL,
-            timeout=httpx.Timeout(60.0, connect=10.0),
+            timeout=httpx.Timeout(180.0, connect=10.0),
         )
         return _client_instance
 

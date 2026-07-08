@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { getAppUsage, getTodayStats, getAppIconUrl, CATEGORY_COLORS, type AppUsage, type TodayStats } from '../api/client'
 import { CategoryFilter, formatDuration, useAsyncData, ApiErrorDisplay } from '../components/shared'
@@ -22,6 +22,8 @@ export default function AppRecords() {
   const apps = data?.apps || []
   const stats = data?.stats || null
 
+  const appsKey = useMemo(() => apps.map((a) => a.app_name_raw).join('|'), [apps])
+
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -36,7 +38,7 @@ export default function AppRecords() {
       if (!cancelled) setIconUrls(map)
     })()
     return () => { cancelled = true }
-  }, [apps.map((a) => a.app_name_raw).join('|')])
+  }, [appsKey])
 
   // 切换日期时折叠所有展开项
   useEffect(() => { setExpandedApp(null) }, [selectedDate])

@@ -95,17 +95,11 @@ def generate_daily_profile(target_date: str) -> dict | None:
         return _fallback_profile(activities, hourly_digest, cat_counts, app_time)
 
     try:
-        from ai_client import _cb_check, _cb_record_success, _cb_record_failure
+        from ai_client import _cb_check, _cb_record_success, _cb_record_failure, _get_client
         if not _cb_check():
             return _fallback_profile(activities, hourly_digest, cat_counts, app_time)
 
-        from openai import OpenAI
-        import httpx
-        client = OpenAI(
-            api_key=config.AI_API_KEY,
-            base_url=config.AI_BASE_URL,
-            timeout=httpx.Timeout(30.0, connect=5.0),
-        )
+        client = _get_client()
         response = client.chat.completions.create(
             model=config.AI_TEXT_MODEL,
             messages=[
@@ -229,7 +223,7 @@ def build_weekly_context(days: int = 7) -> str:
         try:
             patterns_list = json.loads(patterns) if isinstance(patterns, str) else patterns
             apps_list = json.loads(apps) if isinstance(apps, str) else apps
-        except:
+        except (json.JSONDecodeError, ValueError, TypeError):
             patterns_list, apps_list = [], []
         context_parts.append(f"[{d}] {summary}")
         if patterns_list:
@@ -359,21 +353,21 @@ def get_user_profile_context() -> str:
         habits = json.loads(profile.get("habits", "{}")) if isinstance(profile.get("habits"), str) else profile.get("habits", {})
         if habits:
             parts.append(f"习惯: {json.dumps(habits, ensure_ascii=False)}")
-    except:
+    except (json.JSONDecodeError, ValueError, TypeError):
         pass
 
     try:
         overrides = json.loads(profile.get("app_overrides", "{}")) if isinstance(profile.get("app_overrides"), str) else profile.get("app_overrides", {})
         if overrides:
             parts.append(f"应用用途说明: {json.dumps(overrides, ensure_ascii=False)}")
-    except:
+    except (json.JSONDecodeError, ValueError, TypeError):
         pass
 
     try:
         rules = json.loads(profile.get("custom_rules", "[]")) if isinstance(profile.get("custom_rules"), str) else profile.get("custom_rules", [])
         if rules:
             parts.append(f"自定义规则: {json.dumps(rules, ensure_ascii=False)}")
-    except:
+    except (json.JSONDecodeError, ValueError, TypeError):
         pass
 
     if profile.get("peak_hours"):
@@ -516,14 +510,12 @@ def delete_user_correction(correction_id: int):
 
 # ── 自动每日画像生成（凌晨触发） ──
 
-_auto_profile_running = False
+_auto_profile_lock = threading.Lock()
 
 def auto_generate_yesterday_profile():
     """生成昨天的日画像"""
-    global _auto_profile_running
-    if _auto_profile_running:
+    if not _auto_profile_lock.acquire(blocking=False):
         return
-    _auto_profile_running = True
     try:
         yesterday = (date.today() - timedelta(days=1)).isoformat()
         # 仅在尚未生成时才生成
@@ -537,7 +529,7 @@ def auto_generate_yesterday_profile():
     except Exception as e:
         logger.error(f"Auto profile generation failed: {e}")
     finally:
-        _auto_profile_running = False
+        _auto_profile_lock.release()
 
 
 def auto_generate_today_profile_if_needed():

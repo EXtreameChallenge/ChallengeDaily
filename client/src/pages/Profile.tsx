@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   getProfile,
   getDistilledProfile,
@@ -85,6 +85,7 @@ export default function Profile() {
   } = useAsyncData<DistilledProfile>(() => getDistilledProfile(), [])
 
   const commonSoftware = distilled?.common_software || []
+  const commonSoftwareKey = useMemo(() => commonSoftware.map(a => a.app_name).join('|'), [commonSoftware])
 
   useEffect(() => {
     let cancelled = false
@@ -100,7 +101,7 @@ export default function Profile() {
       if (!cancelled) setIconUrls(map)
     })()
     return () => { cancelled = true }
-  }, [commonSoftware.map(a => a.app_name).join('|')])
+  }, [commonSoftwareKey])
 
   const handleDeleteCorrection = useCallback(async (id: number) => {
     setDeletingIds(prev => new Set(prev).add(id))

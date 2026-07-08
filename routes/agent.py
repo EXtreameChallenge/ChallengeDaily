@@ -1,5 +1,6 @@
 import logging
 import re
+from collections import OrderedDict
 
 from flask import Blueprint, jsonify, request
 
@@ -9,11 +10,25 @@ import config
 
 logger = logging.getLogger(__name__)
 
+
+class _LRUCache(OrderedDict):
+    """简单 LRU 缓存，防止长期运行内存持续增长"""
+    def __init__(self, maxsize=64):
+        super().__init__()
+        self._maxsize = maxsize
+
+    def __setitem__(self, key, value):
+        if key in self:
+            self.move_to_end(key)
+        super().__setitem__(key, value)
+        while len(self) > self._maxsize:
+            self.popitem(last=False)
+
 bp = Blueprint('agent', __name__)
 
 # ── 首页 AI 洞察缓存（按日期隔离，避免跨天数据被错误复用）──
 # 缓存 key 为 (target_date,)，value 为 {"text","structured","timestamp"}
-_overview_cache: dict[tuple, dict] = {}
+_overview_cache: _LRUCache = _LRUCache(maxsize=16)
 _OVERVIEW_CACHE_TTL = 300  # 5 分钟缓存
 
 
@@ -409,13 +424,8 @@ def overview_summary():
         except Exception:
             pass
 
-        from openai import OpenAI
-        import httpx
-        client = OpenAI(
-            api_key=config.AI_API_KEY,
-            base_url=config.AI_BASE_URL,
-            timeout=httpx.Timeout(30.0, connect=5.0),
-        )
+        from ai_client import _get_client
+        client = _get_client()
         response = client.chat.completions.create(
             model=config.AI_TEXT_MODEL,
             messages=[

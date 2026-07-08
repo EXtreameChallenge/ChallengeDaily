@@ -670,26 +670,27 @@ def upsert_app_usage(app_name: str, window_title: str, start_time: str, end_time
     V9 起唯一键含 window_title，支持同应用不同窗口标题分别记录（内容维度）。
     """
     global _pending_commits
-    with get_conn() as conn:
-        fmt = "%Y-%m-%d %H:%M:%S"
-        try:
-            dt_start = datetime.strptime(start_time, fmt)
-            dt_end = datetime.strptime(end_time, fmt)
-            duration = max(0, int((dt_end - dt_start).total_seconds()))
-        except Exception:
-            duration = 0
+    with _write_lock:
+        with get_conn() as conn:
+            fmt = "%Y-%m-%d %H:%M:%S"
+            try:
+                dt_start = datetime.strptime(start_time, fmt)
+                dt_end = datetime.strptime(end_time, fmt)
+                duration = max(0, int((dt_end - dt_start).total_seconds()))
+            except Exception:
+                duration = 0
 
-        _execute_with_retry(conn,
-            "INSERT INTO app_usage (app_name, window_title, start_time, end_time, duration_sec) "
-            "VALUES (?, ?, ?, ?, ?) "
-            "ON CONFLICT(app_name, window_title, start_time) DO UPDATE SET "
-            "end_time=excluded.end_time, duration_sec=excluded.duration_sec",
-            (app_name, window_title, start_time, end_time, duration),
-        )
-        _pending_commits += 1
-        if _pending_commits >= _COMMIT_BATCH_SIZE:
-            conn.commit()
-            _pending_commits = 0
+            _execute_with_retry(conn,
+                "INSERT INTO app_usage (app_name, window_title, start_time, end_time, duration_sec) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(app_name, window_title, start_time) DO UPDATE SET "
+                "end_time=excluded.end_time, duration_sec=excluded.duration_sec",
+                (app_name, window_title, start_time, end_time, duration),
+            )
+            _pending_commits += 1
+            if _pending_commits >= _COMMIT_BATCH_SIZE:
+                conn.commit()
+                _pending_commits = 0
 
 
 def upsert_app_usage_multi(windows: list, start_time: str, end_time: str):
@@ -733,19 +734,20 @@ def upsert_app_usage_multi(windows: list, start_time: str, end_time: str):
         biggest = max(merged, key=merged.get)
         merged[biggest] += (total_duration - assigned)
 
-    with get_conn() as conn:
-        for (app_name, window_title), duration in merged.items():
-            _execute_with_retry(conn,
-                "INSERT INTO app_usage (app_name, window_title, start_time, end_time, duration_sec) "
-                "VALUES (?, ?, ?, ?, ?) "
-                "ON CONFLICT(app_name, window_title, start_time) DO UPDATE SET "
-                "end_time=excluded.end_time, duration_sec=excluded.duration_sec",
-                (app_name, window_title, start_time, end_time, duration),
-            )
-            _pending_commits += 1
-            if _pending_commits >= _COMMIT_BATCH_SIZE:
-                conn.commit()
-                _pending_commits = 0
+    with _write_lock:
+        with get_conn() as conn:
+            for (app_name, window_title), duration in merged.items():
+                _execute_with_retry(conn,
+                    "INSERT INTO app_usage (app_name, window_title, start_time, end_time, duration_sec) "
+                    "VALUES (?, ?, ?, ?, ?) "
+                    "ON CONFLICT(app_name, window_title, start_time) DO UPDATE SET "
+                    "end_time=excluded.end_time, duration_sec=excluded.duration_sec",
+                    (app_name, window_title, start_time, end_time, duration),
+                )
+                _pending_commits += 1
+                if _pending_commits >= _COMMIT_BATCH_SIZE:
+                    conn.commit()
+                    _pending_commits = 0
 
 
 def get_app_usage(start_date: str, end_date: str):

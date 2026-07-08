@@ -379,16 +379,50 @@ export async function testAiConnection(apiKey: string, baseUrl: string, model: s
   return data as { ok: boolean; message: string }
 }
 
-/** 导出活动记录 CSV（返回下载 URL） */
-export async function getExportActivitiesUrl(start: string, end: string): Promise<string> {
+/** 导出活动记录 CSV（安全下载：使用 header 传 token，不暴露于 URL） */
+export async function downloadExportActivities(start: string, end: string): Promise<void> {
   const token = await getApiToken()
-  return `${BASE_URL}/api/export/activities?start=${start}&end=${end}${token ? `&token=${token}` : ''}`
+  const res = await fetch(`${BASE_URL}/api/export/activities?start=${start}&end=${end}`, {
+    headers: token ? { 'X-API-Token': token } : {},
+  })
+  if (!res.ok) throw new Error(`导出失败: HTTP ${res.status}`)
+  const blob = await res.blob()
+  _triggerDownload(blob, `activities_${start}_${end}.csv`)
 }
 
-/** 导出应用使用时长 CSV */
-export async function getExportAppUsageUrl(start: string, end: string): Promise<string> {
+/** 导出应用使用时长 CSV（安全下载） */
+export async function downloadExportAppUsage(start: string, end: string): Promise<void> {
   const token = await getApiToken()
-  return `${BASE_URL}/api/export/app-usage?start=${start}&end=${end}${token ? `&token=${token}` : ''}`
+  const res = await fetch(`${BASE_URL}/api/export/app-usage?start=${start}&end=${end}`, {
+    headers: token ? { 'X-API-Token': token } : {},
+  })
+  if (!res.ok) throw new Error(`导出失败: HTTP ${res.status}`)
+  const blob = await res.blob()
+  _triggerDownload(blob, `app_usage_${start}_${end}.csv`)
+}
+
+/** 创建备份（安全下载：使用 header 传 token） */
+export async function downloadBackup(): Promise<void> {
+  const token = await getApiToken()
+  const res = await fetch(`${BASE_URL}/api/backup`, {
+    headers: token ? { 'X-API-Token': token } : {},
+  })
+  if (!res.ok) throw new Error(`备份失败: HTTP ${res.status}`)
+  const blob = await res.blob()
+  const date = new Date().toISOString().slice(0, 10)
+  _triggerDownload(blob, `xiaohei_backup_${date}.zip`)
+}
+
+/** 通用 Blob 下载触发器 */
+function _triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 /** 更新活动记录（分类/摘要） */
@@ -501,12 +535,6 @@ export async function getBackupInfo(): Promise<{ db_size_mb: number; activities_
   return request('/api/backup/info') as Promise<{ db_size_mb: number; activities_count: number; reports_count: number }>
 }
 
-/** 创建备份（返回下载 URL） */
-export async function getBackupDownloadUrl(): Promise<string> {
-  const token = await getApiToken()
-  return `${BASE_URL}/api/backup${token ? `?token=${token}` : ''}`
-}
-
 /** 从备份文件恢复数据 */
 export async function restoreBackup(file: File): Promise<{ status: string; restored_files: string[] }> {
   const token = _apiToken
@@ -554,10 +582,9 @@ export async function deleteAppRule(appName: string): Promise<{ status: string; 
   return request(`/api/app-rules/${encodeURIComponent(appName)}`, { method: 'DELETE' }) as Promise<{ status: string; deleted: boolean }>
 }
 
-/** 获取应用图标 URL */
+/** 获取应用图标 URL（图标不敏感，无需 token） */
 export async function getAppIconUrl(appName: string): Promise<string> {
-  const token = await getApiToken()
-  return `${BASE_URL}/api/icons/${encodeURIComponent(appName)}${token ? `?token=${token}` : ''}`
+  return `${BASE_URL}/api/icons/${encodeURIComponent(appName)}`
 }
 
 // ─── 用户画像 ──────────────────────────────────

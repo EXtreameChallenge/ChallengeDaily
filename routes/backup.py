@@ -1,6 +1,7 @@
 import os
 import io
 import json
+import hashlib
 import logging
 
 from flask import Blueprint, jsonify, request, Response
@@ -27,10 +28,17 @@ def create_backup():
         ("auto_report.json", BASE_DIR / "data" / "auto_report.json"),
     ]
 
+    manifest = {}
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, path in backup_files:
             if path.exists():
                 zf.write(path, name)
+                # 计算文件 SHA256 用于恢复时校验完整性
+                sha = hashlib.sha256(path.read_bytes()).hexdigest()
+                manifest[name] = {"sha256": sha, "size": path.stat().st_size}
+        # 写入 manifest
+        if manifest:
+            zf.writestr("manifest.json", json.dumps(manifest, indent=2))
 
     buf.seek(0)
     timestamp = _datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -89,20 +97,52 @@ def restore_backup():
         }
 
         restored = []
+        integrity_errors = []
         from file_utils import backup_file
         with zipfile.ZipFile(tmp_path, "r") as zf:
+            # 读取 manifest 用于完整性校验
+            manifest = {}
+            if "manifest.json" in zf.namelist():
+                try:
+                    manifest = json.loads(zf.read("manifest.json"))
+                except Exception:
+                    logger.warning("manifest.json 解析失败，跳过哈希校验")
+
             for name in zf.namelist():
+                # 跳过 manifest 本身
+                if name == "manifest.json":
+                    continue
                 # 路径遍历防护：跳过绝对路径 / 上级目录（..）条目
                 if name.startswith("/") or ".." in Path(name).parts:
                     logger.warning(f"跳过可疑 zip 条目: {name}")
                     continue
                 if name in restore_map:
+                    # 校验文件哈希（如果 manifest 中有记录）
+                    if name in manifest:
+                        file_data = zf.read(name)
+                        actual_sha = hashlib.sha256(file_data).hexdigest()
+                        expected_sha = manifest[name].get("sha256", "")
+                        if expected_sha and actual_sha != expected_sha:
+                            integrity_errors.append(f"{name}: 哈希不匹配")
+                            logger.error(f"备份文件 {name} 完整性校验失败: 期望 {expected_sha[:16]}... 实际 {actual_sha[:16]}...")
+                            continue
+                        # 写入校验通过的数据
+                        target = restore_map[name]
+                        if target.exists():
+                            backup_file(target)
+                        target.write_bytes(file_data)
+                        restored.append(name)
+                        continue
+
                     target = restore_map[name]
                     if target.exists():
                         backup_file(target)
                     with zf.open(name) as src, open(target, "wb") as dst:
                         dst.write(src.read())
                     restored.append(name)
+
+        if integrity_errors:
+            return jsonify({"error": f"备份文件完整性校验失败: {'; '.join(integrity_errors)}"}), 400
 
         try:
             os.unlink(tmp_path)
@@ -130,6 +170,18 @@ def restore_backup():
             _db.init_db()
         except Exception as ie:
             logger.warning(f"恢复后 init_db 失败: {type(ie).__name__}")
+
+        # 完整性校验：恢复的数据库必须通过 PRAGMA integrity_check
+        if "xiaohei.db" in restored:
+            try:
+                import db as _db
+                with _db.get_conn() as conn:
+                    result = conn.execute("PRAGMA integrity_check").fetchone()
+                    if result["integrity_check"] != "ok":
+                        logger.error(f"恢复的数据库完整性校验失败: {result['integrity_check']}")
+                        return jsonify({"error": "恢复的数据库完整性校验失败，备份文件可能已损坏"}), 400
+            except Exception as ie:
+                logger.warning(f"完整性校验执行失败: {type(ie).__name__}")
 
         try:
             from ai_client import _reset_client

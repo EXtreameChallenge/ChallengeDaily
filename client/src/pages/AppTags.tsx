@@ -47,6 +47,8 @@ export default function AppTags() {
     )
   }, [apps, search])
 
+  const appsKey = useMemo(() => apps.map((a) => a.app_name).join('|'), [apps])
+
   // 加载图标 URL
   useEffect(() => {
     let cancelled = false
@@ -64,7 +66,7 @@ export default function AppTags() {
     return () => {
       cancelled = true
     }
-  }, [apps.map((a) => a.app_name).join('|')])
+  }, [appsKey])
 
   const startEdit = (app: KnownApp) => {
     setEditing(app.app_name)

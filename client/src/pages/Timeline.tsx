@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, memo } from 'react'
+import { useState, useCallback, useEffect, memo, useMemo } from 'react'
 import { getActivities, searchActivities, updateActivity, deleteActivity, undoDeleteActivity, createActivity, getAppIconUrl, CATEGORY_COLORS, CATEGORIES, type Activity } from '../api/client'
 import { CategoryFilter, useAsyncData, ApiErrorDisplay, useNewIds, RefreshIndicator } from '../components/shared'
 import { useToast } from '../components/Toast'
@@ -38,6 +38,11 @@ export default function Timeline() {
   // 应用图标缓存：app_name -> iconUrl
   const [iconUrls, setIconUrls] = useState<Record<string, string>>({})
 
+  const timelineAppsKey = useMemo(
+    () => (searchResults ?? activities).map((a) => [a.app_name, ...(a.windows || []).map((w) => w.app_name)].join('|')).join(';'),
+    [searchResults, activities],
+  )
+
   // 批量加载应用图标（前台应用 + 多窗口中的每个应用）
   useEffect(() => {
     const baseList = searchResults ?? activities
@@ -62,7 +67,7 @@ export default function Timeline() {
       if (!cancelled) setIconUrls(map)
     })()
     return () => { cancelled = true }
-  }, [(searchResults ?? activities).map((a) => [a.app_name, ...(a.windows || []).map((w) => w.app_name)].join('|')).join(';')])
+  }, [timelineAppsKey])
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
