@@ -78,6 +78,9 @@ export async function request(endpoint: string, options?: RequestInit, timeoutMs
       throw new Error('认证失败，请重新启动应用')
     }
     if (!res.ok) {
+      // 后端已响应但返回错误码（4xx/5xx）——后端在线，只是业务逻辑出错
+      // 不应标记为 disconnected，否则会误报"后端服务断开"
+      setBackendState('connected')
       throw new Error(`请求失败: ${res.status}`)
     }
     const data = await res.json()

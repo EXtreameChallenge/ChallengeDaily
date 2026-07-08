@@ -153,14 +153,14 @@ def overview_summary():
     """基于今日实际活动数据，生成首页 AI 洞察总结（5-8 句朋友式小作文）"""
     import time as _time
     from datetime import date as _date
-    now = _time.time()
+    now_ts = _time.time()
     target_date = request.args.get("date", _date.today().isoformat())
     # 缓存按日期隔离：key 为 (target_date,)，避免跨天数据被错误复用
     cache_key = (target_date,)
     cached = _overview_cache.get(cache_key)
     force_refresh = request.args.get("refresh", "") == "1"
     if (not force_refresh and cached and cached.get("text")
-            and (now - cached.get("timestamp", 0.0)) < _OVERVIEW_CACHE_TTL):
+            and (now_ts - cached.get("timestamp", 0.0)) < _OVERVIEW_CACHE_TTL):
         if cached.get("structured"):
             return jsonify({
                 "summary": cached["structured"].get("headline", ""),
@@ -180,7 +180,7 @@ def overview_summary():
         # 双重检查：拿到锁后再次检查缓存
         cached = _overview_cache.get(cache_key)
         if (not force_refresh and cached and cached.get("text")
-                and (now - cached.get("timestamp", 0.0)) < _OVERVIEW_CACHE_TTL):
+                and (now_ts - cached.get("timestamp", 0.0)) < _OVERVIEW_CACHE_TTL):
             if cached.get("structured"):
                 return jsonify({
                     "summary": cached["structured"].get("headline", ""),
@@ -199,16 +199,16 @@ def overview_summary():
             pass
 
         from db import get_activities, get_daily_summary, get_app_usage, _flush_pending_commits
-        from datetime import datetime as _datetime, time as _time
+        from datetime import datetime as _datetime
         _flush_pending_commits()
         activities = get_activities(target_date, target_date)
         if not activities:
             return jsonify({"summary": ""})
 
         # ── 时间进度感知 ──
-        now = _datetime.now()
-        current_hour = now.hour
-        current_minute = now.minute
+        now_dt = _datetime.now()
+        current_hour = now_dt.hour
+        current_minute = now_dt.minute
         day_progress_pct = round((current_hour * 60 + current_minute) / (24 * 60) * 100)
 
         # 判断当前时段（用户自定义 7 段划分）
@@ -469,7 +469,7 @@ def overview_summary():
         structured = _parse_overview_json(text)
         if structured:
             _overview_cache[cache_key] = {
-                "text": text, "structured": structured, "timestamp": now,
+                "text": text, "structured": structured, "timestamp": now_ts,
             }
             return jsonify({
                 "summary": structured.get("headline", ""),
@@ -478,7 +478,7 @@ def overview_summary():
 
         # fallback：把整段文字当作 summary
         _overview_cache[cache_key] = {
-            "text": text, "structured": None, "timestamp": now,
+            "text": text, "structured": None, "timestamp": now_ts,
         }
         return jsonify({"summary": text})
 

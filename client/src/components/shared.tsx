@@ -120,8 +120,8 @@ export function ApiErrorDisplay({ error, onRetry }: ApiErrorDisplayProps) {
 // 参考 VS Code 的 "Extension host terminated" 通知条
 // 当后端断连时在页面顶部显示橙色提示条，恢复后自动消失
 
-import { useEffect as useEffectState, useState as useStateState } from 'react'
-import { getBackendState } from '../api/client'
+import { useEffect as useEffectState, useState as useStateState, useCallback } from 'react'
+import { getBackendState, request } from '../api/client'
 
 export function BackendStatusBar() {
   const [state, setState] = useStateState(getBackendState())
@@ -132,7 +132,16 @@ export function BackendStatusBar() {
     return unsub
   }, [])
 
-  // 断线时显示倒计时（下次自动重连）
+  // 断线时主动探测后端是否恢复（不再只做虚假倒计时）
+  const probeBackend = useCallback(async () => {
+    try {
+      await request('/api/health', {}, 5000)
+      // 成功 → 状态由 request 内部设为 connected，BackendStatusBar 会自动隐藏
+    } catch {
+      // 仍然断连 → 重置倒计时继续等待
+    }
+  }, [])
+
   useEffectState(() => {
     if (state !== 'disconnected') {
       setRetryIn(0)
@@ -140,10 +149,17 @@ export function BackendStatusBar() {
     }
     setRetryIn(5)
     const timer = setInterval(() => {
-      setRetryIn(prev => prev > 0 ? prev - 1 : 5)
+      setRetryIn(prev => {
+        if (prev <= 1) {
+          // 倒计时归零：真正发起健康检查
+          probeBackend()
+          return 5  // 重置为5秒继续下一轮
+        }
+        return prev - 1
+      })
     }, 1000)
     return () => clearInterval(timer)
-  }, [state])
+  }, [state, probeBackend])
 
   if (state === 'connected') return null
   if (state === 'connecting') return null  // 连接中不显示，避免闪烁
