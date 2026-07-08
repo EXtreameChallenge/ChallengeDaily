@@ -50,7 +50,7 @@ function TaskCard({ todo, compact, onClick, onDragStart, onDragEnd }: CardProps)
       onClick={onClick}
       className="relative rounded-md cursor-grab active:cursor-grabbing transition hover:brightness-110"
       style={{
-        background: compact ? '#2D2D2D' : '#2a2218',
+        background: compact ? 'var(--cd-bg-tertiary)' : 'var(--cd-bg-secondary)',
         borderLeft: `3px solid ${pc}`,
         padding: '6px 8px 6px 10px',
       }}
@@ -236,13 +236,13 @@ export default function WeekPlan() {
           onDrop={handleDropUnassigned}
           className="flex flex-col overflow-y-auto scrollbar-thin"
           style={{
-            width: 180, background: '#1a1410',
+            width: 180, background: 'var(--cd-bg-tertiary)',
             border: '1.5px dashed',
             borderColor: dragOverCol === 'unassigned' ? '#7B68EE' : '#F0C04066',
             transition: 'border-color 0.15s',
           }}
         >
-          <div className="px-3 py-2 sticky top-0 z-10" style={{ background: '#1a1410' }}>
+          <div className="px-3 py-2 sticky top-0 z-10" style={{ background: 'var(--cd-bg-tertiary)' }}>
             <div className="text-xs font-semibold" style={{ color: '#F0C040' }}>待分配</div>
             <div className="text-[10px] text-cd-text-tertiary">{unassigned.length} 个任务</div>
           </div>
@@ -272,15 +272,15 @@ export default function WeekPlan() {
                 onDrop={handleDropDay(date)}
                 className="flex-1 flex flex-col overflow-hidden"
                 style={{
-                  background: '#1E1E1E',
-                  border: `1px solid ${isTodayCol ? '#7B68EE' : dragOverCol === date ? '#7B68EE' : '#2D2D2D'}`,
+                  background: 'var(--cd-card)',
+                  border: `1px solid ${isTodayCol ? '#7B68EE' : dragOverCol === date ? '#7B68EE' : 'var(--cd-border)'}`,
                   opacity: weekend ? 0.7 : 1,
                   minWidth: 0,
                   transition: 'border-color 0.15s, opacity 0.15s',
                 }}
               >
                 {/* 日期头 */}
-                <div className="px-2 py-1.5 flex items-center justify-between" style={{ borderBottom: '1px solid #2D2D2D' }}>
+                <div className="px-2 py-1.5 flex items-center justify-between" style={{ borderBottom: '1px solid var(--cd-border)' }}>
                   <div className="flex items-center gap-1">
                     <span className="text-xs font-medium text-cd-text">{WEEKDAY_LABELS[idx]}</span>
                     {weekend && <span style={{ fontSize: 11 }}>😴</span>}
@@ -296,7 +296,7 @@ export default function WeekPlan() {
                   const todayFocus = weekStats.daily_focus.find(d => d.date === date)?.focus_min || 0
                   const pct = Math.min(100, (todayFocus / 240) * 100)
                   return (
-                    <div className="h-1 mx-2 rounded-full overflow-hidden" style={{ background: '#2D2D2D' }}>
+                    <div className="h-1 mx-2 rounded-full overflow-hidden" style={{ background: 'var(--cd-bg-tertiary)' }}>
                       <div style={{ width: `${pct}%`, height: '100%', background: '#7B68EE', transition: 'width 0.5s' }} />
                     </div>
                   )
@@ -364,7 +364,7 @@ export default function WeekPlan() {
           {Array.from({ length: totalCells }).map((_, i) => {
             const dayNum = i - startWeekday + 1
             if (dayNum < 1 || dayNum > daysInMonth) {
-              return <div key={i} style={{ background: '#1a1a1a', borderRadius: 4, minHeight: 64 }} />
+              return <div key={i} style={{ background: 'var(--cd-bg-tertiary)', borderRadius: 4, minHeight: 64 }} />
             }
             const date = `${monthKey}-${String(dayNum).padStart(2, '0')}`
             const dayTasks = allTasks.filter(t => t.assigned_date === date)
@@ -374,8 +374,8 @@ export default function WeekPlan() {
                 onClick={() => { setSelectedDate(date); setViewMode('day'); setWeekStart(getWeekStart(new Date(date))) }}
                 className="rounded p-1 cursor-pointer hover:brightness-125 transition flex flex-col"
                 style={{
-                  background: isTodayCell ? '#7B68EE15' : '#1E1E1E',
-                  border: `1px solid ${isTodayCell ? '#7B68EE55' : '#2D2D2D'}`,
+                  background: isTodayCell ? '#7B68EE15' : 'var(--cd-card)',
+                  border: `1px solid ${isTodayCell ? '#7B68EE55' : 'var(--cd-border)'}`,
                   minHeight: 64,
                 }}
               >
@@ -383,7 +383,7 @@ export default function WeekPlan() {
                 <div className="flex flex-col gap-0.5 mt-0.5">
                   {dayTasks.slice(0, 3).map(t => (
                     <div key={t.id} className="text-[8px] truncate rounded px-1"
-                      style={{ background: '#2D2D2D', borderLeft: `2px solid ${PRIORITY_COLORS[(t.priority || 3) - 1]}`, color: '#fff' }}>
+                      style={{ background: 'var(--cd-bg-tertiary)', borderLeft: `2px solid ${PRIORITY_COLORS[(t.priority || 3) - 1]}`, color: 'var(--cd-text)' }}>
                       {t.title}
                     </div>
                   ))}

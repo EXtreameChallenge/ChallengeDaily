@@ -222,8 +222,10 @@ export default function Sidebar() {
       {/* ─── 底部用户信息 ─────────────────────── */}
       <div className="px-4 py-3 border-t border-cd-border">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center">
-            <img src="/icon.png" alt="ChallengeDaily" className="w-full h-full object-cover" />
+          <div className="w-6 h-6 rounded-full flex items-center justify-center bg-cd-green/20 shrink-0">
+            <svg viewBox="0 0 24 24" className="w-4 h-4 text-cd-green" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
           </div>
           <div>
             <div className="text-xs text-cd-text font-medium leading-tight">橙紫Challenge</div>
