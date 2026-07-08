@@ -55,10 +55,13 @@ def get_reference(id_):
 
 
 # ─── 分段分析：从活动列表中提取专注段 ──────────────────────
+_FOCUS_GAP_MIN = 15  # 同类别活动间超过此分钟数则拆分为不同段
+
 def _extract_focus_segments(activities, interval_sec=60):
     """
     将活动列表按时间和类别连续性分段。
     返回 [{"category": ..., "start": ..., "end": ..., "duration_min": ..., "app": ..., "apps_set": ...}]
+    同类别活动间如果时间间隔超过 _FOCUS_GAP_MIN 分钟，则拆分为不同段。
     """
     if not activities:
         return []
@@ -71,11 +74,24 @@ def _extract_focus_segments(activities, interval_sec=60):
         app = act.get('app_name', 'unknown')
         ts = act.get('timestamp', '')
         
-        # 同类别且时间连续 → 合并到当前段
+        # 同类别 → 检查时间间隔是否超过阈值
         if current and current['category'] == cat:
-            current['apps_set'].add(app)
-            current['end'] = ts
-            current['duration_min'] += interval_sec / 60
+            time_gap = _ts_diff_min(current['end'], ts)
+            if time_gap > _FOCUS_GAP_MIN:
+                # 间隔过大，结束当前段，开启新段
+                segments.append(current)
+                current = {
+                    'category': cat,
+                    'start': ts,
+                    'end': ts,
+                    'duration_min': interval_sec / 60,
+                    'apps_set': {app},
+                }
+            else:
+                # 连续 → 合并
+                current['apps_set'].add(app)
+                current['end'] = ts
+                current['duration_min'] += max(interval_sec / 60, time_gap)
         else:
             if current:
                 segments.append(current)
@@ -93,10 +109,25 @@ def _extract_focus_segments(activities, interval_sec=60):
     return segments
 
 
-def _derive_hour(ts_str):
-    """从 timestamp 字符串提取小时"""
+def _ts_diff_min(ts1, ts2):
+    """计算两个时间戳字符串之间的分钟差。失败返回 0。"""
     try:
-        return int(ts_str.split('T')[-1].split(' ')[-1].split(':')[0])
+        from datetime import datetime as _dt
+        # 兼容 ISO 格式 (T 或空格)
+        t1 = _dt.fromisoformat(ts1.replace('T', ' '))
+        t2 = _dt.fromisoformat(ts2.replace('T', ' '))
+        return abs((t2 - t1).total_seconds()) / 60
+    except Exception:
+        return 0
+
+
+def _derive_hour(ts_str):
+    """从 timestamp 字符串提取小时，失败返回 None（调用方需过滤）"""
+    try:
+        h = int(ts_str.split('T')[-1].split(' ')[-1].split(':')[0])
+        return h if 0 <= h <= 23 else None
+    except (ValueError, IndexError, AttributeError):
+        return None
     except (ValueError, IndexError):
         return -1
 
@@ -216,13 +247,13 @@ def compute_bloom_metrics(activities, interval_sec=60):
     if total_duration == 0:
         return {'cognitive_depth': 0, 'higher_order_ratio': 0, 'bloom_distribution': {}}
     
-    # 加权认知深度：L1=1, L2=2, ..., L6=6，高阶权重额外加成
+    # 加权认知深度：L1=1, L2=1.5, ..., L6=5，加权平均后再映射到 1-6
     bloom_weights = {1: 1.0, 2: 1.5, 3: 2.0, 4: 3.0, 5: 4.0, 6: 5.0}
     weighted_sum = sum(level_durations[l] * bloom_weights.get(l, l) for l in range(1, 7))
-    raw_depth = weighted_sum / total_duration
+    raw_depth = weighted_sum / total_duration  # 范围 [1.0, 5.0]
     
-    # 归一化到 1-6
-    cognitive_depth = round(1 + raw_depth / bloom_weights[6] * 5, 1)
+    # 归一化到 1-6：raw_depth 1.0→1, 5.0→6，线性映射
+    cognitive_depth = round(1 + (raw_depth - 1.0) / (5.0 - 1.0) * 5, 1)
     cognitive_depth = max(1.0, min(6.0, cognitive_depth))
     
     higher_order_min = sum(level_durations[l] for l in [4, 5, 6])
@@ -299,7 +330,7 @@ def compute_ultradian_metrics(activities, interval_sec=60):
     hour_minutes = defaultdict(float)
     for act in activities:
         h = _derive_hour(act.get('timestamp', ''))
-        if h >= 0:
+        if h is not None:
             hour_minutes[h] += interval_sec / 60
     
     # 检测连续工作段(无休息)
@@ -482,7 +513,7 @@ def compute_habit_metrics(activities, interval_sec=60, daily_summaries=None):
     for act in activities:
         h = _derive_hour(act.get('timestamp', ''))
         cat = act.get('category', '其他')
-        if h >= 0:
+        if h is not None:
             hour_cat[h][cat] += interval_sec / 60
     
     # 找到每个小时的 dominant category
@@ -561,7 +592,7 @@ def compute_psycap_metrics(activities, interval_sec=60):
     productive_min = 0
     for act in activities:
         h = _derive_hour(act.get('timestamp', ''))
-        if h in productive_hours:
+        if h is not None and h in productive_hours:
             productive_min += interval_sec / 60
     productive_ratio = productive_min / total_duration if total_duration > 0 else 0
     optimism_score = round(min(100, productive_ratio * 150 + 25), 0)

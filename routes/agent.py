@@ -1,5 +1,6 @@
 import logging
 import re
+import threading
 from collections import OrderedDict
 
 from flask import Blueprint, jsonify, request
@@ -30,6 +31,7 @@ bp = Blueprint('agent', __name__)
 # 缓存 key 为 (target_date,)，value 为 {"text","structured","timestamp"}
 _overview_cache: _LRUCache = _LRUCache(maxsize=16)
 _OVERVIEW_CACHE_TTL = 300  # 5 分钟缓存
+_overview_lock = threading.Lock()  # 防止缓存未命中时多请求并发触发 AI
 
 
 def _parse_overview_json(raw: str) -> dict | None:
@@ -169,15 +171,31 @@ def overview_summary():
     if not config.AI_API_KEY:
         return jsonify({"summary": ""})
 
-    # 熔断器检查
-    try:
-        from ai_client import _cb_check
-        if not _cb_check():
-            return jsonify({"summary": ""})
-    except Exception:
-        pass
+    # 防止缓存未命中时并发请求同时触发 AI（stampede 保护）
+    if not _overview_lock.acquire(blocking=False):
+        # 另一个线程正在生成，返回空摘要避免阻塞
+        return jsonify({"summary": ""})
 
     try:
+        # 双重检查：拿到锁后再次检查缓存
+        cached = _overview_cache.get(cache_key)
+        if (not force_refresh and cached and cached.get("text")
+                and (now - cached.get("timestamp", 0.0)) < _OVERVIEW_CACHE_TTL):
+            if cached.get("structured"):
+                return jsonify({
+                    "summary": cached["structured"].get("headline", ""),
+                    "structured": cached["structured"],
+                })
+            return jsonify({"summary": cached["text"]})
+
+        # 熔断器检查
+        try:
+            from ai_client import _cb_check
+            if not _cb_check():
+                return jsonify({"summary": ""})
+        except Exception:
+            pass
+
         from db import get_activities, get_daily_summary, get_app_usage, _flush_pending_commits
         from datetime import datetime as _datetime, time as _time
         _flush_pending_commits()
@@ -470,6 +488,8 @@ def overview_summary():
         except Exception:
             pass
         return jsonify({"summary": ""})
+    finally:
+        _overview_lock.release()
 
 
 @bp.route("/api/ai/test", methods=["POST"])

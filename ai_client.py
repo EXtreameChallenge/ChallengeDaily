@@ -40,7 +40,8 @@ _client_instance = None
 
 # ── Circuit Breaker 熔断器 ──
 _CB_FAILURE_THRESHOLD = 5      # 连续失败次数触发熔断
-_CB_COOLDOWN_SEC = 60          # 熔断冷却时间（秒）
+_CB_COOLDOWN_INIT_SEC = 60     # 熔断初始冷却时间（秒）
+_CB_COOLDOWN_MAX_SEC = 600     # 熔断最大冷却时间（秒，10 分钟）
 _CB_HALF_OPEN_MAX = 3          # 半开状态允许的试探请求数（加速恢复）
 
 _cb_lock = threading.Lock()
@@ -48,6 +49,7 @@ _cb_consecutive_failures = 0
 _cb_state = "closed"           # closed / open / half_open
 _cb_opened_at = 0.0            # 熔断打开时间戳
 _cb_half_open_tries = 0        # 半开状态已发试探请求数
+_cb_cooldown_sec = _CB_COOLDOWN_INIT_SEC  # 当前冷却时间（指数退避）
 
 
 def _cb_check() -> bool:
@@ -60,7 +62,7 @@ def _cb_check() -> bool:
 
         if _cb_state == "open":
             # 冷却期结束 → 进入半开
-            if time.monotonic() - _cb_opened_at >= _CB_COOLDOWN_SEC:
+            if time.monotonic() - _cb_opened_at >= _cb_cooldown_sec:
                 _cb_state = "half_open"
                 _cb_half_open_tries = 0
                 logger.info("Circuit breaker: OPEN → HALF_OPEN，允许试探请求")
@@ -78,31 +80,70 @@ def _cb_check() -> bool:
 
 def _cb_record_success():
     """记录一次成功请求，重置熔断器"""
+    global _cb_state, _cb_consecutive_failures, _cb_cooldown_sec
     with _cb_lock:
-        global _cb_state, _cb_consecutive_failures
         if _cb_state == "half_open":
             logger.info("Circuit breaker: HALF_OPEN → CLOSED，试探成功，恢复服务")
         _cb_state = "closed"
         _cb_consecutive_failures = 0
+        _cb_cooldown_sec = _CB_COOLDOWN_INIT_SEC  # 重置冷却时间
 
 
 def _cb_record_failure():
-    """记录一次失败请求，累计失败次数"""
+    """记录一次失败请求，累计失败次数（指数退避冷却）"""
+    global _cb_state, _cb_consecutive_failures, _cb_opened_at, _cb_cooldown_sec
     with _cb_lock:
-        global _cb_state, _cb_consecutive_failures, _cb_opened_at
         _cb_consecutive_failures += 1
         if _cb_state == "half_open":
-            # 半开状态失败 → 重新熔断
+            # 半开状态失败 → 重新熔断，指数退避
+            _cb_cooldown_sec = min(_cb_cooldown_sec * 2, _CB_COOLDOWN_MAX_SEC)
             _cb_state = "open"
             _cb_opened_at = time.monotonic()
-            logger.warning("Circuit breaker: HALF_OPEN → OPEN，试探失败，重新熔断")
+            logger.warning(
+                f"Circuit breaker: HALF_OPEN → OPEN，试探失败，重新熔断，"
+                f"冷却 {_cb_cooldown_sec}s"
+            )
         elif _cb_consecutive_failures >= _CB_FAILURE_THRESHOLD:
+            _cb_cooldown_sec = min(_cb_cooldown_sec * 2, _CB_COOLDOWN_MAX_SEC)
             _cb_state = "open"
             _cb_opened_at = time.monotonic()
             logger.warning(
                 f"Circuit breaker: CLOSED → OPEN，连续 {_cb_consecutive_failures} 次失败，"
-                f"冷却 {_CB_COOLDOWN_SEC}s"
+                f"冷却 {_cb_cooldown_sec}s"
             )
+
+
+# ── AI 速率限制器（令牌桶，防止单次异常导致 API 账单暴涨） ──
+_RATE_LIMIT_LOCK = threading.Lock()
+_RATE_TEXT_MAX = 10       # 文本模型每分钟最大请求数
+_RATE_VISION_MAX = 2     # 视觉模型每分钟最大请求数
+_RATE_WINDOW = 60        # 窗口期（秒）
+_rate_text_times = []    # 文本请求时间戳列表
+_rate_vision_times = []  # 视觉请求时间戳列表
+
+
+def _rate_limit_check(model_type: str = "text") -> bool:
+    """速率限制检查。返回 True 表示放行，False 表示超限。
+    model_type: "text" 或 "vision"
+    """
+    now = time.monotonic()
+    with _RATE_LIMIT_LOCK:
+        if model_type == "vision":
+            # 清理过期时间戳
+            while _rate_vision_times and now - _rate_vision_times[0] > _RATE_WINDOW:
+                _rate_vision_times.pop(0)
+            if len(_rate_vision_times) >= _RATE_VISION_MAX:
+                logger.warning(f"AI 视觉请求速率超限 ({_RATE_VISION_MAX}/{_RATE_WINDOW}s)，拒绝请求")
+                return False
+            _rate_vision_times.append(now)
+        else:
+            while _rate_text_times and now - _rate_text_times[0] > _RATE_WINDOW:
+                _rate_text_times.pop(0)
+            if len(_rate_text_times) >= _RATE_TEXT_MAX:
+                logger.warning(f"AI 文本请求速率超限 ({_RATE_TEXT_MAX}/{_RATE_WINDOW}s)，拒绝请求")
+                return False
+            _rate_text_times.append(now)
+    return True
 
 
 def get_circuit_breaker_status() -> dict:
@@ -111,7 +152,7 @@ def get_circuit_breaker_status() -> dict:
         return {
             "state": _cb_state,
             "consecutive_failures": _cb_consecutive_failures,
-            "cooldown_remaining_sec": max(0, _CB_COOLDOWN_SEC - (time.monotonic() - _cb_opened_at))
+            "cooldown_remaining_sec": max(0, _cb_cooldown_sec - (time.monotonic() - _cb_opened_at))
                 if _cb_state == "open" else 0,
         }
 
@@ -162,6 +203,11 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
         fallback_summary = f"{app_name} - {window_title}" if window_title else app_name or "AI服务暂时不可用"
         return {"category": "生活", "summary": fallback_summary, "detail": "AI 服务暂时不可用，等待恢复中", "windows": []}
 
+    # 速率限制检查
+    if not _rate_limit_check("vision"):
+        fallback_summary = f"{app_name} - {window_title}" if window_title else app_name or "请求过于频繁"
+        return {"category": "生活", "summary": fallback_summary, "detail": "AI 请求过于频繁，稍后自动重试", "windows": []}
+
     # 预先将图片编码为 base64，避免重试时重复读取文件
     try:
         b64_image = encode_image_to_base64(image_path)
@@ -203,6 +249,11 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
             # 尝试提取 JSON
             result = _parse_json_response(raw)
             if result:
+                # 验证 AI 返回的 category 是否在合法列表内
+                ai_category = result.get("category", "")
+                if ai_category not in config.CATEGORIES:
+                    logger.warning(f"AI 返回非法分类 '{ai_category}'，降级为规则分类")
+                    result["category"] = _rule_based_category(app_name, window_title)
                 # 后校验：过滤 AI 幻觉
                 result = _sanitize_analysis_result(result, app_name, visible_windows)
                 _cb_record_success()
@@ -231,6 +282,61 @@ _IDE_PROCESSES = {"trae soolo cn.exe", "trae.exe", "code.exe", "cursor.exe", "id
 
 def _is_ide_app(app_name: str) -> bool:
     return app_name.lower().replace(" ", "") in {p.replace(" ", "").replace(".exe", "") for p in _IDE_PROCESSES}
+
+
+def _rule_based_category(app_name: str, window_title: str) -> str:
+    """基于应用名和窗口标题的规则分类（AI 分类非法时的降级方案）"""
+    name = (app_name or "").lower()
+    title = (window_title or "").lower()
+
+    # IDE / 开发工具
+    if _is_ide_app(name):
+        return "开发"
+    dev_keywords = ["git", "docker", "postman", "terminal", "powershell", "cmd", "wsl"]
+    if any(k in name for k in dev_keywords):
+        return "开发"
+
+    # 会议
+    meeting_apps = ["zoom", "teams", "腾讯会议", "dingtalk", "飞书", "feishu", "webex"]
+    if any(k in name for k in meeting_apps):
+        return "会议"
+
+    # 沟通
+    comm_apps = ["wechat", "微信", "qq", "telegram", "slack", "discord", "dingtalk", "飞书", "feishu"]
+    if any(k in name for k in comm_apps):
+        return "沟通"
+
+    # 文档
+    doc_apps = ["word", "excel", "powerpoint", "wps", "notion", "obsidian", "typora", "markdown"]
+    if any(k in name for k in doc_apps):
+        return "文档"
+
+    # 测试
+    test_apps = ["jmeter", "selenium", "charles", "fiddler"]
+    if any(k in name for k in test_apps):
+        return "测试"
+
+    # 设计
+    design_apps = ["figma", "sketch", "photoshop", "illustrator", "axure", "xd"]
+    if any(k in name for k in design_apps):
+        return "设计"
+
+    # 数据分析
+    data_apps = ["tableau", "powerbi", "navicat", "datagrip", "dbeaver"]
+    if any(k in name for k in data_apps):
+        return "数据分析"
+
+    # 学习
+    learn_apps = ["coursera", "udemy", "bilibili", "youtube"]
+    if any(k in name for k in learn_apps):
+        return "学习"
+
+    # 浏览器默认归文档（工作相关查阅）
+    browser_apps = ["chrome", "firefox", "edge", "safari", "browser"]
+    if any(k in name for k in browser_apps):
+        return "文档"
+
+    return "生活"
 
 
 def _sanitize_analysis_result(result: dict, app_name: str, visible_windows: list[dict] | None) -> dict:
@@ -381,6 +487,9 @@ def generate_greeting(context: dict) -> str:
         return draft
 
     if not _cb_check():
+        return draft
+
+    if not _rate_limit_check("text"):
         return draft
 
     prompt = (

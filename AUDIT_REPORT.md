@@ -3,247 +3,427 @@ AIGC:
   ContentProducer: '001191110102MAD55U9H0F10002'
   ContentPropagator: '001191110102MAD55U9H0F10002'
   Label: '1'
-  ProduceID: 'e4fc0850-a0fd-4311-abd8-5c61129863ec'
-  PropagateID: 'e4fc0850-a0fd-4311-abd8-5c61129863ec'
-  ReservedCode1: 'dd3214eb-6a1f-4991-993e-9ad9a0e80196'
-  ReservedCode2: 'dd3214eb-6a1f-4991-993e-9ad9a0e80196'
+  ProduceID: '2adb54e2-d317-4273-b376-a83761ff711d'
+  PropagateID: '2adb54e2-d317-4273-b376-a83761ff711d'
+  ReservedCode1: '015ec6f3-ac03-4e53-9415-ae90354ba37d'
+  ReservedCode2: '015ec6f3-ac03-4e53-9415-ae90354ba37d'
 ---
 
-# xiaohei-daily 稳定性 & 代码质量审计报告
+# xiaohei-daily 稳定性 & 代码质量完整审计报告
 
-> 审计范围：全部 Python 后端源码（db.py, config.py, collector.py, ai_client.py, report.py, main.py, context_manager.py, deep_insight_engine.py, server.py, prompt.py, screenshot.py, app_tracker.py, classifier.py, system_events.py, file_utils.py, crypto.py, routes/*）
+> 审计范围：全部 Python 后端源码（db.py, config.py, collector.py, ai_client.py, report.py, main.py, context_manager.py, deep_insight_engine.py, server.py, prompt.py, screenshot.py, app_tracker.py, classifier.py, system_events.py, file_utils.py, crypto.py, icon_extractor.py, 全部 routes/*）
 > 审计日期：2026-07-08
-> 审计角色：高级后端架构师 / Code Review Expert
+> 审计维度：14 类（线程安全、资源泄漏、异常处理、数据损坏、内存问题、文件I/O、进程管理、启停、边界条件、日志、配置、类型安全、导入、Windows专属）
 
 ---
 
-## 稳定性审计报告
+## 一、线程安全 (Thread Safety)
 
-### [严重] SQLite 跨线程共享连接 — 数据损坏风险
+### #1 [严重] SQLite 连接跨线程共享 — 重置竞态
+- **文件**: `db.py` — `_persistent_conn` / `get_conn()`
+- **描述**: `check_same_thread=False` + 单一持久连接，多线程并发写入仅靠 `_write_lock`。`get_conn()` 的 `DatabaseError` 重置逻辑（~L140-155）未获取 `_conn_lock`，一个线程重置连接时另一个线程可能正在用旧连接执行查询，导致 `ProgrammingError: closed` 或段错误。
+- **修复**: 在重置逻辑中获取 `_conn_lock`，或改用 `threading.local()` 每线程连接。
 
-- **文件**: `db.py:31`
-- **描述**: `sqlite3.connect(str(DB_PATH), timeout=10, check_same_thread=False)` 关闭了线程安全检查，允许多线程共享同一连接。虽然有 `_write_lock` 保护写操作，但读操作（所有 `get_*` 函数）在写操作执行期间可能并发访问。WAL 模式下虽比 journal 模式安全，但 SQLite 官方文档明确指出：在 `check_same_thread=False` 下，如果多个线程同时使用同一连接，行为是未定义的，可能导致 "database is locked" 异常或数据损坏。
-- **修复**: 改用连接池或每线程独立连接。推荐方案：读操作使用 `connect()` 创建短连接（WAL 模式下读不阻塞写），写操作通过 `_write_lock` 串行化使用持久连接。或者改用 `sqlite3` 的序列模式（`serialized threading mode`）。
-
-### [严重] V9 迁移手动事务管理 — 数据丢失风险
-
-- **文件**: `db.py:255-306`
-- **描述**: V9 迁移使用手动 `BEGIN`/`COMMIT`/`ROLLBACK`，但 SQLite 的 DDL 语句（如 `DROP TABLE`、`ALTER TABLE RENAME`）在事务中可能是隐式提交的。如果 `DROP TABLE app_usage`（L286）执行后 `ALTER TABLE app_usage_v9 RENAME TO app_usage`（L287）失败，`ROLLBACK` 无法恢复已 DROP 的表。虽然 L293 备份了 `app_usage_v9_backup`，但恢复逻辑 L302-305 本身也可能在异常状态下失败，导致数据永久丢失。
-- **修复**: 使用 Python 的 `with conn:` 上下文管理器替代手动 BEGIN/COMMIT。对于 DDL 操作，在执行前用独立的 `CREATE TABLE ... AS SELECT *` 做完整备份，确认所有 DDL 成功后再 DROP 旧表和备份。
-
-### [严重] 裸 `except:` 吞掉所有异常 — 静默数据丢失
-
-- **文件**: `context_manager.py:232, 362, 369`
-- **描述**: 三处裸 `except:` 会捕获 `KeyboardInterrupt`、`SystemExit` 等控制流异常，且不记录任何日志。当 JSON 解析失败时，画像数据被静默丢弃为空列表/空字典，用户无法感知数据异常。
-- **修复**: 替换为 `except (json.JSONDecodeError, ValueError, TypeError) as e:`，并添加 `logger.debug(f"JSON parse failed: {e}")`。
-
-### [严重] 自动画像生成竞态条件 — 重复执行
-
+### #2 [严重] 自动画像生成竞态条件 — 重复执行
 - **文件**: `context_manager.py:519-526`
-- **描述**: `_auto_profile_running` 布尔标志用于防重入，但 `if _auto_profile_running: return` 和 `_auto_profile_running = True` 之间无原子性保证。两个线程可能同时读到 `False` 然后都进入执行，导致同一日期的画像被重复生成（浪费 AI 额度），或更严重地并发写 DB 导致数据不一致。
-- **修复**: 使用 `threading.Lock` 替代布尔标志：
+- **描述**: `_auto_profile_running` 布尔标志无原子性保证。两个线程可能同时读到 `False` 然后都进入执行，导致同一日期画像被重复生成（浪费 AI 额度），或并发写 DB 导致数据不一致。
+- **修复**: 用 `threading.Lock` 替代布尔标志：
   ```python
   _auto_profile_lock = threading.Lock()
   def auto_generate_yesterday_profile():
       if not _auto_profile_lock.acquire(blocking=False):
           return
-      try:
-          ...
-      finally:
-          _auto_profile_lock.release()
+      try: ...
+      finally: _auto_profile_lock.release()
   ```
 
-### [高] 无界缓存字典 — 内存泄漏
+### #3 [高] `_ICON_MISS_CACHE` 无锁保护
+- **文件**: `icon_extractor.py:82-83`
+- **描述**: daemon 线程和 Flask 线程同时读写 plain dict，迭代时修改可致 `RuntimeError: dictionary changed size during iteration`。
+- **修复**: 加 `threading.Lock()` 或改用 `collections.defaultdict` + lock。
 
+### #4 [高] `_pid_path_cache` 跨线程无锁
+- **文件**: `app_tracker.py:82-83,98`
+- **描述**: `clear()` 与读取并发可致 dict 内部状态损坏。
+- **修复**: 加 `threading.Lock()`。
+
+### #5 [高] `_weather_cache` 无线程保护
 - **文件**: `report.py:636`
-- **描述**: `_weather_cache: dict = {}` 是模块级无界字典，每天至少一个 key，长期运行（数月）后持续增长。虽然单个 value 很小（~200 bytes），但若网络异常导致缓存 key 格式变异（如带时区），可能产生更多 key。
-- **修复**: 改为 `collections.OrderedDict` 并限制最大容量（如 30 天），或使用 `functools.lru_cache(maxsize=30)`。
+- **描述**: `OrderedDict` 被 Flask 多线程并发读写，内部链表可能损坏。
+- **修复**: 用 `threading.Lock()` 或 `functools.lru_cache`。
 
-### [高] 无界概览缓存 — 内存泄漏
+### #6 [高] `_insight_cache` 无线程保护
+- **文件**: `routes/deep_insight.py:16`
+- **描述**: Flask 多线程并发请求可同时读写（L31-33, L70-73），数据竞争。
+- **修复**: 加 `threading.Lock()`。
 
-- **文件**: `routes/agent.py:16`
-- **描述**: `_overview_cache: dict[tuple, dict] = {}` 按日期隔离缓存 AI 洞察结果，但无淘汰策略。长期运行跨月/年后，历史日期的缓存永远不被清理。
-- **修复**: 添加 LRU 淘汰：当 `_overview_cache` 超过 10 个 key 时，删除最旧的条目。或改用 `@lru_cache(maxsize=10)` 装饰器。
+### #7 [高] `_ss_size_cache` 全局变量无锁
+- **文件**: `routes/health.py:10-11,66-88`
+- **描述**: Flask 多线程请求并发读写，非原子操作。
+- **修复**: 加 `threading.Lock()`。
 
-### [高] OpenAI 客户端重复创建 — 资源泄漏
+### #8 [高] `upsert_app_usage` / `upsert_app_usage_multi` 缺少写锁
+- **文件**: `db.py:667-692,695-748`
+- **描述**: 修改 `_pending_commits` 计数器未持 `_write_lock`，而 `insert_activity()` 在 `_write_lock` 内修改同一计数器。并发时计数器操作交错，可能丢失 commit 或重复 commit。
+- **修复**: 包裹在 `with _write_lock:` 内。
 
-- **文件**: `report.py:1307`, `report.py:1564`, `context_manager.py:104`, `routes/agent.py:414`
-- **描述**: 4 处代码各自创建新的 `OpenAI(...)` 客户端实例，不复用 `ai_client._get_client()` 单例。每次创建新实例会建立新的 HTTP 连接池（httpx 默认 100 连接），频繁调用时可能耗尽文件描述符/连接数，且浪费 TCP 握手开销。
-- **修复**: 统一使用 `from ai_client import _get_client; client = _get_client()`。对于需要不同 timeout 的场景，扩展 `_get_client()` 支持 timeout 参数，或使用 `_get_client()` 的默认实例（其 timeout=60s 对日报生成足够）。
+### #9 [中] `_settings_cache` 在 `config.py` 中无锁
+- **文件**: `config.py` — `load_settings()`
+- **描述**: `config.py` 的缓存无锁，与 `main.py` 的 `_settings_cache_lock` 形成双缓存、双策略不一致。
+- **修复**: 统一为单缓存，统一加锁策略。
 
-### [高] `upsert_app_usage` 竞态条件 — 数据不一致
+### #10 [中] AI Client 单例双重检查不完整
+- **文件**: `ai_client.py:125-126`
+- **描述**: lock 外读取 `_client_instance`，存在 TOCTOU 竞争窗口（GIL 下通常安全但不规范）。
+- **修复**: 移除 lock 外提前读取，或用 `functools.lru_cache(maxsize=1)`。
 
-- **文件**: `db.py:667-692`
-- **描述**: `upsert_app_usage()` 修改全局 `_pending_commits` 计数器但未持有 `_write_lock`，而 `insert_activity()`（L568）在 `_write_lock` 内修改同一计数器。两者并发时，`_pending_commits` 的读取、递增、重置操作可能交错，导致丢失 commit（数据未落盘）或重复 commit。
-- **修复**: 将 `upsert_app_usage` 和 `upsert_app_usage_multi` 的写操作也包裹在 `with _write_lock:` 内。
-
-### [高] `upsert_app_usage_multi` 同样缺少写锁
-
-- **文件**: `db.py:695-748`
-- **描述**: 同上，`upsert_app_usage_multi()` 修改 `_pending_commits` 未持 `_write_lock`，且循环内多次写操作之间无事务保护。
-- **修复**: 同上，包裹在 `with _write_lock:` 内。
-
-### [中] `_flush_pending_commits` 可能空 commit
-
-- **文件**: `db.py:604-611`
-- **描述**: 当 `_pending_commits > 0` 时执行 `conn.commit()`，但如果自上次 commit 后的写操作已经在各自的 `get_conn()` 上下文中被 commit（如 `save_report` L798），此处会执行无意义的空 commit（触发 fsync）。
-- **修复**: 追踪最后一次写操作的连接，仅在确认有未提交事务时才 commit。或改用 SQLite 的 `autocommit` 模式配合显式事务。
-
-### [中] DeepInsight `years_to_expert` 除零风险
-
-- **文件**: `deep_insight_engine.py:190`
-- **描述**: `years_to_expert` 计算中 `max(len(history_activities or []) * interval_sec / 86400, 1)` 虽然用 `max(..., 1)` 避免除零，但外层 `max(skill_hours * 365 / max(...), 1)` 中，若 `skill_hours` 极小（如 0.001），`skill_hours * 365 / 1` 可能产生极大的 `years_to_expert` 值（如 9999），虽不崩溃但结果无意义。
-- **修复**: 增加 `skill_hours` 下限检查：`if skill_hours < 1: years_to_expert = None`。
-
-### [中] DeepInsight 裸 `except:` 吞异常
-
-- **文件**: `deep_insight_engine.py:178`
-- **描述**: `except:` 裸捕获，可能吞掉 `KeyboardInterrupt` 等控制流异常。
-- **修复**: 改为 `except (ValueError, TypeError, AttributeError):`。
-
-### [中] 熔断器半开状态仅允许 1 次试探 — 恢复缓慢
-
-- **文件**: `ai_client.py:44, 70-74`
-- **描述**: `_CB_HALF_OPEN_MAX = 1` 意味着半开状态只允许 1 次试探请求。如果该次请求因瞬时网络抖动失败，立即重新熔断（L96-98），需再等 60s 冷却。在偶发网络抖动场景下，可能导致 AI 服务长时间不可用。
-- **修复**: 将 `_CB_HALF_OPEN_MAX` 提高到 2-3，或在半开→开放时缩短冷却时间（如 30s）。
-
-### [中] `_get_client()` 单例不感知配置变更
-
-- **文件**: `ai_client.py:119-133, 136-140`
-- **描述**: 单例客户端缓存了 `api_key` 和 `base_url`，如果用户在运行时修改了配置（通过前端设置页），`_reset_client()` 被调用后下一次 `_get_client()` 会用新配置创建实例，但中间的短暂窗口内旧实例仍被使用。更严重的是，`report.py` 和 `context_manager.py` 中自行创建的 OpenAI 客户端完全不感知配置变更。
-- **修复**: 统一使用 `_get_client()`，并在配置变更时调用 `_reset_client()`。对于需要不同 timeout 的场景，扩展 `_get_client()` 接受可选 timeout 参数。
-
-### [中] 主循环通过模块变量访问暂停状态 — 脆弱耦合
-
-- **文件**: `main.py:160`
-- **描述**: `_server_module._collector_paused` 直接访问 server 模块的全局变量。如果 server 模块被重载或变量名变更，会抛出 `AttributeError` 导致采集循环中断。
-- **修复**: 在 server 模块提供 `is_collector_paused()` 函数，或通过 `server.get_collector()` 返回的 collector 对象的属性来判断。
-
-### [低] 分类平滑每次查 DB — 性能浪费
-
-- **文件**: `collector.py:82` (调用 `get_recent_activities(3)`)
-- **描述**: `_smooth_category()` 每次调用都执行 `get_recent_activities(3)` 查数据库，在每分钟一次的采集循环中增加不必要的 DB 压力。Collector 内已有 `_recent_context_cache`，但平滑函数未复用。
-- **修复**: 将最近 3 条活动作为参数传入 `_smooth_category()`，复用采集器已缓存的上下文。
-
-### [低] 图标提取线程无并发限制
-
-- **文件**: `collector.py:226-230`
-- **描述**: 每次新应用出现时创建 `threading.Thread` 提取图标，虽然 `_should_extract_icon()` 做了同应用 10 分钟限流，但如果短时间内出现多个不同新应用（如刚开机），可能同时启动多个图标提取线程。
-- **修复**: 使用 `ThreadPoolExecutor(max_workers=2)` 替代裸 Thread 创建，限制并发数。
-
-### [低] JSON 解析正则不匹配嵌套结构
-
-- **文件**: `ai_client.py:285`
-- **描述**: `_parse_json_response` 中 `re.search(r"\{[^{}]+\}", raw)` 只匹配不含嵌套大括号的最内层 JSON，对于 AI 返回的嵌套 JSON（如 `{"windows": [{"app": "x"}]}`）会匹配到内层空结构导致解析失败。
-- **修复**: 使用更健壮的 JSON 提取：从左到右找到第一个 `{`，然后用括号匹配找到对应的 `}`。
-
-### [低] db.py V10/V11 f-string 构建 ALTER TABLE
-
-- **文件**: `db.py:318, 332`
-- **描述**: `f"ALTER TABLE user_profile ADD COLUMN {col} {deflt}"` 虽然当前 `col` 和 `deflt` 来自硬编码列表，安全无风险，但此模式若被复制到其他代码位置（如用户输入驱动的迁移），则存在 SQL 注入风险。
-- **修复**: 在注释中标注安全依据，或改用参数化方式（虽 SQLite ALTER TABLE 不支持参数化列名，可用白名单校验）。
+### #11 [中] `_COM_INITIALIZED` 标志非线程安全 + COM 需每线程初始化
+- **文件**: `icon_extractor.py:28-44`
+- **描述**: plain bool 做双重检查（GIL 下通常安全）。更严重的是 COM 需每个线程单独 `CoInitializeEx`，当前只在一个线程内调用。
+- **修复**: 用 `threading.local()` 存储每线程 COM 初始化状态。
 
 ---
 
-## 代码质量审计报告
+## 二、资源泄漏 (Resource Leaks)
 
-### [严重] report.py 严重违反单一职责 — 1836 行巨型文件
+### #12 [高] MSS 实例不释放
+- **文件**: `screenshot.py` — `_mss_instance`
+- **描述**: 单例持有 GDI 资源，长期不释放可能导致 GDI 句柄泄漏（Windows 有 10000 句柄上限）。
+- **修复**: 增加 `close_mss()` 函数，collector 停止时调用。
 
-- **文件**: `report.py` (1836 行)
-- **描述**: 单文件包含 6 个报告模板（standard/simple/technical/okr/ai/deep）、天气获取、注意力指数、情绪曲线、技能雷达、工作流分析、时间线采样、周报、月报、活动聚合、自然语言生成等十余个职责。修改任一模板可能影响其他模板，测试困难，合并冲突频繁。
-- **修复**: 按职责拆分为：
-  - `report/templates/` — 各模板独立文件
-  - `report/analyzers/` — attention_index, emotion_curve, skill_radar, workflow
-  - `report/aggregators.py` — 活动聚合、分类叙事
-  - `report/export.py` — 周报/月报导出
-  - `report/weather.py` — 天气获取
+### #13 [高] OpenAI 客户端重复创建 — 连接池泄漏
+- **文件**: `report.py:1307,1564`, `context_manager.py:104`, `routes/agent.py:414`
+- **描述**: 4 处各自创建新 `OpenAI(...)` 实例，不复用 `ai_client._get_client()` 单例。每次创建新实例建立新 HTTP 连接池（httpx 默认 100 连接），频繁调用时可耗尽文件描述符。
+- **修复**: 统一使用 `from ai_client import _get_client`。
 
-### [严重] db.py 职责膨胀 — 1660 行混合迁移+查询+导出
+### #14 [中] Webhook 线程池 `shutdown(wait=False)`
+- **文件**: `routes/webhooks.py:26`
+- **描述**: 不等正在执行的推送完成，请求可能被截断。
+- **修复**: 改为 `shutdown(wait=True, cancel_futures=True)` 或短超时等待。
 
-- **文件**: `db.py` (1660 行)
-- **描述**: 数据库连接管理、Schema 迁移（V1-V21 共 21 个版本）、CRUD 操作（activities/app_usage/reports/todos/pomodoro/habits/diaries/achievements/chat/...）、CSV 导出、JSON 辅助函数全部混在一个文件。每新增迁移都要修改此文件，且迁移失败可能影响正常查询。
-- **修复**: 拆分为：
-  - `db/connection.py` — 连接管理、重试
-  - `db/migrations/` — 每个版本一个迁移脚本
-  - `db/activities.py`, `db/app_usage.py`, `db/todos.py` — 按领域拆分查询
-  - `db/export.py` — CSV 导出
+### #15 [中] 临时文件清理不在 finally 块
+- **文件**: `routes/backup.py:88-90,147-149`
+- **描述**: `tmp_path` 在 L148 清理，但中间异常会导致清理被跳过。
+- **修复**: 放入 `finally` 块。
 
-### [高] OpenAI 客户端创建 DRY 违反 — 4 处重复
+### #16 [低] 导出 StringIO 未用 with
+- **文件**: `routes/exports.py:93,138`
+- **修复**: 使用 `with` 语句或依赖 GC（低风险）。
 
-- **文件**: `report.py:1307`, `report.py:1564`, `context_manager.py:104`, `routes/agent.py:414`
-- **描述**: 4 处代码各自 `OpenAI(api_key=config.AI_API_KEY, base_url=config.AI_BASE_URL, timeout=...)` 创建客户端，既违反 DRY 原则，又无法共享连接池、统一超时策略、统一熔断器管理。
-- **修复**: 统一使用 `ai_client._get_client()` 单例，或扩展单例支持可选参数。
+---
 
-### [高] 工作模式分析逻辑重复
+## 三、异常处理 (Exception Handling)
 
-- **文件**: `report.py:764 (_compute_attention_index)`, `report.py:1359 (_analyze_work_patterns)`
-- **描述**: 两个函数逻辑高度重叠：都分析分类切换次数、专注会话长度、工作强度曲线。`_compute_attention_index` 计算碎片化指数，`_analyze_work_patterns` 计算 focus_sessions 和 intensity_curve，但核心逻辑（遍历 activities 检测分类切换）重复实现。
-- **修复**: 提取公共的 `_compute_session_info(activities) -> dict` 返回 sessions/switches/hour_counts 等基础数据，两个函数基于此衍生各自指标。
+### #17 [严重] 裸 `except:` 吞掉 `KeyboardInterrupt` / `SystemExit`
+- **文件**: `context_manager.py:232,362,369,384,391`（至少 5 处）; `deep_insight_engine.py:178`
+- **描述**: 裸 `except:` 捕获所有异常包括控制流异常，且不记录日志。数据被静默丢弃。
+- **修复**: 改为 `except Exception:` 或更具体的异常类型，并添加日志。
 
-### [高] 配置散落各模块 — 无法统一管理
+### #18 [高] `report.py` 天气 API 无超时控制
+- **文件**: `report.py` — `_build_rich_data_context`
+- **描述**: 调用 `wttr.in` 外部 HTTP 服务无独立超时，网络异常时阻塞日报生成数分钟。
+- **修复**: 使用 `urllib.request.urlopen(req, timeout=10)`。
 
+### #19 [高] V9 迁移手动事务冲突
+- **文件**: `db.py:255-306`
+- **描述**: 手动 `conn.execute("BEGIN")` 与 Python sqlite3 隐式事务管理冲突，可能导致 `OperationalError: cannot start a transaction within a transaction`。DDL 语句（`DROP TABLE`）在事务中隐式提交，失败后 `ROLLBACK` 无法恢复。
+- **修复**: 使用 `with conn:` 或 `conn.isolation_level = None` 配合手动事务。DDL 前做完整备份。
+
+### #20 [中] 多处 `except Exception` 吞掉错误无日志
+- **文件**: `routes/health.py:34`, `routes/backup.py:64,148-149,183`, `routes/deep_insight.py:114`
+- **描述**: 空 `except Exception` + pass，调试困难。
+- **修复**: 至少 `logger.debug()` 记录异常。
+
+### #21 [中] `generate_report` 无请求级超时
+- **文件**: `report.py:1235-1350` — `_template_deep`
+- **描述**: AI 调用 180s 默认超时，整体日报生成无总超时，请求可能挂起 3 分钟以上。
+- **修复**: 设置请求级总超时（如 120s），超时返回简化版。
+
+---
+
+## 四、数据损坏 (Data Corruption)
+
+### #22 [高] SQLite WAL + `synchronous=NORMAL` + 批量提交死代码
+- **文件**: `db.py` — `init_db()`
+- **描述**: `_COMMIT_BATCH_SIZE=1` 使批量提交机制成为死代码，但 `_pending_commits` 计数器仍在递增，逻辑不一致。断电时 NORMAL 级别可能丢失最近事务。
+- **修复**: 要么真正批量提交，要么删除 `_pending_commits` 死代码。
+
+### #23 [高] `activities_deleted` 表 DDL 在请求处理器中执行
+- **文件**: `routes/activities.py:155-254`
+- **描述**: `CREATE TABLE IF NOT EXISTS` + 多次 `ALTER TABLE ADD COLUMN` 在每次删除请求中执行。`ALTER TABLE` 在 SQLite 中锁表，高频删除请求可致 `SQLITE_BUSY`。
+- **修复**: 将 schema 变更移到 `db.py` 的迁移中统一执行。
+
+### #24 [高] 备份恢复直接覆盖活跃数据库
+- **文件**: `routes/backup.py:130-133`
+- **描述**: `target.write_bytes(file_data)` 直接覆盖 `xiaohei.db`，collector 线程可能正在写入。
+- **修复**: 恢复前停止 collector，写入完成后重启。
+
+### #25 [中] 备份恢复无原子性
+- **文件**: `routes/backup.py:75-197`
+- **描述**: 逐文件恢复：`xiaohei.db` 恢复成功但 `settings.json` 失败，系统不一致。
+- **修复**: 先恢复到临时目录，全部校验通过后原子替换。
+
+### #26 [中] `_flush_pending_commits` 从 API 路由直接调用
+- **文件**: `routes/deep_insight.py:35,128`
+- **描述**: 调用内部函数 `_flush_pending_commits()`，可能与应用层事务边界冲突。
+- **修复**: 改用公共 API 或在 `get_activities` 内部保证数据一致性。
+
+---
+
+## 五、内存问题 (Memory Issues)
+
+### #27 [高] `get_activities` 全量加载无分页
+- **文件**: `db.py` — `get_activities()` 和调用方
+- **描述**: 返回当天全部记录，长日可 1000+ 条含 `ai_detail` 长文本。多端点同时请求时内存压力大。
+- **修复**: 添加 `limit`/`offset` 参数支持分页查询。
+
+### #28 [高] 无界概览缓存
+- **文件**: `routes/agent.py:16`
+- **描述**: `_overview_cache: dict[tuple, dict] = {}` 按日期隔离缓存 AI 洞察结果，无淘汰策略，跨月/年后历史缓存永不被清理。
+- **修复**: 添加 LRU 淘汰，或用 `@lru_cache(maxsize=10)`。
+
+### #29 [中] `_notifications` 列表无主动清理过期
+- **文件**: `routes/notifications.py:28-29`
+- **描述**: 仅在添加时裁剪到 50 条，已读通知永不清除。
+- **修复**: 定期清理已读通知（如 >24h 删除）。
+
+### #30 [低] 导出端点一次性全量加载
+- **文件**: `routes/exports.py:99,159`
+- **修复**: 大数据量时使用流式写入。
+
+---
+
+## 六、文件 I/O (File I/O)
+
+### #31 [中] `icon_extractor.py` 大量小文件 I/O
+- **描述**: 每次图标请求可能触发文件系统 I/O，预缓存操作遍历所有已知应用。
+- **修复**: 内存缓存 + 文件系统二级缓存。
+
+### #32 [中] `webhooks.json` 无并发写保护
+- **文件**: `routes/webhooks.py:44-49`
+- **描述**: `atomic_write_text` 无锁，两个并发请求可能同时写。
+- **修复**: 加文件锁或 `threading.Lock()`。
+
+---
+
+## 七、进程管理 (Process Management)
+
+### #33 [严重] COM STA 线程亲和性违反
+- **文件**: `icon_extractor.py:28-44`
+- **描述**: `CoInitializeEx` 使用 `COINIT_APARTMENTTHREADED`（STA），但在 daemon 线程中调用。STA 要求消息循环，daemon 线程没有消息循环，COM 调用可能挂起或失败。
+- **修复**: 改为 `COINIT_MULTITHREADED`（MTA），或确保 COM 操作在专用 STA 线程中执行。
+
+### #34 [高] COM 初始化未反初始化
+- **文件**: `icon_extractor.py:28-44`
+- **描述**: `CoInitializeEx` 在 daemon 线程调用但从未调用 `CoUninitialize`，COM 资源泄漏。
+- **修复**: 线程退出前调用 `CoUninitialize()`。
+
+### #35 [中] `system_events.py` PowerShell 子进程可能僵尸
+- **描述**: 使用 15-20s 超时，需确认 `subprocess.run(timeout=...)` 的 `TimeoutExpired` 处理是否正确 kill 子进程。
+- **修复**: 确认 `subprocess.run` 的 timeout 行为，必要时手动 kill。
+
+### #36 [中] collector 线程优雅停止不完善
+- **文件**: `collector.py` — 主循环
+- **描述**: 某些操作（AI 分析、截图）阻塞较长时间，停止事件检查不够频繁。
+- **修复**: 增加更频繁的 `_stop_event` 检查点。
+
+---
+
+## 八、启动 / 停止 (Startup / Shutdown)
+
+### #37 [高] 单例锁文件异常退出后残留
+- **文件**: `main.py:27-52`
+- **描述**: `msvcrt.locking` + `atexit` 释放。新进程锁定前未验证旧锁是否属于活跃进程。
+- **修复**: 在锁文件中写入 PID，新启动时检查 PID 是否存活。
+
+### #38 [中] Flask 服务器关闭不等待请求完成
+- **文件**: `server.py` — graceful shutdown
+- **修复**: 添加超时等待活跃请求完成。
+
+### #39 [中] `atexit` 钩子执行顺序不确定
+- **文件**: `main.py`, `routes/webhooks.py`
+- **描述**: webhook 线程池关闭可能在数据库关闭之后。
+- **修复**: 统一注册一个有序关闭函数。
+
+---
+
+## 九、边界条件 (Edge Cases)
+
+### #40 [高] `get_week_plan_stats` O(n) 数据库查询
+- **文件**: `db.py:1576-1587`
+- **描述**: 循环最多 365 天，每天执行一次 SQL 查询计算连胜，最坏 365 次 DB 调用。
+- **修复**: 改为单次 SQL 查询使用窗口函数或 CTE 计算连胜。
+
+### #41 [中] `greeting` 端点不校验用户输入
+- **文件**: `routes/stats.py:192-241`
+- **描述**: `time`、`date`、`weekday` 等参数不校验，直接传给 AI。
+- **修复**: 对用户传入的 context 参数做基本校验或长度限制。
+
+### #42 [中] `pomodoro.start` 的 `duration_min` 无异常处理
+- **文件**: `routes/pomodoro.py:15`
+- **描述**: `int(data.get('duration_min', 25))` 非法输入导致 500。
+- **修复**: 使用 `_safe_int` 辅助函数。
+
+### #43 [低] DeepInsight `years_to_expert` 极端值
+- **文件**: `deep_insight_engine.py:190`
+- **描述**: `skill_hours` 极小时 `years_to_expert` 可产出无意义极值。
+- **修复**: 增加 `skill_hours` 下限检查。
+
+---
+
+## 十、日志 (Logging)
+
+### #44 [高] 敏感信息可能泄漏到日志
+- **文件**: `ai_client.py` — `_log_sanitizer`; `routes/webhooks.py:204`
+- **描述**: 其他模块可能记录包含 secret 的 URL 片段。
+- **修复**: 统一日志脱敏工具函数。
+
+### #45 [中] 大量 `except Exception: pass` 无日志
+- **文件**: 全局多文件
+- **修复**: 至少 `logger.debug()` 记录异常。
+
+---
+
+## 十一、配置 (Configuration)
+
+### #46 [高] 双重 settings 缓存不一致
+- **文件**: `config.py` vs `main.py`
+- **描述**: 两个模块各自维护 `_settings_cache`，TTL 不同（10s vs 30s），锁策略不同。修改配置后两个缓存可能返回不同值。
+- **修复**: 统一为单一缓存，集中管理。
+
+### #47 [高] 配置散落各模块
 - **文件**: `ai_client.py:42-44` (熔断器参数), `routes/agent.py:17` (缓存 TTL), `report.py:636` (天气缓存), `collector.py:28-29` (闲置阈值), `deep_insight_engine.py` (各框架阈值)
-- **描述**: 熔断器阈值（5次/60s/1次）、缓存 TTL（300s）、天气缓存、闲置检测阈值（180s）、深度工作阈值（25min）等大量配置硬编码在各模块顶层。修改任何参数都需要找到对应文件，且无法通过配置文件或 API 动态调整。
-- **修复**: 将所有可调参数集中到 `config.py` 的常量区域，或支持从 `.env` / `settings.json` 读取，关键参数提供 API 端点查询和修改。
+- **描述**: 大量配置硬编码在模块顶层，无法动态调整。
+- **修复**: 集中到 `config.py` 或 `.env`，关键参数提供 API。
 
-### [高] 硬编码分类集合 — 无法扩展
+### #48 [中] `.env` 文件明文存储 API key
+- **文件**: `config.py` — `load_dotenv()`
+- **修复**: 用 `crypto.py` 的 DPAPI 加密存储。
 
-- **文件**: `report.py:638-641` (`_CREATIVE_CATS`, `_FOCUS_CATS_DEEP`, `_MEETING_CATS_DEEP`), `report.py:454` (`tech_cats`), `report.py:541-544` (OKR 分类集合)
-- **描述**: 分类集合（开发/设计/学习等）硬编码在多处，与 `config.CATEGORIES` 不同步。用户通过前端自定义分类后，这些硬编码集合不会更新，导致深度洞察模板和 OKR 模板使用错误的分类。
-- **修复**: 从 `config.CATEGORIES` 或数据库的 `app_category_rules` 表动态构建分类集合，或提供配置接口允许用户定义哪些分类属于"专注类"/"创意类"/"会议类"。
+### #49 [中] CORS 硬编码 `localhost:5173`
+- **文件**: `server.py`
+- **修复**: 从配置读取。
 
-### [中] `_analyze_work_patterns` 函数体过长
+---
 
-- **文件**: `report.py:1359-1459` (100 行)
-- **描述**: 函数体超过 100 行，包含时间间隔分析、分类切换分析、专注会话检测、工作强度曲线计算四个独立逻辑块，可读性差，难以单独测试。
-- **修复**: 拆分为 `_analyze_time_gaps()`, `_analyze_focus_sessions()`, `_build_intensity_curve()` 三个子函数。
+## 十二、类型安全 (Type Safety)
 
-### [中] `overview_summary` 函数体过长
+### #50 [中] `db.py` Row 对象访问不一致
+- **描述**: `sqlite3.Row` 不支持 `.get()` 方法，混用 `dict(r)` 和 `r["key"]`。
+- **修复**: 统一使用 `dict(r)` 后操作。
 
-- **文件**: `routes/agent.py:134-462` (330 行)
-- **描述**: 单个路由函数 330 行，包含数据获取、时间判断、凌晨数据处理、prompt 构建（150 行）、AI 调用、缓存逻辑、用户画像注入。难以阅读和测试。
-- **修复**: 拆分为 `_build_overview_prompt()`, `_get_time_context()`, `_process_overnight_data()`, `_call_overview_ai()` 等子函数。
+### #51 [中] `deep_insight.py` 冗余类型检查
+- **文件**: `routes/deep_insight.py:48-52`
+- **描述**: `isinstance(a, dict)` 检查多余——`get_activities` 始终返回 Row 对象。
+- **修复**: 移除或改为 `dict(a)` 转换。
 
-### [中] `_capture_once_inner` 函数体过长
-
-- **文件**: `collector.py:185-449` (260 行)
-- **描述**: 采集器核心函数 260 行，包含闲置检测、截图、前台应用获取、排除列表检查、多窗口分摊、AI 分析、分类平滑、存储、截图删除、GC 等十余个步骤。
-- **修复**: 拆分为 `_check_idle()`, `_get_foreground_info()`, `_should_analyze()`, `_do_ai_analysis()`, `_persist_activity()` 等子步骤。
-
-### [中] init_db 迁移函数体过长
-
-- **文件**: `db.py:87-551` (460 行)
-- **描述**: 21 个版本的 Schema 迁移全部在 `init_db()` 中以 if-elif 链实现。每新增迁移都要在此函数末尾追加代码，且修改时可能误触其他版本的逻辑。
-- **修复**: 采用迁移脚本目录模式：
-  - `db/migrations/v1_initial.py`, `db/migrations/v9_app_usage_unique.py`, ...
-  - `init_db()` 自动扫描并按序执行未应用的迁移
-
-### [中] 缺少类型注解 — 不利于静态分析
-
-- **文件**: `context_manager.py` (多个函数), `report.py` (多个内部函数), `deep_insight_engine.py` (所有 compute_* 函数返回值)
-- **描述**: 大量函数缺少参数和返回值类型注解，IDE 无法提供自动补全和类型检查，重构时容易遗漏依赖。
-- **修复**: 添加完整类型注解，特别是 `dict` 返回值应使用 `TypedDict` 定义结构。
-
-### [低] 重复 import 语句
-
-- **文件**: `report.py:7 (import json)`, `report.py:632 (import json as _json)`; `report.py:9 (import re as _re)`, `report.py:1580 (import re as _re)`
-- **描述**: 同一模块内对 `json` 和 `re` 有重复导入（不同别名），增加混淆风险。
-- **修复**: 在文件顶部统一导入，去掉模块中间的重复 import。
-
-### [低] 版本号硬编码
-
-- **文件**: `main.py:101`
-- **描述**: `"ChallengeDaily Windows 版 v1.10.0"` 硬编码在 print 语句中，与实际版本（根据 memory 为 v1.15.0）不一致，且修改版本号需要找到此文件。
-- **修复**: 从 `config.py` 或 `__version__.py` 读取版本号。
-
-### [低] dict.get() 无类型安全
-
+### #52 [低] 大量 `dict.get()` 无类型安全
 - **文件**: 多处（collector.py, report.py, routes/agent.py, deep_insight_engine.py）
-- **描述**: 大量 `act.get("category")` / `act["category"]` 操作假设 activities 列表元素为特定结构的 dict，但无运行时类型校验。若 DB 返回异常格式（如字段缺失、类型错误），会抛出 `KeyError` 或 `TypeError` 导致采集/报告中断。
-- **修复**: 定义 `Activity` TypedDict 并在 DB 读取层做类型转换/校验，或在关键路径使用 `act.get("category", "其他")` 并记录异常。
+- **修复**: 定义 `Activity` TypedDict 并在 DB 读取层做类型校验。
 
-### [低] 熔断器状态通过模块全局变量管理 — 不利于测试
+---
 
+## 十三、导入问题 (Import Issues)
+
+### #53 [中] 函数内延迟导入过多
+- **文件**: `routes/health.py:21,31,58,67,74`, `routes/stats.py:63,78,111,124,225`, `routes/exports.py:86-87`
+- **描述**: 大量 Flask 路由在函数体内 `import`，增加首次请求延迟，难以静态分析。
+- **修复**: 稳定依赖移到模块顶部，仅可选依赖延迟导入。
+
+### #54 [低] `import db` 和 `from db import ...` 混用
+- **文件**: `routes/reports.py:5-6`, `routes/exports.py:5-6`
+- **修复**: 统一导入风格。
+
+---
+
+## 十四、Windows 专属问题 (Windows-Specific)
+
+### #55 [严重] COM STA 线程亲和性违反（同 #33 详述）
+- **文件**: `icon_extractor.py:28-44`
+- **修复**: 改 MTA 或专用 STA 线程。
+
+### #56 [高] PowerShell 子进程编码可能乱码
+- **文件**: `system_events.py`
+- **描述**: `subprocess.run` 读取 PowerShell 输出，默认编码可能非 UTF-8，中文用户名/应用名可能乱码。
+- **修复**: 显式指定 `encoding='utf-8', errors='replace'`。
+
+### #57 [高] 文件路径混合 `os.path` / `pathlib`
+- **文件**: `routes/backup.py:88`, `routes/health.py:77-84`
+- **修复**: 统一使用 `pathlib.Path`。
+
+### #58 [中] `msvcrt.locking` 仅限 Windows
+- **文件**: `main.py:27-52`
+- **修复**: 添加跨平台抽象层（非紧急）。
+
+### #59 [中] Windows 休眠/睡眠后 collector 可能假死
+- **文件**: `collector.py`
+- **描述**: 系统 sleep/wake 后定时器可能延迟或积压。
+- **修复**: 检测系统休眠恢复（`GetTickCount` 跳变），重置状态。
+
+---
+
+## 代码质量审计
+
+### #60 [严重] report.py 严重违反单一职责 — 1836 行巨型文件
+- **修复**: 拆分为 `report/templates/`、`report/analyzers/`、`report/aggregators.py`、`report/export.py`、`report/weather.py`。
+
+### #61 [严重] db.py 职责膨胀 — 1660 行混合迁移+查询+导出
+- **修复**: 拆分为 `db/connection.py`、`db/migrations/`、`db/activities.py`、`db/app_usage.py`、`db/todos.py`、`db/export.py`。
+
+### #62 [高] 硬编码分类集合与 config.CATEGORIES 不同步
+- **文件**: `report.py:638-641,454,541-544`
+- **修复**: 从 `config.CATEGORIES` 动态构建分类集合。
+
+### #63 [中] 多个超长函数
+- `report.py:1359-1459` — `_analyze_work_patterns` 100 行
+- `routes/agent.py:134-462` — `overview_summary` 330 行
+- `collector.py:185-449` — `_capture_once_inner` 260 行
+- `db.py:87-551` — `init_db` 迁移函数 460 行
+- **修复**: 按职责拆分子函数。
+
+### #64 [中] 工作模式分析逻辑重复
+- **文件**: `report.py:764 (_compute_attention_index)`, `report.py:1359 (_analyze_work_patterns)`
+- **修复**: 提取公共 `_compute_session_info()` 供两者复用。
+
+### #65 [中] 熔断器状态通过全局变量管理
 - **文件**: `ai_client.py:46-50`
-- **描述**: 熔断器状态（`_cb_state`, `_cb_consecutive_failures` 等）是模块级全局变量，单元测试时无法隔离，一个测试用例的熔断状态会影响下一个。
-- **修复**: 封装为 `CircuitBreaker` 类，提供 `reset()` 方法供测试使用。
+- **修复**: 封装为 `CircuitBreaker` 类。
+
+### #66 [低] 重复 import 语句
+- **文件**: `report.py:7 vs 632`, `report.py:9 vs 1580`
+- **修复**: 统一导入。
+
+### #67 [低] 版本号硬编码过时
+- **文件**: `main.py:101` — 显示 v1.10.0 但实际已 v1.15.0
+- **修复**: 从 `config.py` 或 `__version__.py` 读取。
+
+### #68 [低] JSON 解析正则不匹配嵌套结构
+- **文件**: `ai_client.py:285`
+- **描述**: `r"\{[^{}]+\}"` 不匹配嵌套 JSON。
+- **修复**: 从左到右括号匹配找完整 JSON。
+
+---
+
+## 严重性汇总
+
+| 严重性 | 数量 | 关键问题 |
+|--------|------|----------|
+| **严重** | 5 | #1 SQLite连接竞态, #2 画像竞态, #17 裸except, #33/#55 COM STA线程, #60-#61 巨型文件 |
+| **高** | 17 | #3-#8 无锁缓存/写锁, #12 MSS泄漏, #13 OpenAI连接泄漏, #18 天气超时, #19 事务冲突, #22-#24 数据损坏, #37 锁文件残留, #40 O(n)查询, #44 日志泄漏, #46-#47 配置混乱, #56 编码乱码, #57 路径混合, #62 分类硬编码 |
+| **中** | 26 | #9-#11 线程安全, #14-#15 资源, #20-#21 异常, #25-#26 数据, #28-#29 内存, #31-#32 IO, #35-#36 进程, #38-#39 启停, #41-#43 边界, #45 日志, #48-#51 配置/类型, #53 导入, #58-#59 Windows, #63-#65 代码质量 |
+| **低** | 12 | #16, #30, #43, #52, #54, #66-#68 等 |
+
+---
+
+## 优先修复 Top 10
+
+1. **#17** 裸 `except:` → `except Exception:` + 日志（0 成本，即修即好）
+2. **#33/#55** COM STA → MTA 或专用 STA 线程（消除挂死风险）
+3. **#1** SQLite 连接重置加 `_conn_lock`（消除 `ProgrammingError: closed`）
+4. **#3-#8** 所有模块级缓存加 `threading.Lock()`（消除数据竞争）
+5. **#13** 统一 OpenAI 客户端创建（消除连接泄漏）
+6. **#19** V9 迁移手动事务 → 用 `with conn:`（消除事务嵌套错误）
+7. **#46** 统一双 settings 缓存（消除配置不一致）
+8. **#24** 备份恢复前停止 collector（消除 DB 覆盖损坏）
+9. **#40** `get_week_plan_stats` 改单次 SQL 查询（消除 O(365) 性能问题）
+10. **#18** 天气 API 加 10s 超时（消除日报生成挂死）

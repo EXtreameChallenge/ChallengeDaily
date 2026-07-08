@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 21
+SCHEMA_VERSION = 22
 
 # ── 持久连接（避免每分钟 5-7 次 connect/close）──
 _persistent_conn: Optional[sqlite3.Connection] = None
@@ -536,6 +536,41 @@ def init_db():
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_habit_logs_unique ON habit_logs(habit_id, log_date)"
                 )
                 logger.info("V21: habit_logs 重复行合并完成")
+
+        # V22: app_usage window_title NULL → NOT NULL DEFAULT ''，修复 UNIQUE 约束语义
+        # SQL NULL != NULL 导致 NULL window_title 的行不参与 UNIQUE 冲突检测
+        if current_version < 22:
+            # 将现有 NULL 值替换为空字符串
+            conn.execute("UPDATE app_usage SET window_title = '' WHERE window_title IS NULL")
+            # 重建表以添加 NOT NULL 约束（SQLite 不支持 ALTER COLUMN）
+            conn.execute("DROP TABLE IF EXISTS app_usage_v22")
+            conn.execute("""
+                CREATE TABLE app_usage_v22 (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    app_name    TEXT NOT NULL,
+                    window_title TEXT NOT NULL DEFAULT '',
+                    start_time  TEXT NOT NULL,
+                    end_time    TEXT,
+                    duration_sec INTEGER DEFAULT 0,
+                    UNIQUE(app_name, window_title, start_time)
+                )
+            """)
+            conn.execute("""
+                INSERT OR IGNORE INTO app_usage_v22 (id, app_name, window_title, start_time, end_time, duration_sec)
+                SELECT id, app_name, COALESCE(window_title, ''), start_time, end_time, duration_sec FROM app_usage
+            """)
+            # 校验行数
+            old_count = conn.execute("SELECT COUNT(*) FROM app_usage").fetchone()[0]
+            new_count = conn.execute("SELECT COUNT(*) FROM app_usage_v22").fetchone()[0]
+            if new_count < old_count:
+                logger.warning(f"V22 迁移：app_usage 行数减少 {old_count}->{new_count}，可能有重复数据被合并")
+            conn.execute("DROP TABLE app_usage")
+            conn.execute("ALTER TABLE app_usage_v22 RENAME TO app_usage")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_app ON app_usage(app_name)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_start ON app_usage(start_time)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_start_app ON app_usage(start_time, app_name)")
+            logger.info(f"V22: app_usage window_title NOT NULL DEFAULT '' 迁移完成 ({new_count} rows)")
+
             # 复合索引优化（提升常用查询性能）
             conn.execute("CREATE INDEX IF NOT EXISTS idx_activities_app_cat ON activities(app_name, category)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_start_app ON app_usage(start_time, app_name)")
@@ -811,9 +846,10 @@ def get_reports(start_date: str, end_date: str):
 
 
 def cleanup_old_data(days: int):
-    """清理超过保留天数的数据"""
+    """清理超过保留天数的数据（显式事务保证多表删除原子性）"""
     cutoff = (date.today() - timedelta(days=days)).isoformat()
     with get_conn() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         conn.execute("DELETE FROM activities WHERE timestamp < ?", (f"{cutoff} 00:00:00",))
         conn.execute("DELETE FROM app_usage WHERE start_time < ?", (f"{cutoff} 00:00:00",))
         conn.execute("DELETE FROM reports WHERE report_date < ?", (cutoff,))

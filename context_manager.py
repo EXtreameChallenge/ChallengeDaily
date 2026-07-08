@@ -6,6 +6,7 @@
 """
 import json
 import logging
+import threading
 import time as _time
 from datetime import date, timedelta
 
@@ -201,8 +202,10 @@ def get_daily_profile(target_date: str) -> dict | None:
 def build_weekly_context(days: int = 7) -> str:
     """构建近 N 天的上下文摘要，供 AI 分析时注入 system prompt
 
-    返回结构：精简到 ~2000 token，覆盖一周的工作模式，并加入历史日报和 AI 对话摘要钩子
+    返回结构：精简到 ~2000 token（约 6000 字符），覆盖一周的工作模式，并加入历史日报和 AI 对话摘要钩子
     """
+    _WEEKLY_CONTEXT_MAX_CHARS = 6000  # 约 2000 token 上限
+
     profiles = []
     for i in range(days - 1, -1, -1):
         d = (date.today() - timedelta(days=i)).isoformat()
@@ -254,7 +257,13 @@ def build_weekly_context(days: int = 7) -> str:
         context_parts.append("\n=== 历史 AI 对话摘要 ===")
         context_parts.append(conversation_summary)
 
-    return "\n".join(context_parts)
+    result = "\n".join(context_parts)
+
+    # Token 预算控制：截断超长上下文
+    if len(result) > _WEEKLY_CONTEXT_MAX_CHARS:
+        result = result[:_WEEKLY_CONTEXT_MAX_CHARS] + "\n...(上下文已截断)"
+
+    return result
 
 
 def _build_fallback_context(days: int) -> str:
@@ -381,14 +390,14 @@ def get_user_profile_context() -> str:
         content_types = json.loads(profile.get("content_types", "[]")) if isinstance(profile.get("content_types"), str) else profile.get("content_types", [])
         if content_types:
             parts.append(f"工作内容类型: {json.dumps(content_types, ensure_ascii=False)}")
-    except:
+    except (json.JSONDecodeError, ValueError, TypeError):
         pass
 
     try:
         behavior_tags = json.loads(profile.get("behavior_tags", "[]")) if isinstance(profile.get("behavior_tags"), str) else profile.get("behavior_tags", [])
         if behavior_tags:
             parts.append(f"行为标签: {json.dumps(behavior_tags, ensure_ascii=False)}")
-    except:
+    except (json.JSONDecodeError, ValueError, TypeError):
         pass
 
     # 加入用户纠正

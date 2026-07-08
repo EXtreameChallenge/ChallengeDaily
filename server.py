@@ -20,6 +20,8 @@ app = Flask(__name__)
 _ALLOWED_ORIGINS = {
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:58888",
+    "http://127.0.0.1:58888",
 }
 
 @app.after_request

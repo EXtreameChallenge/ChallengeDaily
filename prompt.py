@@ -1,6 +1,8 @@
 """
 ChallengeDaily Windows 版 — 截图分析 Prompt
 """
+import re as _re
+
 from config import CATEGORIES, load_settings
 
 CATEGORIES_STR = "、".join(CATEGORIES)
@@ -14,13 +16,27 @@ _INJECTION_PATTERNS = [
 ]
 
 def _sanitize_title(title: str, max_len: int = 200) -> str:
-    """截断+过滤窗口标题中的潜在注入指令"""
+    """截断+过滤窗口标题中的潜在注入指令（大小写不敏感替换）"""
     if not title:
         return title
     t = title[:max_len]
     for pat in _INJECTION_PATTERNS:
         if pat.lower() in t.lower():
-            t = t.replace(pat, "[...]")
+            # 使用 re.sub 大小写不敏感替换，避免 .replace() 因大小写不同而跳过
+            t = _re.sub(_re.escape(pat), "[...]", t, flags=_re.IGNORECASE)
+    return t
+
+
+def _sanitize_user_input(text: str, max_len: int = 500) -> str:
+    """过滤用户输入中的指令注入（画像字段、自定义规则等），防止污染 AI prompt"""
+    if not text:
+        return text
+    t = text[:max_len]
+    for pat in _INJECTION_PATTERNS:
+        if pat.lower() in t.lower():
+            t = _re.sub(_re.escape(pat), "[...]", t, flags=_re.IGNORECASE)
+    # 移除可能被用来伪造 prompt 边界的标签
+    t = _re.sub(r'</?(?:system|user|assistant|user_instructions)>', '', t, flags=_re.IGNORECASE)
     return t
 
 def _get_custom_instructions() -> str:
@@ -175,39 +191,49 @@ def build_user_prompt(app_name: str, window_title: str, recent_context: str = ""
         from context_manager import get_user_profile_context, build_weekly_context
         user_ctx = get_user_profile_context()
         if user_ctx:
-            parts.append(f"用户画像（请根据此信息更好理解用户行为）：\n{user_ctx}")
+            parts.append(f"用户画像（请根据此信息更好理解用户行为）：\n{_sanitize_user_input(user_ctx, 1000)}")
         weekly_ctx = build_weekly_context(7)
         if weekly_ctx and len(weekly_ctx) > 50:  # 有实际内容（非空壳）
             parts.append(f"近一周工作上下文（了解用户长期模式）：\n{weekly_ctx}")
     except Exception:
         pass  # context_manager 加载失败不影响核心功能
 
-    # ── 注入 DeepInsight 学术框架分析 ──
+    # ── 注入 DeepInsight 学术框架分析（5 分钟缓存，避免每次截图重算） ──
     try:
-        from deep_insight_engine import build_deep_insight_context
-        from db import get_activities
-        from datetime import date as _date
-        from config import SCREENSHOT_INTERVAL_SEC as _sis
-        today_str = _date.today().isoformat()
-        today_acts = get_activities(today_str, today_str)
-        if today_acts:
-            act_dicts = [
-                {"category": a["category"] if isinstance(a, dict) else a["category"],
-                 "app_name": a["app_name"] if isinstance(a, dict) else a["app_name"],
-                 "timestamp": a["timestamp"] if isinstance(a, dict) else a["timestamp"]}
-                for a in today_acts
-            ]
-            di_ctx = build_deep_insight_context(act_dicts, interval_sec=_sis)
-            if di_ctx:
-                parts.append(di_ctx)
+        import time as _prompt_time
+        _DI_CACHE_TTL = 300  # 5 分钟
+        if not hasattr(build_user_prompt, '_di_cache_time') or \
+           (_prompt_time.time() - getattr(build_user_prompt, '_di_cache_time', 0)) > _DI_CACHE_TTL:
+            from deep_insight_engine import build_deep_insight_context
+            from db import get_activities
+            from datetime import date as _date
+            from config import SCREENSHOT_INTERVAL_SEC as _sis
+            today_str = _date.today().isoformat()
+            today_acts = get_activities(today_str, today_str)
+            if today_acts:
+                act_dicts = [
+                    {"category": a["category"] if isinstance(a, dict) else a["category"],
+                     "app_name": a["app_name"] if isinstance(a, dict) else a["app_name"],
+                     "timestamp": a["timestamp"] if isinstance(a, dict) else a["timestamp"]}
+                    for a in today_acts
+                ]
+                di_ctx = build_deep_insight_context(act_dicts, interval_sec=_sis)
+                build_user_prompt._di_cache = di_ctx
+                build_user_prompt._di_cache_time = _prompt_time.time()
+            else:
+                build_user_prompt._di_cache = ""
+                build_user_prompt._di_cache_time = _prompt_time.time()
+        di_ctx = getattr(build_user_prompt, '_di_cache', '')
+        if di_ctx:
+            parts.append(di_ctx)
     except Exception:
         pass  # DeepInsight 失败不影响截图分析
 
     # 追加用户自定义指令（用分隔符 <user_instructions> 包裹并截断到 500 字符，
-    # 便于模型识别边界，降低 prompt 注入风险）
+    # 便于模型识别边界，降低 prompt 注入风险；同时过滤注入指令）
     custom = _get_custom_instructions()
     if custom:
-        parts.append(f"<user_instructions>{custom[:500]}</user_instructions>")
+        parts.append(f"<user_instructions>{_sanitize_user_input(custom, 500)}</user_instructions>")
     parts.append("请按 JSON 格式输出分析结果，必须包含 windows 数组并描述每个窗口的实际内容。")
     parts.append("detail 字段必须 120-180 字，必须基于截图中实际可见的文本、代码、界面元素来描述。")
     parts.append("如果当前屏幕上有 IDE/编辑器窗口，重点描述其右侧主编辑区当前打开的文件和正在修改的代码，不要只描述左侧任务列表。")

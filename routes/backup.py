@@ -20,6 +20,14 @@ bp = Blueprint('backup', __name__)
 def create_backup():
     import zipfile
 
+    # 创建备份前先执行 WAL checkpoint，确保所有数据都写入主 DB 文件
+    try:
+        from db import get_conn
+        with get_conn() as conn:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    except Exception as e:
+        logger.warning(f"WAL checkpoint 失败（备份可能不完整）: {e}")
+
     buf = io.BytesIO()
     backup_files = [
         ("xiaohei.db", BASE_DIR / "data" / "xiaohei.db"),
@@ -163,6 +171,16 @@ def restore_backup():
                         json.dump(s_data, f, ensure_ascii=False, indent=2)
             except Exception as se:
                 logger.warning(f"校验 ai_base_url 失败: {type(se).__name__}")
+
+        # 恢复数据库后强制重置旧连接，确保新 DB 文件生效
+        # 旧连接持有文件描述符指向被覆盖前的 DB，必须关闭
+        if "xiaohei.db" in restored:
+            try:
+                import db as _db
+                _db._persistent_conn = None
+                logger.info("备份恢复：已重置持久数据库连接")
+            except Exception:
+                pass
 
         # 恢复数据库后强制跑一次迁移，确保新代码与旧库结构一致
         try:

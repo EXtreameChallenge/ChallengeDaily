@@ -1588,8 +1588,10 @@ def _template_ai(target_date: str, activities, summary_data, app_usage) -> str:
         return content
     except Exception as e:
         logger.error(f"AI 日报生成失败: {e}")
-        # 回退到标准模板
-        return _template_standard(target_date, activities, summary_data, app_usage)
+        # 回退到标准模板，并添加降级提示
+        fallback = _template_standard(target_date, activities, summary_data, app_usage)
+        fallback += "\n\n---\n> ⚠️ AI 日报生成失败，已降级为基础模板。请检查 AI 配置或稍后重试。"
+        return fallback
 
 
 # ── 公共入口 ──────────────────────────────────
