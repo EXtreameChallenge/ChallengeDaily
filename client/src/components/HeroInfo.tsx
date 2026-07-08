@@ -108,18 +108,11 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
   const insightRef = useRef<InsightData | null>(null)
   useEffect(() => { insightRef.current = insight }, [insight])
 
-  // 实时更新时间
-  // 优化：从 1 秒调整为 10 秒，仅在分钟变化时重渲染
-  // HH:mm 显示只需分钟级精度，1 秒轮询导致每秒 React 重渲染 + lunar 计算
+  // 实时更新时间 — 每秒刷新，显示 HH:mm:ss
   useEffect(() => {
-    let lastMinute = dayjs().minute()
     const timer = setInterval(() => {
-      const current = dayjs()
-      if (current.minute() !== lastMinute) {
-        lastMinute = current.minute()
-        setNow(current)
-      }
-    }, 10000) // 10 秒检查一次
+      setNow(dayjs())
+    }, 1000)
     return () => clearInterval(timer)
   }, [])
 
@@ -479,7 +472,7 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
         {/* 时间日期 */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="text-5xl font-bold text-cd-text tracking-tight font-brand leading-none">
-            {now.format('HH:mm')}
+            {now.format('HH:mm:ss')}
           </div>
           <div className="flex flex-col justify-center leading-tight">
             <div className="text-base text-cd-text font-semibold font-display">{now.format('M月D日')}</div>
@@ -520,8 +513,8 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
         {/* 分隔线 */}
         <div className="h-10 w-px bg-cd-border shrink-0 hidden sm:block" />
 
-        {/* 日/周/月进度 — 纵向排列，靠右 */}
-        <div className="flex flex-col gap-1 ml-auto shrink-0">
+        {/* 日/周/月进度 — 纵向排列 */}
+        <div className="flex flex-col gap-1 shrink-0">
           {[
             { label: '今日', pct: progressData.dayPct },
             { label: '本周', pct: progressData.weekPct },
