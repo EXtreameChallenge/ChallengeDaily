@@ -551,7 +551,7 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
         {loadingInsight ? (
           <p className="text-base text-cd-text-tertiary animate-pulse">正在分析今日工作数据...</p>
         ) : insight ? (
-          <div className="rounded-2xl bg-cd-card border border-cd-border p-4 shadow-sm">
+          <div className="rounded-2xl bg-gradient-to-br from-purple-500/10 via-indigo-500/10 to-blue-500/10 dark:from-[#1E1E2E] dark:to-[#252538] border border-purple-200/30 dark:border-white/5 p-4 shadow-sm">
             {insight.structured ? (
               <div className="space-y-4">
                 {/* 顶部：心情 emoji + headline */}
@@ -597,9 +597,9 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
 
                 {/* 温柔小建议 */}
                 {insight.structured.tips.length > 0 && (
-                    <div className="flex items-start gap-2.5 pt-2 border-t border-cd-border/50">
-                    <Sparkles size={16} className="shrink-0 mt-1 text-purple-400" />
-                    <p className="text-base text-purple-300 leading-relaxed">{insight.structured.tips[0]}</p>
+                    <div className="flex items-start gap-2.5 pt-2 border-t border-purple-200/30 dark:border-white/5">
+                    <Sparkles size={16} className="shrink-0 mt-1 text-purple-500 dark:text-purple-400" />
+                    <p className="text-base text-purple-700 dark:text-purple-300 leading-relaxed">{insight.structured.tips[0]}</p>
                   </div>
                 )}
               </div>
