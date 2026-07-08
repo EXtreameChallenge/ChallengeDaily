@@ -1,7 +1,7 @@
-{
+﻿{
   "name": "challenge-daily",
-  "version": "2.5.6",
-  "description": "ChallengeDaily Windows版 - AI智能工作日报助手",
+  "version": "2.5.7",
+  "description": "ChallengeDaily Windows鐗?- AI鏅鸿兘宸ヤ綔鏃ユ姤鍔╂墜",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -40,7 +40,7 @@
   "build": {
     "appId": "com.challenge.daily",
     "productName": "ChallengeDaily",
-    "copyright": "Copyright © 2024 ChallengeDaily",
+    "copyright": "Copyright 漏 2024 ChallengeDaily",
     "directories": {
       "output": "dist-electron"
     },
@@ -171,3 +171,4 @@
     ]
   }
 }
+

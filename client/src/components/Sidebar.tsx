@@ -222,12 +222,12 @@ export default function Sidebar() {
       {/* ─── 底部用户信息 ─────────────────────── */}
       <div className="px-4 py-3 border-t border-cd-border">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cd-purple to-cd-green flex items-center justify-center text-white text-[10px] font-bold">
-            橙
+          <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center">
+            <img src="/icon.png" alt="ChallengeDaily" className="w-full h-full object-cover" />
           </div>
           <div>
             <div className="text-xs text-cd-text font-medium leading-tight">橙紫Challenge</div>
-            <div className="text-[10px] text-cd-gold leading-tight font-brand">EXtreame Ultra</div>
+            <div className="text-[10px] text-cd-gold leading-tight font-brand">Extreme Preview</div>
           </div>
         </div>
       </div>
