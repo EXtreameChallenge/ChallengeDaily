@@ -268,7 +268,7 @@ function createMainWindow() {
           "default-src 'self'; " +
           "script-src 'self' 'unsafe-inline'; " +  // unsafe-inline needed for Vite HMR in dev
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-          "img-src 'self' data: blob: https:; " +
+          "img-src 'self' data: blob: http: https:; " +
           "font-src 'self' data: https://fonts.gstatic.com; " +
           "connect-src 'self' http://127.0.0.1:58888 http://localhost:5173 http://localhost:58888 " +
             "https://wttr.in https://api.open-meteo.com https://geocoding-api.open-meteo.com " +
