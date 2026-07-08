@@ -122,7 +122,7 @@ export interface TodayStats {
   date: string
   total_duration_min: number
   categories: Record<string, number>
-  top_apps: Array<{ app_name: string; duration_min: number }>
+  top_apps: Array<{ app_name: string; app_name_raw?: string; duration_min: number }>
   focus_sessions: number
   longest_focus_min: number
   total_activities?: number

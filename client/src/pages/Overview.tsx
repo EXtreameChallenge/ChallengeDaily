@@ -138,7 +138,9 @@ export default function Overview() {
       await Promise.all(
         stats.top_apps!.map(async (app) => {
           try {
-            map[app.app_name] = await getAppIconUrl(app.app_name)
+            // Use raw process name for icon lookup (e.g. "chrome.exe"), not display name ("Google Chrome")
+            const iconKey = app.app_name_raw || app.app_name
+            map[app.app_name] = await getAppIconUrl(iconKey)
           } catch {
             map[app.app_name] = ''
           }

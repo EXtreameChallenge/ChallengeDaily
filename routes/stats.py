@@ -62,7 +62,7 @@ def _build_stats(target_date: str):
 
     from app_tracker import get_display_name as _gdn2
     top_apps = [
-        {"app_name": _gdn2(a["app_name"]), "duration_min": a["duration_min"]}
+        {"app_name": _gdn2(a["app_name"]), "app_name_raw": a["app_name"], "duration_min": a["duration_min"]}
         for a in apps[:15]
     ]
 

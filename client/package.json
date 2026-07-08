@@ -1,7 +1,7 @@
 ﻿{
   "name": "challenge-daily",
-  "version": "2.5.7",
-  "description": "ChallengeDaily Windows鐗?- AI鏅鸿兘宸ヤ綔鏃ユ姤鍔╂墜",
+  "version": "2.5.8",
+  "description": "ChallengeDaily Windows閻?- AI閺呴缚鍏樺銉ょ稊閺冦儲濮ら崝鈺傚",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -40,7 +40,7 @@
   "build": {
     "appId": "com.challenge.daily",
     "productName": "ChallengeDaily",
-    "copyright": "Copyright 漏 2024 ChallengeDaily",
+    "copyright": "Copyright 婕?2024 ChallengeDaily",
     "directories": {
       "output": "dist-electron"
     },
@@ -171,4 +171,5 @@
     ]
   }
 }
+
 
