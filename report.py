@@ -7,6 +7,7 @@ ChallengeDaily Windows 版 — Markdown 日报生成
 import os
 import json
 import re as _re
+import socket
 from datetime import date, datetime, timedelta
 from collections import OrderedDict
 from app_tracker import get_display_name
@@ -729,6 +730,8 @@ def _get_weather_info(target_date: str) -> dict:
                 en_arr = mid_hour.get("weatherDesc", [])
                 if en_arr:
                     result["desc"] = en_arr[0].get("value", "") if isinstance(en_arr[0], dict) else str(en_arr[0])
+    except socket.timeout:
+        logger.debug("天气获取超时（8秒），跳过天气数据")
     except Exception as e:
         logger.debug(f"天气获取失败: {e}")
     # 只缓存成功结果，避免网络瞬断导致当天天气永久为空
@@ -1201,19 +1204,20 @@ def _build_rich_data_context(target_date, summary_data, app_usage, activities) -
         end = rng.get("end", f"{h:02d}:59")
         lines.append(f"| {start}-{end} | {cat_str} | {app_str} | {dur_min:.0f}分钟 |")
 
-    # ── 注入用户画像 + 周级上下文（长记忆） ──
+    # ── 注入用户画像 + 周级上下文（长记忆，防注入过滤） ──
     try:
         from context_manager import get_user_profile_context, build_weekly_context
+        from prompt import _sanitize_user_input
         user_ctx = get_user_profile_context()
         if user_ctx:
             lines.append("")
             lines.append("═══ 用户画像 ═══")
-            lines.append(user_ctx)
+            lines.append(_sanitize_user_input(user_ctx, 1500))
         weekly_ctx = build_weekly_context(7)
         if weekly_ctx and len(weekly_ctx) > 50:
             lines.append("")
             lines.append("═══ 近一周工作上下文 ═══")
-            lines.append(weekly_ctx)
+            lines.append(_sanitize_user_input(weekly_ctx, 3000))
     except Exception:
         pass
 
@@ -1268,86 +1272,109 @@ def _template_deep(target_date: str, activities, summary_data, app_usage) -> str
     except Exception:
         pass  # 熔断器检查失败不阻塞
 
+    # 速率限制检查
     try:
-        rich_context = _build_rich_data_context(target_date, summary_data, app_usage, activities)
+        from ai_client import _rate_limit_check
+        if not _rate_limit_check("text"):
+            logger.warning("AI 文本请求速率超限，深度洞察降级为标准模板")
+            base = _template_standard(target_date, activities, summary_data, app_usage)
+            return base.replace(
+                f"# {target_date} 工作日报",
+                f"# {target_date} 工作日报\n\n> ⚠️ AI 请求过于频繁，已使用标准模板生成。\n",
+            )
+    except Exception:
+        pass
 
-        system_prompt = (
-            "你是一位世界级的私人日志作者与人生教练。你的文字融合了以下产品的精髓：\n"
-            "\n"
-            "- Day One：用叙事场景还原真实的一天，有光影、有温度、有呼吸感\n"
-            "- Stoic Journal：哲思与反思，从经历中提炼智慧，困境中看见成长\n"
-            "- 5-Minute Journal：感恩的视角，在平凡中发现珍贵\n"
-            "- Reflectly：用 AI 的共情力理解行为背后的心理，温暖而不说教\n"
-            "- Bullet Journal：结构化追踪，让数据为成长服务\n"
-            "- Obsidian Daily Notes：知识工作者的日志传统，连接思考与行动\n"
-            "\n"
-            "你的任务是：根据用户的全天工作活动数据，写一份极其丰富、深度、有温度的个人日报。\n"
-            "\n"
-            "## 结构要求（灵活而完整）\n"
-            "你不必死板地套用固定小节，但必须在行文中**自然覆盖**以下维度：\n"
-            "1. 开篇场景——基于数据中第一条活动的真实时间、真实应用、真实窗口标题开场，如'早上8:59，当你打开 TRAE SOLO CN 开始新一天的开发任务时...'，绝对禁止编造天气、编造未发生的场景\n"
-            "2. 工作纪实——沿时间线叙事，必须引用具体细节：文件名、工具名、窗口标题、操作内容（从叙事时间线和 ai_detail 提取），不要泛泛而谈\n"
-            "3. 心流与专注——引用数据中的注意力碎片化指数、专注效率、深度工作占比、最长专注时间等具体数字，分析深度工作时段、被打断的瞬间\n"
-            "4. 情绪与能量——引用情绪曲线中的峰值/低谷时段、能量模式（如'午后型'），结合切换频率推断心理状态\n"
-            "5. 技能成长——引用技能雷达中的具体小时数，今日最强技能和成长空间\n"
-            "6. 人际与协作——从沟通类活动、会议记录推断协作模式，列举具体沟通对象和工具\n"
-            "7. 挑战与突破——从工作场景流中识别任务切换频繁的时段（可能是遇到困难的信号），具体说明\n"
-            "8. 反思与感恩——今天的收获、值得感谢的、可以改进的，结合今日对比数据（比昨日多了还是少了）\n"
-            "9. 明日展望——带着期待而不是焦虑看明天，结合今天的成长空间给出建议\n"
-            "10. 数据附录——用简洁的表格呈现时间分配与工具统计\n"
-            "\n"
-            "## 写作铁律\n"
-            "- 每个维度必须充实展开，不能两句话带过\n"
-            "- 从 ai_detail 和窗口数据中提取**具体细节**，让故事有血有肉——如果数据里有'TRAE SOLO CN - 编辑 report.py'，你就要写出'你在 report.py 中埋头编写'，而不能只写'你在开发'\n"
-            "- 心理推测要有依据：从切换频率、时间间隔、分类分布推断心理状态\n"
-            "- 总字数 2500-4000 字中文\n"
-            "- 语气温暖、真诚、像最懂你的朋友——不是教导主任\n"
-            "- 用 Markdown 格式，标题层级灵活，但每个板块标题用 ## 或 ###\n"
-            "- 数据附录的表格必须完整输出所有行，禁止使用'…'或'...'省略任何行，按小时时间段摘要已为你准备好，直接逐行输出即可\n"
-            "- 开篇场景必须基于真实数据（时间、应用、窗口标题），禁止编造天气、编造场景、编造未发生的事\n"
-            "- 如果天气数据存在，在开篇或正文中自然提及真实天气（从数据中读取），不要编造天气\n"
-            "- 工作纪实部分必须覆盖上午、下午、晚上的主要活动，每个时段至少写3-4句具体描述\n"
-            "- 引用数字要有出处：如说'专注效率 72 分'就必须是数据中给出的数字，不能自己编\n"
-        )
+    max_retries = 2
+    for attempt in range(max_retries):
+        try:
+            rich_context = _build_rich_data_context(target_date, summary_data, app_usage, activities)
 
-        from ai_client import _get_client
-        client = _get_client()
-        response = client.chat.completions.create(
-            model=config.AI_TEXT_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": (
-                    f"以下是 {target_date}（{_weekday_str_deep(target_date)}）的全天活动数据，请据此写一份深度洞察日报：\n\n"
-                    f"{rich_context}"
-                )},
-            ],
-            max_tokens=6000,
-            temperature=0.78,
-        )
-        content = response.choices[0].message.content.strip()
-        # 记录熔断器成功
-        try:
-            from ai_client import _cb_record_success
-            _cb_record_success()
-        except Exception:
-            pass
-        _md_fence = _re.match(r"^```(?:markdown|md)?\s*\n(.+?)\n```\s*$", content, _re.DOTALL)
-        if _md_fence:
-            content = _md_fence.group(1).strip()
-        content = _re.sub(r"^```(?:markdown|md)?\s*\n", "", content).rstrip("`").strip()
-        aigc_label = "\n\n---\n*本日记由 ChallengeDaily AI 深度分析生成，内容仅供参考*"
-        if aigc_label.strip() not in content and "ChallengeDaily AI" not in content:
-            content = content.rstrip() + aigc_label
-        return content
-    except Exception as e:
-        logger.error(f"深度洞察日报生成失败: {e}", exc_info=True)
-        # 记录熔断器失败
-        try:
-            from ai_client import _cb_record_failure
-            _cb_record_failure()
-        except Exception:
-            pass
-        return _template_standard(target_date, activities, summary_data, app_usage)
+            # Token 预算控制：rich_context 截断上限（防止超出模型上下文）
+            _RICH_CONTEXT_MAX_CHARS = 12000  # 约 6000 token
+            if len(rich_context) > _RICH_CONTEXT_MAX_CHARS:
+                rich_context = rich_context[:_RICH_CONTEXT_MAX_CHARS] + "\n\n...(数据已截断，仅包含核心信息)"
+
+            system_prompt = (
+                "你是一位世界级的私人日志作者与人生教练。你的文字融合了以下产品的精髓：\n"
+                "\n"
+                "- Day One：用叙事场景还原真实的一天，有光影、有温度、有呼吸感\n"
+                "- Stoic Journal：哲思与反思，从经历中提炼智慧，困境中看见成长\n"
+                "- 5-Minute Journal：感恩的视角，在平凡中发现珍贵\n"
+                "- Reflectly：用 AI 的共情力理解行为背后的心理，温暖而不说教\n"
+                "- Bullet Journal：结构化追踪，让数据为成长服务\n"
+                "- Obsidian Daily Notes：知识工作者的日志传统，连接思考与行动\n"
+                "\n"
+                "你的任务是：根据用户的全天工作活动数据，写一份极其丰富、深度、有温度的个人日报。\n"
+                "\n"
+                "## 结构要求（灵活而完整）\n"
+                "你不必死板地套用固定小节，但必须在行文中**自然覆盖**以下维度：\n"
+                "1. 开篇场景——基于数据中第一条活动的真实时间、真实应用、真实窗口标题开场，如'早上8:59，当你打开 TRAE SOLO CN 开始新一天的开发任务时...'，绝对禁止编造天气、编造未发生的场景\n"
+                "2. 工作纪实——沿时间线叙事，必须引用具体细节：文件名、工具名、窗口标题、操作内容（从叙事时间线和 ai_detail 提取），不要泛泛而谈\n"
+                "3. 心流与专注——引用数据中的注意力碎片化指数、专注效率、深度工作占比、最长专注时间等具体数字，分析深度工作时段、被打断的瞬间\n"
+                "4. 情绪与能量——引用情绪曲线中的峰值/低谷时段、能量模式（如'午后型'），结合切换频率推断心理状态\n"
+                "5. 技能成长——引用技能雷达中的具体小时数，今日最强技能和成长空间\n"
+                "6. 人际与协作——从沟通类活动、会议记录推断协作模式，列举具体沟通对象和工具\n"
+                "7. 挑战与突破——从工作场景流中识别任务切换频繁的时段（可能是遇到困难的信号），具体说明\n"
+                "8. 反思与感恩——今天的收获、值得感谢的、可以改进的，结合今日对比数据（比昨日多了还是少了）\n"
+                "9. 明日展望——带着期待而不是焦虑看明天，结合今天的成长空间给出建议\n"
+                "10. 数据附录——用简洁的表格呈现时间分配与工具统计\n"
+                "\n"
+                "## 写作铁律\n"
+                "- 每个维度必须充实展开，不能两句话带过\n"
+                "- 从 ai_detail 和窗口数据中提取**具体细节**，让故事有血有肉——如果数据里有'TRAE SOLO CN - 编辑 report.py'，你就要写出'你在 report.py 中埋头编写'，而不能只写'你在开发'\n"
+                "- 心理推测要有依据：从切换频率、时间间隔、分类分布推断心理状态\n"
+                "- 总字数 2500-4000 字中文\n"
+                "- 语气温暖、真诚、像最懂你的朋友——不是教导主任\n"
+                "- 用 Markdown 格式，标题层级灵活，但每个板块标题用 ## 或 ###\n"
+                "- 数据附录的表格必须完整输出所有行，禁止使用'…'或'...'省略任何行，按小时时间段摘要已为你准备好，直接逐行输出即可\n"
+                "- 开篇场景必须基于真实数据（时间、应用、窗口标题），禁止编造天气、编造场景、编造未发生的事\n"
+                "- 如果天气数据存在，在开篇或正文中自然提及真实天气（从数据中读取），不要编造天气\n"
+                "- 工作纪实部分必须覆盖上午、下午、晚上的主要活动，每个时段至少写3-4句具体描述\n"
+                "- 引用数字要有出处：如说'专注效率 72 分'就必须是数据中给出的数字，不能自己编\n"
+            )
+
+            from ai_client import _get_client
+            client = _get_client()
+            response = client.chat.completions.create(
+                model=config.AI_TEXT_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": (
+                        f"以下是 {target_date}（{_weekday_str_deep(target_date)}）的全天活动数据，请据此写一份深度洞察日报：\n\n"
+                        f"{rich_context}"
+                    )},
+                ],
+                max_tokens=6000,
+                temperature=0.78,
+            )
+            content = response.choices[0].message.content.strip()
+            # 记录熔断器成功
+            try:
+                from ai_client import _cb_record_success
+                _cb_record_success()
+            except Exception:
+                pass
+            _md_fence = _re.match(r"^```(?:markdown|md)?\s*\n(.+?)\n```\s*$", content, _re.DOTALL)
+            if _md_fence:
+                content = _md_fence.group(1).strip()
+            content = _re.sub(r"^```(?:markdown|md)?\s*\n", "", content).rstrip("`").strip()
+            aigc_label = "\n\n---\n*本日记由 ChallengeDaily AI 深度分析生成，内容仅供参考*"
+            if aigc_label.strip() not in content and "ChallengeDaily AI" not in content:
+                content = content.rstrip() + aigc_label
+            return content
+        except Exception as e:
+            logger.error(f"深度洞察日报生成失败 (尝试 {attempt+1}/{max_retries}): {e}", exc_info=True)
+            try:
+                from ai_client import _cb_record_failure
+                _cb_record_failure()
+            except Exception:
+                pass
+            if attempt < max_retries - 1:
+                import time as _time
+                _time.sleep(1 * (2 ** attempt))  # 1s, 2s 退避
+    # 全部重试失败，降级到标准模板
+    return _template_standard(target_date, activities, summary_data, app_usage)
 
 
 # ── 模板5: AI 智能 (ai) ──────────────────────────
@@ -1559,39 +1586,70 @@ def _template_ai(target_date: str, activities, summary_data, app_usage) -> str:
             f"# {target_date} 工作日报\n\n> 未配置 AI API Key，已使用标准模板生成。在设置中配置 Key 后可启用 AI 智能日报。\n"
         )
 
+    # 熔断器检查：如果 AI 服务熔断中，降级到标准模板
+    try:
+        from ai_client import _cb_check, _rate_limit_check
+        if not _cb_check():
+            logger.warning("AI 熔断器打开，AI日报降级为标准模板")
+            base = _template_standard(target_date, activities, summary_data, app_usage)
+            return base.replace(
+                f"# {target_date} 工作日报",
+                f"# {target_date} 工作日报\n\n> ⚠️ AI 服务暂时不可用，已使用标准模板生成。\n",
+            )
+        if not _rate_limit_check("text"):
+            logger.warning("AI 文本请求速率超限，AI日报降级为标准模板")
+            base = _template_standard(target_date, activities, summary_data, app_usage)
+            return base.replace(
+                f"# {target_date} 工作日报",
+                f"# {target_date} 工作日报\n\n> ⚠️ AI 请求过于频繁，已使用标准模板生成。\n",
+            )
+    except Exception:
+        pass  # 熔断器/限流检查失败不阻塞
+
     prompt = _build_ai_report_prompt(target_date, activities, summary_data, app_usage)
 
-    try:
-        from ai_client import _get_client
-        client = _get_client()
-        response = client.chat.completions.create(
-            model=config.AI_TEXT_MODEL,
-            messages=[
-                {"role": "system", "content": "你是一位专业的工作日报撰写助手，擅长根据活动记录提炼要点、组织语言。"},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=1500,
-            temperature=0.5,
-        )
-        content = response.choices[0].message.content.strip()
-        # 去除模型可能包裹的 ```markdown ... ``` 代码块，避免前端渲染为代码块原文
-        import re as _re
-        _md_fence = _re.match(r"^```(?:markdown|md)?\s*\n(.+?)\n```\s*$", content, _re.DOTALL)
-        if _md_fence:
-            content = _md_fence.group(1).strip()
-        # 兼容只有开头 ```markdown 但没有闭合 ``` 的情况
-        content = _re.sub(r"^```(?:markdown|md)?\s*\n", "", content).rstrip("`").strip()
-        # 确保有 AIGC 标记
-        aigc_label = "\n\n---\n*本报告由 ChallengeDaily AI 辅助生成，内容仅供参考*"
-        if aigc_label.strip() not in content and "ChallengeDaily AI" not in content:
-            content = content.rstrip() + aigc_label
-        return content
-    except Exception as e:
-        logger.error(f"AI 日报生成失败: {e}")
-        # 回退到标准模板，并添加降级提示
-        fallback = _template_standard(target_date, activities, summary_data, app_usage)
-        fallback += "\n\n---\n> ⚠️ AI 日报生成失败，已降级为基础模板。请检查 AI 配置或稍后重试。"
-        return fallback
+    max_retries = 2
+    for attempt in range(max_retries):
+        try:
+            from ai_client import _get_client, _cb_record_success, _cb_record_failure
+            client = _get_client()
+            response = client.chat.completions.create(
+                model=config.AI_TEXT_MODEL,
+                messages=[
+                    {"role": "system", "content": "你是一位专业的工作日报撰写助手，擅长根据活动记录提炼要点、组织语言。"},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=1500,
+                temperature=0.5,
+            )
+            content = response.choices[0].message.content.strip()
+            # 去除模型可能包裹的 ```markdown ... ``` 代码块，避免前端渲染为代码块原文
+            import re as _re
+            _md_fence = _re.match(r"^```(?:markdown|md)?\s*\n(.+?)\n```\s*$", content, _re.DOTALL)
+            if _md_fence:
+                content = _md_fence.group(1).strip()
+            # 兼容只有开头 ```markdown 但没有闭合 ``` 的情况
+            content = _re.sub(r"^```(?:markdown|md)?\s*\n", "", content).rstrip("`").strip()
+            # 确保有 AIGC 标记
+            aigc_label = "\n\n---\n*本报告由 ChallengeDaily AI 辅助生成，内容仅供参考*"
+            if aigc_label.strip() not in content and "ChallengeDaily AI" not in content:
+                content = content.rstrip() + aigc_label
+            _cb_record_success()
+            return content
+        except Exception as e:
+            logger.error(f"AI 日报生成失败 (尝试 {attempt+1}/{max_retries}): {e}")
+            try:
+                from ai_client import _cb_record_failure
+                _cb_record_failure()
+            except Exception:
+                pass
+            if attempt < max_retries - 1:
+                import time as _time
+                _time.sleep(1 * (2 ** attempt))  # 1s, 2s 退避
+    # 全部重试失败，回退到标准模板
+    fallback = _template_standard(target_date, activities, summary_data, app_usage)
+    fallback += "\n\n---\n> ⚠️ AI 日报生成失败，已降级为基础模板。请检查 AI 配置或稍后重试。"
+    return fallback
 
 
 # ── 公共入口 ──────────────────────────────────

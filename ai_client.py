@@ -219,6 +219,11 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
 
     max_retries = 3
     for attempt in range(max_retries):
+        # 重试前检查熔断器，避免在熔断状态下继续浪费请求
+        if attempt > 0 and not _cb_check():
+            logger.info("Circuit breaker OPEN，跳过重试")
+            fallback_summary = f"{app_name} - {window_title}" if window_title else app_name or "AI服务暂时不可用"
+            return {"category": "生活", "summary": fallback_summary, "detail": "AI 服务暂时不可用，等待恢复中", "windows": []}
         try:
             client = _get_client()
 
@@ -360,22 +365,40 @@ def _sanitize_analysis_result(result: dict, app_name: str, visible_windows: list
     foreground_is_ide = _is_ide_app(app_name or "")
     if not foreground_is_ide:
         # 如果前台不是 IDE，但 detail/summary 出现典型代码元素，说明是幻觉
-        code_signals = [".py", ".js", ".ts", ".java", ".go", ".cpp", ".c", ".h", ".rs", ".swift", ".kt",
-                        "函数", "login", "auth", "token", "api", "接口", "调试", "bug", "报错", "编译",
-                        "github", "gitlab", "commit", "pr", "merge", "仓库", "分支"]
+        # 强信号：仅在代码上下文出现的词汇 → 直接判定幻觉
+        _STRONG_CODE_SIGNALS = [
+            ".py", ".js", ".ts", ".java", ".go", ".cpp", ".c", ".h", ".rs", ".swift", ".kt",
+            "github", "gitlab", "commit", "merge request", "仓库", "分支", "编译",
+        ]
+        # 弱信号：可能出现在非代码场景 → 仅记录警告，不回退
+        _WEAK_CODE_SIGNALS = [
+            "函数", "login", "auth", "token", "api", "接口", "调试", "bug", "报错",
+            "pr", "merge", "代码",
+        ]
         summary = result.get("summary", "")
         detail = result.get("detail", "")
         combined = f"{summary} {detail}".lower()
-        if any(s in combined for s in code_signals):
-            logger.warning("[AI sanitize] 前台非 IDE 但出现代码相关描述，判定为幻觉并回退")
+        if any(s in combined for s in _STRONG_CODE_SIGNALS):
+            logger.warning("[AI sanitize] 前台非 IDE 但出现强代码信号，判定为幻觉并回退")
             result["summary"] = f"使用 {app_name}"
             result["detail"] = f"当前前台应用为 {app_name}，截图中未显示代码或开发相关内容，无法判断具体工作内容。"
             result["category"] = "生活"
+        elif any(s in combined for s in _WEAK_CODE_SIGNALS):
+            logger.info("[AI sanitize] 前台非 IDE 检测到弱代码信号，保留结果但记录")
+
+    # 检测 summary/detail 是否引用了被过滤掉的窗口应用名
+    removed_apps = visible_apps - {w.get("app_name", "").lower() for w in cleaned_windows}
+    if removed_apps:
+        combined = f"{summary} {detail}".lower()
+        for rm_app in removed_apps:
+            if rm_app and rm_app in combined:
+                logger.warning(f"[AI sanitize] summary/detail 引用了被过滤的应用: {rm_app}")
+
     return result
 
 
 def _parse_json_response(raw: str) -> dict | None:
-    """从 AI 返回的文本中提取 JSON"""
+    """从 AI 返回的文本中提取 JSON（支持嵌套结构）"""
     # 尝试直接解析
     try:
         return json.loads(raw)
@@ -390,13 +413,27 @@ def _parse_json_response(raw: str) -> dict | None:
         except json.JSONDecodeError:
             pass
 
-    # 尝试提取 { ... }
-    match = re.search(r"\{[^{}]+\}", raw, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group(0))
-        except json.JSONDecodeError:
-            pass
+    # 尝试提取最外层 { ... }（使用括号计数法，支持嵌套 JSON）
+    start = raw.find('{')
+    if start != -1:
+        depth = 0
+        for i in range(start, len(raw)):
+            if raw[i] == '{':
+                depth += 1
+            elif raw[i] == '}':
+                depth -= 1
+                if depth == 0:
+                    candidate = raw[start:i+1]
+                    try:
+                        return json.loads(candidate)
+                    except json.JSONDecodeError:
+                        # 可能匹配了错误的边界，继续搜索下一个 {
+                        start = raw.find('{', start + 1)
+                        if start == -1:
+                            break
+                        depth = 0
+                        i = start - 1  # for 循环会 i+=1
+                        continue
 
     return None
 

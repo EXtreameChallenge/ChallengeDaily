@@ -259,6 +259,26 @@ function createMainWindow() {
     show: false,
   })
 
+  // Content Security Policy：限制资源加载来源，防止 XSS 等注入攻击
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; " +
+          "script-src 'self' 'unsafe-inline'; " +  // unsafe-inline needed for Vite HMR in dev
+          "style-src 'self' 'unsafe-inline'; " +
+          "img-src 'self' data: blob: https:; " +
+          "font-src 'self' data:; " +
+          "connect-src 'self' http://127.0.0.1:58888 http://localhost:5173 https://wttr.in; " +
+          "media-src 'none'; " +
+          "object-src 'none'; " +
+          "frame-src 'none';"
+        ]
+      }
+    })
+  })
+
   // 窗口最小化时暂停渲染，减少 CPU/GPU 占用
   mainWindow.on('minimize', () => {
     mainWindow.webContents.setBackgroundThrottling(true)

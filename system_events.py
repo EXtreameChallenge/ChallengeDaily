@@ -14,11 +14,22 @@
 
 import json
 import logging
+import re as _re
 import subprocess
 from datetime import datetime, timedelta
 from functools import lru_cache
 
 logger = logging.getLogger(__name__)
+
+# 日期格式校验正则（防止 PowerShell 命令注入）
+_DATE_RE = _re.compile(r'^\d{4}-\d{2}-\d{2}$')
+
+
+def _validate_date(d: str) -> str:
+    """校验日期字符串格式为 YYYY-MM-DD，防止 PowerShell f-string 注入"""
+    if not _DATE_RE.match(d):
+        raise ValueError(f"非法日期格式: {d!r}，期望 YYYY-MM-DD")
+    return d
 
 # 事件类型常量
 EVENT_BOOT = "boot"          # 开机
@@ -144,6 +155,10 @@ def get_boot_events(start_date: str, end_date: str) -> list[dict]:
     注意：为支持跨天会话，查询范围会向前扩展 30 天，确保能拿到"系统在 start_date 之前开机
     但仍持续运行到查询范围内"的 boot 事件。
     """
+    # 校验日期参数，防止 PowerShell 命令注入
+    _validate_date(start_date)
+    _validate_date(end_date)
+
     # 向前扩展 30 天，确保能拿到跨天会话的 boot 事件
     try:
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
@@ -217,6 +232,10 @@ def get_login_events(start_date: str, end_date: str) -> list[dict]:
 
     返回 [{"timestamp", "event_type", "username"}]。
     """
+    # 校验日期参数，防止 PowerShell 命令注入
+    _validate_date(start_date)
+    _validate_date(end_date)
+
     # Security log 需要管理员权限，普通用户读不到
     script = f"""
 $ErrorActionPreference = 'SilentlyContinue'

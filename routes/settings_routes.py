@@ -30,6 +30,18 @@ def update_settings():
         if key in data:
             current[key] = data[key]
 
+    # 字段长度限制：防止超大值拖垮系统或 AI 调用
+    _MAX_FIELD_LEN = {
+        "ai_base_url": 200,
+        "ai_vision_model": 100,
+        "ai_text_model": 100,
+        "custom_report_instructions": 2000,
+        "exclude_apps": 5000,
+    }
+    for field, max_len in _MAX_FIELD_LEN.items():
+        if field in current and isinstance(current[field], str) and len(current[field]) > max_len:
+            return jsonify({"error": f"{field} 长度超过限制（最大 {max_len} 字符）"}), 400
+
     if ai_api_key_raw is not None and ai_api_key_raw.strip():
         try:
             from crypto import save_secret
@@ -66,8 +78,11 @@ def update_settings():
         config.SCREENSHOT_INTERVAL_SEC = val
 
     if "ai_base_url" in data:
+        url_val = str(data["ai_base_url"]).strip()
+        if url_val and not (url_val.startswith("http://") or url_val.startswith("https://")):
+            return jsonify({"error": "AI Base URL 必须以 http:// 或 https:// 开头"}), 400
         import config
-        config.AI_BASE_URL = str(data["ai_base_url"])
+        config.AI_BASE_URL = url_val
     if "ai_vision_model" in data:
         import config
         config.AI_VISION_MODEL = str(data["ai_vision_model"])

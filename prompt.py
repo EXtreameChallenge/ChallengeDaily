@@ -187,6 +187,8 @@ def build_user_prompt(app_name: str, window_title: str, recent_context: str = ""
         parts.append(f"近期活动上下文（供综合判断）：\n{recent_context}")
 
     # ── 注入用户画像 + 周级上下文（长记忆） ──
+    # 各部分优先级：窗口列表 > 近期上下文 > 画像 > DeepInsight > 周级上下文 > 自定义指令
+    _USER_PROMPT_BUDGET = 4500  # 字符上限（约 2000-3000 token），防止超出模型上下文
     try:
         from context_manager import get_user_profile_context, build_weekly_context
         user_ctx = get_user_profile_context()
@@ -238,4 +240,13 @@ def build_user_prompt(app_name: str, window_title: str, recent_context: str = ""
     parts.append("detail 字段必须 120-180 字，必须基于截图中实际可见的文本、代码、界面元素来描述。")
     parts.append("如果当前屏幕上有 IDE/编辑器窗口，重点描述其右侧主编辑区当前打开的文件和正在修改的代码，不要只描述左侧任务列表。")
     parts.append("严禁编造未传入的窗口或应用，严禁描述截图中不可见的内容。")
-    return "\n".join(parts)
+
+    result = "\n".join(parts)
+    # Token 预算控制：截断超长 prompt，从低优先级部分开始裁剪
+    if len(result) > _USER_PROMPT_BUDGET:
+        # 先尝试移除周级上下文（最低优先级）
+        if "近一周工作上下文" in result:
+            result = result.split("近一周工作上下文")[0].rstrip() + "\n...(已省略周级上下文)"
+        if len(result) > _USER_PROMPT_BUDGET:
+            result = result[:_USER_PROMPT_BUDGET] + "\n...(上下文已截断)"
+    return result

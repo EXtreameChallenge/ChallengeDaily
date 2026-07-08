@@ -190,8 +190,10 @@ def overview_summary():
 
         # 熔断器检查
         try:
-            from ai_client import _cb_check
+            from ai_client import _cb_check, _rate_limit_check
             if not _cb_check():
+                return jsonify({"summary": ""})
+            if not _rate_limit_check("text"):
                 return jsonify({"summary": ""})
         except Exception:
             pass
@@ -410,17 +412,18 @@ def overview_summary():
             f'近期活动详情：\n{detail_text}'
         )
 
-        # ── 注入用户画像 + 周级上下文（长记忆）到 system prompt ──
+        # ── 注入用户画像 + 周级上下文（长记忆，防注入过滤） ──
         system_content = "你是工作数据分析助手，根据用户活动数据生成结构化的首页洞察总结。只输出要求的 JSON，不要其他内容。"
         try:
             from context_manager import get_user_profile_context, build_weekly_context
+            from prompt import _sanitize_user_input
             user_ctx = get_user_profile_context()
             weekly_ctx = build_weekly_context(7)
             parts = []
             if user_ctx:
-                parts.append(f"用户画像：{user_ctx}")
+                parts.append(f"用户画像：{_sanitize_user_input(user_ctx, 800)}")
             if weekly_ctx and len(weekly_ctx) > 50:
-                parts.append(f"近一周上下文：\n{weekly_ctx}")
+                parts.append(f"近一周上下文：\n{_sanitize_user_input(weekly_ctx, 2000)}")
             if parts:
                 system_content += "\n\n" + "\n\n".join(parts)
         except Exception:

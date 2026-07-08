@@ -154,68 +154,76 @@ def update_activity(act_id):
 
 @bp.route("/api/activities/<int:act_id>", methods=["DELETE"])
 def delete_activity(act_id):
-    """软删除：将记录移到 activities_deleted 表，支持 undo"""
+    """软删除：将记录移到 activities_deleted 表，支持 undo。
+    使用 BEGIN IMMEDIATE 显式事务保证 INSERT+DELETE 原子性。"""
     from db import get_conn
 
     with get_conn() as conn:
-        # 查找原始记录
-        row = conn.execute("SELECT * FROM activities WHERE id = ?", (act_id,)).fetchone()
-        if not row:
-            return jsonify({"error": "记录不存在"}), 404
+        # 显式事务：防止 INSERT 成功但 DELETE 失败导致数据不一致
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            # 查找原始记录
+            row = conn.execute("SELECT * FROM activities WHERE id = ?", (act_id,)).fetchone()
+            if not row:
+                conn.rollback()
+                return jsonify({"error": "记录不存在"}), 404
 
-        # 创建 deleted 表（如不存在）— 使用与 activities 相同的结构 + 额外字段
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS activities_deleted (
-                id INTEGER PRIMARY KEY,
-                timestamp TEXT NOT NULL,
-                screenshot TEXT,
-                app_name TEXT,
-                window_title TEXT,
-                category TEXT,
-                summary TEXT,
-                interval_sec INTEGER DEFAULT 60,
-                ai_detail TEXT DEFAULT '',
-                windows_json TEXT DEFAULT '[]',
-                created_at TEXT,
-                original_id INTEGER,
-                deleted_at TEXT DEFAULT (datetime('now'))
+            # 创建 deleted 表（如不存在）
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS activities_deleted (
+                    id INTEGER PRIMARY KEY,
+                    timestamp TEXT NOT NULL,
+                    screenshot TEXT,
+                    app_name TEXT,
+                    window_title TEXT,
+                    category TEXT,
+                    summary TEXT,
+                    interval_sec INTEGER DEFAULT 60,
+                    ai_detail TEXT DEFAULT '',
+                    windows_json TEXT DEFAULT '[]',
+                    created_at TEXT,
+                    original_id INTEGER,
+                    deleted_at TEXT DEFAULT (datetime('now'))
+                )
+            """)
+            # 兼容：为旧版 deleted 表补齐新列
+            try:
+                conn.execute("ALTER TABLE activities_deleted ADD COLUMN interval_sec INTEGER DEFAULT 60")
+            except Exception:
+                pass
+            try:
+                conn.execute("ALTER TABLE activities_deleted ADD COLUMN ai_detail TEXT DEFAULT ''")
+            except Exception:
+                pass
+            try:
+                conn.execute("ALTER TABLE activities_deleted ADD COLUMN windows_json TEXT DEFAULT '[]'")
+            except Exception:
+                pass
+
+            # 插入 deleted 表
+            deleted_cols = {"id", "timestamp", "screenshot", "app_name", "window_title", "category", "summary", "interval_sec", "ai_detail", "windows_json", "created_at"}
+            insert_cols = []
+            insert_vals = []
+            for k in row.keys():
+                if k in deleted_cols:
+                    insert_cols.append(k)
+                    insert_vals.append(row[k])
+            insert_cols.append("original_id")
+            insert_vals.append(act_id)
+
+            placeholders = ', '.join(['?'] * len(insert_cols))
+            col_names = ', '.join(insert_cols)
+            conn.execute(
+                f"INSERT INTO activities_deleted ({col_names}) VALUES ({placeholders})",
+                insert_vals,
             )
-        """)
-        # 兼容：为旧版 deleted 表补齐新列
-        try:
-            conn.execute("ALTER TABLE activities_deleted ADD COLUMN interval_sec INTEGER DEFAULT 60")
-        except Exception:
-            pass
-        try:
-            conn.execute("ALTER TABLE activities_deleted ADD COLUMN ai_detail TEXT DEFAULT ''")
-        except Exception:
-            pass
-        try:
-            conn.execute("ALTER TABLE activities_deleted ADD COLUMN windows_json TEXT DEFAULT '[]'")
-        except Exception:
-            pass
 
-        # 插入 deleted 表 — 包含所有活动字段 + original_id
-        deleted_cols = {"id", "timestamp", "screenshot", "app_name", "window_title", "category", "summary", "interval_sec", "ai_detail", "windows_json", "created_at"}
-        insert_cols = []
-        insert_vals = []
-        for k in row.keys():
-            if k in deleted_cols:
-                insert_cols.append(k)
-                insert_vals.append(row[k])
-        insert_cols.append("original_id")
-        insert_vals.append(act_id)
-
-        placeholders = ', '.join(['?'] * len(insert_cols))
-        col_names = ', '.join(insert_cols)
-        conn.execute(
-            f"INSERT INTO activities_deleted ({col_names}) VALUES ({placeholders})",
-            insert_vals,
-        )
-
-        # 从原表删除
-        conn.execute("DELETE FROM activities WHERE id = ?", (act_id,))
-        conn.commit()
+            # 从原表删除
+            conn.execute("DELETE FROM activities WHERE id = ?", (act_id,))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
 
     return jsonify({"status": "ok", "id": act_id, "deleted": True})
 
