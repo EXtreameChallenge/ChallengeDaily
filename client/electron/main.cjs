@@ -267,9 +267,9 @@ function createMainWindow() {
         'Content-Security-Policy': [
           "default-src 'self'; " +
           "script-src 'self' 'unsafe-inline'; " +  // unsafe-inline needed for Vite HMR in dev
-          "style-src 'self' 'unsafe-inline'; " +
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
           "img-src 'self' data: blob: https:; " +
-          "font-src 'self' data:; " +
+          "font-src 'self' data: https://fonts.gstatic.com; " +
           "connect-src 'self' http://127.0.0.1:58888 http://localhost:5173 https://wttr.in; " +
           "media-src 'none'; " +
           "object-src 'none'; " +
