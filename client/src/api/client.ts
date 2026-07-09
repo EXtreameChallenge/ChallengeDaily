@@ -548,7 +548,7 @@ export async function getBackupInfo(): Promise<{ db_size_mb: number; activities_
 
 /** 从备份文件恢复数据 */
 export async function restoreBackup(file: File): Promise<{ status: string; restored_files: string[] }> {
-  const token = _apiToken
+  const token = await getApiToken()
   const formData = new FormData()
   formData.append('file', file)
   const res = await fetch(`${BASE_URL}/api/backup/restore`, {
