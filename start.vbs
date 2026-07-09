@@ -22,6 +22,12 @@ If Not fso.FolderExists(fso.BuildPath(clientDir, "node_modules")) Then
     WScript.Quit(1)
 End If
 
+' 前置构建检查：如果 dist/index.html 不存在，提示用户先构建
+If Not fso.FileExists(fso.BuildPath(clientDir, "dist\index.html")) Then
+    MsgBox "未检测到前端构建产物，请先在 client 目录执行 npm run build", vbExclamation, "ChallengeDaily"
+    WScript.Quit(1)
+End If
+
 ' 创建/更新带项目图标的快捷方式，确保任务栏显示正确图标
 On Error Resume Next
 Set shortcut = WshShell.CreateShortcut(shortcutPath)

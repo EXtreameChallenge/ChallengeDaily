@@ -6,7 +6,8 @@
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "build": "node scripts/bump-version.cjs && vite build && electron-builder",
+    "build": "vite build && electron-builder",
+    "bump": "node scripts/bump-version.cjs",
     "preview": "vite preview",
     "start": "electron ."
   },

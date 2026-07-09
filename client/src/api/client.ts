@@ -1085,17 +1085,6 @@ export async function deleteHabit(id: number): Promise<{ status: string }> {
   return request(`/api/habits/${id}`, { method: 'DELETE' }) as Promise<{ status: string }>
 }
 
-// ── 导出 ──
-export function getExportExcelUrl(date?: string): string {
-  const d = date || new Date().toISOString().substring(0, 10)
-  return `${BASE_URL}/api/exports/excel?date=${d}`
-}
-
-export function getExportJsonUrl(date?: string): string {
-  const d = date || new Date().toISOString().substring(0, 10)
-  return `${BASE_URL}/api/exports/json?date=${d}`
-}
-
 // ── 周计划（月/周/日三级层级 + 拖拽分配 + 番茄数据条） ──
 
 export type TaskLevel = 'month' | 'week' | 'day'

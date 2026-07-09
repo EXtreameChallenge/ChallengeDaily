@@ -75,25 +75,20 @@ git push -u origin main
 
 ## 4. 发布新版本
 
-### 第一步：提交代码
+### 第一步：更新版本号
 
 ```bash
-git add .
-git commit -m "feat: 描述本次改动"
+cd client
+npm run bump    # 自动将 patch 版本 +1（如 2.6.1 → 2.6.2）
+cd ..
+git add client/package.json
+git commit -m "release: bump version"
 ```
 
 ### 第二步：打标签并推送
 
-> **注意**：`npm run build` 会自动执行 `bump-version.cjs` 将 patch 版本 +1，
-> 因此只需在 `client/package.json` 中确认当前版本号即可，无需手动修改。
-
 ```bash
-git tag v2.6.1
-git push origin main --tags
-```
-
-```bash
-git tag v2.6.1
+git tag v2.6.2
 git push origin main --tags
 ```
 
@@ -102,9 +97,10 @@ git push origin main --tags
 推送 tag 后，GitHub Actions 会自动：
 
 1. 在 Windows 服务器上安装依赖
-2. 运行 `npm run build` 打包
-3. 生成 `ChallengeDaily-2.6.1-Setup.exe`
-4. 自动创建 GitHub Release 并上传安装包
+2. 运行 `npx tsc --noEmit` 类型检查
+3. 运行 `npm run build` 打包（使用 package.json 中的版本号）
+4. 生成 `ChallengeDaily-2.6.2-Setup.exe`
+5. 自动创建 GitHub Release 并上传安装包
 
 你可以在仓库页面的 **Actions** 标签页查看打包进度。
 
@@ -169,7 +165,10 @@ git commit -m "feat: xxx"
 git push origin main
 
 # 发布版本
-git tag v2.6.1
+cd client && npm run bump && cd ..
+git add client/package.json
+git commit -m "release: bump version"
+git tag v2.6.2
 git push origin main --tags
 
 # 查看历史

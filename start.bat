@@ -20,6 +20,12 @@ if not exist "%ELECTRON_EXE%" (
     exit /b 1
 )
 
+if not exist "%CLIENT_DIR%\dist\index.html" (
+    echo [Error] 未检测到前端构建产物，请先在 client 目录执行 npm run build
+    pause
+    exit /b 1
+)
+
 powershell -NoProfile -ExecutionPolicy Bypass -Command "^&{$ws=New-Object -ComObject WScript.Shell;$sc=$ws.CreateShortcut('%SHORTCUT_PATH%');$sc.TargetPath='%ELECTRON_EXE%';$sc.WorkingDirectory='%CLIENT_DIR%';$sc.Arguments='.';$sc.IconLocation='%ICON_PATH%,0';$sc.WindowStyle=1;$sc.Description='ChallengeDaily - AI 智能工作日报助手';$sc.Save()}" >nul 2>&1
 
 start "" "%SHORTCUT_PATH%"
