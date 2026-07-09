@@ -1,15 +1,41 @@
-# ChallengeDaily — AI 智能工作日报助手（Windows 版）
+# ChallengeDaily — 忙了一天，却不知道忙的什么？
 
 [![GitHub stars](https://img.shields.io/github/stars/EXtreameChallenge/ChallengeDaily?style=for-the-badge)](https://github.com/EXtreameChallenge/ChallengeDaily/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/EXtreameChallenge/ChallengeDaily?style=for-the-badge)](https://github.com/EXtreameChallenge/ChallengeDaily/network)
 [![GitHub issues](https://img.shields.io/github/issues/EXtreameChallenge/ChallengeDaily?style=for-the-badge)](https://github.com/EXtreameChallenge/ChallengeDaily/issues)
 [![License](https://img.shields.io/github/license/EXtreameChallenge/ChallengeDaily?style=for-the-badge)](LICENSE)
 
-自动截屏 → AI 视觉分析 → 工作分类 → 生成日报，附带番茄钟、待办、习惯、日记、周计划等完整生产力工具链。
+> "我活了一万天，却不知道任何一天是怎么过的。"
 
-Windows 原生桌面应用（Electron + Python Flask），灵感来自 [samlaying/xiaohei-daily](https://github.com/samlaying/xiaohei-daily)（仅 macOS）。
+**ChallengeDaily 是一款会"看"你电脑屏幕的 AI 时间记录助手**——它每隔 60 秒默默截一次屏，用 AI 视觉模型看懂你在做什么，自动归类成 12 大类，生成一份属于你的"一天行程报告"。
+
+不是表单填写工具，不是番茄钟，不是 To-do List——**是 AI 替你记录，让你彻底解放双手、又看得见自己。**
+
+> **不是让你更好地记录，而是让你不用记录。**
+
+Windows 原生桌面应用（Electron + Python Flask），灵感来自 [samlaying/xiaohei-daily](https://github.com/samlaying/xiaohei-daily)（仅 macOS）。**为 1.5 亿 Windows 用户补上时间感知的拼图。**
 
 > **多平台同步**：本项目已同步至 [GitHub](https://github.com/EXtreameChallenge/ChallengeDaily) | [Gitee](https://gitee.com/orange-purple-challenge/ChallengeDaily) | [GitCode](https://gitcode.com/EXtreameChallenge/ChallengeDaily)
+
+## 为什么需要 ChallengeDaily
+
+**痛点 1："忙了一天却记不清"的认知黑洞**
+
+人脑对时间的感知严重失真——你以为学习了 4 小时，实际可能只有 1.5 小时。没有客观数据，自我认知永远在欺骗你。
+
+**痛点 2："想成长却找不到改进点"**
+
+不知道时间花在哪 → 无法优化 → 重复低效循环。自我成长的前提，是先看清自己。
+
+**痛点 3："Windows 用户被时代抛弃"**
+
+最好的时间记录工具都做了 Mac 专属，1.5 亿 Windows 用户没人服务。ChallengeDaily 补上了这块拼图。
+
+### 三个核心能力
+
+- **AI 自动识别你在做什么**：调用智谱 GLM-4V-Flash 视觉模型，看一眼屏幕就知道你在写代码 / 听网课 / 刷视频 / 聊微信——不用点任何按钮
+- **一天行程可视化**：生成 24 小时热力图 + 应用使用 Top 榜 + 时段时间分布，让你第一次"看见"自己的时间都去了哪里
+- **数据 100% 留在你电脑上**：截图分析完立即删除，敏感应用自动排除，API Key 用 Windows DPAPI 加密——没有云上传，只有你自己
 
 ## 功能特性
 
