@@ -212,7 +212,7 @@ python main.py
 | 平台 | 仓库 |
 |------|------|
 | 🐙 GitHub | [EXtreameChallenge/ChallengeDaily](https://github.com/EXtreameChallenge/ChallengeDaily) |
-| 🏮 Gitee | [orange-purple-challenge/ChallengeDaily](https://gitee.com/orange-purple-challenge/ChallengeDaily) |
+| 🏮 Gitee | [EXtreameChallenge/ChallengeDaily](https://gitee.com/EXtreameChallenge/ChallengeDaily) |
 | 🦊 GitCode | [EXtreameChallenge/ChallengeDaily](https://gitcode.com/EXtreameChallenge/ChallengeDaily) |
 
 📌 灵感：[samlaying/xiaohei-daily](https://github.com/samlaying/xiaohei-daily)（仅 macOS） ·  MIT License
