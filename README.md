@@ -1,8 +1,15 @@
 # ChallengeDaily — AI 智能工作日报助手（Windows 版）
 
+[![GitHub stars](https://img.shields.io/github/stars/EXtreameChallenge/ChallengeDaily?style=for-the-badge)](https://github.com/EXtreameChallenge/ChallengeDaily/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/EXtreameChallenge/ChallengeDaily?style=for-the-badge)](https://github.com/EXtreameChallenge/ChallengeDaily/network)
+[![GitHub issues](https://img.shields.io/github/issues/EXtreameChallenge/ChallengeDaily?style=for-the-badge)](https://github.com/EXtreameChallenge/ChallengeDaily/issues)
+[![License](https://img.shields.io/github/license/EXtreameChallenge/ChallengeDaily?style=for-the-badge)](LICENSE)
+
 自动截屏 → AI 视觉分析 → 工作分类 → 生成日报，附带番茄钟、待办、习惯、日记、周计划等完整生产力工具链。
 
 Windows 原生桌面应用（Electron + Python Flask），灵感来自 [samlaying/xiaohei-daily](https://github.com/samlaying/xiaohei-daily)（仅 macOS）。
+
+> **多平台同步**：本项目已同步至 [GitHub](https://github.com/EXtreameChallenge/ChallengeDaily) | [Gitee](https://gitee.com/orange-purple-challenge/ChallengeDaily) | [GitCode](https://gitcode.com/EXtreameChallenge/ChallengeDaily)
 
 ## 功能特性
 
