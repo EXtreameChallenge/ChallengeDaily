@@ -10,7 +10,7 @@
 
 ```json
 {
-  "version": "1.2.0"
+  "version": "2.6.1"
 }
 ```
 
@@ -18,9 +18,9 @@
 
 | 变化位置 | 含义 | 示例 |
 |---------|------|------|
-| 第 1 位 | 大版本，不兼容升级 | `2.0.0` |
-| 第 2 位 | 新增功能 | `1.3.0` |
-| 第 3 位 | 修复 bug / 小优化 | `1.2.1` |
+| 第 1 位 | 大版本，不兼容升级 | `3.0.0` |
+| 第 2 位 | 新增功能 | `2.7.0` |
+| 第 3 位 | 修复 bug / 小优化 | `2.6.2` |
 
 ---
 
@@ -75,22 +75,25 @@ git push -u origin main
 
 ## 4. 发布新版本
 
-### 第一步：更新版本号
-
-修改 `client/package.json` 中的 `version`：
-
-```json
-{
-  "version": "1.2.1"
-}
-```
-
-### 第二步：提交并打标签
+### 第一步：提交代码
 
 ```bash
-git add client/package.json
-git commit -m "release: bump version to 1.2.1"
-git tag v1.2.1
+git add .
+git commit -m "feat: 描述本次改动"
+```
+
+### 第二步：打标签并推送
+
+> **注意**：`npm run build` 会自动执行 `bump-version.cjs` 将 patch 版本 +1，
+> 因此只需在 `client/package.json` 中确认当前版本号即可，无需手动修改。
+
+```bash
+git tag v2.6.1
+git push origin main --tags
+```
+
+```bash
+git tag v2.6.1
 git push origin main --tags
 ```
 
@@ -100,7 +103,7 @@ git push origin main --tags
 
 1. 在 Windows 服务器上安装依赖
 2. 运行 `npm run build` 打包
-3. 生成 `ChallengeDaily-1.2.1-Setup.exe`
+3. 生成 `ChallengeDaily-2.6.1-Setup.exe`
 4. 自动创建 GitHub Release 并上传安装包
 
 你可以在仓库页面的 **Actions** 标签页查看打包进度。
@@ -166,7 +169,7 @@ git commit -m "feat: xxx"
 git push origin main
 
 # 发布版本
-git tag v1.2.1
+git tag v2.6.1
 git push origin main --tags
 
 # 查看历史
