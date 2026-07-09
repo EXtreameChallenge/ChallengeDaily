@@ -92,15 +92,27 @@ def _get_cached_settings() -> dict:
         return _settings_cache.copy()
 
 
+def _get_version() -> str:
+    """Read version from package.json for single source of truth."""
+    import json
+    try:
+        pkg_path = BASE_DIR / "client" / "package.json"
+        with open(pkg_path, "r", encoding="utf-8") as f:
+            return "v" + json.load(f).get("version", "0.0.0")
+    except Exception:
+        return "v0.0.0"
+
+
 def main():
-    # 0. 单实例保护
+    # 0. 单例保护
     _acquire_singleton()
 
-    print("""
-╔══════════════════════════════════════╗
-║       ChallengeDaily  Windows 版 v1.10.0   ║
+    _version = _get_version()
+    print(f"""
+╔═══════════════════════════════════════╗
+║   ChallengeDaily  Windows 版 {_version:<10} ║
 ║   截图 → AI 分析 → 分类 → Markdown   ║
-╚══════════════════════════════════════╝
+╚═══════════════════════════════════════╝
     """)
 
     # 1. 初始化数据库

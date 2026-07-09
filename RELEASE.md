@@ -29,7 +29,7 @@
 每次让 Agent 完成改动后，执行：
 
 ```bash
-cd "C:\Users\Challenge\.local\share\TeleAgent\TeleAgent的工作空间\xiaohei-daily"
+cd xiaohei-daily
 git status
 git add .
 git commit -m "feat: 描述这次改动"
@@ -63,7 +63,7 @@ git commit -m "feat: 描述这次改动"
 创建后 GitHub 会显示类似下面的命令，在 PowerShell 中执行：
 
 ```bash
-cd "C:\Users\Challenge\.local\share\TeleAgent\TeleAgent的工作空间\xiaohei-daily"
+cd xiaohei-daily
 git remote add origin https://github.com/你的用户名/ChallengeDaily.git
 git branch -M main
 git push -u origin main

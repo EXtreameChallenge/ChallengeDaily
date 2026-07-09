@@ -145,6 +145,18 @@
         "to": "backend/icon_extractor.py"
       },
       {
+        "from": "../file_utils.py",
+        "to": "backend/file_utils.py"
+      },
+      {
+        "from": "../crypto.py",
+        "to": "backend/crypto.py"
+      },
+      {
+        "from": "../classifier.py",
+        "to": "backend/classifier.py"
+      },
+      {
         "from": "../install_deps.py",
         "to": "backend/install_deps.py"
       },

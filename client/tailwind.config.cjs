@@ -35,6 +35,7 @@ module.exports = {
         'cd-hover': 'var(--cd-hover)',
         'cd-selected': 'var(--cd-selected)',
         'cd-scrollbar': 'var(--cd-scrollbar)',
+        'cd-scrollbar-hover': 'var(--cd-scrollbar-hover)',
       },
       fontFamily: {
         sans: ['"Fraunces"', '"FZQingKeBenYueSong"', '"Microsoft YaHei"', '"PingFang SC"', 'ui-serif', 'serif'],

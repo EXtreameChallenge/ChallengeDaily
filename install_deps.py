@@ -11,6 +11,9 @@ DEPENDENCIES = [
     "openai>=1.30.0",
     "httpx>=0.27.0",
     "flask>=3.0.0",
+    "waitress>=3.0.0",
+    "pyyaml>=6.0",
+    "pywin32>=306",
 ]
 
 def main():

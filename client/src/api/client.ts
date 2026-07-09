@@ -1,4 +1,12 @@
-const BASE_URL = 'http://127.0.0.1:58888'
+// 后端 API 基础 URL：优先从 Electron 主进程获取端口，兼容非 Electron 环境
+let BASE_URL = 'http://127.0.0.1:58888'
+
+// 启动时动态获取后端端口（Electron 环境下由主进程分配）
+if (typeof window !== 'undefined' && window.electronAPI?.getBackendPort) {
+  window.electronAPI.getBackendPort().then((port: number) => {
+    if (port) BASE_URL = `http://127.0.0.1:${port}`
+  }).catch(() => {})
+}
 
 // ── 后端连接状态管理（企业级断线重连机制） ──
 type BackendState = 'connected' | 'disconnected' | 'connecting'

@@ -137,12 +137,18 @@ async function startBackend() {
         pythonExe = embeddedPython
       }
     } else {
-      // 开发模式 或 start.vbs 从源码启动（此时 app.isPackaged 可能误判为 true）
+      // 开发模式 或 start.vbs/start.bat 从源码启动
       mainScript = path.join(__dirname, '..', '..', 'main.py')
       backendDir = path.join(__dirname, '..', '..')
-      const taPython = path.join(process.env.USERPROFILE || '', '.local', 'share', 'TeleAgent', 'runtimes', 'python', 'python.exe')
-      if (fs.existsSync(taPython)) {
-        pythonExe = taPython
+      // 通用 Python 查找：依次尝试 python / python3 / py launcher
+      // 不依赖任何第三方应用专用的运行时路径
+      const { execFileSync } = require('child_process')
+      for (const candidate of ['python', 'python3', 'py']) {
+        try {
+          execFileSync(candidate, ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 5000 })
+          pythonExe = candidate
+          break
+        } catch (_) {}
       }
     }
 
@@ -260,13 +266,17 @@ function createMainWindow() {
   })
 
   // Content Security Policy：限制资源加载来源，防止 XSS 等注入攻击
+  // 生产环境移除 script-src 'unsafe-inline'，仅开发模式（Vite HMR）保留
+  const _cspScriptSrc = isDev
+    ? "script-src 'self' 'unsafe-inline'; "
+    : "script-src 'self'; "
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           "default-src 'self'; " +
-          "script-src 'self' 'unsafe-inline'; " +  // unsafe-inline needed for Vite HMR in dev
+          _cspScriptSrc +
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
           "img-src 'self' data: blob: http: https:; " +
           "font-src 'self' data: https://fonts.gstatic.com; " +

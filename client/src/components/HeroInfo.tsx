@@ -66,7 +66,18 @@ function getWeatherText(code: number) {
 const tzCity = (() => {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-    return tz.split('/').pop()?.replace(/_/g, ' ') || '本地'
+    const raw = tz.split('/').pop()?.replace(/_/g, ' ') || '本地'
+    // 中国时区常见城市名→中文映射（时区兜底时使用）
+    const tzCityMap: Record<string, string> = {
+      'Shanghai': '上海',
+      'Beijing': '北京',
+      'Chongqing': '重庆',
+      'Urumqi': '乌鲁木齐',
+      'Hong Kong': '香港',
+      'Macau': '澳门',
+      'Taipei': '台北',
+    }
+    return tzCityMap[raw] || raw
   } catch {
     return '本地'
   }
@@ -365,13 +376,11 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
       return false
     }
 
-    // 海外 IP 定位兜底（常把国内 IP 归到上海，仅作最后备选）
+    // 海外 IP 定位兜底
+    // ipinfo.io 对国内 IP 最准确（实测返回真实城市），优先使用
+    // ipapi.co / ip-api.com 对国内 IP 经常 403 或返回笼统城市
     const tryOverseasIP = async (): Promise<boolean> => {
       const services = [
-        {
-          url: 'https://ipapi.co/json/',
-          parse: (d: any) => (d.latitude && d.longitude ? { lat: d.latitude, lon: d.longitude, city: d.city } : null),
-        },
         {
           url: 'https://ipinfo.io/json',
           parse: (d: any) => {
@@ -379,6 +388,10 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
             const [lat, lon] = d.loc.split(',').map(Number)
             return { lat, lon, city: d.city }
           },
+        },
+        {
+          url: 'https://ipapi.co/json/',
+          parse: (d: any) => (d.latitude && d.longitude ? { lat: d.latitude, lon: d.longitude, city: d.city } : null),
         },
         {
           url: 'https://ip-api.com/json/',
@@ -403,10 +416,12 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
     const run = async () => {
       if (await tryWindowsLocation()) return done()
       if (await tryBrowserGeo()) return done()
-      if (await tryBaiduQifu()) return done()
+      // 国内 IP 定位源：腾讯 → 新浪 → 搜狐 → 百度（百度 Qifu 常返回 403 放后面）
       if (await tryTencentIP()) return done()
-      if (await trySohu()) return done()
       if (await trySina()) return done()
+      if (await trySohu()) return done()
+      if (await tryBaiduQifu()) return done()
+      // 海外 IP（ipinfo.io 对国内 IP 实测最准）
       if (await tryOverseasIP()) return done()
       // 最终兜底：时区城市
       await fetchWeatherByCityName(tzCity)

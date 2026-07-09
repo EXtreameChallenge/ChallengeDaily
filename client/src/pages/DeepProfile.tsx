@@ -325,8 +325,8 @@ export default function DeepProfile() {
       await saveProfile({
         role_desc: roleDesc,
         work_style: workStyle,
-        habits: textToObj(habits),
-        app_overrides: textToObj(appOverrides),
+        habits: textToObj(habits) as unknown as string,
+        app_overrides: textToObj(appOverrides) as unknown as string,
         custom_rules: customRules,
       })
       setProfileSaved(true)
@@ -373,11 +373,11 @@ export default function DeepProfile() {
     let value = 0
     if (key && fw.metrics) {
       const raw = fw.metrics[key]
-      if (id === 'bloom_taxonomy') value = Math.round((raw / 6) * 100)
-      else if (id === 'deep_work' || id === 'deliberate_practice') value = Math.round(raw * 100)
-      else if (id === 'ultradian_rhythm' || id === 'habit_loop') value = Math.round(raw * 100)
-      else if (id === 'structural_holes') value = Math.round(Math.min(raw / 4, 1) * 100)
-      else value = raw ?? 0
+      if (id === 'bloom_taxonomy') value = Math.round((Number(raw) / 6) * 100)
+      else if (id === 'deep_work' || id === 'deliberate_practice') value = Math.round(Number(raw) * 100)
+      else if (id === 'ultradian_rhythm' || id === 'habit_loop') value = Math.round(Number(raw) * 100)
+      else if (id === 'structural_holes') value = Math.round(Math.min(Number(raw) / 4, 1) * 100)
+      else value = Number(raw) || 0
     }
     return { name: fw.name?.replace(/理论|分类|节律|洞|资本/g, '').trim() || id, value, id }
   }).filter(d => d.value > 0)

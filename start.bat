@@ -14,6 +14,12 @@ set "SHORTCUT_PATH=%SCRIPT_DIR%ChallengeDaily.lnk"
 
 set ELECTRON_IS_DEV=0
 
+if not exist "%ELECTRON_EXE%" (
+    echo [Error] 未检测到前端依赖，请先在 client 目录执行 npm install
+    pause
+    exit /b 1
+)
+
 powershell -NoProfile -ExecutionPolicy Bypass -Command "^&{$ws=New-Object -ComObject WScript.Shell;$sc=$ws.CreateShortcut('%SHORTCUT_PATH%');$sc.TargetPath='%ELECTRON_EXE%';$sc.WorkingDirectory='%CLIENT_DIR%';$sc.Arguments='.';$sc.IconLocation='%ICON_PATH%,0';$sc.WindowStyle=1;$sc.Description='ChallengeDaily - AI 智能工作日报助手';$sc.Save()}" >nul 2>&1
 
 start "" "%SHORTCUT_PATH%"

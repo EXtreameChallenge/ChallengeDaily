@@ -24,3 +24,5 @@ interface Window {
   }
   _petVisible?: boolean
 }
+
+declare module 'lunar-javascript'

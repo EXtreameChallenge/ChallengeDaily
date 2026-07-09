@@ -89,15 +89,15 @@ export default function DeepInsight() {
       const raw = fw.metrics[key]
       // 归一化到 0-100
       if (id === 'bloom_taxonomy') {
-        value = Math.round((raw / 6) * 100) // cognitive_depth: 1-6 → 0-100
+        value = Math.round((Number(raw) / 6) * 100) // cognitive_depth: 1-6 → 0-100
       } else if (id === 'deep_work' || id === 'deliberate_practice') {
-        value = Math.round(raw * 100) // ratio: 0-1 → 0-100
+        value = Math.round(Number(raw) * 100) // ratio: 0-1 → 0-100
       } else if (id === 'ultradian_rhythm' || id === 'habit_loop') {
-        value = Math.round(raw * 100) // 0-1 → 0-100
+        value = Math.round(Number(raw) * 100) // 0-1 → 0-100
       } else if (id === 'structural_holes') {
-        value = Math.round(Math.min(raw / 4, 1) * 100) // Shannon diversity, max ~4
+        value = Math.round(Math.min(Number(raw) / 4, 1) * 100) // Shannon diversity, max ~4
       } else {
-        value = raw ?? 0
+        value = Number(raw) || 0
       }
     }
     return { name: fw.name?.replace(/理论|分类|节律|洞|资本/g, '').trim() || id, value, id }
@@ -121,7 +121,7 @@ export default function DeepInsight() {
           <Brain size={48} className="text-cd-text-tertiary mx-auto mb-4" />
           <h2 className="text-lg font-semibold text-cd-text mb-2">暂无数据</h2>
           <p className="text-cd-text-secondary text-sm">
-            {error ? error.message : '今天还没有活动记录，开始工作后即可查看深度洞察分析'}
+            {typeof error === 'string' ? error : (error as unknown as Error)?.message || '今天还没有活动记录，开始工作后即可查看深度洞察分析'}
           </p>
         </div>
       </div>
@@ -309,7 +309,7 @@ export default function DeepInsight() {
                         ))}
                       </div>
                       <div className="text-xs text-cd-text-secondary mt-1">
-                        主导层级：{metrics.dominant_level_name || `L${metrics.dominant_level}`}
+                        主导层级：{String(metrics.dominant_level_name || `L${metrics.dominant_level}`)}
                       </div>
                     </div>
                   )}

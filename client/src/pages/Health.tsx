@@ -517,8 +517,8 @@ function SystemEventsCard({ events }: { events: HealthSystemEvents }) {
   // 合并 boot_events 和 login_events 按时间排序
   type Ev = { timestamp: string; type: string; source: string; username?: string }
   const all: Ev[] = [
-    ...events.boot_events.map((e) => ({ ...e, source: e.source || '' })),
-    ...events.login_events.map((e) => ({ ...e, source: 'login' })),
+    ...events.boot_events.map((e) => ({ timestamp: e.timestamp, type: e.event_type, source: e.source || '' })),
+    ...events.login_events.map((e) => ({ timestamp: e.timestamp, type: e.event_type, source: 'login', username: e.username })),
   ].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
 
   const uptimeH = Math.floor(events.uptime_sec / 3600)

@@ -120,14 +120,13 @@ export function ApiErrorDisplay({ error, onRetry }: ApiErrorDisplayProps) {
 // 参考 VS Code 的 "Extension host terminated" 通知条
 // 当后端断连时在页面顶部显示橙色提示条，恢复后自动消失
 
-import { useEffect as useEffectState, useState as useStateState, useCallback } from 'react'
 import { getBackendState, request } from '../api/client'
 
 export function BackendStatusBar() {
-  const [state, setState] = useStateState(getBackendState())
-  const [retryIn, setRetryIn] = useStateState(0)
+  const [state, setState] = useState(getBackendState())
+  const [retryIn, setRetryIn] = useState(0)
 
-  useEffectState(() => {
+  useEffect(() => {
     const unsub = onBackendStateChange(setState)
     return unsub
   }, [])
@@ -142,7 +141,7 @@ export function BackendStatusBar() {
     }
   }, [])
 
-  useEffectState(() => {
+  useEffect(() => {
     if (state !== 'disconnected') {
       setRetryIn(0)
       return

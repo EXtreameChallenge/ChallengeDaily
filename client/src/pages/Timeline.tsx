@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, memo, useMemo } from 'react'
-import { getActivities, searchActivities, updateActivity, deleteActivity, undoDeleteActivity, createActivity, getAppIconUrl, CATEGORY_COLORS, CATEGORIES, type Activity } from '../api/client'
+import { getActivities, searchActivities, updateActivity, deleteActivity, undoDeleteActivity, createActivity, getAppIconUrl, CATEGORY_COLORS, CATEGORIES, type Activity, type VisibleWindow } from '../api/client'
 import { CategoryFilter, useAsyncData, ApiErrorDisplay, useNewIds, RefreshIndicator } from '../components/shared'
 import { useToast } from '../components/Toast'
 import { Search, Pencil, X, Check, Loader2, Plus, Clock, Trash2 } from 'lucide-react'
