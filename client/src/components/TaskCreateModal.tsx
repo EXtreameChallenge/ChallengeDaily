@@ -7,8 +7,15 @@ import { useState, useEffect, useRef } from 'react'
 import { X, Timer, Target, RotateCw, ChevronDown, ChevronUp } from 'lucide-react'
 import { createTodo, POMODORO_SIZES, type TaskLevel, formatLocalDate, getWeekStart } from '../api/client'
 
-// 12种标准分类
-const CATEGORIES = ['开发', '测试', '运维', '数据分析', '产品', '设计', '管理', '文档', '会议', '沟通', '学习', '生活']
+// 12种标准分类（带 emoji 前缀，提升可读性）
+const CATEGORIES: { value: string; emoji: string }[] = [
+  { value: '开发', emoji: '💻' }, { value: '测试', emoji: '🧪' },
+  { value: '运维', emoji: '🔧' }, { value: '数据分析', emoji: '📊' },
+  { value: '产品', emoji: '📋' }, { value: '设计', emoji: '🎨' },
+  { value: '管理', emoji: '👔' }, { value: '文档', emoji: '📝' },
+  { value: '会议', emoji: '👥' }, { value: '沟通', emoji: '💬' },
+  { value: '学习', emoji: '📖' }, { value: '生活', emoji: '🏠' },
+]
 
 type PomodoroSize = 'big' | 'small'
 type TaskMode = 'timer' | 'goal' | 'habit'
@@ -17,7 +24,6 @@ interface TaskCreateModalProps {
   open: boolean
   onClose: () => void
   onCreated?: (id: number) => void
-  /** 预填充的默认值 */
   defaults?: Partial<{
     title: string
     category: string
@@ -44,7 +50,6 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
   const [saving, setSaving] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
 
-  // 打开时重置表单/填充默认值
   useEffect(() => {
     if (open) {
       setTitle(defaults?.title ?? '')
@@ -103,24 +108,28 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
     }
   }
 
+  const PRIORITY_COLORS = ['#ef4444', '#f59e0b', '#eab308', '#22c55e', '#6b7280']
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="bg-cd-bg-card border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl"
+        className="flex flex-col rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden"
+        style={{ background: 'var(--cd-bg-card)', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '90vh' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* 标题栏 */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-3">
-          <h2 className="text-lg font-bold text-cd-text">新建任务</h2>
-          <button onClick={onClose} className="text-cd-text-secondary hover:text-cd-text transition p-1">
-            <X size={20} />
+        {/* 标题栏 — 固定 */}
+        <div className="flex items-center justify-between px-5 py-3.5 shrink-0" style={{ borderBottom: '1px solid var(--cd-border)' }}>
+          <h2 className="text-base font-bold text-cd-text">新建任务</h2>
+          <button onClick={onClose} className="text-cd-text-secondary hover:text-cd-text transition p-1 rounded hover:bg-cd-hover">
+            <X size={18} />
           </button>
         </div>
 
-        <div className="px-6 pb-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        {/* 表单内容 — 可滚动 */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4" style={{ minHeight: 0 }}>
           {/* 任务名称 */}
           <div>
-            <label className="block text-sm text-cd-text-secondary mb-1">任务名称</label>
+            <label className="block text-xs font-medium text-cd-text-secondary mb-1.5">任务名称</label>
             <input
               ref={titleRef}
               type="text"
@@ -128,86 +137,94 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
               onChange={e => setTitle(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCreate()}
               placeholder="这次要做什么？"
-              className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-4 py-2.5 text-cd-text placeholder:text-cd-text-secondary/50 focus:outline-none focus:border-cd-accent/40"
+              className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
             />
           </div>
 
-          {/* 模式选择 */}
+          {/* 模式选择 — 提高可读性 */}
           <div>
-            <label className="block text-sm text-cd-text-secondary mb-1.5">模式</label>
+            <label className="block text-xs font-medium text-cd-text-secondary mb-1.5">模式</label>
             <div className="flex gap-2">
               {([
-                { key: 'timer' as TaskMode, icon: Timer, label: '计时任务', desc: '番茄钟计时' },
-                { key: 'goal' as TaskMode, icon: Target, label: '目标时长', desc: '累计到目标' },
-                { key: 'habit' as TaskMode, icon: RotateCw, label: '习惯养成', desc: '每日打卡' },
+                { key: 'timer' as TaskMode, icon: Timer, label: '计时', desc: '番茄钟计时' },
+                { key: 'goal' as TaskMode, icon: Target, label: '目标', desc: '累计到目标' },
+                { key: 'habit' as TaskMode, icon: RotateCw, label: '习惯', desc: '每日打卡' },
               ]).map(m => (
                 <button
                   key={m.key}
                   onClick={() => setMode(m.key)}
-                  className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-lg text-sm transition border ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm transition border ${
                     mode === m.key
                       ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30'
-                      : 'bg-cd-bg-input text-cd-text-secondary border-white/5 hover:bg-white/5'
+                      : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
                   }`}
                 >
-                  <m.icon size={16} />
+                  <m.icon size={14} />
                   <span className="font-medium">{m.label}</span>
-                  <span className="text-[10px] opacity-60">{m.desc}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* 分类 + 优先级 */}
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-sm text-cd-text-secondary mb-1">分类</label>
-              <select
-                value={category}
-                onChange={e => setCategory(e.target.value)}
-                className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2.5 text-cd-text focus:outline-none focus:border-cd-accent/40"
-              >
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+          {/* 分类 — 用 chip 代替 select，避免下拉遮挡 */}
+          <div>
+            <label className="block text-xs font-medium text-cd-text-secondary mb-1.5">分类</label>
+            <div className="flex flex-wrap gap-1.5">
+              {CATEGORIES.map(c => (
+                <button
+                  key={c.value}
+                  onClick={() => setCategory(c.value)}
+                  className={`px-2.5 py-1 rounded-md text-xs transition border ${
+                    category === c.value
+                      ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30 font-medium'
+                      : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
+                  }`}
+                >
+                  {c.emoji} {c.value}
+                </button>
+              ))}
             </div>
-            <div className="w-32">
-              <label className="block text-sm text-cd-text-secondary mb-1">优先级</label>
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setPriority(p)}
-                    className={`flex-1 py-2.5 rounded text-xs font-bold transition ${
-                      p <= priority
-                        ? 'bg-red-500/20 text-red-400 border border-red-400/30'
-                        : 'bg-cd-bg-input text-cd-text-secondary border border-white/5'
-                    }`}
-                  >
-                    P{p}
-                  </button>
-                ))}
-              </div>
+          </div>
+
+          {/* 优先级 — 横排按钮 */}
+          <div>
+            <label className="block text-xs font-medium text-cd-text-secondary mb-1.5">优先级</label>
+            <div className="flex gap-1">
+              {[1, 2, 3, 4, 5].map(p => (
+                <button
+                  key={p}
+                  onClick={() => setPriority(p)}
+                  className="flex-1 py-1.5 rounded-md text-xs font-bold transition border"
+                  style={{
+                    background: priority === p ? PRIORITY_COLORS[p - 1] + '25' : 'var(--cd-bg-input)',
+                    color: priority === p ? PRIORITY_COLORS[p - 1] : 'var(--cd-text)',
+                    borderColor: priority === p ? PRIORITY_COLORS[p - 1] + '55' : 'var(--cd-border)',
+                  }}
+                >
+                  P{p}
+                </button>
+              ))}
             </div>
           </div>
 
           {/* 预估番茄数 + 番茄大小 */}
-          <div className="flex gap-3 items-end">
+          <div className="flex gap-3">
             <div className="flex-1">
-              <label className="block text-sm text-cd-text-secondary mb-1">预估番茄数</label>
-              <div className="flex items-center gap-2 bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2">
+              <label className="block text-xs font-medium text-cd-text-secondary mb-1.5">预估番茄数</label>
+              <div className="flex items-center gap-1 bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5">
                 <button
                   onClick={() => setEstimatedPomodoros(Math.max(1, estimatedPomodoros - 1))}
-                  className="w-7 h-7 flex items-center justify-center rounded bg-white/5 text-cd-text hover:bg-white/10 transition text-lg"
-                >-</button>
-                <span className="flex-1 text-center text-xl font-bold text-cd-text tabular-nums">{estimatedPomodoros}</span>
+                  className="w-6 h-6 flex items-center justify-center rounded bg-cd-hover text-cd-text hover:bg-cd-accent/20 transition text-sm font-bold"
+                >−</button>
+                <span className="flex-1 text-center text-lg font-bold text-cd-text tabular-nums">{estimatedPomodoros}</span>
                 <button
                   onClick={() => setEstimatedPomodoros(Math.min(12, estimatedPomodoros + 1))}
-                  className="w-7 h-7 flex items-center justify-center rounded bg-white/5 text-cd-text hover:bg-white/10 transition text-lg"
+                  className="w-6 h-6 flex items-center justify-center rounded bg-cd-hover text-cd-text hover:bg-cd-accent/20 transition text-sm font-bold"
                 >+</button>
               </div>
             </div>
             <div className="flex-1">
-              <label className="block text-sm text-cd-text-secondary mb-1">番茄大小</label>
+              <label className="block text-xs font-medium text-cd-text-secondary mb-1.5">番茄大小</label>
               <div className="flex gap-1.5">
                 {(['big', 'small'] as PomodoroSize[]).map(s => {
                   const cfg = POMODORO_SIZES[s]
@@ -215,14 +232,14 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
                     <button
                       key={s}
                       onClick={() => setPomodoroSize(s)}
-                      className={`flex-1 py-2.5 rounded-lg text-sm transition border ${
+                      className={`flex-1 py-2 rounded-lg text-sm transition border ${
                         pomodoroSize === s
-                          ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30'
-                          : 'bg-cd-bg-input text-cd-text-secondary border-white/5 hover:bg-white/5'
+                          ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30 font-medium'
+                          : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
                       }`}
                     >
-                      <div className="font-medium">{s === 'big' ? '大番茄' : '小番茄'}</div>
-                      <div className="text-[10px] opacity-60">{cfg.work}+{cfg.short_break}min</div>
+                      <div>{s === 'big' ? '🍅 大' : '🍅 小'}</div>
+                      <div className="text-[10px] text-cd-text-tertiary">{cfg.work}+{cfg.short_break}min</div>
                     </button>
                   )
                 })}
@@ -231,10 +248,10 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
           </div>
 
           {/* 时间预估摘要 */}
-          <div className="bg-cd-bg-input/50 rounded-lg px-4 py-2.5 text-sm text-cd-text-secondary">
+          <div className="rounded-lg px-3 py-2 text-xs text-cd-text-secondary" style={{ background: 'var(--cd-bg-input)', border: '1px solid var(--cd-border)' }}>
             约 <span className="text-cd-accent font-bold">{totalMinutes}</span> 分钟专注
             {estimatedPomodoros > 1 && (
-              <> + <span className="text-emerald-400 font-bold">{breakMinutes}</span> 分钟休息（含长休息）</>
+              <> + <span className="font-bold" style={{ color: '#34d399' }}>{breakMinutes}</span> 分钟休息（含长休息）</>
             )}
             ，总计 <span className="text-cd-text font-bold">{totalMinutes + breakMinutes}</span> 分钟
           </div>
@@ -242,48 +259,46 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
           {/* 高级选项 */}
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1 text-sm text-cd-text-secondary hover:text-cd-text transition"
+            className="flex items-center gap-1 text-xs text-cd-text-secondary hover:text-cd-text transition"
           >
-            {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {showAdvanced ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             更多选项
           </button>
 
           {showAdvanced && (
             <div className="space-y-3 pt-1">
-              {/* 截止日期 */}
               <div>
-                <label className="block text-sm text-cd-text-secondary mb-1">截止日期</label>
+                <label className="block text-xs font-medium text-cd-text-secondary mb-1">截止日期</label>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={e => setDueDate(e.target.value)}
-                  className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2.5 text-cd-text focus:outline-none focus:border-cd-accent/40"
+                  className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
                 />
               </div>
-              {/* 分配日期 */}
               <div>
-                <label className="block text-sm text-cd-text-secondary mb-1">分配到日期</label>
+                <label className="block text-xs font-medium text-cd-text-secondary mb-1">分配到日期</label>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setAssignedDate(formatLocalDate(new Date()))}
-                    className={`px-3 py-2 rounded-lg text-sm transition border ${
+                    className={`px-3 py-1.5 rounded-lg text-xs transition border ${
                       assignedDate === formatLocalDate(new Date())
-                        ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30'
-                        : 'bg-cd-bg-input text-cd-text-secondary border-white/5 hover:bg-white/5'
+                        ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30 font-medium'
+                        : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
                     }`}
                   >今日</button>
                   <input
                     type="date"
                     value={assignedDate}
                     onChange={e => setAssignedDate(e.target.value)}
-                    className="flex-1 bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2.5 text-cd-text focus:outline-none focus:border-cd-accent/40"
+                    className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
                   />
                   <button
                     onClick={() => setAssignedDate('')}
-                    className={`px-3 py-2 rounded-lg text-sm transition border ${
+                    className={`px-3 py-1.5 rounded-lg text-xs transition border ${
                       !assignedDate
-                        ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30'
-                        : 'bg-cd-bg-input text-cd-text-secondary border-white/5 hover:bg-white/5'
+                        ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30 font-medium'
+                        : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
                     }`}
                   >不分配</button>
                 </div>
@@ -292,16 +307,16 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
           )}
         </div>
 
-        {/* 底部按钮 */}
-        <div className="flex gap-3 px-6 pb-5 pt-2">
+        {/* 底部按钮 — 固定 */}
+        <div className="flex gap-3 px-5 py-3.5 shrink-0" style={{ borderTop: '1px solid var(--cd-border)' }}>
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl text-sm text-cd-text-secondary border border-white/5 hover:bg-white/5 transition"
+            className="flex-1 py-2 rounded-xl text-sm text-cd-text-secondary border border-cd-border hover:bg-cd-hover transition"
           >取消</button>
           <button
             onClick={handleCreate}
             disabled={!title.trim() || saving}
-            className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 py-2 rounded-xl text-sm font-medium bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {saving ? '创建中...' : '创建任务'}
           </button>
