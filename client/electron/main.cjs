@@ -213,7 +213,7 @@ async function startBackend() {
     backendProcess.stdout?.on('data', (data) => {
       const msg = data.toString().trim()
       log('Backend', msg)
-      if (msg.includes('Running on') || msg.includes('HTTP API 已启动') || msg.includes('Press CTRL+C')) {
+      if (msg.includes('Running on') || msg.includes('HTTP API 已启动') || msg.includes('Press CTRL+C') || msg.includes('Serving on')) {
         resolveOnce()
       }
     })
@@ -221,6 +221,10 @@ async function startBackend() {
     backendProcess.stderr?.on('data', (data) => {
       const msg = data.toString().trim()
       log('BackendErr', msg)
+      // waitress 的启动消息输出到 stderr，格式为 "Serving on http://..."
+      if (msg.includes('Serving on') || msg.includes('Running on')) {
+        resolveOnce()
+      }
     })
 
     backendProcess.on('error', (err) => {

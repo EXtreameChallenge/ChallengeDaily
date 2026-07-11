@@ -1,7 +1,7 @@
 """
 ChallengeDaily Windows 版 — SQLite 数据库操作
-企业级：持久连接、自动重试、schema 版本管理
-优化：单持久连接避免频繁 connect/close，WAL 只设一次
+企业级：线程局部连接、自动重试、schema 版本管理
+优化：每线程独立连接避免 InterfaceError，WAL 只设一次
 """
 import sqlite3
 import threading
@@ -18,51 +18,59 @@ logger = logging.getLogger(__name__)
 # ── 数据库 Schema 版本 ──
 SCHEMA_VERSION = 24
 
-# ── 持久连接（避免每分钟 5-7 次 connect/close）──
-_persistent_conn: Optional[sqlite3.Connection] = None
-_conn_lock = threading.Lock()
+# ── 线程局部连接（每线程独立 Connection，避免多线程共享导致 InterfaceError）──
+_local = threading.local()
+_conn_lock = threading.Lock()  # 仅保护 _init 等需要串行化的场景
+
+# 标记 WAL 是否已在任何连接上设置（WAL 是数据库级属性，只需设一次）
+_wal_initialized = False
 
 
-def _get_persistent_conn() -> sqlite3.Connection:
-    """获取持久连接（线程安全，WAL 只设一次）"""
-    global _persistent_conn
-    with _conn_lock:
-        if _persistent_conn is None:
-            _persistent_conn = sqlite3.connect(str(DB_PATH), timeout=10, check_same_thread=False)
-            _persistent_conn.row_factory = sqlite3.Row
-            # WAL 和 busy_timeout 只设一次
-            _persistent_conn.execute("PRAGMA journal_mode=WAL")
-            _persistent_conn.execute("PRAGMA busy_timeout=5000")
-            _persistent_conn.execute("PRAGMA foreign_keys=ON")
-            # 性能优化：减少 fsync 频率（WAL 模式下 NORMAL 足够安全）
-            # 参考 SQLite 官方建议：https://www.sqlite.org/pragma.html#pragma_synchronous
-            _persistent_conn.execute("PRAGMA synchronous=NORMAL")
-            # 限制内存缓存大小为 2MB（负值=KB），避免长期运行内存增长
-            _persistent_conn.execute("PRAGMA cache_size=-2048")
-            # 临时表和中间结果存内存，避免磁盘 I/O
-            _persistent_conn.execute("PRAGMA temp_store=MEMORY")
-            logger.info("SQLite 持久连接已建立 (WAL模式, synchronous=NORMAL)")
-        return _persistent_conn
+def _get_thread_conn() -> sqlite3.Connection:
+    """获取当前线程的局部连接（线程安全，每线程独立 Connection）"""
+    global _wal_initialized
+    conn = getattr(_local, 'conn', None)
+    if conn is not None:
+        return conn
+    # 为当前线程创建新连接
+    conn = sqlite3.connect(str(DB_PATH), timeout=10)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA cache_size=-2048")
+    conn.execute("PRAGMA temp_store=MEMORY")
+    # WAL 模式只需设一次（是数据库级属性，非连接级）
+    if not _wal_initialized:
+        with _conn_lock:
+            if not _wal_initialized:
+                conn.execute("PRAGMA journal_mode=WAL")
+                _wal_initialized = True
+                logger.info("SQLite WAL 模式已启用 (synchronous=NORMAL)")
+    else:
+        conn.execute("PRAGMA journal_mode=WAL")  # 确保当前连接也在 WAL 模式
+    logger.debug(f"SQLite 线程连接已建立: {threading.current_thread().name}")
+    _local.conn = conn
+    return conn
 
 
 @contextmanager
 def get_conn():
-    """获取数据库连接（contextmanager，使用持久连接不关闭）
+    """获取数据库连接（contextmanager，使用线程局部连接，不关闭）
 
-    异常时重置连接，避免持久连接损坏后影响后续操作。
+    异常时重置当前线程的连接，避免损坏后影响后续操作。
     """
-    conn = _get_persistent_conn()
+    conn = _get_thread_conn()
     try:
         yield conn
     except sqlite3.DatabaseError as e:
-        # 连接可能损坏，重置以便下次重建
-        global _persistent_conn
+        # 连接可能损坏，重置当前线程连接以便下次重建
         logger.error(f"数据库连接异常，将重建: {e}")
         try:
-            _persistent_conn.close()
+            conn.close()
         except Exception:
             pass
-        _persistent_conn = None
+        _local.conn = None
         raise
 
 

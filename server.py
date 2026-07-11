@@ -118,6 +118,9 @@ def start_server():
     try:
         from waitress import serve as waitress_serve
         logger.info(f"使用 waitress 生产级 WSGI 服务器启动: http://127.0.0.1:{HTTP_PORT}")
+        # waitress 的启动消息输出到 stderr，Electron 的 stdout 解析器无法捕获
+        # 主动向 stdout 打印可识别的启动标记，让 Electron 立即知道后端已就绪
+        print(f"HTTP API 已启动: http://127.0.0.1:{HTTP_PORT}", flush=True)
         # 4线程 + 增大队列：前端多个组件同时轮询时避免4092次"Task queue depth"警告
         # 默认channel_request_lookaback=4太小，前端10+个定时轮询请求积压时每个都触发WARNING
         # 增大backlog和connection_limit，避免请求被reject导致前端触发"后端断开"

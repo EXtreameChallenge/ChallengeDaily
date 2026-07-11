@@ -74,20 +74,20 @@ def _tool_get_todos(params: dict) -> str:
     """查询待办列表"""
     status_filter = params.get("status", "")  # all / pending / completed
     category = params.get("category", "")
-    todos = db.get_todos() if hasattr(db, 'get_todos') else []
+    todos = db.get_todos()
     if not todos:
         return "当前没有待办事项。"
     if status_filter == "pending":
-        todos = [t for t in todos if not t.get("completed")]
+        todos = [t for t in todos if t.get("status") != "completed"]
     elif status_filter == "completed":
-        todos = [t for t in todos if t.get("completed")]
+        todos = [t for t in todos if t.get("status") == "completed"]
     if category:
         todos = [t for t in todos if t.get("category") == category]
     if not todos:
         return "没有符合条件的待办事项。"
     lines = []
     for t in todos[:30]:
-        check = "✅" if t.get("completed") else "⬜"
+        check = "✅" if t.get("status") == "completed" else "⬜"
         title = t.get("title", "")
         cat = t.get("category", "")
         pom = t.get("estimated_pomodoros", 0)
@@ -106,7 +106,16 @@ def _tool_get_pomodoro_stats(params: dict) -> str:
         start = today.isoformat()
         end = today.isoformat()
     try:
-        sessions = db.get_pomodoro_sessions(start, end) if hasattr(db, 'get_pomodoro_sessions') else []
+        # db.get_pomodoro_sessions 只接受单个 date_str，需按天查询再合并
+        from datetime import date, timedelta
+        start_d = date.fromisoformat(start)
+        end_d = date.fromisoformat(end)
+        sessions = []
+        d = start_d
+        while d <= end_d:
+            day_sessions = db.get_pomodoro_sessions(d.isoformat())
+            sessions.extend(day_sessions)
+            d += timedelta(days=1)
     except Exception:
         sessions = []
     if not sessions:
@@ -134,9 +143,10 @@ def _tool_get_daily_summary(params: dict) -> str:
     if not target_date:
         from datetime import date
         target_date = date.today().isoformat()
-    # 先查日画像
+    # 先查日画像（从 context_manager）
     try:
-        profile = db.get_daily_profile(target_date) if hasattr(db, 'get_daily_profile') else None
+        from context_manager import get_daily_profile
+        profile = get_daily_profile(target_date)
     except Exception:
         profile = None
     if profile:
@@ -684,9 +694,7 @@ def execute_action():
 
     try:
         if action == 'create_todo':
-            if not hasattr(db, 'create_todo'):
-                return jsonify({"error": "待办功能暂不可用"}), 501
-            todo_id = db.create_todo(
+            todo_id = db.insert_todo(
                 title=action_data.get('title', ''),
                 category=action_data.get('category', '开发'),
                 pomodoro_size=action_data.get('pomodoro_size', 'big'),
@@ -695,24 +703,32 @@ def execute_action():
             return jsonify({"status": "ok", "message": f"已创建待办", "todo_id": todo_id})
 
         elif action == 'start_pomodoro':
-            if not hasattr(db, 'create_pomodoro_session'):
-                return jsonify({"error": "番茄钟功能暂不可用"}), 501
-            session_id = db.create_pomodoro_session(
+            from datetime import datetime as _dt
+            now = _dt.now()
+            now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+            size = action_data.get('pomodoro_size', 'big')
+            duration_min = 25 if size == "big" else 20
+            session_id = db.insert_pomodoro_session(
+                start_time=now_str,
+                end_time=None,
+                duration_min=duration_min,
                 task=action_data.get('task', ''),
                 category=action_data.get('category', '开发'),
-                pomodoro_size=action_data.get('pomodoro_size', 'big'),
+                status='running',
+                source='ai_chat',
             )
             return jsonify({"status": "ok", "message": "番茄钟已启动", "session_id": session_id})
 
         elif action == 'save_diary':
-            if not hasattr(db, 'save_diary'):
-                return jsonify({"error": "日记功能暂不可用"}), 501
-            diary_id = db.save_diary(
+            from datetime import date as _date_mod
+            diary_date = action_data.get('diary_date', _date_mod.today().isoformat())
+            db.upsert_diary(
+                diary_date=diary_date,
                 content=action_data.get('content', ''),
                 mood=action_data.get('mood', ''),
                 tags=action_data.get('tags', ''),
             )
-            return jsonify({"status": "ok", "message": "日记已保存", "diary_id": diary_id})
+            return jsonify({"status": "ok", "message": "日记已保存"})
 
         else:
             return jsonify({"error": f"未知操作: {action}"}), 400
