@@ -48,8 +48,8 @@ desktop.ini
 .env.local
 .env.*.local
 
-# Brainstorm visual companion
-.superpowers/
+# GitHub workflows (Token无workflow scope, 无法推送包含此目录的commit)
+.github/
 
 # Temp files
 .temp/
