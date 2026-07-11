@@ -1058,6 +1058,69 @@ export interface ChatMessage {
   created_at: string
 }
 
+// SSE 流式事件类型
+export type ChatStreamEvent =
+  | { type: 'content'; content: string }
+  | { type: 'tool_call'; name: string; id: string }
+  | { type: 'tool_result'; name: string; id: string; result: string }
+  | { type: 'done' }
+  | { type: 'error'; content: string }
+
+// 操作确认数据
+export interface ActionConfirmation {
+  action: string
+  data: Record<string, any>
+  confirm_message: string
+}
+
+/** 流式对话：返回一个可读的SSE流 */
+export async function aiChatStream(
+  message: string,
+  onEvent: (event: ChatStreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const token = getApiToken()
+  const port = await getApiPort()
+  const url = `http://127.0.0.1:${port}/api/ai/chat/stream`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'X-API-Token': token } : {}),
+    },
+    body: JSON.stringify({ message }),
+    signal,
+  })
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '')
+    throw new Error(errText || `HTTP ${res.status}`)
+  }
+  const reader = res.body?.getReader()
+  if (!reader) throw new Error('No response body')
+  const decoder = new TextDecoder()
+  let buffer = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const event = JSON.parse(line.slice(6)) as ChatStreamEvent
+          onEvent(event)
+        } catch {}
+      }
+    }
+  }
+}
+
+/** 执行操作（用户确认后调用） */
+export async function executeChatAction(action: string, data: Record<string, any>): Promise<{ status: string; message: string }> {
+  return request('/api/ai/chat/execute', { method: 'POST', body: JSON.stringify({ action, data }) }) as Promise<{ status: string; message: string }>
+}
+
 export async function aiChat(message: string, signal?: AbortSignal): Promise<{ reply: string; role: string }> {
   return request('/api/ai/chat', { method: 'POST', body: JSON.stringify({ message }), signal }, 30000) as Promise<{ reply: string; role: string }>
 }
