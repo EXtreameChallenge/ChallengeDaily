@@ -3,11 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: http: https:; connect-src 'self' http://127.0.0.1:58888 http://localhost:58888 http://localhost:5173 https://wttr.in https://api.open-meteo.com https://geocoding-api.open-meteo.com https://api.bigdatacloud.net https://qifu-api.baidubce.com https://pv.sohu.com https://int.dpool.sina.com.cn https://nominatim.openstreetmap.org https://ipapi.co https://ipinfo.io https://ip-api.com https://open.bigmodel.cn; media-src 'none'; object-src 'none'; frame-src 'none';" />
     <title>桌面宠物</title>
     <style>
-      html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
-      #root { width: 100vw; height: 100vh; }
+      /* 宠物窗口专用样式 — 完全隔离，不受 index.css 影响 */
+      *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 100vw;
+        height: 100vh;
+        background: transparent !important;
+        overflow: hidden;
+        /* 禁用所有文本选择，避免拖拽时选中文字 */
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      #root {
+        width: 100%;
+        height: 100%;
+        background: transparent !important;
+      }
     </style>
   </head>
   <body>

@@ -1,4 +1,14 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, globalShortcut, Notification, session, dialog, shell } = require('electron')
+
+// ─── ELECTRON_RUN_AS_NODE 防护 ─────────────────
+// 如果全局环境变量 ELECTRON_RUN_AS_NODE=1 被设置，require('electron') 返回空对象，app 为 undefined
+// 必须在此立即退出，否则后续所有 app.* 调用都会崩溃
+if (!app) {
+  console.error('[FATAL] ELECTRON_RUN_AS_NODE=1 detected. Electron is running in Node mode.')
+  console.error('Please unset ELECTRON_RUN_AS_NODE before starting the app.')
+  process.exit(1)
+}
+
 const path = require('path')
 const { spawn, exec } = require('child_process')
 const http = require('http')
@@ -25,6 +35,7 @@ console.log('[Main] main.cjs loaded, log file:', mainLogFile)
 // 保持全局引用，防止垃圾回收
 let mainWindow = null
 let petWindow = null
+let pomodoroWidget = null
 let tray = null
 let backendProcess = null
 
@@ -35,6 +46,11 @@ const isDev = process.env.ELECTRON_IS_DEV === '0' ? false : !app.isPackaged
 
 // Windows 任务栏图标关键：设置 AppUserModelId（必须在 app ready 之前）
 app.setAppUserModelId('com.challenge.daily')
+
+// V8 内存优化：限制渲染进程内存上限，防止长期运行内存膨胀
+// 必须在 app ready 之前设置，否则 V8 flags 不会生效
+// 参考 Electron 性能指南：https://www.electronjs.org/docs/latest/api/web-preferences
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256 --gc-interval=100')
 
 // ─── 单实例锁：禁止打开多个窗口 ────────────────────
 const gotTheLock = app.requestSingleInstanceLock()
@@ -222,6 +238,12 @@ async function startBackend() {
 function stopBackend() {
   if (backendProcess) {
     console.log('[Main] Stopping backend...')
+    // 先移除 exit/error 监听器，防止 taskkill /F 触发的非零退出码被
+    // watchBackend 误判为崩溃（_crashCount 递增）
+    try {
+      backendProcess.removeAllListeners('exit')
+      backendProcess.removeAllListeners('error')
+    } catch (_) {}
     // Windows: SIGTERM does not work for child_process.
     // Use taskkill to forcefully terminate the process tree.
     try {
@@ -240,10 +262,6 @@ function stopBackend() {
 
 // ─── 主窗口 ──────────────────────────────────────
 function createMainWindow() {
-  // V8 内存优化：限制渲染进程内存上限，防止长期运行内存膨胀
-  // 参考 Electron 性能指南：https://www.electronjs.org/docs/latest/api/web-preferences
-  app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256 --gc-interval=100')
-
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -339,13 +357,13 @@ function createMainWindow() {
   })
 }
 
-// ─── 桌面宠物窗口 ────────────────────────────────
+// ─── 桌面宠物窗口 ──────────────────────────────
 function createPetWindow() {
   const { width } = screen.getPrimaryDisplay().workAreaSize
 
   petWindow = new BrowserWindow({
     width: 200,
-    height: 200,
+    height: 220,
     x: width - 230,
     y: 100,
     transparent: true,
@@ -353,6 +371,8 @@ function createPetWindow() {
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
+    hasShadow: false,              // 禁用窗口阴影，避免透明区域出现黑边
+    backgroundColor: undefined,  // 不设背景色，让透明生效
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -365,6 +385,8 @@ function createPetWindow() {
   // 宠物窗口始终置顶但不抢焦点
   petWindow.setAlwaysOnTop(true, 'normal')
   petWindow.setFocusable(false)
+  // Windows 透明窗口需要禁用视觉背景效果
+  petWindow.setBackgroundColor('#00000000')
 
   if (isDev) {
     petWindow.loadURL('http://localhost:5173/pet.html')
@@ -372,8 +394,107 @@ function createPetWindow() {
     petWindow.loadFile(path.join(__dirname, '..', 'dist', 'pet.html'))
   }
 
-  // 让宠物可拖拽
-  petWindow.on('will-move', () => {})
+  // 加载完成后不自动显示，等待渲染进程通过 pet-toggle IPC 同步状态后再决定是否显示
+  petWindow.once('ready-to-show', () => {
+    console.log('[Main] Pet window ready-to-show, waiting for toggle signal...')
+    // 默认隐藏，由 App.tsx 启动时根据 localStorage 的 cd_pet_visible 决定
+  })
+
+  petWindow.webContents.on('did-finish-load', () => {
+    console.log('[Main] Pet window did-finish-load')
+  })
+
+  petWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+    console.error('[Main] Pet window did-fail-load:', errorCode, errorDescription)
+  })
+
+  petWindow.on('closed', () => {
+    console.log('[Main] Pet window closed')
+    petWindow = null
+  })
+
+  // 窗口级别的拖拽：整个窗口可通过鼠标拖拽移动
+  // 监听渲染进程发来的拖拽事件
+  ipcMain.on('pet-window-drag', (_event, { mouseX, mouseY }) => {
+    if (!petWindow || petWindow.isDestroyed()) return
+    const [x, y] = petWindow.getPosition()
+    petWindow.setPosition(x + mouseX, y + mouseY)
+  })
+}
+
+// ─── 番茄钟悬浮计时窗口 ────────────────────────────────
+// 类似"番茄土豆"的置顶小窗口，迷你显示倒计时/任务/阶段
+// 番茄钟运行时自动弹出，可拖拽，点击跳回主界面
+function createPomodoroWidget() {
+  if (pomodoroWidget && !pomodoroWidget.isDestroyed()) {
+    return pomodoroWidget
+  }
+
+  const { width: screenWidth } = screen.getPrimaryDisplay().workAreaSize
+
+  pomodoroWidget = new BrowserWindow({
+    width: 200,
+    height: 80,
+    x: screenWidth - 220,
+    y: 60,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    hasShadow: false,
+    backgroundColor: undefined,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      preload: path.join(__dirname, 'preload.cjs'),
+    },
+    show: false,
+    focusable: true,  // 需要能接受点击
+  })
+
+  pomodoroWidget.setAlwaysOnTop(true, 'floating')
+  pomodoroWidget.setBackgroundColor('#00000000')
+
+  if (isDev) {
+    pomodoroWidget.loadURL('http://localhost:5173/pomodoro-widget.html')
+  } else {
+    pomodoroWidget.loadFile(path.join(__dirname, '..', 'dist', 'pomodoro-widget.html'))
+  }
+
+  // 点击悬浮窗 → 激活主窗口并跳转到专注页
+  pomodoroWidget.on('focus', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show()
+      mainWindow.focus()
+      mainWindow.webContents.send('navigate-to', '/focus')
+    }
+  })
+
+  pomodoroWidget.on('closed', () => {
+    pomodoroWidget = null
+  })
+
+  return pomodoroWidget
+}
+
+function showPomodoroWidget(data) {
+  const w = createPomodoroWidget()
+  w.webContents.once('did-finish-load', () => {
+    w.webContents.send('pomodoro-tick', data)
+    w.showInactive()  // 显示但不抢焦点
+  })
+  if (!w.webContents.isLoading()) {
+    w.webContents.send('pomodoro-tick', data)
+    if (!w.isVisible()) w.showInactive()
+  }
+}
+
+function hidePomodoroWidget() {
+  if (pomodoroWidget && !pomodoroWidget.isDestroyed()) {
+    pomodoroWidget.hide()
+  }
 }
 
 // ─── 系统托盘 ────────────────────────────────────
@@ -438,13 +559,38 @@ function setupIPC() {
   ipcMain.on('window-close', () => mainWindow?.hide())
   ipcMain.on('window-show', () => mainWindow?.show())
 
-  // 宠物控制
+  // 宠物控制：show 时创建/显示，hide 时销毁（避免透明窗口残留白色方块）
   ipcMain.on('pet-toggle', (_event, show) => {
-    if (show) petWindow?.show()
-    else petWindow?.hide()
+    if (show) {
+      if (!petWindow || petWindow.isDestroyed()) {
+        createPetWindow()
+      }
+      petWindow?.show()
+      petWindow?.setAlwaysOnTop(true, 'normal')
+      petWindow?.setFocusable(false)
+    } else {
+      if (petWindow && !petWindow.isDestroyed()) {
+        petWindow.destroy()
+        petWindow = null
+      }
+    }
   })
   // renderer 请求当前 pet 可见状态
   ipcMain.handle('pet-get-visible', () => petWindow?.isVisible() ?? false)
+
+  // ── 番茄钟悬浮窗 IPC ──
+  // 渲染进程发送计时数据 → 悬浮窗更新显示
+  ipcMain.on('pomodoro-widget-update', (_event, data) => {
+    if (data.phase === 'idle') {
+      hidePomodoroWidget()
+    } else {
+      showPomodoroWidget(data)
+    }
+  })
+  // 渲染进程请求关闭悬浮窗
+  ipcMain.on('pomodoro-widget-hide', () => {
+    hidePomodoroWidget()
+  })
 
   // 宠物气泡内容更新 → 中转到主窗口侧边栏状态
   ipcMain.on('pet-activity-update', (_event, data) => {
@@ -887,7 +1033,8 @@ app.whenReady().then(async () => {
   }
 
   createMainWindow()
-  createPetWindow()
+  // 延迟创建宠物窗口：等主窗口加载完成后由渲染进程根据 localStorage 决定是否创建
+  // 这样可以避免用户关闭宠物后仍然出现白色残留窗口
   createTray()
   setupIPC()
   registerShortcuts()

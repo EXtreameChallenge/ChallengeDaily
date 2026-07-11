@@ -414,10 +414,12 @@ def _parse_json_response(raw: str) -> dict | None:
             pass
 
     # 尝试提取最外层 { ... }（使用括号计数法，支持嵌套 JSON）
+    # 使用 while 循环而非 for 循环，因为需要在解析失败后跳到新的 start 位置
     start = raw.find('{')
-    if start != -1:
+    while start != -1:
         depth = 0
-        for i in range(start, len(raw)):
+        i = start
+        while i < len(raw):
             if raw[i] == '{':
                 depth += 1
             elif raw[i] == '}':
@@ -428,12 +430,9 @@ def _parse_json_response(raw: str) -> dict | None:
                         return json.loads(candidate)
                     except json.JSONDecodeError:
                         # 可能匹配了错误的边界，继续搜索下一个 {
-                        start = raw.find('{', start + 1)
-                        if start == -1:
-                            break
-                        depth = 0
-                        i = start - 1  # for 循环会 i+=1
-                        continue
+                        break
+            i += 1
+        start = raw.find('{', start + 1)
 
     return None
 

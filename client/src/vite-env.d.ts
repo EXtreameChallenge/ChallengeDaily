@@ -7,6 +7,8 @@ interface Window {
     close: () => void
     show: () => void
     togglePet: (show: boolean) => void
+    getPetVisible: () => Promise<boolean>
+    petWindowDrag: (dx: number, dy: number) => void
     getBackendPort: () => Promise<number>
     getApiToken: () => Promise<string>
     checkForUpdates: () => Promise<boolean>
@@ -21,6 +23,10 @@ interface Window {
     onGenerateReport: (cb: (data: string) => void) => void
     showNotification: (opts: { title: string; body: string }) => void
     getWindowsLocation: () => Promise<{ lat: number; lon: number; status?: string } | null>
+    pomodoroWidgetUpdate: (data: { phase: string; remaining: number; totalSec: number; task: string; duration: number }) => void
+    pomodoroWidgetHide: () => void
+    onPomodoroTick: (cb: (data: { phase: string; remaining: number; totalSec: number; task: string; duration: number }) => void) => void
+    onNavigateTo: (cb: (path: string) => void) => void
   }
   _petVisible?: boolean
 }

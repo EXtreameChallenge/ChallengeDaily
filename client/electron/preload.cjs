@@ -9,6 +9,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 宠物控制
   togglePet: (show) => ipcRenderer.send('pet-toggle', show),
+  getPetVisible: () => ipcRenderer.invoke('pet-get-visible'),
+  // 窗口拖拽（宠物窗口专用）
+  petWindowDrag: (dx, dy) => ipcRenderer.send('pet-window-drag', { mouseX: dx, mouseY: dy }),
 
   // 后端端口
   getBackendPort: () => ipcRenderer.invoke('get-backend-port'),
@@ -35,4 +38,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Windows 系统定位（主进程调用 PowerShell）
   getWindowsLocation: () => ipcRenderer.invoke('get-windows-location'),
+
+  // 番茄钟悬浮窗
+  pomodoroWidgetUpdate: (data) => ipcRenderer.send('pomodoro-widget-update', data),
+  pomodoroWidgetHide: () => ipcRenderer.send('pomodoro-widget-hide'),
+  onPomodoroTick: (cb) => ipcRenderer.on('pomodoro-tick', (_e, data) => cb(data)),
+
+  // 主进程导航指令（悬浮窗点击跳转等）
+  onNavigateTo: (cb) => ipcRenderer.on('navigate-to', (_e, path) => cb(path)),
 })

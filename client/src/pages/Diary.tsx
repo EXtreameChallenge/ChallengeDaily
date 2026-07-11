@@ -1,6 +1,6 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react'
+﻿﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Save, Calendar, Sparkles } from 'lucide-react'
-import { getDiary, saveDiary, getDiaries, type Diary as DiaryType } from '../api/client'
+import { getDiary, saveDiary, getDiaries, getTodayStr, formatLocalDate, type Diary as DiaryType } from '../api/client'
 import { useToast } from '../components/Toast'
 
 const MOODS = [
@@ -21,7 +21,7 @@ function formatDate(d: string) {
 }
 
 export default function Diary() {
-  const [currentDate, setCurrentDate] = useState(new Date().toISOString().substring(0, 10))
+  const [currentDate, setCurrentDate] = useState(getTodayStr())
   const [diary, setDiary] = useState<DiaryType | null>(null)
   const [mood, setMood] = useState('')
   const [weather, setWeather] = useState('')
@@ -81,13 +81,13 @@ export default function Diary() {
   const goPrev = () => {
     const d = new Date(currentDate)
     d.setDate(d.getDate() - 1)
-    setCurrentDate(d.toISOString().substring(0, 10))
+    setCurrentDate(formatLocalDate(d))
   }
 
   const goNext = () => {
     const d = new Date(currentDate)
     d.setDate(d.getDate() + 1)
-    if (d <= new Date()) setCurrentDate(d.toISOString().substring(0, 10))
+    if (d <= new Date()) setCurrentDate(formatLocalDate(d))
   }
 
   const hasDiary = diaryDates.includes(currentDate)

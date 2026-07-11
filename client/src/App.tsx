@@ -129,6 +129,9 @@ export default function App() {
     window.electronAPI.onUpdateDownloaded(() => {
       setUpdateDownloaded(true)
     })
+    // 应用启动时同步宠物窗口可见性：根据 localStorage 恢复宠物窗口状态
+    const petVisible = localStorage.getItem('cd_pet_visible') !== '0'
+    window.electronAPI.togglePet(petVisible)
   }, [])
 
   const handleInstallUpdate = () => {

@@ -162,6 +162,7 @@ def main():
 
     try:
         while not stop.is_set():
+            in_work_hours = True  # 默认值，防止 try 块内异常导致 NameError
             try:
                 settings = _get_cached_settings()
                 now_hour = datetime.now().hour

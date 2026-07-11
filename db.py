@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 23
+SCHEMA_VERSION = 24
 
 # ── 持久连接（避免每分钟 5-7 次 connect/close）──
 _persistent_conn: Optional[sqlite3.Connection] = None
@@ -573,7 +573,6 @@ def init_db():
 
             # 复合索引优化（提升常用查询性能）
             conn.execute("CREATE INDEX IF NOT EXISTS idx_activities_app_cat ON activities(app_name, category)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_start_app ON app_usage(start_time, app_name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_pomodoro_start_status ON pomodoro_sessions(start_time, status)")
 
         # V23: AI 自我认知分析缓存表（累积理解系统）
@@ -590,6 +589,18 @@ def init_db():
                     UNIQUE(analysis_type)
                 );
                 CREATE INDEX IF NOT EXISTS idx_profile_analysis_type ON profile_analysis_cache(analysis_type);
+            """)
+
+        # V24: 待办-番茄钟深度整合 — 预估番茄数 + 番茄大小 + 连续执行
+        if current_version < 24:
+            conn.executescript("""
+                -- todos: 新增预估番茄数、番茄大小（大番茄25+5 / 小番茄20+10）
+                ALTER TABLE todos ADD COLUMN estimated_pomodoros INTEGER DEFAULT 1;
+                ALTER TABLE todos ADD COLUMN pomodoro_size TEXT DEFAULT 'big';
+
+                -- pomodoro_sessions: 新增连续执行支持字段
+                ALTER TABLE pomodoro_sessions ADD COLUMN pomodoro_index INTEGER DEFAULT 1;
+                ALTER TABLE pomodoro_sessions ADD COLUMN total_pomodoros INTEGER DEFAULT 1;
             """)
 
         # 更新版本号
@@ -1185,23 +1196,25 @@ def get_pomodoro_today_count():
 # ── 待办清单 ──
 _ALLOWED_TODO_FIELDS = {"title", "category", "mode", "target_min", "repeat_type", "repeat_days",
                         "due_date", "priority", "status", "completed_at", "task_level",
-                        "parent_id", "assigned_date", "week_start", "month_key", "color", "progress_min", "pomodoro_count"}
+                        "parent_id", "assigned_date", "week_start", "month_key", "color",
+                        "progress_min", "pomodoro_count", "estimated_pomodoros", "pomodoro_size"}
 
 # 番茄钟允许更新的字段白名单（防 SQL 注入：列名不能参数化，必须白名单校验）
-_ALLOWED_POMODORO_FIELDS = {"status", "end_time", "duration_min", "interrupted_count", "task", "category", "todo_id"}
+_ALLOWED_POMODORO_FIELDS = {"status", "end_time", "duration_min", "interrupted_count", "task", "category",
+                            "todo_id", "pomodoro_index", "total_pomodoros"}
 
 def insert_todo(title, category="开发", mode="timer", target_min=25, repeat_type="none", repeat_days="", due_date=None, priority=2,
-                task_level="day", parent_id=None, assigned_date=None, week_start=None, month_key=None, color=None):
+                task_level="day", parent_id=None, assigned_date=None, week_start=None, month_key=None, color=None,
+                estimated_pomodoros=1, pomodoro_size="big"):
     _flush_pending_commits()
     with get_conn() as conn:
         max_order = conn.execute("SELECT COALESCE(MAX(sort_order),0) FROM todos").fetchone()[0]
-        # 扩展：支持 task_level/parent_id/assigned_date/week_start/month_key/color
         cursor = conn.execute(
             "INSERT INTO todos (title, category, mode, target_min, repeat_type, repeat_days, due_date, priority, sort_order, "
-            "task_level, parent_id, assigned_date, week_start, month_key, color) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "task_level, parent_id, assigned_date, week_start, month_key, color, estimated_pomodoros, pomodoro_size) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (title, category, mode, target_min, repeat_type, repeat_days, due_date, priority, max_order+1,
-             task_level, parent_id, assigned_date, week_start, month_key, color)
+             task_level, parent_id, assigned_date, week_start, month_key, color, estimated_pomodoros, pomodoro_size)
         )
         conn.commit()
         return cursor.lastrowid

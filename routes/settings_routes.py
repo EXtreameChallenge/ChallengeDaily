@@ -71,6 +71,12 @@ def update_settings():
         if val > 300:
             return jsonify({"error": "截图间隔不能大于300秒"}), 400
 
+    # 校验 ai_base_url — 在保存之前，避免无效 URL 被持久化
+    if "ai_base_url" in data:
+        url_val = str(data["ai_base_url"]).strip()
+        if url_val and not (url_val.startswith("http://") or url_val.startswith("https://")):
+            return jsonify({"error": "AI Base URL 必须以 http:// 或 https:// 开头"}), 400
+
     save_settings(current)
 
     if "screenshot_interval_sec" in data:
@@ -78,18 +84,16 @@ def update_settings():
         config.SCREENSHOT_INTERVAL_SEC = val
 
     if "ai_base_url" in data:
-        url_val = str(data["ai_base_url"]).strip()
-        if url_val and not (url_val.startswith("http://") or url_val.startswith("https://")):
-            return jsonify({"error": "AI Base URL 必须以 http:// 或 https:// 开头"}), 400
         import config
-        config.AI_BASE_URL = url_val
+        config.AI_BASE_URL = str(data["ai_base_url"]).strip()
     if "ai_vision_model" in data:
         import config
         config.AI_VISION_MODEL = str(data["ai_vision_model"])
     if "ai_text_model" in data:
         import config
         config.AI_TEXT_MODEL = str(data["ai_text_model"])
-    if any(k in data for k in ["ai_base_url", "ai_vision_model", "ai_text_model"]) or ai_api_key_raw:
+    # ai_api_key_raw 为空字符串时也是合法操作（清除 key），需要用 is not None 判断
+    if any(k in data for k in ["ai_base_url", "ai_vision_model", "ai_text_model"]) or ai_api_key_raw is not None:
         try:
             from ai_client import _reset_client
             _reset_client()

@@ -12,6 +12,7 @@ from config import CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 应用名到分类的映射规则（默认规则，可被用户自定义覆盖）──
+# 注意：key 的大小写需与 Windows 进程名一致，查找时使用 _APP_CATEGORY_RULES_LOWER 做大小写不敏感匹配
 APP_CATEGORY_RULES = {
     # 开发
     "Code.exe": "开发", "devenv.exe": "开发", "idea64.exe": "开发",
@@ -193,8 +194,8 @@ def classify(app_name: str, ai_category: str = "", window_title: str = "") -> st
     if norm_ai:
         return norm_ai
 
-    # 3. 默认规则
-    rule_cat = APP_CATEGORY_RULES.get(app_name, "")
+    # 3. 默认规则（大小写不敏感匹配，与 get_display_name 保持一致）
+    rule_cat = _APP_CATEGORY_RULES_LOWER.get(app_name.lower(), "")
     if rule_cat and rule_cat in CATEGORIES:
         return rule_cat
 

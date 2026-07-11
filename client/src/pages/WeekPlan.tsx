@@ -1,30 +1,45 @@
-﻿import { useState, useEffect, useCallback } from 'react'
+﻿﻿import { useState, useEffect, useCallback } from 'react'
 import {
-  Calendar, CalendarDays, ChevronLeft, ChevronRight, Plus, GripVertical, Play, Check, Trash2, X, Target,
+  Calendar, CalendarDays, ChevronLeft, ChevronRight, Plus, GripVertical, Play, X, Target,
 } from 'lucide-react'
 import {
   getWeekPlan, getUnassignedTodos, getWeekPlanStats, getMonthPlan, getMonthPlanStats,
-  assignTodo, unassignTodo, createTodo,
+  assignTodo, unassignTodo,
   getWeekStart, getWeekDates, getMonthKey,
   type TodoV2, type WeekPlanData, type WeekPlanStats, type MonthPlanData, type MonthPlanStats,
 } from '../api/client'
 import { useToast } from '../components/Toast'
 import TaskDetailModal from '../components/TaskDetailModal'
+import TaskCreateModal from '../components/TaskCreateModal'
 
 // ── 常量 ──
 const PRIORITY_COLORS = ['#ef4444', '#f59e0b', '#F0C040', '#10b981', '#6b7280']
-const CATEGORIES = ['开发', '会议', '沟通', '文档', '测试', '设计', '运维', '数据分析', '学习', '管理', '产品', '生活']
 const MODE_LABELS: Record<string, string> = { timer: '计时', goal: '目标', habit: '习惯' }
 const WEEKDAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-const TODAY_STR = new Date().toISOString().substring(0, 10)
 const DAILY_LIMIT = 180 // 负载警示阈值（分钟）
 
+// 本地日期字符串（不受时区影响，每次调用时动态计算，避免跨午夜后过期）
+function getTodayStr(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// 本地日期格式化（不受时区影响）
+function formatLocalDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// 本地月份格式化（不受时区影响）
+function formatLocalMonth(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 function fmtDate(d: string) {
-  const dt = new Date(d)
+  const dt = new Date(d + 'T00:00:00')
   return `${dt.getMonth() + 1}/${dt.getDate()}`
 }
 function isWeekend(d: string) {
-  const day = new Date(d).getDay()
+  const day = new Date(d + 'T00:00:00').getDay()
   return day === 0 || day === 6
 }
 function dayMin(todos: TodoV2[]) {
@@ -85,7 +100,7 @@ export default function WeekPlan() {
   const [viewMode, setViewMode] = useState<'week' | 'month' | 'day'>('week')
   const [weekStart, setWeekStart] = useState(getWeekStart())
   const [monthKey, setMonthKey] = useState(getMonthKey())
-  const [selectedDate, setSelectedDate] = useState(TODAY_STR)
+  const [selectedDate, setSelectedDate] = useState(getTodayStr())
   const [weekPlan, setWeekPlan] = useState<WeekPlanData | null>(null)
   const [unassigned, setUnassigned] = useState<TodoV2[]>([])
   const [weekStats, setWeekStats] = useState<WeekPlanStats | null>(null)
@@ -93,8 +108,7 @@ export default function WeekPlan() {
   const [monthStats, setMonthStats] = useState<MonthPlanStats | null>(null)
   const [dragId, setDragId] = useState<number | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
-  const [showNewForm, setShowNewForm] = useState(false)
-  const [newForm, setNewForm] = useState({ title: '', priority: 3, category: '开发', mode: 'timer' as 'timer' | 'goal' | 'habit', target_min: 25 })
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [modalTodo, setModalTodo] = useState<TodoV2 | null>(null)
 
   const loadWeek = useCallback(async (ws: string) => {
@@ -125,18 +139,18 @@ export default function WeekPlan() {
 
   // ── 导航 ──
   const shiftWeek = (delta: number) => {
-    const d = new Date(weekStart)
+    const d = new Date(weekStart + 'T00:00:00')
     d.setDate(d.getDate() + delta * 7)
-    setWeekStart(d.toISOString().substring(0, 10))
+    setWeekStart(formatLocalDate(d))
   }
   const shiftMonth = (delta: number) => {
     const [y, m] = monthKey.split('-').map(Number)
-    setMonthKey(new Date(y, m - 1 + delta, 1).toISOString().substring(0, 7))
+    setMonthKey(formatLocalMonth(new Date(y, m - 1 + delta, 1)))
   }
   const goToday = () => {
     setWeekStart(getWeekStart())
     setMonthKey(getMonthKey())
-    setSelectedDate(TODAY_STR)
+    setSelectedDate(getTodayStr())
   }
 
   // ── 拖拽处理 ──
@@ -177,19 +191,10 @@ export default function WeekPlan() {
     setDragId(null)
   }
 
-  // ── 新建任务 ──
-  const handleCreate = async () => {
-    if (!newForm.title.trim()) return
-    try {
-      await createTodo({
-        title: newForm.title, category: newForm.category, mode: newForm.mode,
-        target_min: newForm.target_min, priority: newForm.priority,
-      })
-      success('任务已创建')
-      setNewForm({ title: '', priority: 3, category: '开发', mode: 'timer', target_min: 25 })
-      setShowNewForm(false)
-      if (viewMode === 'month') loadMonth(monthKey); else loadWeek(weekStart)
-    } catch { error('创建失败') }
+  // ── 新建任务（通过 TaskCreateModal）──
+  const handleTaskCreated = (_id: number) => {
+    success('任务已创建')
+    if (viewMode === 'month') loadMonth(monthKey); else loadWeek(weekStart)
   }
 
   const openDetail = (todo: TodoV2) => setModalTodo(todo)
@@ -206,7 +211,7 @@ export default function WeekPlan() {
         <div className="flex items-end gap-1.5" style={{ height: 40 }}>
           {weekStats.daily_focus.map(d => {
             const h = Math.max(2, (d.focus_min / maxMin) * 36)
-            const isToday = d.date === TODAY_STR
+            const isToday = d.date === getTodayStr()
             return (
               <div key={d.date} className="flex flex-col items-center" title={`${fmtDate(d.date)}: ${d.focus_min}min`}>
                 <div style={{ width: 8, height: h, background: isToday ? '#7B68EE' : '#7B68EE55', borderRadius: 2, transition: 'height 0.5s' }} />
@@ -263,7 +268,7 @@ export default function WeekPlan() {
             const tasks = weekPlan.day_tasks[date] || []
             const totalMin = dayMin(tasks)
             const overLimit = totalMin > DAILY_LIMIT
-            const isTodayCol = date === TODAY_STR
+            const isTodayCol = date === getTodayStr()
             const weekend = isWeekend(date)
             return (
               <div key={date}
@@ -368,7 +373,7 @@ export default function WeekPlan() {
             }
             const date = `${monthKey}-${String(dayNum).padStart(2, '0')}`
             const dayTasks = allTasks.filter(t => t.assigned_date === date)
-            const isTodayCell = date === TODAY_STR
+            const isTodayCell = date === getTodayStr()
             return (
               <div key={i}
                 onClick={() => { setSelectedDate(date); setViewMode('day'); setWeekStart(getWeekStart(new Date(date))) }}
@@ -401,13 +406,13 @@ export default function WeekPlan() {
   function renderDayView() {
     if (!weekPlan) return <div className="p-8 text-center text-cd-text-tertiary text-sm">加载中...</div>
     const tasks = weekPlan.day_tasks[selectedDate] || []
-    const isToday = selectedDate === TODAY_STR
+    const isToday = selectedDate === getTodayStr()
     const shiftDay = (delta: number) => {
-      const d = new Date(selectedDate)
+      const d = new Date(selectedDate + 'T00:00:00')
       d.setDate(d.getDate() + delta)
-      const ns = d.toISOString().substring(0, 10)
+      const ns = formatLocalDate(d)
       setSelectedDate(ns)
-      const ws = getWeekStart(new Date(ns))
+      const ws = getWeekStart(new Date(ns + 'T00:00:00'))
       if (ws !== weekStart) setWeekStart(ws)
     }
     return (
@@ -485,51 +490,12 @@ export default function WeekPlan() {
             className="px-2 py-1 text-xs rounded-lg bg-cd-bg-input text-cd-text-secondary hover:bg-cd-hover transition">
             今天
           </button>
-          <button onClick={() => setShowNewForm(!showNewForm)}
+          <button onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
             <Plus size={12} /> 新建
           </button>
         </div>
       </div>
-
-      {/* 新建任务表单 */}
-      {showNewForm && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-cd-border animate-fade-in" style={{ background: 'var(--cd-card)' }}>
-          <input autoFocus value={newForm.title} onChange={e => setNewForm({ ...newForm, title: e.target.value })}
-            placeholder="任务标题..."
-            className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-3 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50"
-            onKeyDown={e => e.key === 'Enter' && handleCreate()} />
-          <select value={newForm.category} onChange={e => setNewForm({ ...newForm, category: e.target.value })}
-            className="bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text">
-            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select value={newForm.mode} onChange={e => setNewForm({ ...newForm, mode: e.target.value as 'timer' | 'goal' | 'habit' })}
-            className="bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text">
-            {Object.entries(MODE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-          <div className="flex items-center gap-1">
-            <input type="number" min={5} step={5} value={newForm.target_min}
-              onChange={e => setNewForm({ ...newForm, target_min: parseInt(e.target.value) || 25 })}
-              className="w-14 bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text text-center" />
-            <span className="text-[10px] text-cd-text-tertiary">min</span>
-          </div>
-          <div className="flex gap-0.5">
-            {[1, 2, 3, 4, 5].map(p => (
-              <button key={p} onClick={() => setNewForm({ ...newForm, priority: p })}
-                className="w-5 h-5 rounded text-[10px] font-bold transition"
-                style={{
-                  background: newForm.priority === p ? PRIORITY_COLORS[p - 1] : 'transparent',
-                  color: newForm.priority === p ? '#fff' : PRIORITY_COLORS[p - 1],
-                  border: `1px solid ${PRIORITY_COLORS[p - 1]}`,
-                }}>P{p}</button>
-            ))}
-          </div>
-          <button onClick={handleCreate}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
-            <Check size={12} /> 创建
-          </button>
-        </div>
-      )}
 
       {/* 主视图区 */}
       <div className="flex-1 overflow-hidden">
@@ -543,6 +509,14 @@ export default function WeekPlan() {
 
       {/* 任务详情浮层 */}
       <TaskDetailModal todo={modalTodo} onClose={() => setModalTodo(null)} onUpdate={refreshAfterModal} />
+
+      {/* 统一任务创建弹窗 */}
+      <TaskCreateModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreated={handleTaskCreated}
+        defaults={{ week_start: weekStart, assigned_date: '' }}
+      />
     </div>
   )
 }

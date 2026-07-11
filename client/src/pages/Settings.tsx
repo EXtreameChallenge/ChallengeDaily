@@ -61,7 +61,8 @@ export default function Settings() {
     ;(window as any)._petVisible = show
     localStorage.setItem('cd_pet_visible', show ? '1' : '0')
     window.dispatchEvent(new CustomEvent('cd-pet-visible-change'))
-    // 简化版：宠物为主窗口内浮动 div，不调用独立窗口 IPC
+    // 通过 IPC 控制独立宠物窗口的显示/隐藏
+    window.electronAPI?.togglePet(show)
   }
 
   // 安全 setTimeout — saved 状态自动消失
@@ -127,7 +128,8 @@ export default function Settings() {
       if (checkUpdateTimerRef.current) clearTimeout(checkUpdateTimerRef.current)
       checkUpdateTimerRef.current = setTimeout(() => {
         setUpdateChecking(false)
-        if (updateStatus === 'idle') setUpdateStatus('up-to-date')
+        // 使用函数式更新避免闭包过期：只有当前状态确实是 idle 时才标记为最新
+        setUpdateStatus(prev => prev === 'idle' ? 'up-to-date' : prev)
         checkUpdateTimerRef.current = null
       }, 2000)
     } catch {

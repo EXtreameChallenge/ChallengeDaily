@@ -1,95 +1,115 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { getTodayStats } from '../api/client'
 
-type PetStyle = 'cat' | 'robot' | 'ghost'
+// ─── 宠物形象定义 ──────────────────────────────
+type PetStyle = 'yuexinmao' | 'codex' | 'claude' | 'cat'
 
-interface PetProps {
-  visible: boolean
-  onToggle?: (visible: boolean) => void
+interface PetConfig {
+  id: PetStyle
+  name: string
+  color: string
+  accent: string
+  width: number
+  height: number
 }
 
-const PET_STYLES: { id: PetStyle; name: string; color: string }[] = [
-  { id: 'cat', name: '小黑猫', color: '#7B68EE' },
-  { id: 'robot', name: '机器人', color: '#5B8DEF' },
-  { id: 'ghost', name: '小幽灵', color: '#00CEC9' },
-]
+const PET_CONFIGS: Record<PetStyle, PetConfig> = {
+  yuexinmao: { id: 'yuexinmao', name: '月薪帽', color: '#7B68EE', accent: '#FFD93D', width: 160, height: 160 },
+  codex: { id: 'codex', name: 'Codex', color: '#19C37D', accent: '#10A37F', width: 160, height: 160 },
+  claude: { id: 'claude', name: 'Claude', color: '#D97757', accent: '#CC785C', width: 160, height: 160 },
+  cat: { id: 'cat', name: '小黑猫', color: '#7B68EE', accent: '#937CFF', width: 160, height: 160 },
+}
 
-const REST_MESSAGES = [
-  '该休息一下啦~',
-  '喝口水吧',
-  '起来走走吧',
-  '放松一下眼睛~',
+const IDLE_MESSAGES = [
+  '在吗？', '今天也要加油哦~', '我在这儿陪着你', '喵~', '休息一下吧',
+  '记得喝水哦', '有我在，不孤单', '工作辛苦了', '要开心呀',
 ]
 
 const WORK_MESSAGES = [
-  '努力工作中~',
-  '专注模式开启！',
-  '加油加油！',
-  '今天进展不错！',
-  '保持节奏~',
+  '努力工作中~', '专注模式开启！', '加油加油！', '今天进展不错！',
+  '保持节奏~', '你是最棒的！', '再坚持一下~', '效率满满！',
 ]
 
-export default function Pet({ visible, onToggle }: PetProps) {
+const ENCOURAGE_MESSAGES = [
+  '你可以的！', '相信自己！', '每一步都算数', '慢慢来，比较快',
+  '你已经很棒了', '不要放弃哦', '坚持就是胜利',
+]
+
+export default function Pet() {
   const [style, setStyle] = useState<PetStyle>(() => {
     const saved = localStorage.getItem('cd_pet_style')
-    return (saved as PetStyle) || 'cat'
+    return (saved as PetStyle) || 'yuexinmao'
   })
-  const [position, setPosition] = useState<{ x: number; y: number }>(() => {
-    const saved = localStorage.getItem('cd_pet_position')
-    if (saved) {
-      try {
-        return JSON.parse(saved)
-      } catch {}
-    }
-    return { x: 24, y: 120 }
-  })
-  const positionRef = useRef(position)
-  useEffect(() => { positionRef.current = position }, [position])
-
   const [hover, setHover] = useState(false)
   const [bubbleText, setBubbleText] = useState('')
   const [bubbleVisible, setBubbleVisible] = useState(false)
   const [currentActivity, setCurrentActivity] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [happy, setHappy] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [eyeBlink, setEyeBlink] = useState(false)
+  const [tailWag, setTailWag] = useState(0)
 
-  const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null)
-  const didDragRef = useRef(false)
+  const config = PET_CONFIGS[style]
+
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null)
   const bubbleTimer = useRef<number | null>(null)
-  // 用于统一管理零散 setTimeout，便于卸载或重复触发时清理
   const happyTimer = useRef<number | null>(null)
-  const dragResetTimer = useRef<number | null>(null)
+  const blinkTimer = useRef<number | null>(null)
+  const tailTimer = useRef<number | null>(null)
+  const idleMsgTimer = useRef<number | null>(null)
 
-  // 读取当前工作状态
   const refreshActivity = useCallback(async () => {
     try {
       const stats = await getTodayStats()
       setCurrentActivity(stats.current_activity || null)
-    } catch {
-      // 后端不可达时保持旧值
-    }
+    } catch {}
   }, [])
 
   useEffect(() => {
-    if (!visible) return
     refreshActivity()
     const id = window.setInterval(refreshActivity, 30000)
     return () => window.clearInterval(id)
-  }, [visible, refreshActivity])
+  }, [refreshActivity])
 
-  // 初始打招呼
   useEffect(() => {
-    if (!visible) return
-    const timer = window.setTimeout(() => {
-      showBubble(PET_STYLES.find(p => p.id === style)?.name + ' 来陪你~' || '陪你工作~')
-    }, 1200)
-    return () => window.clearTimeout(timer)
-  }, [visible, style])
+    const blink = () => {
+      setEyeBlink(true)
+      window.setTimeout(() => setEyeBlink(false), 150)
+      const nextBlink = 2000 + Math.random() * 4000
+      blinkTimer.current = window.setTimeout(blink, nextBlink)
+    }
+    blinkTimer.current = window.setTimeout(blink, 3000)
+    return () => { if (blinkTimer.current) window.clearTimeout(blinkTimer.current) }
+  }, [])
 
-  // 组件卸载时清理点击产生的 happy 状态定时器，避免卸载后 setState
+  useEffect(() => {
+    const wag = () => {
+      setTailWag(prev => (prev + 1) % 4)
+      tailTimer.current = window.setTimeout(wag, 800)
+    }
+    tailTimer.current = window.setTimeout(wag, 800)
+    return () => { if (tailTimer.current) window.clearTimeout(tailTimer.current) }
+  }, [])
+
+  useEffect(() => {
+    const showIdle = () => {
+      const pool = currentActivity ? WORK_MESSAGES : IDLE_MESSAGES
+      const msg = pool[Math.floor(Math.random() * pool.length)]
+      showBubble(msg, 4000)
+      idleMsgTimer.current = window.setTimeout(showIdle, 30000 + Math.random() * 30000)
+    }
+    idleMsgTimer.current = window.setTimeout(showIdle, 10000)
+    return () => { if (idleMsgTimer.current) window.clearTimeout(idleMsgTimer.current) }
+  }, [currentActivity])
+
   useEffect(() => {
     return () => {
       if (happyTimer.current) window.clearTimeout(happyTimer.current)
+      if (bubbleTimer.current) window.clearTimeout(bubbleTimer.current)
+      if (blinkTimer.current) window.clearTimeout(blinkTimer.current)
+      if (tailTimer.current) window.clearTimeout(tailTimer.current)
+      if (idleMsgTimer.current) window.clearTimeout(idleMsgTimer.current)
     }
   }, [])
 
@@ -100,59 +120,44 @@ export default function Pet({ visible, onToggle }: PetProps) {
     bubbleTimer.current = window.setTimeout(() => setBubbleVisible(false), duration)
   }, [])
 
-  // 点击宠物显示气泡
   const handlePetClick = useCallback(() => {
-    if (didDragRef.current) return
+    if (isDragging) return
     setHappy(true)
     if (happyTimer.current) window.clearTimeout(happyTimer.current)
-    happyTimer.current = window.setTimeout(() => setHappy(false), 800)
-
-    const pool = currentActivity ? [currentActivity, ...WORK_MESSAGES] : WORK_MESSAGES
-    const msg = pool[Math.floor(Math.random() * pool.length)]
+    happyTimer.current = window.setTimeout(() => setHappy(false), 1000)
+    const msg = ENCOURAGE_MESSAGES[Math.floor(Math.random() * ENCOURAGE_MESSAGES.length)]
     showBubble(msg, 3500)
-  }, [currentActivity, showBubble])
+  }, [isDragging, showBubble])
 
-  // 拖拽逻辑
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('[data-pet-no-drag]')) return
     e.preventDefault()
-    didDragRef.current = false
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      initialX: position.x,
-      initialY: position.y,
-    }
+    dragStartRef.current = { x: e.clientX, y: e.clientY }
+    setIsDragging(false)
   }
 
   useEffect(() => {
     const handleMove = (e: MouseEvent) => {
-      if (!dragRef.current) return
-      const dx = e.clientX - dragRef.current.startX
-      const dy = e.clientY - dragRef.current.startY
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
-        didDragRef.current = true
+      if (!dragStartRef.current) return
+      const dx = e.clientX - dragStartRef.current.x
+      const dy = e.clientY - dragStartRef.current.y
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+        setIsDragging(true)
       }
-      const newX = Math.max(0, Math.min(window.innerWidth - 120, dragRef.current.initialX + dx))
-      const newY = Math.max(48, Math.min(window.innerHeight - 120, dragRef.current.initialY + dy))
-      setPosition({ x: newX, y: newY })
+      if (window.electronAPI?.petWindowDrag) {
+        window.electronAPI.petWindowDrag(dx, dy)
+      }
+      dragStartRef.current = { x: e.clientX, y: e.clientY }
     }
     const handleUp = () => {
-      if (dragRef.current) {
-        localStorage.setItem('cd_pet_position', JSON.stringify(positionRef.current))
-      }
-      dragRef.current = null
-      if (dragResetTimer.current) window.clearTimeout(dragResetTimer.current)
-      dragResetTimer.current = window.setTimeout(() => {
-        didDragRef.current = false
-      }, 60)
+      dragStartRef.current = null
+      window.setTimeout(() => setIsDragging(false), 50)
     }
     window.addEventListener('mousemove', handleMove)
     window.addEventListener('mouseup', handleUp)
     return () => {
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
-      if (dragResetTimer.current) window.clearTimeout(dragResetTimer.current)
     }
   }, [])
 
@@ -160,261 +165,220 @@ export default function Pet({ visible, onToggle }: PetProps) {
     setStyle(next)
     localStorage.setItem('cd_pet_style', next)
     setMenuOpen(false)
-    const name = PET_STYLES.find(p => p.id === next)?.name || ''
-    showBubble(`切换为${name}~`, 2000)
+    showBubble(`切换为${PET_CONFIGS[next].name}~`, 2000)
   }
 
-  if (!visible) return null
+  const renderPet = () => {
+    switch (style) {
+      case 'yuexinmao': return <YueXinMao happy={happy} hover={hover} eyeBlink={eyeBlink} tailWag={tailWag} />
+      case 'codex': return <CodexPet happy={happy} hover={hover} eyeBlink={eyeBlink} />
+      case 'claude': return <ClaudePet happy={happy} hover={hover} eyeBlink={eyeBlink} />
+      case 'cat': return <CatPet happy={happy} hover={hover} eyeBlink={eyeBlink} tailWag={tailWag} />
+      default: return <YueXinMao happy={happy} hover={hover} eyeBlink={eyeBlink} tailWag={tailWag} />
+    }
+  }
 
   return (
     <div
-      className="fixed z-[10000] select-none"
-      style={{ left: position.x, top: position.y }}
+      className="pet-container"
+      style={{
+        width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'flex-end', paddingBottom: '8px',
+        cursor: isDragging ? 'grabbing' : 'grab', position: 'relative', background: 'transparent',
+        userSelect: 'none', WebkitUserSelect: 'none',
+      }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => { setHover(false); setMenuOpen(false) }}
+      onMouseDown={handleMouseDown}
+      onClick={handlePetClick}
+      onContextMenu={(e) => {
+        if ((e.target as HTMLElement).closest('[data-pet-no-drag]')) return
+        e.preventDefault()
+        setMenuOpen(prev => !prev)
+      }}
     >
-      {/* 气泡 */}
-      <div
-        className={`absolute z-30 -top-2 left-1/2 -translate-x-1/2 -translate-y-full min-w-[140px] max-w-[260px] px-3 py-2 rounded-xl text-xs leading-relaxed text-center shadow-lg pointer-events-none transition-all duration-300 ${
-          bubbleVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
-        }`}
-        style={{
-          background: 'var(--cd-card)',
-          color: 'var(--cd-text)',
-          border: '1px solid var(--cd-border)',
-          boxShadow: 'var(--cd-shadow)',
-        }}
-      >
+      {/* 气泡 — 在宠物上方 */}
+      <div style={{
+        position: 'absolute', bottom: '100%', left: '50%',
+        transform: `translateX(-50%) translateY(${bubbleVisible ? '0' : '10px'})`,
+        opacity: bubbleVisible ? 1 : 0, transition: 'all 0.3s ease',
+        marginBottom: '8px', minWidth: '120px', maxWidth: '200px',
+        padding: '8px 12px', borderRadius: '12px', fontSize: '12px',
+        lineHeight: 1.5, textAlign: 'center', pointerEvents: 'none', zIndex: 100,
+        background: 'rgba(30, 30, 40, 0.92)', color: '#fff',
+        border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+        backdropFilter: 'blur(8px)',
+      }}>
         {bubbleText}
-        <span
-          className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0"
-          style={{
-            borderLeft: '6px solid transparent',
-            borderRight: '6px solid transparent',
-            borderTop: '6px solid var(--cd-border)',
-          }}
-        />
+        <span style={{
+          position: 'absolute', left: '50%', top: '100%', transform: 'translateX(-50%)',
+          width: 0, height: 0, borderLeft: '6px solid transparent',
+          borderRight: '6px solid transparent', borderTop: '6px solid rgba(30, 30, 40, 0.92)',
+        }} />
       </div>
 
-      {/* 形象切换菜单 */}
+      {/* 菜单 */}
       {menuOpen && (
-        <div
-          className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full mb-2 px-1.5 py-1.5 rounded-xl flex flex-col gap-0.5 min-w-[90px]"
-          style={{
-            background: 'var(--cd-card)',
-            border: '1px solid var(--cd-border)',
-            boxShadow: 'var(--cd-shadow)',
-          }}
-        >
-          {PET_STYLES.map(p => (
-            <button
-              key={p.id}
-              data-pet-no-drag
-              onClick={() => handleStyleChange(p.id)}
-              className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${
-                style === p.id ? 'font-medium' : ''
-              }`}
+        <div data-pet-no-drag style={{
+          position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+          marginBottom: '8px', padding: '6px', borderRadius: '12px', display: 'flex',
+          flexDirection: 'column', gap: '4px', minWidth: '100px', zIndex: 200,
+          background: 'rgba(30, 30, 40, 0.95)', border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)', backdropFilter: 'blur(12px)',
+        }}>
+          {(Object.keys(PET_CONFIGS) as PetStyle[]).map(p => (
+            <button key={p} data-pet-no-drag onClick={(e) => { e.stopPropagation(); handleStyleChange(p) }}
               style={{
-                background: style === p.id ? 'var(--cd-selected)' : 'transparent',
-                color: style === p.id ? p.color : 'var(--cd-text)',
-              }}
-            >
-              <span className="text-base leading-none">{p.id === 'cat' ? '🐱' : p.id === 'robot' ? '🤖' : '👻'}</span>
-              {p.name}
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px',
+                borderRadius: '8px', border: 'none', fontSize: '12px', cursor: 'pointer',
+                background: style === p ? 'rgba(255,255,255,0.1)' : 'transparent',
+                color: style === p ? PET_CONFIGS[p].color : '#ccc', transition: 'all 0.2s',
+              }}>
+              <span style={{ fontSize: '16px' }}>
+                {p === 'yuexinmao' ? '🐱' : p === 'codex' ? '💚' : p === 'claude' ? '🟠' : '🐱'}
+              </span>
+              {PET_CONFIGS[p].name}
             </button>
           ))}
         </div>
       )}
 
       {/* 宠物本体 */}
-      <div
-        className="relative w-20 h-20 cursor-grab active:cursor-grabbing"
-        onMouseDown={handleMouseDown}
-        onClick={handlePetClick}
-        onContextMenu={(e) => {
-          if ((e.target as HTMLElement).closest('[data-pet-no-drag]')) return
-          e.preventDefault()
-          setMenuOpen(prev => !prev)
-        }}
-      >
-        {/* 关闭按钮 */}
+      <div style={{
+        width: config.width, height: config.height, position: 'relative',
+        transition: 'transform 0.2s ease', transform: hover && !isDragging ? 'scale(1.05)' : 'scale(1)',
+      }}>
         {hover && (
-          <button
-            data-pet-no-drag
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggle?.(false)
-            }}
-            className="absolute -top-1 -right-1 z-20 w-5 h-5 rounded-full flex items-center justify-center text-[10px] opacity-80 hover:opacity-100 transition-opacity"
-            style={{ background: 'var(--cd-bg-tertiary)', color: 'var(--cd-text-tertiary)' }}
-            title="隐藏宠物"
-          >
-            ×
-          </button>
+          <button data-pet-no-drag onClick={(e) => { e.stopPropagation(); window.electronAPI?.togglePet(false) }}
+            style={{
+              position: 'absolute', top: '-4px', right: '-4px', zIndex: 20, width: '20px', height: '20px',
+              borderRadius: '50%', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '12px', cursor: 'pointer', opacity: 0.7, background: 'rgba(60,60,70,0.8)', color: '#aaa',
+            }} title="隐藏宠物">×</button>
         )}
-
-        {/* 设置按钮 */}
         {hover && (
-          <button
-            data-pet-no-drag
-            onClick={(e) => {
-              e.stopPropagation()
-              setMenuOpen(prev => !prev)
-            }}
-            className="absolute -top-1 -left-1 z-20 w-5 h-5 rounded-full flex items-center justify-center text-[10px] opacity-80 hover:opacity-100 transition-opacity"
-            style={{ background: 'var(--cd-bg-tertiary)', color: 'var(--cd-text-tertiary)' }}
-            title="切换形象"
-          >
-            ⚙
-          </button>
+          <button data-pet-no-drag onClick={(e) => { e.stopPropagation(); setMenuOpen(prev => !prev) }}
+            style={{
+              position: 'absolute', top: '-4px', left: '-4px', zIndex: 20, width: '20px', height: '20px',
+              borderRadius: '50%', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '10px', cursor: 'pointer', opacity: 0.7, background: 'rgba(60,60,70,0.8)', color: '#aaa',
+            }} title="切换形象">⚙</button>
         )}
-
-        <div className={`w-full h-full transition-transform duration-200 ${hover ? 'scale-110' : ''} ${happy ? 'animate-pet-bounce' : 'animate-pet-float'}`}>
-          {style === 'cat' && <CatSvg happy={happy || hover} />}
-          {style === 'robot' && <RobotSvg happy={happy || hover} />}
-          {style === 'ghost' && <GhostSvg happy={happy || hover} />}
-        </div>
+        {renderPet()}
       </div>
-
-      {/* 定时休息提醒 */}
-      <RestReminder onShow={showBubble} />
     </div>
   )
 }
 
-// ─── 定时休息提醒 ──────────────────────────────
-function RestReminder({ onShow }: { onShow: (text: string, duration?: number) => void }) {
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      const msg = REST_MESSAGES[Math.floor(Math.random() * REST_MESSAGES.length)]
-      onShow(msg, 5000)
-    }, 45 * 60 * 1000)
-    return () => window.clearInterval(id)
-  }, [onShow])
-  return null
-}
+// ─── SVG 形象 ────────────────────────────────────
 
-// ─── SVG 形象 ──────────────────────────────────
-function CatSvg({ happy }: { happy: boolean }) {
+function YueXinMao({ happy, eyeBlink, tailWag }: { happy: boolean; eyeBlink: boolean; tailWag: number }) {
+  const tailAngle = tailWag % 2 === 0 ? 8 : -8
   return (
-    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md">
+    <svg viewBox="0 0 160 160" style={{ width: '100%', height: '100%', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))' }}>
       <defs>
-        <linearGradient id="catBody" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#937CFF" />
-          <stop offset="100%" stopColor="#7B68EE" />
-        </linearGradient>
+        <linearGradient id="yxmBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#9B8AE8" /><stop offset="100%" stopColor="#7B68EE" /></linearGradient>
+        <linearGradient id="yxmHat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FFD93D" /><stop offset="100%" stopColor="#F0C040" /></linearGradient>
       </defs>
-      {/* 尾巴 */}
-      <path
-        d="M70 70 Q90 60 88 40 Q86 25 75 30"
-        fill="none"
-        stroke="#7B68EE"
-        strokeWidth="8"
-        strokeLinecap="round"
-        className="origin-bottom-left animate-pet-tail"
-      />
-      {/* 身体 */}
-      <ellipse cx="50" cy="62" rx="34" ry="30" fill="url(#catBody)" />
-      {/* 耳朵 */}
-      <path d="M24 38 L18 14 L40 28 Z" fill="#7B68EE" />
-      <path d="M76 38 L82 14 L60 28 Z" fill="#7B68EE" />
-      {/* 眼睛 */}
-      <g className="animate-pet-blink">
-        <ellipse cx="38" cy="52" rx="5" ry={happy ? '3' : '6'} fill="#1A1A1A" />
-        <ellipse cx="62" cy="52" rx="5" ry={happy ? '3' : '6'} fill="#1A1A1A" />
+      <g style={{ transformOrigin: '100px 110px', transform: `rotate(${tailAngle}deg)`, transition: 'transform 0.4s ease' }}>
+        <path d="M110 110 Q130 100 135 80 Q138 65 125 70" fill="none" stroke="#7B68EE" strokeWidth="7" strokeLinecap="round" />
       </g>
-      {/* 腮红 */}
-      <circle cx="30" cy="62" r="4" fill="#FF8A80" opacity="0.6" />
-      <circle cx="70" cy="62" r="4" fill="#FF8A80" opacity="0.6" />
-      {/* 嘴巴 */}
-      <path
-        d={happy ? 'M42 68 Q50 76 58 68' : 'M46 70 Q50 73 54 70'}
-        fill="none"
-        stroke="#1A1A1A"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-      {/* 胡须 */}
-      <g stroke="#FFF" strokeWidth="1.5" strokeLinecap="round" opacity="0.7">
-        <line x1="20" y1="58" x2="8" y2="55" />
-        <line x1="20" y1="64" x2="8" y2="66" />
-        <line x1="80" y1="58" x2="92" y2="55" />
-        <line x1="80" y1="64" x2="92" y2="66" />
+      <ellipse cx="80" cy="105" rx="42" ry="36" fill="url(#yxmBody)" />
+      <path d="M42 62 L34 32 L58 48 Z" fill="#7B68EE" />
+      <path d="M118 62 L126 32 L102 48 Z" fill="#7B68EE" />
+      <ellipse cx="80" cy="38" rx="35" ry="10" fill="#E8A838" />
+      <path d="M55 38 L55 22 Q80 12 105 22 L105 38 Z" fill="url(#yxmHat)" />
+      <rect x="75" y="12" width="10" height="8" rx="2" fill="#E8A838" />
+      <text x="80" y="34" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#8B6914" fontFamily="sans-serif">$</text>
+      <ellipse cx="62" cy="78" rx="6" ry={eyeBlink ? '1.5' : '7'} fill="#1A1A1A" style={{ transition: 'ry 0.1s' }} />
+      <ellipse cx="98" cy="78" rx="6" ry={eyeBlink ? '1.5' : '7'} fill="#1A1A1A" style={{ transition: 'ry 0.1s' }} />
+      {!eyeBlink && <><circle cx="64" cy="75" r="2" fill="#FFF" opacity="0.7" /><circle cx="100" cy="75" r="2" fill="#FFF" opacity="0.7" /></>}
+      <circle cx="50" cy="88" r="6" fill="#FF8A80" opacity="0.5" />
+      <circle cx="110" cy="88" r="6" fill="#FF8A80" opacity="0.5" />
+      <path d={happy ? 'M68 95 Q80 104 92 95' : 'M74 97 Q80 100 86 97'} fill="none" stroke="#1A1A1A" strokeWidth="2.5" strokeLinecap="round" />
+      <ellipse cx="52" cy="132" rx="8" ry="6" fill="#9B8AE8" />
+      <ellipse cx="108" cy="132" rx="8" ry="6" fill="#9B8AE8" />
+      <g stroke="#FFF" strokeWidth="1.2" strokeLinecap="round" opacity="0.5">
+        <line x1="38" y1="82" x2="22" y2="78" /><line x1="38" y1="88" x2="22" y2="92" />
+        <line x1="122" y1="82" x2="138" y2="78" /><line x1="122" y1="88" x2="138" y2="92" />
       </g>
     </svg>
   )
 }
 
-function RobotSvg({ happy }: { happy: boolean }) {
+function CodexPet({ happy, eyeBlink }: { happy: boolean; eyeBlink: boolean }) {
   return (
-    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md">
+    <svg viewBox="0 0 160 160" style={{ width: '100%', height: '100%', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))' }}>
       <defs>
-        <linearGradient id="robotBody" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#74B9FF" />
-          <stop offset="100%" stopColor="#5B8DEF" />
-        </linearGradient>
+        <linearGradient id="codexBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2DD4A0" /><stop offset="100%" stopColor="#19C37D" /></linearGradient>
       </defs>
-      {/* 天线 */}
-      <line x1="50" y1="20" x2="50" y2="8" stroke="#5B8DEF" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="50" cy="6" r="4" fill="#FFD93D" className="animate-pulse" />
-      {/* 身体 */}
-      <rect x="22" y="28" width="56" height="52" rx="14" fill="url(#robotBody)" />
-      {/* 屏幕脸 */}
-      <rect x="30" y="38" width="40" height="26" rx="8" fill="#1A1A1A" />
-      {/* 眼睛 */}
-      <g className="animate-pet-blink">
-        <circle cx="40" cy="51" r="4" fill={happy ? '#00CEC9' : '#FFF'} />
-        <circle cx="60" cy="51" r="4" fill={happy ? '#00CEC9' : '#FFF'} />
-      </g>
-      {/* 嘴巴/状态灯 */}
-      {happy ? (
-        <path d="M44 60 Q50 65 56 60" fill="none" stroke="#00CEC9" strokeWidth="2" strokeLinecap="round" />
-      ) : (
-        <rect x="46" y="60" width="8" height="2" rx="1" fill="#FFF" />
-      )}
-      {/* 手臂 */}
-      <path d="M16 46 Q10 54 16 62" fill="none" stroke="#5B8DEF" strokeWidth="5" strokeLinecap="round" />
-      <path d="M84 46 Q90 54 84 62" fill="none" stroke="#5B8DEF" strokeWidth="5" strokeLinecap="round" />
-      {/* 腿 */}
-      <rect x="34" y="78" width="10" height="10" rx="3" fill="#4A90E2" />
-      <rect x="56" y="78" width="10" height="10" rx="3" fill="#4A90E2" />
+      <line x1="80" y1="28" x2="80" y2="12" stroke="#19C37D" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="80" cy="10" r="5" fill="#FFD93D"><animate attributeName="opacity" values="1;0.5;1" dur="2s" repeatCount="indefinite" /></circle>
+      <rect x="38" y="32" width="84" height="72" rx="20" fill="url(#codexBody)" />
+      <rect x="48" y="44" width="64" height="44" rx="12" fill="#0D3328" />
+      <rect x="58" y="56" width="12" height={eyeBlink ? '2' : '10'} rx="3" fill={happy ? '#2DD4A0' : '#FFF'} style={{ transition: 'height 0.1s' }} />
+      <rect x="90" y="56" width="12" height={eyeBlink ? '2' : '10'} rx="3" fill={happy ? '#2DD4A0' : '#FFF'} style={{ transition: 'height 0.1s' }} />
+      {happy ? <path d="M70 74 Q80 82 90 74" fill="none" stroke="#2DD4A0" strokeWidth="2.5" strokeLinecap="round" /> : <rect x="74" y="74" width="12" height="3" rx="1.5" fill="#FFF" opacity="0.6" />}
+      <path d="M32 52 Q22 64 32 76" fill="none" stroke="#19C37D" strokeWidth="6" strokeLinecap="round" />
+      <path d="M128 52 Q138 64 128 76" fill="none" stroke="#19C37D" strokeWidth="6" strokeLinecap="round" />
+      <rect x="56" y="100" width="16" height="14" rx="5" fill="#17A86B" />
+      <rect x="88" y="100" width="16" height="14" rx="5" fill="#17A86B" />
+      <circle cx="80" cy="108" r="3" fill="#FFD93D"><animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite" /></circle>
     </svg>
   )
 }
 
-function GhostSvg({ happy }: { happy: boolean }) {
+function ClaudePet({ happy, eyeBlink }: { happy: boolean; eyeBlink: boolean }) {
   return (
-    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md">
+    <svg viewBox="0 0 160 160" style={{ width: '100%', height: '100%', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))' }}>
       <defs>
-        <linearGradient id="ghostBody" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#A8F0E8" stopOpacity="0.95" />
-          <stop offset="100%" stopColor="#00CEC9" stopOpacity="0.85" />
-        </linearGradient>
+        <linearGradient id="claudeBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#E88B6F" /><stop offset="100%" stopColor="#D97757" /></linearGradient>
       </defs>
-      {/* 身体 */}
-      <path
-        d="M30 80 Q25 70 25 50 Q25 20 50 20 Q75 20 75 50 Q75 70 70 80 Q63 72 58 80 Q53 72 48 80 Q43 72 38 80 Q33 72 30 80 Z"
-        fill="url(#ghostBody)"
-      />
-      {/* 眼睛 */}
-      <g className="animate-pet-blink">
-        <circle cx="40" cy="46" r="5" fill="#1A1A1A" />
-        <circle cx="60" cy="46" r="5" fill="#1A1A1A" />
+      <path d="M110 110 Q130 95 128 75 Q126 60 115 65" fill="none" stroke="#D97757" strokeWidth="8" strokeLinecap="round">
+        <animateTransform attributeName="transform" type="rotate" values="0 110 110; 8 110 110; 0 110 110" dur="2s" repeatCount="indefinite" />
+      </path>
+      <ellipse cx="80" cy="105" rx="40" ry="34" fill="url(#claudeBody)" />
+      <path d="M44 58 L36 30 L60 46 Z" fill="#D97757" />
+      <path d="M116 58 L124 30 L100 46 Z" fill="#D97757" />
+      <ellipse cx="62" cy="72" rx="6" ry={eyeBlink ? '1.5' : '7'} fill="#1A1A1A" style={{ transition: 'ry 0.1s' }} />
+      <ellipse cx="98" cy="72" rx="6" ry={eyeBlink ? '1.5' : '7'} fill="#1A1A1A" style={{ transition: 'ry 0.1s' }} />
+      {!eyeBlink && <><circle cx="64" cy="69" r="2" fill="#FFF" opacity="0.7" /><circle cx="100" cy="69" r="2" fill="#FFF" opacity="0.7" /></>}
+      <circle cx="50" cy="82" r="6" fill="#FF8A80" opacity="0.4" />
+      <circle cx="110" cy="82" r="6" fill="#FF8A80" opacity="0.4" />
+      <path d={happy ? 'M70 90 Q80 98 90 90' : 'M76 92 Q80 95 84 92'} fill="none" stroke="#1A1A1A" strokeWidth="2.5" strokeLinecap="round" />
+      <ellipse cx="52" cy="130" rx="8" ry="6" fill="#E88B6F" />
+      <ellipse cx="108" cy="130" rx="8" ry="6" fill="#E88B6F" />
+      <g opacity="0.6"><polygon points="30,40 32,45 37,45 33,48 35,53 30,50 25,53 27,48 23,45 28,45" fill="#FFD93D" />
+      <polygon points="130,35 131,38 134,38 132,40 133,43 130,41 127,43 128,40 126,38 129,38" fill="#FFD93D" /></g>
+    </svg>
+  )
+}
+
+function CatPet({ happy, eyeBlink, tailWag }: { happy: boolean; eyeBlink: boolean; tailWag: number }) {
+  const tailAngle = tailWag % 2 === 0 ? 8 : -8
+  return (
+    <svg viewBox="0 0 160 160" style={{ width: '100%', height: '100%', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))' }}>
+      <defs>
+        <linearGradient id="catBody2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#937CFF" /><stop offset="100%" stopColor="#7B68EE" /></linearGradient>
+      </defs>
+      <g style={{ transformOrigin: '100px 110px', transform: `rotate(${tailAngle}deg)`, transition: 'transform 0.4s ease' }}>
+        <path d="M110 110 Q130 100 128 80 Q126 65 115 70" fill="none" stroke="#7B68EE" strokeWidth="8" strokeLinecap="round" />
       </g>
-      {/* 腮红 */}
-      <ellipse cx="32" cy="54" rx="4" ry="2.5" fill="#FF8A80" opacity="0.5" />
-      <ellipse cx="68" cy="54" rx="4" ry="2.5" fill="#FF8A80" opacity="0.5" />
-      {/* 嘴巴 */}
-      <path
-        d={happy ? 'M44 58 Q50 64 56 58' : 'M46 60 Q50 58 54 60'}
-        fill="none"
-        stroke="#1A1A1A"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-      {/* 小星星装饰 */}
-      <circle cx="22" cy="36" r="2" fill="#FFF" opacity="0.8" className="animate-pulse" />
-      <circle cx="78" cy="40" r="1.5" fill="#FFF" opacity="0.6" className="animate-pulse" style={{ animationDelay: '0.5s' }} />
+      <ellipse cx="80" cy="105" rx="42" ry="36" fill="url(#catBody2)" />
+      <path d="M42 58 L34 30 L58 46 Z" fill="#7B68EE" />
+      <path d="M118 58 L126 30 L102 46 Z" fill="#7B68EE" />
+      <ellipse cx="62" cy="72" rx="6" ry={eyeBlink ? '1.5' : '7'} fill="#1A1A1A" style={{ transition: 'ry 0.1s' }} />
+      <ellipse cx="98" cy="72" rx="6" ry={eyeBlink ? '1.5' : '7'} fill="#1A1A1A" style={{ transition: 'ry 0.1s' }} />
+      {!eyeBlink && <><circle cx="64" cy="69" r="2" fill="#FFF" opacity="0.7" /><circle cx="100" cy="69" r="2" fill="#FFF" opacity="0.7" /></>}
+      <circle cx="50" cy="82" r="6" fill="#FF8A80" opacity="0.5" />
+      <circle cx="110" cy="82" r="6" fill="#FF8A80" opacity="0.5" />
+      <path d={happy ? 'M68 90 Q80 98 92 90' : 'M74 92 Q80 95 86 92'} fill="none" stroke="#1A1A1A" strokeWidth="2.5" strokeLinecap="round" />
+      <ellipse cx="52" cy="130" rx="8" ry="6" fill="#937CFF" />
+      <ellipse cx="108" cy="130" rx="8" ry="6" fill="#937CFF" />
+      <g stroke="#FFF" strokeWidth="1.2" strokeLinecap="round" opacity="0.5">
+        <line x1="38" y1="78" x2="22" y2="74" /><line x1="38" y1="84" x2="22" y2="88" />
+        <line x1="122" y1="78" x2="138" y2="74" /><line x1="122" y1="84" x2="138" y2="88" />
+      </g>
     </svg>
   )
 }

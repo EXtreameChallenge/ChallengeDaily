@@ -81,7 +81,7 @@ export async function request(endpoint: string, options?: RequestInit, timeoutMs
       // Token 失效：清除缓存，重试一次（后端可能重启生成了新 token）
       if (!_isRetry) {
         invalidateToken()
-        return request(endpoint, options, 10000, true)
+        return request(endpoint, options, timeoutMs, true)
       }
       throw new Error('认证失败，请重新启动应用')
     }
@@ -420,7 +420,7 @@ export async function downloadBackup(): Promise<void> {
   })
   if (!res.ok) throw new Error(`备份失败: HTTP ${res.status}`)
   const blob = await res.blob()
-  const date = new Date().toISOString().slice(0, 10)
+  const date = formatLocalDate(new Date())
   _triggerDownload(blob, `xiaohei_backup_${date}.zip`)
 }
 
@@ -475,7 +475,7 @@ export async function createActivity(data: {
 
 /** 搜索活动记录 */
 export async function searchActivities(q: string, date?: string): Promise<Activity[]> {
-  const d = date || new Date().toISOString().slice(0, 10)
+  const d = date || formatLocalDate(new Date())
   const data = await request(`/api/activities/search?q=${encodeURIComponent(q)}&date=${d}`) as { activities: Activity[] }
   return data.activities || []
 }
@@ -909,10 +909,26 @@ export interface PomodoroSession {
   category: string
   status: 'running' | 'completed' | 'interrupted'
   interrupted_count: number
+  todo_id: number | null
+  pomodoro_index: number
+  total_pomodoros: number
 }
 
-export async function startPomodoro(data: { task?: string; duration_min?: number; category?: string; todo_id?: number | null }): Promise<{ status: string; id: number; start_time: string }> {
-  return request('/api/pomodoro/start', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; id: number; start_time: string }>
+// 番茄钟大小配置
+export interface PomodoroSizeConfig {
+  work: number       // 工作分钟
+  short_break: number  // 短休息分钟
+  long_break: number   // 长休息分钟
+}
+
+export const POMODORO_SIZES: Record<string, PomodoroSizeConfig> = {
+  big:   { work: 25, short_break: 5, long_break: 15 },
+  small: { work: 20, short_break: 10, long_break: 15 },
+}
+export const LONG_BREAK_INTERVAL = 4
+
+export async function startPomodoro(data: { task?: string; duration_min?: number; category?: string; todo_id?: number | null; pomodoro_index?: number; total_pomodoros?: number }): Promise<{ status: string; id: number; start_time: string; todo_id: number | null; duration_min: number; pomodoro_index: number; total_pomodoros: number }> {
+  return request('/api/pomodoro/start', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; id: number; start_time: string; todo_id: number | null; duration_min: number; pomodoro_index: number; total_pomodoros: number }>
 }
 
 export async function stopPomodoro(data: { id: number; status?: string; interrupted_count?: number }): Promise<{ status: string; end_time: string }> {
@@ -944,6 +960,8 @@ export interface Todo {
   pomodoro_count: number
   created_at: string
   completed_at: string | null
+  estimated_pomodoros: number
+  pomodoro_size: 'big' | 'small'
 }
 
 export async function getTodos(status?: string): Promise<{ todos: Todo[] }> {
@@ -951,7 +969,7 @@ export async function getTodos(status?: string): Promise<{ todos: Todo[] }> {
   return request(`/api/todos${params}`) as Promise<{ todos: Todo[] }>
 }
 
-export async function createTodo(data: { title: string; category?: string; mode?: string; target_min?: number; priority?: number; due_date?: string }): Promise<{ status: string; id: number }> {
+export async function createTodo(data: { title: string; category?: string; mode?: string; target_min?: number; priority?: number; due_date?: string; task_level?: string; assigned_date?: string; week_start?: string; month_key?: string; parent_id?: number; estimated_pomodoros?: number; pomodoro_size?: string }): Promise<{ status: string; id: number }> {
   return request('/api/todos', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; id: number }>
 }
 
@@ -1184,28 +1202,61 @@ export async function getTodayTodos(): Promise<{ todos: TodoV2[]; date: string }
   return request('/api/week-plan/today') as Promise<{ todos: TodoV2[]; date: string }>
 }
 
+export async function addTodoProgress(todoId: number, minutes: number): Promise<{ status: string }> {
+  return request(`/api/todos/${todoId}/add-progress`, { method: 'POST', body: JSON.stringify({ minutes }) }) as Promise<{ status: string }>
+}
+
+// 工具函数：将 Date 格式化为本地 YYYY-MM-DD 字符串（不受时区影响）
+export function formatLocalDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// 工具函数：获取今天的本地日期字符串 YYYY-MM-DD
+export function getTodayStr(): string {
+  return formatLocalDate(new Date())
+}
+
+// 工具函数：将 Date 格式化为本地 YYYY-MM-DD HH:MM:SS 时间戳字符串
+export function formatLocalTimestamp(d: Date): string {
+  const date = formatLocalDate(d)
+  const h = String(d.getHours()).padStart(2, '0')
+  const m = String(d.getMinutes()).padStart(2, '0')
+  const s = String(d.getSeconds()).padStart(2, '0')
+  return `${date} ${h}:${m}:${s}`
+}
+
+// 工具函数：将 Date 格式化为本地 YYYY-MM 字符串
+function _formatLocalMonth(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  return `${y}-${m}`
+}
+
 // 工具函数：ISO 8601 周一日期
 export function getWeekStart(d: Date = new Date()): string {
   const date = new Date(d)
   const day = date.getDay() // 0=周日, 1=周一
   const diff = day === 0 ? -6 : 1 - day // 周日回到上周一
   date.setDate(date.getDate() + diff)
-  return date.toISOString().substring(0, 10)
+  return formatLocalDate(date)
 }
 
 // 工具函数：从日期字符串获取周一开始的 7 天
 export function getWeekDates(weekStart: string): string[] {
-  const start = new Date(weekStart)
+  const start = new Date(weekStart + 'T00:00:00')
   const dates: string[] = []
   for (let i = 0; i < 7; i++) {
     const d = new Date(start)
     d.setDate(start.getDate() + i)
-    dates.push(d.toISOString().substring(0, 10))
+    dates.push(formatLocalDate(d))
   }
   return dates
 }
 
 // 工具函数：获取月份 key
 export function getMonthKey(d: Date = new Date()): string {
-  return d.toISOString().substring(0, 7)
+  return _formatLocalMonth(d)
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, Flame, Check } from 'lucide-react'
-import { getHabits, createHabit, logHabit, deleteHabit, type Habit, type HabitLog } from '../api/client'
+import { getHabits, createHabit, logHabit, deleteHabit, getTodayStr, type Habit, type HabitLog } from '../api/client'
 import { useToast } from '../components/Toast'
 
 const COLORS = ['#7B68EE', '#F0C040', '#22c55e', '#3b82f6', '#ec4899', '#f97316']
@@ -56,7 +56,7 @@ export default function Habits() {
     }
   }
 
-  const today = new Date().toISOString().substring(0, 10)
+  const today = getTodayStr()
   const todayLogs = logs.filter(l => l.log_date === today)
   const todayLogMap = new Map(todayLogs.map(l => [l.habit_id, l.count]))
 
