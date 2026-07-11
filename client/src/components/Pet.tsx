@@ -68,7 +68,8 @@ export default function Pet() {
 
   useEffect(() => {
     refreshActivity()
-    const id = window.setInterval(refreshActivity, 30000)
+    // 60秒轮询（Pet活动状态不需要高频刷新，Sidebar已有30秒轮询同接口）
+    const id = window.setInterval(refreshActivity, 60000)
     return () => window.clearInterval(id)
   }, [refreshActivity])
 

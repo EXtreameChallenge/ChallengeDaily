@@ -91,13 +91,27 @@ export default function Sidebar() {
   const { sidebarTranslucent } = useTheme()
 
   useEffect(() => {
+    let isVisible = !document.hidden
     const refresh = () => {
+      // 窗口隐藏时暂停轮询，节省后端资源
+      if (!isVisible) return
       getStatus().then(setStatus).catch(() => setStatus(null))
       getTodayStats().then(setTodayStats).catch(() => setTodayStats(null))
     }
     refresh()
-    const interval = setInterval(refresh, 10000)
-    return () => clearInterval(interval)
+    // 30秒轮询（从10秒降低，减少后端压力；状态变更不频繁，30秒足够）
+    const interval = setInterval(refresh, 30000)
+    // 窗口恢复可见时立即刷新
+    const handleVisibility = () => {
+      const wasHidden = !isVisible
+      isVisible = !document.hidden
+      if (wasHidden && isVisible) refresh()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [])
 
   const handleToggleCollector = async () => {

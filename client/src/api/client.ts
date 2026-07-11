@@ -13,6 +13,10 @@ type BackendState = 'connected' | 'disconnected' | 'connecting'
 let _backendState: BackendState = 'connecting'
 const _stateListeners = new Set<(s: BackendState) => void>()
 
+// 连续失败计数：只有连续多次失败才标记disconnected，避免单次超时误判
+let _consecutiveFailures = 0
+const _DISCONNECT_THRESHOLD = 2  // 连续2次失败才标记断连
+
 export function getBackendState(): BackendState { return _backendState }
 export function onBackendStateChange(cb: (s: BackendState) => void): () => void {
   _stateListeners.add(cb)
@@ -22,6 +26,16 @@ function setBackendState(s: BackendState) {
   if (_backendState === s) return
   _backendState = s
   _stateListeners.forEach(cb => cb(s))
+}
+function markRequestSuccess() {
+  _consecutiveFailures = 0
+  setBackendState('connected')
+}
+function markRequestFailure() {
+  _consecutiveFailures++
+  if (_consecutiveFailures >= _DISCONNECT_THRESHOLD) {
+    setBackendState('disconnected')
+  }
 }
 
 // ── API Token 管理 ──
@@ -68,7 +82,9 @@ export async function request(endpoint: string, options?: RequestInit, timeoutMs
   // 剥离外部 signal，避免覆盖 timeout controller（fetch 仍使用 controller.signal）
   const { signal: _stripped, ...restOptions } = options || {}
   try {
-    setBackendState('connecting')
+    // 不再每次请求都设connecting——高频轮询时会导致UI闪烁
+    // 只在真正断连后才设connecting
+    if (_backendState === 'disconnected') setBackendState('connecting')
     const res = await fetch(`${BASE_URL}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
@@ -88,19 +104,19 @@ export async function request(endpoint: string, options?: RequestInit, timeoutMs
     if (!res.ok) {
       // 后端已响应但返回错误码（4xx/5xx）——后端在线，只是业务逻辑出错
       // 不应标记为 disconnected，否则会误报"后端服务断开"
-      setBackendState('connected')
+      markRequestSuccess()
       throw new Error(`请求失败: ${res.status}`)
     }
     const data = await res.json()
-    setBackendState('connected')
+    markRequestSuccess()
     return data
   } catch (err: unknown) {
     // 外部 signal 主动取消：不更新断连状态，向上抛出 AbortError 供调用方识别
     if (externalSignal?.aborted) {
       throw new DOMException('请求已被取消', 'AbortError')
     }
-    // 标记后端断连，触发 UI 重连提示
-    setBackendState('disconnected')
+    // 累计连续失败次数，达到阈值才标记disconnected
+    markRequestFailure()
     if (err instanceof DOMException && err.name === 'AbortError') {
       throw new Error('请求超时，后端可能未响应')
     }

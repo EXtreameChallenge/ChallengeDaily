@@ -118,9 +118,18 @@ def start_server():
     try:
         from waitress import serve as waitress_serve
         logger.info(f"使用 waitress 生产级 WSGI 服务器启动: http://127.0.0.1:{HTTP_PORT}")
-        # 本地桌面应用并发极低（仅一个前端 + 偶尔手动触发），2 线程足够
-        # 减少 waitress 线程可降低约 2MB 内存开销
-        waitress_serve(app, host="127.0.0.1", port=HTTP_PORT, threads=2)
+        # 4线程 + 增大队列：前端多个组件同时轮询时避免4092次"Task queue depth"警告
+        # 默认channel_request_lookaback=4太小，前端10+个定时轮询请求积压时每个都触发WARNING
+        # 增大backlog和connection_limit，避免请求被reject导致前端触发"后端断开"
+        waitress_serve(
+            app,
+            host="127.0.0.1",
+            port=HTTP_PORT,
+            threads=4,
+            connection_limit=100,       # 默认100，保持
+            channel_request_lookaback=50,  # 默认4，太小，频繁WARNING
+            max_request_body_size=10 * 1024 * 1024,  # 10MB，支持大请求体
+        )
     except ImportError:
         logger.warning("waitress 未安装，回退到 Flask 开发服务器（本地场景可用）")
         # 本地桌面应用场景：Flask 开发服务器足够稳定
