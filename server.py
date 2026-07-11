@@ -122,7 +122,7 @@ def start_server():
         # 主动向 stdout 打印可识别的启动标记，让 Electron 立即知道后端已就绪
         print(f"HTTP API 已启动: http://127.0.0.1:{HTTP_PORT}", flush=True)
         # 4线程 + 增大队列：前端多个组件同时轮询时避免4092次"Task queue depth"警告
-        # 默认channel_request_lookaback=4太小，前端10+个定时轮询请求积压时每个都触发WARNING
+        # waitress 正确参数名: channel_request_lookahead (不是lookaback也不是lookback)
         # 增大backlog和connection_limit，避免请求被reject导致前端触发"后端断开"
         waitress_serve(
             app,
@@ -130,7 +130,7 @@ def start_server():
             port=HTTP_PORT,
             threads=4,
             connection_limit=100,       # 默认100，保持
-            channel_request_lookaback=50,  # 默认4，太小，频繁WARNING
+            channel_request_lookahead=50,  # 默认4，正确拼写: lookahead
             max_request_body_size=10 * 1024 * 1024,  # 10MB，支持大请求体
         )
     except ImportError:
