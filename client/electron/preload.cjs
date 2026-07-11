@@ -46,4 +46,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 主进程导航指令（悬浮窗点击跳转等）
   onNavigateTo: (cb) => ipcRenderer.on('navigate-to', (_e, path) => cb(path)),
+
+  // 开机自启动
+  getAutoStart: () => ipcRenderer.invoke('get-auto-start'),
+  setAutoStart: (enabled: boolean) => ipcRenderer.invoke('set-auto-start', enabled),
 })

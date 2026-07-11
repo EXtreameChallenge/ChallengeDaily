@@ -27,6 +27,8 @@ interface Window {
     pomodoroWidgetHide: () => void
     onPomodoroTick: (cb: (data: { phase: string; remaining: number; totalSec: number; task: string; duration: number }) => void) => void
     onNavigateTo: (cb: (path: string) => void) => void
+    getAutoStart: () => Promise<boolean>
+    setAutoStart: (enabled: boolean) => Promise<boolean>
   }
   _petVisible?: boolean
 }

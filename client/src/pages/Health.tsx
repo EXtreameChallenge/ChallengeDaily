@@ -28,6 +28,7 @@ export default function Health() {
       return { coverage, events, sampling }
     },
     [selectedDate],
+    30 * 60 * 1000,  // 30 分钟自动刷新校准数据
   )
 
   const coverage = data?.coverage

@@ -656,6 +656,17 @@ function setupIPC() {
     }
   })
 
+  // 开机自启动
+  ipcMain.handle('get-auto-start', () => {
+    const settings = app.getLoginItemSettings()
+    return settings.openAtLogin
+  })
+  ipcMain.handle('set-auto-start', (_event, enabled) => {
+    app.setLoginItemSettings({ openAtLogin: !!enabled, path: app.getPath('exe') })
+    console.log('[IPC] auto-start set to:', !!enabled)
+    return true
+  })
+
   // Windows 系统定位（通过 WinRT Geolocator API，精度 ~30-500m WiFi 定位）
   // 敏感通道：校验 sender 来源，仅允许主窗口
   ipcMain.handle('get-windows-location', async (event) => {

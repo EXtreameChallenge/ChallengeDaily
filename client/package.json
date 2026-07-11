@@ -1,6 +1,6 @@
 {
   "name": "challenge-daily",
-  "version": "2.6.5",
+  "version": "2.6.6",
   "description": "ChallengeDaily Windows - AI Work Daily Report Assistant",
   "type": "module",
   "main": "electron/main.cjs",

@@ -3,7 +3,7 @@ import { getStatus, getSettings, updateSettings, testAiConnection, downloadExpor
 import { ToggleSwitch, useTimeout, useAsyncData, ApiErrorDisplay } from '../components/shared'
 import { useToast } from '../components/Toast'
 import { useTheme, ACCENT_PRESETS, FONT_PRESETS, RADIUS_PRESETS, SHADOW_PRESETS, OPACITY_PRESETS } from '../components/ThemeContext'
-import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon, Cat } from 'lucide-react'
+import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon, Cat, Rocket } from 'lucide-react'
 import dayjs from 'dayjs'
 
 export default function Settings() {
@@ -49,6 +49,8 @@ export default function Settings() {
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'available' | 'downloading' | 'downloaded' | 'up-to-date'>('idle')
   // 桌面宠物可见性
   const [petVisible, setPetVisible] = useState<boolean>(() => localStorage.getItem('cd_pet_visible') !== '0')
+  // 开机自启动
+  const [autoStart, setAutoStart] = useState(false)
   useEffect(() => {
     const sync = () => setPetVisible(localStorage.getItem('cd_pet_visible') !== '0')
     window.addEventListener('cd-pet-visible-change', sync)
@@ -63,6 +65,16 @@ export default function Settings() {
     window.dispatchEvent(new CustomEvent('cd-pet-visible-change'))
     // 通过 IPC 控制独立宠物窗口的显示/隐藏
     window.electronAPI?.togglePet(show)
+  }
+
+  const handleToggleAutoStart = async (enabled: boolean) => {
+    try {
+      await window.electronAPI?.setAutoStart(enabled)
+      setAutoStart(enabled)
+      toast.success(enabled ? '已开启开机自启动' : '已关闭开机自启动')
+    } catch {
+      toast.error('设置开机自启动失败')
+    }
   }
 
   // 安全 setTimeout — saved 状态自动消失
@@ -99,10 +111,13 @@ export default function Settings() {
     setApiTextModel(settings.ai_text_model || legacyModel || 'glm-4-flash')
   }, [initialData])
 
-  // 获取应用版本
+  // 获取应用版本 & 开机自启动状态
   useEffect(() => {
     if (window.electronAPI?.getAppVersion) {
       window.electronAPI.getAppVersion().then(v => setAppVersion(v))
+    }
+    if (window.electronAPI?.getAutoStart) {
+      window.electronAPI.getAutoStart().then(v => setAutoStart(v))
     }
   }, [])
 
@@ -308,6 +323,18 @@ export default function Settings() {
               <p className="text-[10px] text-cd-text-tertiary ml-[22px] mt-0.5">在桌面上显示陪伴小宠物</p>
             </div>
             <ToggleSwitch checked={petVisible} onChange={handleTogglePet} />
+          </div>
+
+          {/* 开机自启动 */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Rocket size={14} className="text-cd-text-tertiary" />
+                <span className="text-sm text-cd-text">开机自启动</span>
+              </div>
+              <p className="text-[10px] text-cd-text-tertiary ml-[22px] mt-0.5">登录 Windows 后自动启动应用</p>
+            </div>
+            <ToggleSwitch checked={autoStart} onChange={handleToggleAutoStart} />
           </div>
 
           {/* 主题色 */}

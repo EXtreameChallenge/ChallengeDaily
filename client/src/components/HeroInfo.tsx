@@ -433,8 +433,9 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
   }, [])
 
   // 获取 AI 洞察（基于真实活动数据的分析，非空话寄语）
-  const fetchInsight = useCallback((force = false) => {
-    setLoadingInsight(true)
+  // silent=true 时为后台轮询，不显示loading闪烁；silent=false 为用户主动刷新或首次加载
+  const fetchInsight = useCallback((force = false, silent = false) => {
+    if (!silent) setLoadingInsight(true)
     const url = force ? '/api/ai/overview-summary?refresh=1' : '/api/ai/overview-summary'
     // AI 生成可能耗时较长，给 30 秒超时
     request(url, {}, 30000)
@@ -445,7 +446,7 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
       .catch((err) => {
         console.error('[AI洞察] 获取失败:', err)
       })
-      .finally(() => setLoadingInsight(false))
+      .finally(() => { if (!silent) setLoadingInsight(false) })
   }, [])
 
   useEffect(() => {
@@ -453,10 +454,10 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
     // 启动后 3 秒再拉一次，避免后端初始化未完成导致空数据
     const retryTimer = setTimeout(() => {
       // 通过 ref 读取最新值，避免闭包陈旧导致重复拉取
-      if (!insightRef.current) fetchInsight()
+      if (!insightRef.current) fetchInsight(false, true)
     }, 3000)
-    // 5 分钟刷新一次（与后端缓存 TTL 对齐）
-    const timer = setInterval(fetchInsight, 300000)
+    // 5 分钟刷新一次（与后端缓存 TTL 对齐），静默轮询不闪loading
+    const timer = setInterval(() => fetchInsight(false, true), 300000)
     return () => {
       clearTimeout(retryTimer)
       clearInterval(timer)
