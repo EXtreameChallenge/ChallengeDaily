@@ -40,9 +40,15 @@ let tray = null
 let backendProcess = null
 
 const BACKEND_PORT = 58888
-// isDev: only true for actual development (not start.bat production mode)
-// ELECTRON_IS_DEV=0 overrides app.isPackaged for start.bat usage
-const isDev = process.env.ELECTRON_IS_DEV === '0' ? false : !app.isPackaged
+// isDev 判断优先级：
+// 1. ELECTRON_IS_DEV=0 → 强制生产模式（start.bat/start.vbs 使用）
+// 2. app.isPackaged → 真正打包后始终生产模式
+// 3. dist/index.html 存在 → 源码运行但有构建产物，用生产模式
+// 这样无论通过快捷方式、npx electron .、还是 start.bat 启动都能正确判断
+const _distExists = fs.existsSync(path.join(__dirname, '..', 'dist', 'index.html'))
+const isDev = process.env.ELECTRON_IS_DEV === '0' ? false
+  : app.isPackaged ? false
+  : !_distExists
 
 // Windows 任务栏图标关键：设置 AppUserModelId（必须在 app ready 之前）
 app.setAppUserModelId('com.challenge.daily')
