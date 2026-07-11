@@ -28,4 +28,4 @@ if not exist "%CLIENT_DIR%\dist\index.html" (
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command "^&{$ws=New-Object -ComObject WScript.Shell;$sc=$ws.CreateShortcut('%SHORTCUT_PATH%');$sc.TargetPath='%ELECTRON_EXE%';$sc.WorkingDirectory='%CLIENT_DIR%';$sc.Arguments='.';$sc.IconLocation='%ICON_PATH%,0';$sc.WindowStyle=1;$sc.Description='ChallengeDaily - AI 智能工作日报助手';$sc.Save()}" >nul 2>&1
 
-start "" "%SHORTCUT_PATH%"
+start "" "%ELECTRON_EXE%" .
