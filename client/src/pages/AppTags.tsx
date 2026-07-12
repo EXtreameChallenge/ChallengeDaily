@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   getKnownApps,
-  updateAppRule,
-  deleteAppRule,
   getAppIconUrl,
   CATEGORIES,
   CATEGORY_COLORS,
@@ -10,24 +8,18 @@ import {
 } from '../api/client'
 import { useAsyncData, ApiErrorDisplay } from '../components/shared'
 import { useToast } from '../components/Toast'
-import { Tags, Plus, X, Save, Trash2, Search, ImageOff } from 'lucide-react'
+import AppTagEditModal from '../components/AppTagEditModal'
+import { Tags, Search } from 'lucide-react'
 
 interface KnownApp {
   app_name: string
   rule?: AppCategoryRule
 }
 
-const EMPTY_RULE: Partial<AppCategoryRule> = {
-  primary_category: '',
-  tags: [],
-  window_rules: {},
-}
-
 export default function AppTags() {
   const toast = useToast()
   const [search, setSearch] = useState('')
-  const [editing, setEditing] = useState<string | null>(null)
-  const [draft, setDraft] = useState<Partial<AppCategoryRule>>(EMPTY_RULE)
+  const [editingApp, setEditingApp] = useState<KnownApp | null>(null)
   const [iconUrls, setIconUrls] = useState<Record<string, string>>({})
 
   const { data, loading, error, refresh } = useAsyncData<{ apps: KnownApp[] }>(
@@ -67,91 +59,6 @@ export default function AppTags() {
     }
   }, [appsKey])
 
-  const startEdit = (app: KnownApp) => {
-    setEditing(app.app_name)
-    setDraft({
-      app_name: app.app_name,
-      display_name: app.rule?.display_name || app.app_name.replace(/\.exe$/i, ''),
-      primary_category: app.rule?.primary_category || '',
-      tags: app.rule?.tags ? [...app.rule.tags] : [],
-      window_rules: app.rule?.window_rules ? { ...app.rule.window_rules } : {},
-    })
-  }
-
-  const toggleTag = (cat: string) => {
-    setDraft((prev) => {
-      const current = prev.tags || []
-      const exists = current.includes(cat)
-      const tags = exists ? current.filter((t) => t !== cat) : [...current, cat]
-      return { ...prev, tags }
-    })
-  }
-
-  const setPrimary = (cat: string) => {
-    setDraft((prev) => ({
-      ...prev,
-      primary_category: cat,
-      tags: prev.tags?.includes(cat) ? prev.tags : [cat, ...(prev.tags || [])],
-    }))
-  }
-
-  const addWindowRule = () => {
-    setDraft((prev) => ({
-      ...prev,
-      window_rules: { ...(prev.window_rules || {}), '': '' },
-    }))
-  }
-
-  const updateWindowRule = (oldKw: string, newKw: string, cat: string) => {
-    setDraft((prev) => {
-      const rules = { ...(prev.window_rules || {}) }
-      if (oldKw !== newKw) delete rules[oldKw]
-      if (newKw.trim()) rules[newKw.trim()] = cat
-      return { ...prev, window_rules: rules }
-    })
-  }
-
-  const removeWindowRule = (kw: string) => {
-    setDraft((prev) => {
-      const rules = { ...(prev.window_rules || {}) }
-      delete rules[kw]
-      return { ...prev, window_rules: rules }
-    })
-  }
-
-  const handleSave = async () => {
-    if (!editing) return
-    try {
-      await updateAppRule({
-        app_name: editing,
-        display_name: draft.display_name,
-        primary_category: draft.primary_category,
-        tags: draft.tags,
-        window_rules: draft.window_rules,
-      })
-      toast.success('规则已保存')
-      setEditing(null)
-      setDraft(EMPTY_RULE)
-      refresh()
-    } catch (err: any) {
-      toast.error(err.message || '保存失败')
-    }
-  }
-
-  const handleDelete = async (appName: string) => {
-    try {
-      await deleteAppRule(appName)
-      toast.success('规则已删除')
-      if (editing === appName) {
-        setEditing(null)
-        setDraft(EMPTY_RULE)
-      }
-      refresh()
-    } catch (err: any) {
-      toast.error(err.message || '删除失败')
-    }
-  }
-
   const displayName = (app: KnownApp) =>
     app.rule?.display_name || app.app_name.replace(/\.exe$/i, '')
 
@@ -190,7 +97,6 @@ export default function AppTags() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {filtered.map((app) => {
-            const isEditing = editing === app.app_name
             const rule = app.rule
             const tags = rule?.tags || []
             const iconUrl = iconUrls[app.app_name]
@@ -231,160 +137,47 @@ export default function AppTags() {
                 </div>
 
                 {/* 标签预览 */}
-                {!isEditing && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {tags.length > 0 ? (
-                      tags.map((tag) => {
-                        const color = CATEGORY_COLORS[tag] || 'var(--cd-text-tertiary)'
-                        return (
-                          <span
-                            key={tag}
-                            className="px-2 py-0.5 rounded-full text-[10px] font-medium"
-                            style={{ background: color + '18', color }}
-                          >
-                            {tag}
-                            {tag === rule?.primary_category && ' · 主'}
-                          </span>
-                        )
-                      })
-                    ) : (
-                      <span className="text-[10px] text-cd-text-tertiary">未设置标签，使用默认规则</span>
-                    )}
-                  </div>
-                )}
-
-                {/* 编辑区 */}
-                {isEditing && (
-                  <div className="space-y-3 pt-2 border-t border-cd-border-light">
-                    <div>
-                      <label className="text-[10px] text-cd-text-secondary block mb-1.5">候选标签（多选）</label>
-                      <div className="flex flex-wrap gap-2">
-                        {CATEGORIES.map((cat) => {
-                          const checked = draft.tags?.includes(cat)
-                          const color = CATEGORY_COLORS[cat]
-                          return (
-                            <button
-                              key={cat}
-                              onClick={() => toggleTag(cat)}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
-                                checked
-                                  ? 'border-transparent text-white'
-                                  : 'border-cd-border text-cd-text-secondary hover:bg-cd-hover'
-                              }`}
-                              style={checked ? { background: color } : undefined}
-                            >
-                              {cat}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] text-cd-text-secondary block mb-1.5">主分类（兜底）</label>
-                      <select
-                        value={draft.primary_category || ''}
-                        onChange={(e) => setPrimary(e.target.value)}
-                        className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
-                      >
-                        <option value="">自动推断</option>
-                        {CATEGORIES.map((cat) => (
-                          <option key={cat} value={cat}>
-                            {cat}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="text-[10px] text-cd-text-secondary">窗口标题关键词规则</label>
-                        <button
-                          onClick={addWindowRule}
-                          className="flex items-center gap-1 text-[10px] text-cd-green hover:opacity-80"
+                <div className="flex flex-wrap gap-1.5">
+                  {tags.length > 0 ? (
+                    tags.map((tag) => {
+                      const color = CATEGORY_COLORS[tag] || 'var(--cd-text-tertiary)'
+                      return (
+                        <span
+                          key={tag}
+                          className="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                          style={{ background: color + '18', color }}
                         >
-                          <Plus size={10} /> 添加
-                        </button>
-                      </div>
-                      <div className="space-y-2">
-                        {Object.entries(draft.window_rules || {}).map(([kw, cat], idx) => (
-                          <div key={`${kw}-${idx}`} className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={kw}
-                              onChange={(e) => updateWindowRule(kw, e.target.value, cat)}
-                              placeholder="关键词"
-                              className="flex-1 bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-cd-green"
-                            />
-                            <select
-                              value={cat}
-                              onChange={(e) => updateWindowRule(kw, kw, e.target.value)}
-                              className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-cd-green"
-                            >
-                              {CATEGORIES.map((c) => (
-                                <option key={c} value={c}>
-                                  {c}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              onClick={() => removeWindowRule(kw)}
-                              className="text-cd-text-tertiary hover:text-cd-red"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ))}
-                        {Object.keys(draft.window_rules || {}).length === 0 && (
-                          <div className="text-[10px] text-cd-text-tertiary">未设置标题关键词规则</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                          {tag}
+                          {tag === rule?.primary_category && ' · 主'}
+                        </span>
+                      )
+                    })
+                  ) : (
+                    <span className="text-[10px] text-cd-text-tertiary">未设置标签，使用默认规则</span>
+                  )}
+                </div>
 
                 {/* 操作按钮 */}
                 <div className="flex items-center justify-end gap-2 pt-1">
-                  {isEditing ? (
-                    <>
-                      <button
-                        onClick={() => {
-                          setEditing(null)
-                          setDraft(EMPTY_RULE)
-                        }}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-cd-text-secondary hover:bg-cd-hover transition-colors"
-                      >
-                        取消
-                      </button>
-                      {rule && (
-                        <button
-                          onClick={() => handleDelete(app.app_name)}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-cd-red hover:bg-cd-red/10 transition-colors"
-                        >
-                          <Trash2 size={12} /> 删除
-                        </button>
-                      )}
-                      <button
-                        onClick={handleSave}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-cd-green text-white hover:opacity-90 transition-opacity"
-                      >
-                        <Save size={12} /> 保存
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => startEdit(app)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border"
-                    >
-                      编辑标签
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setEditingApp(app)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border"
+                  >
+                    编辑标签
+                  </button>
                 </div>
               </div>
             )
           })}
         </div>
       )}
+
+      <AppTagEditModal
+        open={editingApp !== null}
+        onClose={() => setEditingApp(null)}
+        app={editingApp}
+        onSaved={refresh}
+      />
     </div>
   )
 }

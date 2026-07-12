@@ -3,6 +3,7 @@ import { AlertTriangle, RotateCcw } from 'lucide-react'
 
 interface Props {
   children: ReactNode
+  resetKey?: string
 }
 
 interface State {
@@ -22,6 +23,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[ErrorBoundary]', error, info.componentStack)
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    // 路由切换时自动清除错误状态，避免一个页面的错误阻塞所有页面
+    if (this.props.resetKey !== prevProps.resetKey && this.state.hasError) {
+      this.setState({ hasError: false, error: null })
+    }
   }
 
   handleReload = () => {

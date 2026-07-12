@@ -42,7 +42,7 @@
     "appId": "com.challenge.daily",
     "productName": "ChallengeDaily",
     "directories": {
-      "output": "dist-electron"
+      "output": "dist-electron-tmp"
     },
     "files": [
       "dist/**/*",
@@ -83,11 +83,7 @@
     "portable": {
       "artifactName": "ChallengeDaily-${version}-Portable.${ext}"
     },
-    "publish": {
-      "provider": "github",
-      "owner": "ChallengeDaily",
-      "repo": "ChallengeDaily"
-    },
+    "publish": null,
     "extraResources": [
       {
         "from": "../main.py",

@@ -1,15 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, Flame, Check } from 'lucide-react'
-import { getHabits, createHabit, logHabit, deleteHabit, getTodayStr, type Habit, type HabitLog } from '../api/client'
+import { getHabits, logHabit, deleteHabit, getTodayStr, type Habit, type HabitLog } from '../api/client'
 import { useToast } from '../components/Toast'
-
-const COLORS = ['#7B68EE', '#F0C040', '#22c55e', '#3b82f6', '#ec4899', '#f97316']
+import HabitCreateModal from '../components/HabitCreateModal'
 
 export default function Habits() {
   const [habits, setHabits] = useState<Habit[]>([])
   const [logs, setLogs] = useState<HabitLog[]>([])
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ name: '', target_count: 1, color: COLORS[0] })
+  const [modalOpen, setModalOpen] = useState(false)
   const toast = useToast()
 
   const load = useCallback(async () => {
@@ -23,18 +21,6 @@ export default function Habits() {
   }, [toast])
 
   useEffect(() => { load() }, [load])
-
-  const handleCreate = async () => {
-    if (!form.name.trim()) return
-    try {
-      await createHabit({ name: form.name, target_count: form.target_count, color: form.color })
-      setForm({ name: '', target_count: 1, color: COLORS[0] })
-      setShowForm(false)
-      load()
-    } catch {
-      toast.error('创建失败，请重试')
-    }
-  }
 
   const handleLog = async (habitId: number) => {
     try {
@@ -82,38 +68,13 @@ export default function Habits() {
         <h1 className="text-2xl font-bold text-cd-text flex items-center gap-2">
           <Flame className="text-orange-400" /> 习惯追踪
         </h1>
-        <button onClick={() => setShowForm(!showForm)}
+        <button onClick={() => setModalOpen(true)}
           className="flex items-center gap-2 px-4 py-2 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition">
           <Plus size={18} /> 新建习惯
         </button>
       </div>
 
-      {showForm && (
-        <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5 mb-4 space-y-3">
-          <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-            placeholder="习惯名称..." autoFocus
-            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-4 py-2.5 text-cd-text focus:outline-none focus:border-cd-accent/40" />
-          <div className="flex gap-3 items-center">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-cd-text-secondary">每日目标</span>
-              <input type="number" value={form.target_count} min="1" max="10"
-                onChange={e => setForm({ ...form, target_count: parseInt(e.target.value) || 1 })}
-                className="w-16 bg-cd-bg-input border border-white/5 rounded-lg px-2 py-2 text-cd-text text-center" />
-            </div>
-            <div className="flex gap-1">
-              {COLORS.map(c => (
-                <button key={c} onClick={() => setForm({ ...form, color: c })}
-                  className={`w-6 h-6 rounded-full border-2 transition ${form.color === c ? 'scale-125 border-white' : 'border-transparent'}`}
-                  style={{ backgroundColor: c }} />
-              ))}
-            </div>
-          </div>
-          <button onClick={handleCreate}
-            className="w-full py-2.5 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition font-medium">
-            创建习惯
-          </button>
-        </div>
-      )}
+      <HabitCreateModal open={modalOpen} onClose={() => setModalOpen(false)} onCreated={load} />
 
       {habits.length === 0 ? (
         <div className="text-center py-12 text-cd-text-secondary">

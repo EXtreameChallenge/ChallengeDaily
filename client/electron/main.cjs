@@ -38,6 +38,8 @@ let petWindow = null
 let pomodoroWidget = null
 let tray = null
 let backendProcess = null
+let _backendDir = null        // 后端工作目录，供 readApiToken 使用
+let _backendStarting = false  // 防止并发启动多个后端实例
 
 const BACKEND_PORT = 58888
 // isDev 判断优先级：
@@ -58,12 +60,27 @@ app.setAppUserModelId('com.challenge.daily')
 // 参考 Electron 性能指南：https://www.electronjs.org/docs/latest/api/web-preferences
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256 --gc-interval=100')
 
+// ─── 关键：在 requestSingleInstanceLock() 之前显式设置 userData 路径 ───
+// Electron 单实例锁基于 userData 路径生成命名管道名。
+// 如果不显式设置，开发模式下（electron.exe .）可能与其他使用相同 Electron 二进制的
+// 应用共享命名管道，导致误判"已有实例在运行"从而拒绝启动。
+// 必须在 requestSingleInstanceLock() 之前调用。
+// 使用 package.json name 作为目录名，与之前保持一致以复用配置。
+const _userDataPath = path.join(app.getPath('appData'), 'challenge-daily')
+try {
+  fs.mkdirSync(_userDataPath, { recursive: true })
+} catch (_) {}
+app.setPath('userData', _userDataPath)
+console.log('[Main] userData path:', _userDataPath)
+
 // ─── 单实例锁：禁止打开多个窗口 ────────────────────
 const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
   // 已有实例在运行，直接退出
-  console.log('[Main] Another instance is already running, quitting...')
-  app.quit()
+  // 注意：必须用 app.exit() 而非 app.quit()，因为 app.quit() 是异步的，
+  // app.ready 事件可能在 quit 生效前触发，导致 startBackend() 被错误调用。
+  console.log('[Main] Another instance is already running, exiting...')
+  app.exit(0)
 } else {
   app.on('second-instance', () => {
     // 有人试图打开第二个实例，聚焦到已有窗口
@@ -124,9 +141,14 @@ function getNotificationIcon() {
 }
 
 // ─── 检测后端是否已在运行 ────────────────────────────
+// 使用 keepAlive Agent 复用 TCP 连接，减少心跳检测的 TCP 握手开销
+const _healthAgent = new http.Agent({ keepAlive: true, maxSockets: 2 })
+
 function isBackendRunning() {
   return new Promise((resolve) => {
-    const req = http.get(`http://127.0.0.1:${BACKEND_PORT}/api/health`, (res) => {
+    const req = http.get(`http://127.0.0.1:${BACKEND_PORT}/api/health?quick=1`, { agent: _healthAgent }, (res) => {
+      // 消费响应体，避免连接泄漏
+      res.resume()
       resolve(res.statusCode === 200)
     })
     req.on('error', () => resolve(false))
@@ -134,13 +156,57 @@ function isBackendRunning() {
   })
 }
 
+// 检测后端不仅存活，而且 token 匹配（避免连到旧实例/不同安装）
+function isBackendTokenValid() {
+  return new Promise((resolve) => {
+    const token = readApiToken()
+    const req = http.get(`http://127.0.0.1:${BACKEND_PORT}/api/status`, {
+      agent: _healthAgent,
+      headers: { 'X-API-Token': token },
+    }, (res) => {
+      res.resume()
+      resolve(res.statusCode === 200)
+    })
+    req.on('error', () => resolve(false))
+    req.setTimeout(2000, () => { req.destroy(); resolve(false) })
+  })
+}
+
+// 同步等待 token 文件出现（后端启动时写入 .api_token 可能有毫秒级延迟）
+function _waitForTokenFile(timeoutMs = 10000) {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    if (readApiToken(1)) return true
+    // 非阻塞忙等 200ms，主进程启动阶段可接受
+    const t = Date.now()
+    while (Date.now() - t < 200) {}
+  }
+  return false
+}
+
+let _backendStartPromise = null
+
 // ─── 启动 Python 后端 ────────────────────────────
 async function startBackend() {
   console.log('[Main] startBackend() called')
-  // 先检查后端是否已经跑着（比如 start.bat 已启动）
+  // 并发调用合并为同一个启动流程，避免 health check 重启与 app ready 同时 spawn
+  if (_backendStartPromise) {
+    console.log('[Main] Backend start already in progress, waiting...')
+    return _backendStartPromise
+  }
+  _backendStartPromise = _doStartBackend().finally(() => { _backendStartPromise = null })
+  return _backendStartPromise
+}
+
+async function _doStartBackend() {
+  // 1. 如果后端已存活且 token 有效，直接复用（支持 start.bat 先启动后端的情况）
   if (await isBackendRunning()) {
-    console.log('[Main] Backend already running, skip spawning')
-    return
+    if (await isBackendTokenValid()) {
+      console.log('[Main] Backend already running with valid token, skip spawning')
+      return
+    }
+    console.error('[Main] WARNING: Port 58888 is occupied by another backend with mismatched token.')
+    console.error('[Main] If the app shows 401 errors, kill any stale python.exe processes and restart.')
   }
 
   return new Promise((resolve, reject) => {
@@ -174,6 +240,7 @@ async function startBackend() {
       }
     }
 
+    _backendDir = backendDir
     console.log('[Main] Starting backend:', pythonExe, mainScript)
 
     // 启动日志写入文件，方便排查启动失败问题
@@ -190,7 +257,7 @@ async function startBackend() {
 
     // Clean PYTHONHOME/PYTHONPATH - they may point to broken paths with Chinese chars
     // 安全：仅向子进程传递白名单环境变量，避免泄露主进程潜在的敏感信息
-    const allowedEnvKeys = ['PORT', 'PYTHONIOENCODING', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'SystemRoot', 'TEMP', 'PATH', 'ELECTRON_IS_DEV']
+    const allowedEnvKeys = ['PORT', 'PYTHONIOENCODING', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'SystemRoot', 'TEMP', 'PATH', 'ELECTRON_IS_DEV', 'CHALLENGE_DAILY_DATA_DIR']
     const cleanEnv = {}
     for (const key of allowedEnvKeys) {
       if (process.env[key]) cleanEnv[key] = process.env[key]
@@ -199,8 +266,19 @@ async function startBackend() {
     delete cleanEnv.PYTHONPATH
     cleanEnv.PORT = String(BACKEND_PORT)
     cleanEnv.PYTHONIOENCODING = 'utf-8'
+    // 关键修复：把数据目录固定到 Electron userData，避免每次重新构建 dist-electron-tmp 后数据丢失
+    const persistentDataDir = path.join(app.getPath('userData'), 'backend-data')
+    fs.mkdirSync(persistentDataDir, { recursive: true })
+    cleanEnv.CHALLENGE_DAILY_DATA_DIR = persistentDataDir
+    // 关键修复：PYTHONUNBUFFERED=1 强制 Python stdout/stderr 不缓冲
+    // 没有这个变量，Python 输出到 pipe 时自动切换为块缓冲（4-8KB），
+    // 导致 "HTTP API 已启动" 消息无法及时到达 Node.js 'data' 事件，
+    // 20秒超时后 Electron 误以为后端启动失败
+    cleanEnv.PYTHONUNBUFFERED = '1'
 
-    backendProcess = spawn(pythonExe, [mainScript], {
+    // 关键修复：-u 标志强制 Python 完全无缓冲模式（stdin/stdout/stderr）
+    // 配合 PYTHONUNBUFFERED=1 双保险，确保启动消息能实时被捕获
+    backendProcess = spawn(pythonExe, ['-u', mainScript], {
       cwd: backendDir,
       env: cleanEnv,
       windowsHide: true,
@@ -208,23 +286,37 @@ async function startBackend() {
     })
 
     let resolved = false
-    const resolveOnce = () => { if (!resolved) { resolved = true; resolve() } }
+    const resolveOnce = (reason) => {
+      if (!resolved) {
+        resolved = true
+        log('Main', `Backend start resolved: ${reason}`)
+        resolve()
+      }
+    }
+
+    // 用缓冲区累积 stdout 数据，防止消息被分包导致匹配失败
+    let _stdoutBuf = ''
+    let _stderrBuf = ''
+    const _startupPatterns = ['Running on', 'Serving on', 'Press CTRL+C', `:${BACKEND_PORT}`]
+    const _checkStartup = (buf) => {
+      for (const p of _startupPatterns) {
+        if (buf.includes(p)) return true
+      }
+      return false
+    }
 
     backendProcess.stdout?.on('data', (data) => {
-      const msg = data.toString().trim()
-      log('Backend', msg)
-      if (msg.includes('Running on') || msg.includes('HTTP API 已启动') || msg.includes('Press CTRL+C') || msg.includes('Serving on')) {
-        resolveOnce()
-      }
+      const chunk = data.toString()
+      _stdoutBuf += chunk
+      log('Backend', chunk.trim())
+      if (_checkStartup(_stdoutBuf)) resolveOnce('stdout startup pattern')
     })
 
     backendProcess.stderr?.on('data', (data) => {
-      const msg = data.toString().trim()
-      log('BackendErr', msg)
-      // waitress 的启动消息输出到 stderr，格式为 "Serving on http://..."
-      if (msg.includes('Serving on') || msg.includes('Running on')) {
-        resolveOnce()
-      }
+      const chunk = data.toString()
+      _stderrBuf += chunk
+      log('BackendErr', chunk.trim())
+      if (_checkStartup(_stderrBuf)) resolveOnce('stderr startup pattern')
     })
 
     backendProcess.on('error', (err) => {
@@ -237,11 +329,33 @@ async function startBackend() {
       backendProcess = null
     })
 
-    // 超时保底：20秒后不管有没有看到成功消息都 resolve
+    // 增强修复：除了 stdout 匹配外，同时轮询健康检查端口 + token 文件作为兜底
+    // 5 秒后开始，每 1 秒探测一次 /api/health，最多探测 20 次
+    // 这样即使 stdout 缓冲导致消息丢失，也能通过 HTTP 探活确认后端就绪
+    const _healthProbeStart = setTimeout(() => {
+      let probeCount = 0
+      const probeInterval = setInterval(async () => {
+        if (resolved) { clearInterval(probeInterval); return }
+        probeCount++
+        if (probeCount > 20) { clearInterval(probeInterval); return }
+        const running = await isBackendRunning()
+        if (running) {
+          const tokenReady = _waitForTokenFile(5000)
+          if (tokenReady) {
+            log('Main', `Backend confirmed via health probe (attempt ${probeCount})`)
+            clearInterval(probeInterval)
+            resolveOnce('health probe + token ready')
+          } else {
+            log('Main', `Backend health ok but token file not ready yet (attempt ${probeCount})`)
+          }
+        }
+      }, 1000)
+    }, 5000)
+
+    // 超时保底：25秒后不管有没有看到成功消息都 resolve
     setTimeout(() => {
-      log('Main', 'Backend start timeout, proceeding anyway')
-      resolveOnce()
-    }, 20000)
+      resolveOnce('timeout fallback')
+    }, 25000)
   })
 }
 
@@ -279,6 +393,7 @@ function createMainWindow() {
     minHeight: 480,
     resizable: true,
     maximizable: true,
+    center: true,
     frame: false,
     titleBarStyle: 'hidden',
     backgroundColor: '#121212',
@@ -288,7 +403,10 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      backgroundThrottling: true,
+      // 关键修复：禁用后台节流，确保健康检查定时器和轮询在窗口最小化时仍正常运行
+      // backgroundThrottling: true 会导致 Chromium 将 setInterval/setTimeout 节流到每分钟 1 次，
+      // 造成前端误报"后端服务断开"（参考 Electron issue #21419）
+      backgroundThrottling: false,
     },
     show: false,
   })
@@ -322,12 +440,14 @@ function createMainWindow() {
     })
   })
 
-  // 窗口最小化时暂停渲染，减少 CPU/GPU 占用
+  // 最小化/恢复事件：不再手动切换 backgroundThrottling
+  // backgroundThrottling 已在 webPreferences 中设为 false，
+  // 确保健康检查定时器在后台不被节流，避免窗口恢复后误报"后端断开"
   mainWindow.on('minimize', () => {
-    mainWindow.webContents.setBackgroundThrottling(true)
+    // 保持定时器运行，不启用节流
   })
   mainWindow.on('restore', () => {
-    mainWindow.webContents.setBackgroundThrottling(false)
+    // useAsyncData 的 visibilitychange 处理器会自动在恢复时刷新数据
   })
 
   // 自定义标题栏拖拽区域
@@ -818,20 +938,33 @@ function registerShortcuts() {
   }
 }
 
-function readApiToken() {
+function readApiToken(maxAttempts = 1) {
   try {
     const fs = require('fs')
     const path = require('path')
-    // 同时检查多个可能的数据目录，兼容源码运行、start.vbs 启动、打包后运行
-    const possibleDirs = [
-      path.join(__dirname, '..', '..', 'data'),
-      path.join(app.getPath('userData'), 'data'),
-      path.join(process.resourcesPath, 'data'),
-    ]
-    for (const dataDir of possibleDirs) {
-      const tokenPath = path.join(dataDir, '.api_token')
-      if (fs.existsSync(tokenPath)) {
-        return fs.readFileSync(tokenPath, 'utf-8').trim()
+    // 优先使用实际后端工作目录，避免源码/打包/不同安装路径导致 token 错位
+    const possibleDirs = []
+    if (_backendDir) possibleDirs.push(path.join(_backendDir, 'data'))
+    // 优先查找新的持久化数据目录 backend-data
+    possibleDirs.push(path.join(app.getPath('userData'), 'backend-data'))
+    possibleDirs.push(path.join(__dirname, '..', '..', 'data'))
+    possibleDirs.push(path.join(app.getPath('userData'), 'data'))
+    possibleDirs.push(path.join(process.resourcesPath, 'backend', 'data'))
+    possibleDirs.push(path.join(process.resourcesPath, 'data'))
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      for (const dataDir of possibleDirs) {
+        const tokenPath = path.join(dataDir, '.api_token')
+        try {
+          if (fs.existsSync(tokenPath)) {
+            return fs.readFileSync(tokenPath, 'utf-8').trim()
+          }
+        } catch (_) {}
+      }
+      if (attempt < maxAttempts - 1) {
+        // 同步等待 200ms，主进程启动阶段可接受
+        const t = Date.now()
+        while (Date.now() - t < 200) {}
       }
     }
   } catch (_) {}
@@ -1036,6 +1169,12 @@ function _addNotification_dedup(title, body, type) {
 
 // ─── 应用生命周期 ────────────────────────────────────
 app.whenReady().then(async () => {
+  // 安全守卫：即使 app.exit(0) 的时序出现异常，也不会在未获取锁的情况下启动后端
+  if (!gotTheLock) {
+    console.log('[Main] app ready but no singleton lock, exiting')
+    app.exit(0)
+    return
+  }
   console.log('[Main] app ready, starting backend...')
 
   // 权限请求处理器：仅允许 notifications 与 geolocation，其他一律拒绝

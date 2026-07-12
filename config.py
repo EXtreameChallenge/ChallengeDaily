@@ -29,7 +29,12 @@ if _ENV_FILE.exists():
 
 # ── 基础路径 ──
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
+# 支持通过环境变量覆盖数据目录，Electron 打包后会把数据固定到 userData/backend-data
+_data_dir_override = os.getenv("CHALLENGE_DAILY_DATA_DIR", "")
+if _data_dir_override:
+    DATA_DIR = Path(_data_dir_override)
+else:
+    DATA_DIR = BASE_DIR / "data"
 SCREENSHOT_DIR = DATA_DIR / "screenshots"
 REPORT_DIR = DATA_DIR / "reports"
 DB_PATH = DATA_DIR / "xiaohei.db"

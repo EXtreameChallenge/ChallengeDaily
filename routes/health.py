@@ -18,6 +18,11 @@ def index():
 
 @bp.route("/api/health")
 def health():
+    # 快速健康检查：前端/主进程高频轮询时使用 ?quick=1
+    # 跳过所有昂贵的检查（磁盘、数据库、AI熔断器），仅确认 Python 进程存活
+    if request.args.get("quick") == "1":
+        return jsonify({"status": "ok", "message": "ChallengeDaily正在运行"})
+
     import shutil
     from ai_client import get_circuit_breaker_status
 

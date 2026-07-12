@@ -60,6 +60,9 @@ APP_CATEGORY_RULES = {
     "SearchUI.exe": "生活", "ShellExperienceHost.exe": "生活",  # 搜索/Shell体验
 }
 
+# 小写版本，用于大小写不敏感匹配
+_APP_CATEGORY_RULES_LOWER = {k.lower(): v for k, v in APP_CATEGORY_RULES.items()}
+
 
 # ── AI 返回分类名的模糊匹配映射 ──
 # AI 可能返回"软件开发"而非"开发"，这里做兜底

@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request, Response
 from datetime import datetime as _datetime
 from pathlib import Path
 
-from config import BASE_DIR
+from config import DATA_DIR
 from routes.deps import safe_error
 
 logger = logging.getLogger(__name__)
@@ -30,10 +30,10 @@ def create_backup():
 
     buf = io.BytesIO()
     backup_files = [
-        ("xiaohei.db", BASE_DIR / "data" / "xiaohei.db"),
-        ("settings.json", BASE_DIR / "data" / "settings.json"),
-        ("webhooks.json", BASE_DIR / "data" / "webhooks.json"),
-        ("auto_report.json", BASE_DIR / "data" / "auto_report.json"),
+        ("xiaohei.db", DATA_DIR / "xiaohei.db"),
+        ("settings.json", DATA_DIR / "settings.json"),
+        ("webhooks.json", DATA_DIR / "webhooks.json"),
+        ("auto_report.json", DATA_DIR / "auto_report.json"),
     ]
 
     manifest = {}
@@ -61,7 +61,7 @@ def create_backup():
 
 @bp.route("/api/backup/info", methods=["GET"])
 def backup_info():
-    db_path = BASE_DIR / "data" / "xiaohei.db"
+    db_path = DATA_DIR / "xiaohei.db"
     db_size_mb = round(db_path.stat().st_size / (1024 * 1024), 2) if db_path.exists() else 0
 
     from db import get_conn
@@ -98,10 +98,10 @@ def restore_backup():
             tmp_path = tmp.name
 
         restore_map = {
-            "xiaohei.db": BASE_DIR / "data" / "xiaohei.db",
-            "settings.json": BASE_DIR / "data" / "settings.json",
-            "webhooks.json": BASE_DIR / "data" / "webhooks.json",
-            "auto_report.json": BASE_DIR / "data" / "auto_report.json",
+            "xiaohei.db": DATA_DIR / "xiaohei.db",
+            "settings.json": DATA_DIR / "settings.json",
+            "webhooks.json": DATA_DIR / "webhooks.json",
+            "auto_report.json": DATA_DIR / "auto_report.json",
         }
 
         restored = []
@@ -158,7 +158,7 @@ def restore_backup():
             pass
 
         # 恢复 settings.json 后校验 ai_base_url，防止恶意配置导致后续请求被劫持
-        settings_path = BASE_DIR / "data" / "settings.json"
+        settings_path = DATA_DIR / "settings.json"
         if settings_path.exists() and "settings.json" in restored:
             try:
                 with open(settings_path, "r", encoding="utf-8") as f:

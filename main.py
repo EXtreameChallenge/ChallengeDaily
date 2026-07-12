@@ -3,13 +3,14 @@ ChallengeDaily Windows 版 — 入口：调度器 + HTTP 服务
 企业级：单实例保护、日志轮转、graceful shutdown
 """
 import atexit
+import hashlib
 import logging
 import logging.handlers
 import os
+import socket
 import sys
 import threading
 import time
-import msvcrt  # Windows 文件锁
 from datetime import date, datetime
 
 from config import HTTP_PORT, RETENTION_DAYS, DATA_DIR, BASE_DIR
@@ -19,35 +20,63 @@ from collector import Collector
 from server import start_server
 from report import generate_daily_report
 
-# ── 单实例保护 ──
-_LOCK_FILE = DATA_DIR / ".lock"
-_lock_fh = None
+# ── 单实例保护（Windows 命名互斥体 + 端口预占） ──
+# msvcrt 文件锁在跨进程快速启动场景下不可靠，已导致多个 Python 实例同时运行。
+# 改用 CreateMutexW 命名互斥体，这是 Windows 官方推荐的多进程互斥方案。
+_singleton_mutex = None
 
 
 def _acquire_singleton():
-    """确保只有一个实例运行（Windows 文件锁）"""
-    global _lock_fh
+    """确保只有一个实例运行。若已有实例或端口被占，直接退出。"""
+    global _singleton_mutex
+
+    # 1) 命名互斥体：跨进程可靠互斥
     try:
-        _lock_fh = open(str(_LOCK_FILE), "w")
-        msvcrt.locking(_lock_fh.fileno(), msvcrt.LK_NBLCK, 1)
-        _lock_fh.write(str(os.getpid()))
-        _lock_fh.flush()
-    except (OSError, IOError):
-        print("ChallengeDaily 已在运行中，不可重复启动。")
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        CreateMutexW = kernel32.CreateMutexW
+        CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
+        CreateMutexW.restype = wintypes.HANDLE
+
+        # 基于数据目录生成唯一互斥体名，避免不同安装/副本互相影响
+        # 注意：必须使用确定性哈希（如 SHA256），Python 内置 hash() 会随进程随机化。
+        data_dir_hash = hashlib.sha256(str(DATA_DIR.resolve()).encode("utf-8")).hexdigest()[:16]
+        mutex_name = f"ChallengeDaily_SingleInstance_{data_dir_hash}"
+
+        _singleton_mutex = CreateMutexW(None, False, mutex_name)
+        err = ctypes.get_last_error()
+        if not _singleton_mutex:
+            print(f"无法创建单实例互斥体: {err}")
+            sys.exit(1)
+        if err == 183:  # ERROR_ALREADY_EXISTS
+            print("ChallengeDaily 已在运行中，不可重复启动。")
+            sys.exit(1)
+    except Exception as e:
+        print(f"单实例保护初始化失败: {e}")
+        sys.exit(1)
+
+    # 2) 端口预占：进一步防止旧实例未释放端口导致的冲突
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind(("127.0.0.1", HTTP_PORT))
+        sock.close()
+    except OSError:
+        sock.close()
+        print(f"端口 {HTTP_PORT} 已被占用，可能是 ChallengeDaily 正在运行。")
         sys.exit(1)
 
 
 def _release_singleton():
-    """释放单实例锁"""
-    global _lock_fh
-    if _lock_fh:
+    """释放单实例锁（进程退出时由 atexit 调用）"""
+    global _singleton_mutex
+    if _singleton_mutex:
         try:
-            msvcrt.locking(_lock_fh.fileno(), msvcrt.LK_UNLCK, 1)
-            _lock_fh.close()
-        except Exception:
-            pass
-        try:
-            _LOCK_FILE.unlink(missing_ok=True)
+            import ctypes
+            ctypes.WinDLL("kernel32").CloseHandle(_singleton_mutex)
+            _singleton_mutex = None
         except Exception:
             pass
 

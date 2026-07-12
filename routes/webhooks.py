@@ -6,7 +6,7 @@ import atexit
 from flask import Blueprint, jsonify, request
 from datetime import date
 
-from config import BASE_DIR
+from config import DATA_DIR
 from file_utils import atomic_write_text, backup_file
 from routes.deps import safe_error
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint('webhooks', __name__)
 
-_WEBHOOK_PATH = BASE_DIR / "data" / "webhooks.json"
+_WEBHOOK_PATH = DATA_DIR / "webhooks.json"
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 _webhook_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="wh_push")

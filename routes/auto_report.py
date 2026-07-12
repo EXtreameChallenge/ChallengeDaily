@@ -5,7 +5,7 @@ import logging
 from flask import Blueprint, jsonify, request
 from datetime import date, datetime as _datetime
 
-from config import BASE_DIR
+from config import DATA_DIR
 from report import generate_daily_report
 from file_utils import atomic_write_text, backup_file
 from routes.deps import safe_error, state_lock
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint('auto_report', __name__)
 
-_AUTO_REPORT_PATH = BASE_DIR / "data" / "auto_report.json"
+_AUTO_REPORT_PATH = DATA_DIR / "auto_report.json"
 
 _auto_report_generated_today = False
 _auto_report_last_date = None

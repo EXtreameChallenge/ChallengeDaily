@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect, memo, useMemo } from 'react'
-import { getActivities, searchActivities, updateActivity, deleteActivity, undoDeleteActivity, createActivity, getAppIconUrl, CATEGORY_COLORS, CATEGORIES, type Activity, type VisibleWindow } from '../api/client'
+import { getActivities, searchActivities, deleteActivity, undoDeleteActivity, getAppIconUrl, CATEGORY_COLORS, CATEGORIES, type Activity, type VisibleWindow } from '../api/client'
 import { CategoryFilter, useAsyncData, ApiErrorDisplay, useNewIds, RefreshIndicator } from '../components/shared'
 import { useToast } from '../components/Toast'
-import { Search, Pencil, X, Check, Loader2, Plus, Clock, Trash2 } from 'lucide-react'
+import ActivityCreateModal from '../components/ActivityCreateModal'
+import ActivityEditModal from '../components/ActivityEditModal'
+import { Search, Pencil, X, Plus, Trash2, Loader2 } from 'lucide-react'
 import dayjs from 'dayjs'
 
 export default function Timeline() {
@@ -13,18 +15,9 @@ export default function Timeline() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   // 编辑
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [editCategory, setEditCategory] = useState('')
-  const [editSummary, setEditSummary] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
   // 手动补录
   const [showAdd, setShowAdd] = useState(false)
-  const [addTime, setAddTime] = useState(dayjs().format('YYYY-MM-DDTHH:mm'))
-  const [addCategory, setAddCategory] = useState('开发')
-  const [addSummary, setAddSummary] = useState('')
-  const [addAppName, setAddAppName] = useState('')
-  const [addDuration, setAddDuration] = useState(30)
-  const [addSaving, setAddSaving] = useState(false)
 
   const { data: activitiesData, loading, error, refresh: refreshList, refreshing } = useAsyncData(
     () => getActivities(selectedDate),
@@ -90,60 +83,6 @@ export default function Timeline() {
     setSearchResults(null)
   }
 
-  const startEdit = (act: Activity) => {
-    setEditingId(act.id)
-    setEditCategory(act.category)
-    setEditSummary(act.ai_summary || '')
-  }
-
-  const cancelEdit = () => {
-    setEditingId(null)
-    setEditCategory('')
-    setEditSummary('')
-  }
-
-  const saveEdit = async (id: number) => {
-    setSaving(true)
-    try {
-      await updateActivity(id, { category: editCategory, summary: editSummary })
-      refreshList()
-      setEditingId(null)
-      toast.success('分类和摘要已更新')
-    } catch (err) {
-      console.error('Failed to save edit:', err)
-      toast.error('保存失败，请重试')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const submitAdd = async () => {
-    if (!addCategory || !addTime) return
-    setAddSaving(true)
-    try {
-      const timestamp = dayjs(addTime).format('YYYY-MM-DD HH:mm:ss')
-      await createActivity({
-        timestamp,
-        category: addCategory,
-        summary: addSummary || undefined,
-        app_name: addAppName || undefined,
-        duration_min: addDuration,
-      })
-      setShowAdd(false)
-      setAddSummary('')
-      setAddAppName('')
-      setAddDuration(30)
-      setAddTime(dayjs().format('YYYY-MM-DDTHH:mm'))
-      refreshList()
-      toast.success('时间条目已补录')
-    } catch (err) {
-      console.error('Failed to add activity:', err)
-      toast.error('补录失败，请重试')
-    } finally {
-      setAddSaving(false)
-    }
-  }
-
   const handleDelete = async (act: Activity) => {
     if (!window.confirm('确定删除该活动记录？')) return
     try {
@@ -207,7 +146,7 @@ export default function Timeline() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowAdd(!showAdd)}
+            onClick={() => setShowAdd(true)}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-cd-green text-white hover:bg-cd-green-dark transition-colors"
           >
             <Plus size={14} />
@@ -222,87 +161,14 @@ export default function Timeline() {
         </div>
       </div>
 
-      {/* ─── 手动补录表单 ─────────────────── */}
-      {showAdd && (
-        <div className="animate-fade-in card border border-cd-green/20 space-y-3">
-          <h3 className="text-sm font-medium text-cd-text flex items-center gap-1.5">
-            <Clock size={14} className="text-cd-green" />
-            手动补录时间条目
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-cd-text-secondary block mb-1">时间</label>
-              <input
-                type="datetime-local"
-                value={addTime}
-                onChange={(e) => setAddTime(e.target.value)}
-                className="w-full bg-cd-card border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-cd-text-secondary block mb-1">时长（分钟）</label>
-              <input
-                type="number"
-                value={addDuration}
-                onChange={(e) => setAddDuration(Math.max(5, parseInt(e.target.value) || 30))}
-                min={5}
-                max={480}
-                className="w-full bg-cd-card border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-cd-text-secondary block mb-1">分类</label>
-              <select
-                value={addCategory}
-                onChange={(e) => setAddCategory(e.target.value)}
-                className="w-full bg-cd-card border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
-              >
-                {CATEGORIES.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-cd-text-secondary block mb-1">应用名称（可选）</label>
-              <input
-                type="text"
-                value={addAppName}
-                onChange={(e) => setAddAppName(e.target.value)}
-                placeholder="如：微信、邮件..."
-                className="w-full bg-cd-card border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-cd-text-secondary block mb-1">工作摘要</label>
-            <textarea
-              value={addSummary}
-              onChange={(e) => setAddSummary(e.target.value)}
-              rows={2}
-              className="w-full bg-cd-card border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green resize-none"
-              placeholder="描述你在这段时间做了什么..."
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={submitAdd}
-              disabled={addSaving}
-              className="flex items-center gap-1 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-green text-white hover:bg-cd-green-dark disabled:opacity-50 transition-colors"
-            >
-              {addSaving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-              保存补录
-            </button>
-            <button
-              onClick={() => setShowAdd(false)}
-              className="flex items-center gap-1 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border"
-            >
-              取消
-            </button>
-          </div>
-        </div>
-      )}
+      {/* ─── 手动补录 / 编辑弹窗 ─────────────────── */}
+      <ActivityCreateModal open={showAdd} onClose={() => setShowAdd(false)} onCreated={refreshList} />
+      <ActivityEditModal
+        open={editingActivity !== null}
+        onClose={() => setEditingActivity(null)}
+        activity={editingActivity}
+        onSaved={refreshList}
+      />
 
       {/* ─── 搜索栏 ─────────────────────── */}
       <div className="flex items-center gap-2">
@@ -355,16 +221,8 @@ export default function Timeline() {
               displayTime={time}
               iconUrl={iconUrls[act.app_name] || ''}
               allIconUrls={iconUrls}
-              isEditing={editingId === act.id}
-              editCategory={editCategory}
-              editSummary={editSummary}
-              setEditCategory={setEditCategory}
-              setEditSummary={setEditSummary}
-              onStartEdit={startEdit}
-              onCancelEdit={cancelEdit}
-              onSaveEdit={saveEdit}
+              onStartEdit={setEditingActivity}
               onDelete={handleDelete}
-              saving={saving}
               isNew={newIds.has(act.id)}
             />
           ))}
@@ -410,32 +268,16 @@ const TimelineEntry = memo(function TimelineEntry({
   displayTime,
   iconUrl,
   allIconUrls,
-  isEditing,
-  editCategory,
-  editSummary,
-  setEditCategory,
-  setEditSummary,
   onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
   onDelete,
-  saving,
   isNew = false,
 }: {
   activity: Activity
   displayTime: string
   iconUrl: string
   allIconUrls: Record<string, string>
-  isEditing: boolean
-  editCategory: string
-  editSummary: string
-  setEditCategory: (v: string) => void
-  setEditSummary: (v: string) => void
   onStartEdit: (act: Activity) => void
-  onCancelEdit: () => void
-  onSaveEdit: (id: number) => void
   onDelete: (act: Activity) => void
-  saving: boolean
   isNew?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -456,7 +298,7 @@ const TimelineEntry = memo(function TimelineEntry({
       style={{ '--cat-color': catColor } as React.CSSProperties}
     >
       {/* 时间为主轴：左侧时间列 */}
-      <div className="flex items-start gap-3 py-1.5 cursor-pointer" onClick={() => !isEditing && setExpanded(!expanded)}>
+      <div className="flex items-start gap-3 py-1.5 cursor-pointer" onClick={() => setExpanded(!expanded)}>
         {/* 时间列 */}
         <div className="w-14 shrink-0 text-right pt-0.5">
           <span className="text-sm font-mono font-semibold text-cd-text">{displayTime}</span>
@@ -476,25 +318,12 @@ const TimelineEntry = memo(function TimelineEntry({
                 </div>
               )
             })}
-            {isEditing ? (
-              <select
-                value={editCategory}
-                onChange={(e) => setEditCategory(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-                className="px-2 py-0.5 rounded-full text-[10px] font-medium border border-cd-border bg-cd-card text-cd-text focus:outline-none focus:border-cd-green"
-              >
-                {CATEGORIES.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            ) : (
-              <span
-                className="px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0"
-                style={{ background: catColor + '18', color: catColor }}
-              >
-                {activity.category}
-              </span>
-            )}
+            <span
+              className="px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0"
+              style={{ background: catColor + '18', color: catColor }}
+            >
+              {activity.category}
+            </span>
             <span className="text-[10px] text-cd-text-tertiary shrink-0 pt-1">{duration}</span>
           </div>
           <p className="text-xs text-cd-text-secondary mt-0.5 break-words">
@@ -502,7 +331,7 @@ const TimelineEntry = memo(function TimelineEntry({
           </p>
 
           {/* 多窗口并排卡片（屏幕状态） */}
-          {windows.length > 0 && !isEditing && (
+          {windows.length > 0 && (
             <div className="mt-2 animate-fade-in">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span className="text-[10px] text-cd-text-tertiary uppercase tracking-wide">屏幕状态</span>
@@ -544,15 +373,14 @@ const TimelineEntry = memo(function TimelineEntry({
           )}
 
           {/* 详细分析（直接展示，不折叠） */}
-          {activity.ai_detail && !isEditing && (
+          {activity.ai_detail && (
             <div className="mt-2 text-xs text-cd-text-secondary leading-relaxed bg-cd-bg-secondary rounded-lg px-3 py-2 break-words">
               {activity.ai_detail}
             </div>
           )}
 
           {/* 编辑和删除按钮 */}
-          {!isEditing && (
-            <div className="mt-1.5 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="mt-1.5 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={(e) => { e.stopPropagation(); onStartEdit(activity) }}
                 className="flex items-center gap-1 text-[10px] text-cd-green hover:text-cd-green-dark transition-colors"
@@ -568,54 +396,8 @@ const TimelineEntry = memo(function TimelineEntry({
                 删除
               </button>
             </div>
-          )}
+          </div>
         </div>
       </div>
-
-      {/* 编辑模式 */}
-      {isEditing && (
-        <div className="ml-17 mt-1 mb-2 bg-cd-bg-secondary rounded-lg p-3 space-y-3 animate-fade-in border border-cd-green/20">
-          <div>
-            <label className="text-xs text-cd-text-secondary block mb-1">分类</label>
-            <select
-              value={editCategory}
-              onChange={(e) => setEditCategory(e.target.value)}
-              className="w-full bg-cd-card border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
-            >
-              {CATEGORIES.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-cd-text-secondary block mb-1">摘要</label>
-            <textarea
-              value={editSummary}
-              onChange={(e) => setEditSummary(e.target.value)}
-              rows={2}
-              className="w-full bg-cd-card border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green resize-none"
-              placeholder="输入工作摘要..."
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onSaveEdit(activity.id)}
-              disabled={saving}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-cd-green text-white hover:bg-cd-green-dark disabled:opacity-50 transition-colors"
-            >
-              {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-              保存
-            </button>
-            <button
-              onClick={onCancelEdit}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border"
-            >
-              <X size={12} />
-              取消
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
   )
 })

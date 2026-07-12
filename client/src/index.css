@@ -51,15 +51,16 @@
   --cd-bg: #FFFFFF;
   --cd-bg-secondary: #F5F5F5;
   --cd-bg-tertiary: #EEEEEE;
+  --cd-bg-input: #FFFFFF;
   --cd-sidebar: #FAFAFA;
   --cd-card: #FFFFFF;
   /* 边框 */
   --cd-border: #E0E0E0;
   --cd-border-light: #F0F0F0;
-  /* 文字 */
+  /* 文字：提高对比度，减轻阅读疲劳 */
   --cd-text: #1A1A1A;
-  --cd-text-secondary: #666666;
-  --cd-text-tertiary: #999999;
+  --cd-text-secondary: #4A4A4A;
+  --cd-text-tertiary: #757575;
   /* 交互 */
   --cd-hover: #F0F0F0;
   --cd-selected: #F3F0FF;
@@ -83,19 +84,22 @@
 }
 
 .dark {
+  /* 告诉浏览器原生控件使用深色配色（select/date 等下拉不再白底白字） */
+  color-scheme: dark;
   /* 表面 / 背景：真正的黑灰底色，不带蓝紫 */
   --cd-bg: #121212;
   --cd-bg-secondary: #1E1E1E;
   --cd-bg-tertiary: #2D2D2D;
+  --cd-bg-input: #2D2D2D;
   --cd-sidebar: #181818;
   --cd-card: #1E1E1E;
   /* 边框 */
   --cd-border: #333333;
   --cd-border-light: #2A2A2A;
-  /* 文字 */
+  /* 文字：加深辅助色对比，避免灰字糊成一片 */
   --cd-text: #FFFFFF;
-  --cd-text-secondary: #B3B3B3;
-  --cd-text-tertiary: #666666;
+  --cd-text-secondary: #D0D0D0;
+  --cd-text-tertiary: #888888;
   /* 交互 */
   --cd-hover: #2A2A2A;
   --cd-selected: rgba(123, 104, 238, 0.15);
@@ -112,6 +116,93 @@
   /* 滚动条 */
   --cd-scrollbar: #3A3A3A;
   --cd-scrollbar-hover: #4A4A4A;
+}
+
+/* ─── 翰墨皮肤 · 宣纸（浅色）────────────────── */
+/* 暖米色底 + 暖褐文字 + 古金点缀，衬线字体最佳拍档 */
+.skin-hanmo:not(.dark) {
+  /* 表面 / 背景 */
+  --cd-bg: #F7F3ED;
+  --cd-bg-secondary: #EFE8DC;
+  --cd-bg-tertiary: #E5DCC9;
+  --cd-bg-input: #FBF8F2;
+  --cd-sidebar: #F2EDE2;
+  --cd-card: #FBF8F2;
+  /* 边框 */
+  --cd-border: #D9CFB8;
+  --cd-border-light: #E8E0CE;
+  /* 文字 */
+  --cd-text: #2C2620;
+  --cd-text-secondary: #6B5D4F;
+  --cd-text-tertiary: #9A8B7A;
+  /* 交互 */
+  --cd-hover: #EDE6D9;
+  --cd-selected: #F0EBE0;
+  /* 功能色（暖色偏移） */
+  --cd-blue: #4A7DD9;
+  --cd-blue-light: #E8EEF6;
+  --cd-orange: #D49434;
+  --cd-orange-light: #F5EBD8;
+  --cd-red: #C8453E;
+  --cd-red-light: #F5E0DC;
+  --cd-yellow: #C8A960;
+  --cd-gold: #C8A960;
+  /* 滚动条 */
+  --cd-scrollbar: #C9BFA8;
+  --cd-scrollbar-hover: #B5A98E;
+}
+
+/* ─── 翰墨皮肤 · 墨韵（深色）────────────────── */
+/* 暖褐黑底 + 暖白文字 + 琥珀金点缀，夜读古籍气质 */
+.skin-hanmo.dark {
+  /* 告诉浏览器原生控件使用深色配色 */
+  color-scheme: dark;
+  /* 表面 / 背景 */
+  --cd-bg: #1A1714;
+  --cd-bg-secondary: #221E19;
+  --cd-bg-tertiary: #2B2620;
+  --cd-bg-input: #2B2620;
+  --cd-sidebar: #1E1A16;
+  --cd-card: #221E19;
+  /* 边框 */
+  --cd-border: #3A332B;
+  --cd-border-light: #2F2922;
+  /* 文字 */
+  --cd-text: #F5F0E8;
+  --cd-text-secondary: #B8AC9A;
+  --cd-text-tertiary: #7A6F5F;
+  /* 交互 */
+  --cd-hover: #2B2620;
+  --cd-selected: rgba(123, 104, 238, 0.15);
+  /* 功能色 */
+  --cd-blue-light: #1E2A38;
+  --cd-orange-light: #3D3220;
+  --cd-red-light: #3D2020;
+  --cd-yellow: #D4B56A;
+  --cd-gold: #D4B56A;
+  /* 滚动条 */
+  --cd-scrollbar: #3A332B;
+  --cd-scrollbar-hover: #4A4035;
+}
+
+/* ─── 翰墨皮肤 · SVG 噪点纹理 ────────────── */
+/* feTurbulence 生成纸张噪点，极低 opacity + blend-mode 叠加 */
+.skin-hanmo body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: multiply;
+  opacity: 0.035;
+}
+
+/* 深色模式：screen 混合让噪点变亮，模拟暗面纸张纹理 */
+.skin-hanmo.dark body::after {
+  mix-blend-mode: screen;
+  opacity: 0.04;
 }
 
 /* ─── 全局样式 ──────────────────────────── */

@@ -15,7 +15,7 @@ const _stateListeners = new Set<(s: BackendState) => void>()
 
 // 连续失败计数：只有连续多次失败才标记disconnected，避免单次超时误判
 let _consecutiveFailures = 0
-const _DISCONNECT_THRESHOLD = 2  // 连续2次失败才标记断连
+const _DISCONNECT_THRESHOLD = 3  // 连续3次失败才标记断连（从2提升到3，减少偶发超时误判）
 
 export function getBackendState(): BackendState { return _backendState }
 export function onBackendStateChange(cb: (s: BackendState) => void): () => void {
@@ -42,19 +42,38 @@ function markRequestFailure() {
 let _apiToken = ''
 let _tokenPromise: Promise<string> | null = null
 
+async function _fetchTokenOnce(): Promise<string> {
+  if (!window.electronAPI?.getApiToken) return ''
+  try {
+    const t = await window.electronAPI.getApiToken()
+    return (t || '').trim()
+  } catch {
+    return ''
+  }
+}
+
 async function getApiToken(): Promise<string> {
+  // 有有效缓存时直接返回；空缓存不返回，继续尝试读取
   if (_apiToken) return _apiToken
-  if (!_tokenPromise && window.electronAPI?.getApiToken) {
-    _tokenPromise = window.electronAPI.getApiToken().then((t: string) => {
-      _apiToken = t || ''
-      _tokenPromise = null
-      return _apiToken
-    }).catch(() => {
+
+  // 避免并发重复请求：但空结果不缓存，下次调用仍会重试
+  if (!_tokenPromise) {
+    _tokenPromise = (async () => {
+      // 启动阶段 token 文件可能尚未写入，最多重试 10 次，每次 300ms
+      for (let i = 0; i < 10; i++) {
+        const t = await _fetchTokenOnce()
+        if (t) {
+          _apiToken = t
+          _tokenPromise = null
+          return t
+        }
+        if (i < 9) await new Promise(r => setTimeout(r, 300))
+      }
       _tokenPromise = null
       return ''
-    })
+    })()
   }
-  return _tokenPromise || ''
+  return _tokenPromise
 }
 
 /** 清除 API Token 缓存（401 时调用，强制下次重新从磁盘读取） */
@@ -68,7 +87,7 @@ function invalidateToken() {
  * 如果调用方在 options.signal 中传入外部 signal（如 AbortController），
  * 则该 signal 触发 abort 时也会同步中断 fetch；同时保留超时机制。
  */
-export async function request(endpoint: string, options?: RequestInit, timeoutMs = 10000, _isRetry = false): Promise<unknown> {
+export async function request(endpoint: string, options?: RequestInit, timeoutMs = 10000, _retryCount = 0): Promise<unknown> {
   const token = await getApiToken()
   const controller = new AbortController()
   // 连接超时：后端是本地服务，默认 10 秒；生成报告等长耗时操作可自定义
@@ -94,10 +113,15 @@ export async function request(endpoint: string, options?: RequestInit, timeoutMs
       ...restOptions,
     })
     if (res.status === 401) {
-      // Token 失效：清除缓存，重试一次（后端可能重启生成了新 token）
-      if (!_isRetry) {
+      // Token 失效/未就绪：清除缓存，短暂等待后重试（最多 3 次）
+      // 启动阶段 token 文件可能稍后写入，避免直接判定认证失败
+      if (_retryCount < 3) {
         invalidateToken()
-        return request(endpoint, options, timeoutMs, true)
+        if (_retryCount === 0) {
+          // 首次 401 时给后端一点写入 token 的时间
+          await new Promise(r => setTimeout(r, 500))
+        }
+        return request(endpoint, options, timeoutMs, _retryCount + 1)
       }
       throw new Error('认证失败，请重新启动应用')
     }
@@ -325,10 +349,30 @@ export async function captureNow(): Promise<{ ok: boolean }> {
   return data as { ok: boolean }
 }
 
-/** 健康检查 */
+/** 健康检查（轻量模式：跳过磁盘/DB/AI检查，仅确认进程存活） */
 export async function healthCheck(): Promise<{ status: string }> {
-  const data = await request('/api/health')
+  const data = await request('/api/health?quick=1', {}, 5000)
   return data as { status: string }
+}
+
+/** 启动阶段健康检查（绕过 request 状态机，不影响断连计数）
+ *  用于 App.tsx 的初始轮询，避免启动阶段的多次失败被误判为"后端断开"
+ */
+export async function startupHealthCheck(): Promise<boolean> {
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
+    const port = window.electronAPI?.getBackendPort
+      ? await window.electronAPI.getBackendPort()
+      : 58888
+    const res = await fetch(`http://127.0.0.1:${port}/api/health?quick=1`, {
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+    return res.ok
+  } catch {
+    return false
+  }
 }
 
 /** 获取后端设置 */
@@ -1095,9 +1139,9 @@ export async function aiChatStream(
   onEvent: (event: ChatStreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const token = getApiToken()
-  const port = await getApiPort()
-  const url = `http://127.0.0.1:${port}/api/ai/chat/stream`
+  const token = await getApiToken()
+  // 修复：使用模块级 BASE_URL 而非未定义的 getApiPort()
+  const url = `${BASE_URL}/api/ai/chat/stream`
   const res = await fetch(url, {
     method: 'POST',
     headers: {

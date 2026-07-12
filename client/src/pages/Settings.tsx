@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { getStatus, getSettings, updateSettings, testAiConnection, downloadExportActivities, downloadExportAppUsage, getBackupInfo, downloadBackup, restoreBackup, type CollectorStatus, type BackendSettings } from '../api/client'
 import { ToggleSwitch, useTimeout, useAsyncData, ApiErrorDisplay } from '../components/shared'
 import { useToast } from '../components/Toast'
-import { useTheme, ACCENT_PRESETS, FONT_PRESETS, RADIUS_PRESETS, SHADOW_PRESETS, OPACITY_PRESETS } from '../components/ThemeContext'
+import { useTheme, ACCENT_PRESETS, FONT_PRESETS, RADIUS_PRESETS, SHADOW_PRESETS, OPACITY_PRESETS, SKIN_PRESETS } from '../components/ThemeContext'
 import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon, Cat, Rocket } from 'lucide-react'
 import dayjs from 'dayjs'
 
@@ -16,6 +16,7 @@ export default function Settings() {
     radiusIndex, setRadiusIndex,
     shadowIndex, setShadowIndex,
     opacityIndex, setOpacityIndex,
+    skinIndex, setSkinIndex,
   } = useTheme()
   const [aiEnabled, setAiEnabled] = useState(false)
   const [apiKey, setApiKey] = useState('')
@@ -304,6 +305,75 @@ export default function Settings() {
         </div>
 
         <div className="space-y-4">
+          {/* 皮肤 */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Palette size={14} className="text-cd-text-tertiary" />
+              <span className="text-sm text-cd-text">皮肤</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {SKIN_PRESETS.map((skin, i) => {
+                const isHanmo = skin.value === 'hanmo'
+                const pBg = theme === 'dark' ? (isHanmo ? '#1A1714' : '#121212') : (isHanmo ? '#F7F3ED' : '#FFFFFF')
+                const pCard = theme === 'dark' ? (isHanmo ? '#221E19' : '#1E1E1E') : (isHanmo ? '#FBF8F2' : '#FFFFFF')
+                const pSidebar = theme === 'dark' ? (isHanmo ? '#1E1A16' : '#181818') : (isHanmo ? '#F2EDE2' : '#FAFAFA')
+                const pBorder = theme === 'dark' ? (isHanmo ? '#3A332B' : '#333333') : (isHanmo ? '#D9CFB8' : '#E0E0E0')
+                const pText = theme === 'dark' ? (isHanmo ? '#F5F0E8' : '#FFFFFF') : (isHanmo ? '#2C2620' : '#1A1A1A')
+                const pTextTert = theme === 'dark' ? (isHanmo ? '#7A6F5F' : '#666666') : (isHanmo ? '#9A8B7A' : '#999999')
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSkinIndex(i)}
+                    className={`relative rounded-xl border-2 p-2.5 transition-all duration-150 ${
+                      i === skinIndex
+                        ? 'border-cd-green'
+                        : 'border-cd-border hover:border-cd-text-tertiary'
+                    }`}
+                  >
+                    {/* 迷你预览 */}
+                    <div
+                      className="rounded-lg p-2 mb-2 h-14 flex gap-1.5 overflow-hidden"
+                      style={{ background: pBg, border: `1px solid ${pBorder}` }}
+                    >
+                      {/* sidebar 缩略 */}
+                      <div
+                        className="w-3.5 rounded-sm flex flex-col gap-0.5 py-1 items-center"
+                        style={{ background: pSidebar }}
+                      >
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#7B68EE' }} />
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: pBorder }} />
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: pBorder }} />
+                      </div>
+                      {/* content 缩略 */}
+                      <div className="flex-1 flex flex-col gap-1">
+                        <div className="h-1 rounded-full" style={{ background: '#7B68EE', width: '60%' }} />
+                        <div
+                          className="flex-1 rounded-sm flex flex-col gap-0.5 p-1"
+                          style={{ background: pCard, border: `1px solid ${pBorder}` }}
+                        >
+                          <div className="h-0.5 rounded-full" style={{ background: pText, width: '70%' }} />
+                          <div className="h-0.5 rounded-full" style={{ background: pTextTert, width: '45%' }} />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-medium text-cd-text">{skin.name}</span>
+                        <p className="text-[10px] text-cd-text-tertiary">{skin.desc}</p>
+                      </div>
+                      {i === skinIndex && (
+                        <CheckCircle size={14} className="text-cd-green shrink-0" />
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-[10px] text-cd-text-tertiary mt-1.5">
+              切换整体色温与底纹风格，当前：{SKIN_PRESETS[skinIndex].name}
+            </p>
+          </div>
+
           {/* 深色模式 */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

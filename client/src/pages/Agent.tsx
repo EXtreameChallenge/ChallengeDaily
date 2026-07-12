@@ -18,7 +18,6 @@ import {
 } from 'lucide-react'
 import {
   getWebhooks,
-  addWebhook,
   deleteWebhook,
   testWebhook,
   toggleWebhook,
@@ -30,6 +29,7 @@ import {
 } from '../api/client'
 import { ToggleSwitch, useAsyncData, ApiErrorDisplay } from '../components/shared'
 import { useToast } from '../components/Toast'
+import WebhookCreateModal from '../components/WebhookCreateModal'
 
 type AgentData = { webhooks: Webhook[]; autoConfig: AutoReportConfig }
 
@@ -37,13 +37,9 @@ export default function AgentPage() {
   const toast = useToast()
   // 添加表单
   const [showAdd, setShowAdd] = useState(false)
-  const [newUrl, setNewUrl] = useState('')
-  const [newName, setNewName] = useState('')
-  const [newType, setNewType] = useState<'feishu' | 'dingtalk' | 'wecom' | 'custom'>('feishu')
   // 测试/操作状态
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; message: string }>>({})
-  const [adding, setAdding] = useState(false)
   // 自动推送
   const [pushing, setPushing] = useState(false)
   const [pushResult, setPushResult] = useState<{ ok: boolean; message: string } | null>(null)
@@ -65,27 +61,6 @@ export default function AgentPage() {
   useEffect(() => {
     if (data?.autoConfig) setAutoConfig(data.autoConfig)
   }, [data?.autoConfig])
-
-  const handleAdd = async () => {
-    if (!newUrl.trim()) return
-    setAdding(true)
-    try {
-      await addWebhook({
-        url: newUrl.trim(),
-        name: newName.trim() || undefined,
-        type: newType,
-        events: ['daily_report'],
-      })
-      setShowAdd(false)
-      setNewUrl('')
-      setNewName('')
-      refresh()
-    } catch (err) {
-      console.error('Failed to add webhook:', err)
-    } finally {
-      setAdding(false)
-    }
-  }
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('确定删除该 Webhook？')) return
@@ -239,65 +214,8 @@ export default function AgentPage() {
         )}
       </section>
 
-      {/* ─── 添加 Webhook ──────────────────── */}
-      {showAdd && (
-        <section className="card space-y-3 animate-fade-in border-cd-green/20">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-cd-text">添加 Webhook 推送</h2>
-            <button onClick={() => setShowAdd(false)} className="text-cd-text-tertiary hover:text-cd-text">
-              ✕
-            </button>
-          </div>
-
-          <div className="flex gap-2">
-            {Object.entries(WH_TYPE_INFO).map(([key, info]) => (
-              <button
-                key={key}
-                onClick={() => setNewType(key as any)}
-                className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-all ${
-                  newType === key
-                    ? 'border-cd-green bg-cd-green-light text-cd-green'
-                    : 'border-cd-border bg-cd-bg-secondary text-cd-text-secondary hover:border-cd-green/30'
-                }`}
-              >
-                {info.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="text-xs text-cd-text-tertiary">{WH_TYPE_INFO[newType].desc}</div>
-
-          <div>
-            <label className="text-xs text-cd-text-secondary block mb-1">名称（可选）</label>
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder={`${WH_TYPE_INFO[newType].label}群机器人`}
-              className="w-full bg-cd-bg-secondary border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-cd-text-secondary block mb-1">Webhook URL</label>
-            <input
-              type="text"
-              value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
-              placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..."
-              className="w-full bg-cd-bg-secondary border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green font-mono"
-            />
-          </div>
-
-          <button
-            onClick={handleAdd}
-            disabled={adding || !newUrl.trim()}
-            className="w-full py-2 rounded-lg text-sm font-medium bg-cd-green text-white hover:bg-cd-green-dark disabled:opacity-50 transition-colors"
-          >
-            {adding ? '添加中...' : '添加'}
-          </button>
-        </section>
-      )}
+      {/* ─── 添加 Webhook 弹窗 ──────────────────── */}
+      <WebhookCreateModal open={showAdd} onClose={() => setShowAdd(false)} onCreated={refresh} />
 
       {/* ─── Webhook 列表 ─────────────────── */}
       <section className="card space-y-4">

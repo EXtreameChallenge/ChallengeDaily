@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Play, Check, Trash2, X, Calendar } from 'lucide-react'
+import { Play, Check, Trash2, Calendar } from 'lucide-react'
+import Modal from './Modal'
 import { updateTodo, deleteTodo, assignTodo, unassignTodo, type TodoV2 } from '../api/client'
 import { useToast } from './Toast'
 
@@ -84,98 +85,103 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-[420px] rounded-2xl border p-5 shadow-2xl animate-fade-in"
-        style={{ background: 'var(--cd-card)', borderColor: 'var(--cd-border)' }}
-        onClick={e => e.stopPropagation()}>
-        {/* header */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs text-cd-text-tertiary">任务详情</span>
-          <button onClick={onClose} className="text-cd-text-tertiary hover:text-cd-text transition"><X size={16} /></button>
-        </div>
-
-        {/* title (editable) */}
-        <input value={title} onChange={e => setTitle(e.target.value)} onBlur={handleTitleBlur}
-          onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-          className="w-full bg-transparent border-b border-cd-border focus:border-purple-400/50 outline-none text-base text-cd-text py-1.5 mb-4" />
-
-        {/* progress ring + stats */}
-        <div className="flex items-center gap-4 mb-4">
-          <svg width="60" height="60" viewBox="0 0 60 60" className="shrink-0">
-            <circle cx="30" cy="30" r={radius} fill="none" stroke="var(--cd-border)" strokeWidth="4" />
-            <circle cx="30" cy="30" r={radius} fill="none" stroke="#7B68EE" strokeWidth="4"
-              strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-              transform="rotate(-90 30 30)" className="transition-all duration-700" />
-            <text x="30" y="30" textAnchor="middle" dominantBaseline="central"
-              className="text-[10px] font-bold" fill="var(--cd-text)">{Math.round(progressPct)}%</text>
-          </svg>
-          <div className="flex-1 space-y-1.5">
-            <div className="flex justify-between text-xs">
-              <span className="text-cd-text-tertiary">已专注</span>
-              <span className="text-cd-text tabular-nums">{todo.progress_min}/{todo.target_min} 分钟</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-cd-text-tertiary">番茄钟</span>
-              <span className="text-purple-400 tabular-nums">🍅 × {todo.pomodoro_count}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-cd-text-tertiary">优先级</span>
-              <span style={{ color: PRIORITY_COLORS[priority - 1] }}>{PRIORITY_LABELS[priority - 1]}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* priority selector */}
-        <div className="flex gap-1 mb-3">
-          {[1, 2, 3, 4, 5].map(p => (
-            <button key={p} onClick={() => handlePriority(p)}
-              className="flex-1 py-1.5 text-xs rounded transition"
-              style={{
-                background: priority === p ? PRIORITY_COLORS[p - 1] + '22' : 'transparent',
-                color: priority === p ? PRIORITY_COLORS[p - 1] : 'var(--cd-text-tertiary)',
-                border: `1px solid ${priority === p ? PRIORITY_COLORS[p - 1] + '88' : 'transparent'}`,
-              }}>P{p}</button>
-          ))}
-        </div>
-
-        {/* category & mode */}
-        <div className="flex gap-2 mb-3">
-          <select value={category} onChange={e => handleCategory(e.target.value)}
-            className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text">
-            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select value={mode} onChange={e => handleMode(e.target.value as 'timer' | 'goal' | 'habit')}
-            className="bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text">
-            {Object.entries(MODE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-        </div>
-
-        {/* move date + button */}
-        <div className="flex gap-2 mb-4">
-          <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)}
-            className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text" />
-          <button onClick={handleMove}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-cd-bg-input text-cd-text-secondary hover:bg-cd-hover transition">
-            <Calendar size={12} /> 移至
-          </button>
-        </div>
-
-        {/* action buttons */}
+    <Modal
+      open={!!todo}
+      onClose={onClose}
+      title="任务详情"
+      maxWidth="max-w-md"
+      footer={
         <div className="grid grid-cols-3 gap-2">
-          <button onClick={startFocus}
-            className="flex items-center justify-center gap-1 py-2 text-xs rounded-lg bg-purple-500/20 text-purple-300 border border-purple-400/30 hover:bg-purple-500/30 transition">
+          <button
+            onClick={startFocus}
+            className="flex items-center justify-center gap-1 py-2 text-xs rounded-xl bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition"
+          >
             <Play size={12} /> 专注
           </button>
-          <button onClick={handleComplete}
-            className="flex items-center justify-center gap-1 py-2 text-xs rounded-lg bg-green-500/20 text-green-300 border border-green-400/30 hover:bg-green-500/30 transition">
+          <button
+            onClick={handleComplete}
+            className="flex items-center justify-center gap-1 py-2 text-xs rounded-xl bg-cd-green/20 text-cd-green border border-cd-green/30 hover:bg-cd-green/30 transition"
+          >
             <Check size={12} /> 完成
           </button>
-          <button onClick={handleDelete}
-            className="flex items-center justify-center gap-1 py-2 text-xs rounded-lg bg-red-500/20 text-red-300 border border-red-400/30 hover:bg-red-500/30 transition">
+          <button
+            onClick={handleDelete}
+            className="flex items-center justify-center gap-1 py-2 text-xs rounded-xl bg-cd-red/20 text-cd-red border border-cd-red/30 hover:bg-cd-red/30 transition"
+          >
             <Trash2 size={12} /> 删除
           </button>
         </div>
+      }
+    >
+      {/* title (editable) */}
+      <input
+        value={title}
+        onChange={e => setTitle(e.target.value)}
+        onBlur={handleTitleBlur}
+        onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        className="w-full bg-transparent border-b border-cd-border focus:border-cd-accent/50 outline-none text-base text-cd-text py-1.5 mb-4"
+      />
+
+      {/* progress ring + stats */}
+      <div className="flex items-center gap-4 mb-4">
+        <svg width="60" height="60" viewBox="0 0 60 60" className="shrink-0">
+          <circle cx="30" cy="30" r={radius} fill="none" stroke="var(--cd-border)" strokeWidth="4" />
+          <circle cx="30" cy="30" r={radius} fill="none" stroke="#7B68EE" strokeWidth="4"
+            strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+            transform="rotate(-90 30 30)" className="transition-all duration-700" />
+          <text x="30" y="30" textAnchor="middle" dominantBaseline="central"
+            className="text-[10px] font-bold" fill="var(--cd-text)">{Math.round(progressPct)}%</text>
+        </svg>
+        <div className="flex-1 space-y-1.5">
+          <div className="flex justify-between text-xs">
+            <span className="text-cd-text-tertiary">已专注</span>
+            <span className="text-cd-text tabular-nums">{todo.progress_min}/{todo.target_min} 分钟</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-cd-text-tertiary">番茄钟</span>
+            <span className="text-purple-400 tabular-nums">🍅 × {todo.pomodoro_count}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-cd-text-tertiary">优先级</span>
+            <span style={{ color: PRIORITY_COLORS[priority - 1] }}>{PRIORITY_LABELS[priority - 1]}</span>
+          </div>
+        </div>
       </div>
-    </div>
+
+      {/* priority selector */}
+      <div className="flex gap-1 mb-3">
+        {[1, 2, 3, 4, 5].map(p => (
+          <button key={p} onClick={() => handlePriority(p)}
+            className="flex-1 py-1.5 text-xs rounded transition"
+            style={{
+              background: priority === p ? PRIORITY_COLORS[p - 1] + '22' : 'transparent',
+              color: priority === p ? PRIORITY_COLORS[p - 1] : 'var(--cd-text-tertiary)',
+              border: `1px solid ${priority === p ? PRIORITY_COLORS[p - 1] + '88' : 'transparent'}`,
+            }}>P{p}</button>
+        ))}
+      </div>
+
+      {/* category & mode */}
+      <div className="flex gap-2 mb-3">
+        <select value={category} onChange={e => handleCategory(e.target.value)}
+          className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50">
+          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={mode} onChange={e => handleMode(e.target.value as 'timer' | 'goal' | 'habit')}
+          className="bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50">
+          {Object.entries(MODE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+      </div>
+
+      {/* move date + button */}
+      <div className="flex gap-2">
+        <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)}
+          className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50" />
+        <button onClick={handleMove}
+          className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-xl bg-cd-bg-input text-cd-text-secondary border border-cd-border hover:bg-cd-hover transition">
+          <Calendar size={12} /> 移至
+        </button>
+      </div>
+    </Modal>
   )
 }

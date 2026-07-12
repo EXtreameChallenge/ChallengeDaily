@@ -43,6 +43,13 @@ export const OPACITY_PRESETS = [
   { name: '76%', value: 0.76 },
 ]
 
+// ── 皮肤预设：经典（中性灰白）vs 翰墨（宣纸墨韵）──
+// 皮肤改变表面/文字/边框的色温，强调色仍由 accent 独立控制
+export const SKIN_PRESETS = [
+  { name: '经典', value: 'classic', desc: '中性灰白 · 清爽现代', lightBg: '#FFFFFF', darkBg: '#121212' },
+  { name: '翰墨', value: 'hanmo', desc: '宣纸墨韵 · 古典温润', lightBg: '#F7F3ED', darkBg: '#1A1714' },
+]
+
 interface ThemeCtx {
   theme: Theme
   toggleTheme: () => void
@@ -58,6 +65,8 @@ interface ThemeCtx {
   setShadowIndex: (i: number) => void
   opacityIndex: number
   setOpacityIndex: (i: number) => void
+  skinIndex: number
+  setSkinIndex: (i: number) => void
 }
 
 const ThemeContext = createContext<ThemeCtx>({
@@ -68,6 +77,7 @@ const ThemeContext = createContext<ThemeCtx>({
   radiusIndex: 1, setRadiusIndex: () => {},
   shadowIndex: 1, setShadowIndex: () => {},
   opacityIndex: 0, setOpacityIndex: () => {},
+  skinIndex: 0, setSkinIndex: () => {},
 })
 
 export function useTheme() {
@@ -107,6 +117,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const saved = localStorage.getItem('cd_opacity')
     const n = parseInt(saved || '0', 10)
     return n >= 0 && n < OPACITY_PRESETS.length ? n : 0
+  })
+  const [skinIndex, setSkinIndex] = useState(() => {
+    const saved = localStorage.getItem('cd_skin')
+    const n = parseInt(saved || '0', 10)
+    return n >= 0 && n < SKIN_PRESETS.length ? n : 0
   })
 
   // 同步主题和 CSS 变量
@@ -171,14 +186,30 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement
     const opacity = OPACITY_PRESETS[opacityIndex].value
     if (sidebarTranslucent) {
-      root.style.setProperty('--cd-sidebar-bg', theme === 'dark' ? `rgba(24,24,24,${opacity})` : `rgba(250,250,250,${opacity})`)
+      const isHanmo = SKIN_PRESETS[skinIndex].value === 'hanmo'
+      if (theme === 'dark') {
+        root.style.setProperty('--cd-sidebar-bg', isHanmo ? `rgba(30,26,22,${opacity})` : `rgba(24,24,24,${opacity})`)
+      } else {
+        root.style.setProperty('--cd-sidebar-bg', isHanmo ? `rgba(247,243,237,${opacity})` : `rgba(250,250,250,${opacity})`)
+      }
       root.style.setProperty('--cd-sidebar-blur', 'blur(20px) saturate(180%)')
     } else {
       root.style.removeProperty('--cd-sidebar-bg')
       root.style.removeProperty('--cd-sidebar-blur')
     }
     localStorage.setItem('cd_sidebar_translucent', sidebarTranslucent ? '1' : '0')
-  }, [sidebarTranslucent, theme, opacityIndex])
+  }, [sidebarTranslucent, theme, opacityIndex, skinIndex])
+
+  // 同步皮肤（经典 / 翰墨）
+  useEffect(() => {
+    const root = document.documentElement
+    if (SKIN_PRESETS[skinIndex].value === 'hanmo') {
+      root.classList.add('skin-hanmo')
+    } else {
+      root.classList.remove('skin-hanmo')
+    }
+    localStorage.setItem('cd_skin', String(skinIndex))
+  }, [skinIndex])
 
   const toggleTheme = useCallback(() => setTheme(prev => prev === 'light' ? 'dark' : 'light'), [])
 
@@ -191,6 +222,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       radiusIndex, setRadiusIndex,
       shadowIndex, setShadowIndex,
       opacityIndex, setOpacityIndex,
+      skinIndex, setSkinIndex,
     }}>
       {children}
     </ThemeContext.Provider>

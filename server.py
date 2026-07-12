@@ -22,6 +22,7 @@ _ALLOWED_ORIGINS = {
     "http://127.0.0.1:5173",
     "http://localhost:58888",
     "http://127.0.0.1:58888",
+    "null",  # Electron file:// 协议下 Origin 为 "null"，必须允许
 }
 
 @app.after_request
@@ -131,6 +132,8 @@ def start_server():
             threads=4,
             connection_limit=100,       # 默认100，保持
             channel_request_lookahead=50,  # 默认4，正确拼写: lookahead
+            channel_timeout=30,         # 空闲连接保持30秒（默认120秒过长，桌面应用无需）
+            cleanup_interval=15,        # 每15秒清理过期空闲连接（默认30秒）
             max_request_body_size=10 * 1024 * 1024,  # 10MB，支持大请求体
         )
     except ImportError:

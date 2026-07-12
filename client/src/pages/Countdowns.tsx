@@ -1,9 +1,8 @@
-﻿import { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, Calendar, Heart, Star } from 'lucide-react'
-import { getCountdowns, createCountdown, deleteCountdown, type Countdown } from '../api/client'
+import { useState, useEffect, useCallback } from 'react'
+import { Plus, Trash2, Calendar, Star } from 'lucide-react'
+import { getCountdowns, deleteCountdown, type Countdown } from '../api/client'
 import { useToast } from '../components/Toast'
-
-const COLORS = ['#7B68EE', '#F0C040', '#22c55e', '#3b82f6', '#ec4899', '#f97316']
+import CountdownCreateModal from '../components/CountdownCreateModal'
 
 function daysUntil(targetDate: string): number {
   const target = new Date(targetDate)
@@ -15,8 +14,7 @@ function daysUntil(targetDate: string): number {
 
 export default function Countdowns() {
   const [countdowns, setCountdowns] = useState<Countdown[]>([])
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ title: '', target_date: '', color: COLORS[0] })
+  const [modalOpen, setModalOpen] = useState(false)
   const toast = useToast()
 
   const load = useCallback(async () => {
@@ -29,18 +27,6 @@ export default function Countdowns() {
   }, [toast])
 
   useEffect(() => { load() }, [load])
-
-  const handleCreate = async () => {
-    if (!form.title.trim() || !form.target_date) return
-    try {
-      await createCountdown({ title: form.title, target_date: form.target_date, color: form.color })
-      setForm({ title: '', target_date: '', color: COLORS[0] })
-      setShowForm(false)
-      load()
-    } catch (e) {
-      toast.error('操作失败，请重试')
-    }
-  }
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('确定删除该倒计时？')) return
@@ -60,34 +46,13 @@ export default function Countdowns() {
         <h1 className="text-2xl font-bold text-cd-text flex items-center gap-2">
           <Calendar className="text-cd-accent" /> 未来计划
         </h1>
-        <button onClick={() => setShowForm(!showForm)}
+        <button onClick={() => setModalOpen(true)}
           className="flex items-center gap-2 px-4 py-2 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition">
           <Plus size={18} /> 新建倒数日
         </button>
       </div>
 
-      {showForm && (
-        <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5 mb-4 space-y-3">
-          <input type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
-            placeholder="事件标题..." autoFocus
-            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-4 py-2.5 text-cd-text focus:outline-none focus:border-cd-accent/40" />
-          <div className="flex gap-3 items-center">
-            <input type="date" value={form.target_date} onChange={e => setForm({ ...form, target_date: e.target.value })}
-              className="bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2 text-cd-text" />
-            <div className="flex gap-1">
-              {COLORS.map(c => (
-                <button key={c} onClick={() => setForm({ ...form, color: c })}
-                  className={`w-6 h-6 rounded-full border-2 transition ${form.color === c ? 'scale-125 border-white' : 'border-transparent'}`}
-                  style={{ backgroundColor: c }} />
-              ))}
-            </div>
-          </div>
-          <button onClick={handleCreate}
-            className="w-full py-2.5 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition font-medium">
-            创建
-          </button>
-        </div>
-      )}
+      <CountdownCreateModal open={modalOpen} onClose={() => setModalOpen(false)} onCreated={load} />
 
       {sorted.length === 0 ? (
         <div className="text-center py-12 text-cd-text-secondary">

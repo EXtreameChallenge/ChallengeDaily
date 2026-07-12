@@ -49,5 +49,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 开机自启动
   getAutoStart: () => ipcRenderer.invoke('get-auto-start'),
-  setAutoStart: (enabled: boolean) => ipcRenderer.invoke('set-auto-start', enabled),
+  setAutoStart: (enabled) => ipcRenderer.invoke('set-auto-start', enabled),
 })

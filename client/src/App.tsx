@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react'
-import { HashRouter, Routes, Route } from 'react-router-dom'
+import { useState, useEffect, useRef, lazy, Suspense, type ReactNode } from 'react'
+import { HashRouter, Routes, Route, useLocation } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import TitleBar from './components/TitleBar'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ToastProvider } from './components/Toast'
 import { ThemeProvider } from './components/ThemeContext'
 import { BackendStatusBar } from './components/shared'
-import { healthCheck, getNotifications } from './api/client'
+import { getNotifications, startupHealthCheck } from './api/client'
 
 // 懒加载页面组件 — 减少首屏加载体积
 const Overview = lazy(() => import('./pages/Overview'))
@@ -43,9 +43,10 @@ export default function App() {
     let isCancelled = false
     let attempts = 0
     let timerId: ReturnType<typeof setTimeout> | null = null
-    const MAX_ATTEMPTS = 600 // 最大重试次数（约 10 分钟内 1s 间隔 + 后续 5s 间隔）
+    // 启动阶段最大重试：60次1秒 + 60次5秒 ≈ 6分钟
+    const PHASE1_ATTEMPTS = 60
+    const MAX_ATTEMPTS = 120
 
-    // 改用 setTimeout 链：每次完成后调度下一次，避免多个 interval 并存
     const scheduleNext = (delay: number) => {
       if (isCancelled) return
       if (timerId !== null) clearTimeout(timerId)
@@ -53,25 +54,33 @@ export default function App() {
         if (isCancelled) return
         attempts++
         try {
-          await healthCheck()
+          // 使用 startupHealthCheck（原始 fetch），不经过 request() 状态机
+          // 避免启动阶段的正常等待被误判为"后端断开"
+          const ok = await startupHealthCheck()
           if (isCancelled) return
-          setBackendReady(true)
-          setChecking(false)
+          if (ok) {
+            setBackendReady(true)
+            setChecking(false)
+            return
+          }
         } catch {
-          if (isCancelled) return
-          if (attempts === 120) {
-            // 1 秒轮询仍失败，切换到 5 秒轮询
-            setChecking(false)
-            scheduleNext(5000)
-            return
-          }
-          if (attempts >= MAX_ATTEMPTS) {
-            // 达到上限，停止轮询，由 ErrorScreen 提供手动重试
-            setChecking(false)
-            return
-          }
-          scheduleNext(delay)
+          // startupHealthCheck 内部已 catch，不会到这里
         }
+        if (isCancelled) return
+        if (attempts === PHASE1_ATTEMPTS) {
+          // 1 秒轮询仍失败，切换到 5 秒轮询
+          setChecking(false)
+          scheduleNext(5000)
+          return
+        }
+        if (attempts >= MAX_ATTEMPTS) {
+          // 达到上限，停止轮询，由 ErrorScreen 提供手动重试
+          setChecking(false)
+          return
+        }
+        // 根据当前阶段决定延迟
+        const currentDelay = attempts < PHASE1_ATTEMPTS ? 1000 : 5000
+        scheduleNext(currentDelay)
       }, delay)
     }
 
@@ -199,7 +208,7 @@ export default function App() {
               </span>
               <button
                 onClick={() => setUpdateDismissed(true)}
-                className="text-cd-text-tertiary hover:text-cd-text text-xs"
+                className="text-cd-text-tertiary hover:text-cd-text text-sm"
               >
                 稍后提醒
               </button>
@@ -212,7 +221,7 @@ export default function App() {
               </span>
               <button
                 onClick={handleInstallUpdate}
-                className="bg-cd-green text-white px-3 py-1 rounded-md text-xs font-medium hover:opacity-90"
+                className="bg-cd-green text-white px-3.5 py-1.5 rounded-md text-sm font-medium hover:opacity-90"
               >
                 立即重启安装
               </button>
@@ -233,7 +242,7 @@ export default function App() {
               <HashRouter>
                 <Sidebar />
                 <main className="flex-1 overflow-auto bg-cd-bg p-6">
-                  <ErrorBoundary>
+                  <RouteErrorBoundary>
                     <Suspense fallback={<PageSpinner />}>
                       <Routes>
                         <Route path="/" element={<Overview />} />
@@ -259,7 +268,7 @@ export default function App() {
                         <Route path="*" element={<NotFoundPage />} />
                       </Routes>
                     </Suspense>
-                  </ErrorBoundary>
+                  </RouteErrorBoundary>
                 </main>
               </HashRouter>
             )}
@@ -279,6 +288,16 @@ function PageSpinner() {
   )
 }
 
+/** 绑定到当前路由的 ErrorBoundary：路由切换时自动清除错误状态 */
+function RouteErrorBoundary({ children }: { children: ReactNode }) {
+  const location = useLocation()
+  return (
+    <ErrorBoundary resetKey={location.pathname}>
+      {children}
+    </ErrorBoundary>
+  )
+}
+
 function LoadingScreen() {
   return (
     <div className="flex-1 flex items-center justify-center bg-cd-bg">
@@ -292,12 +311,32 @@ function LoadingScreen() {
 
 function ErrorScreen() {
   const [retrying, setRetrying] = useState(false)
+  const [autoRetries, setAutoRetries] = useState(0)
+  const maxAutoRetries = 20
+
+  // 自动重试：后端可能还在启动中，每3秒自动探测一次
+  useEffect(() => {
+    if (autoRetries >= maxAutoRetries) return
+    const timer = setTimeout(async () => {
+      const ok = await startupHealthCheck()
+      if (ok) {
+        window.location.reload()
+      } else {
+        setAutoRetries(prev => prev + 1)
+      }
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [autoRetries])
 
   const handleRetry = async () => {
     setRetrying(true)
     try {
-      await healthCheck()
-      window.location.reload()
+      const ok = await startupHealthCheck()
+      if (ok) {
+        window.location.reload()
+      } else {
+        setRetrying(false)
+      }
     } catch {
       setRetrying(false)
     }
@@ -310,13 +349,18 @@ function ErrorScreen() {
         <h2 className="text-lg font-semibold text-cd-text mb-2">后端服务未启动</h2>
         <p className="text-cd-text-secondary text-sm mb-4">
           桌面客户端正在自动启动后端，请稍候...
+          {autoRetries < maxAutoRetries && (
+            <span className="block mt-1 text-cd-text-tertiary">
+              自动重连中（第 {autoRetries + 1} 次探测）
+            </span>
+          )}
         </p>
         <button
           onClick={handleRetry}
           disabled={retrying}
           className="bg-cd-green text-white px-4 py-2 rounded-lg text-sm hover:opacity-90 disabled:opacity-50"
         >
-          {retrying ? '正在重连...' : '重新连接'}
+          {retrying ? '正在重连...' : '手动重连'}
         </button>
       </div>
     </div>

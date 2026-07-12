@@ -171,11 +171,11 @@ export default function Pet() {
 
   const renderPet = () => {
     switch (style) {
-      case 'yuexinmao': return <YueXinMao happy={happy} hover={hover} eyeBlink={eyeBlink} tailWag={tailWag} />
-      case 'codex': return <CodexPet happy={happy} hover={hover} eyeBlink={eyeBlink} />
-      case 'claude': return <ClaudePet happy={happy} hover={hover} eyeBlink={eyeBlink} />
-      case 'cat': return <CatPet happy={happy} hover={hover} eyeBlink={eyeBlink} tailWag={tailWag} />
-      default: return <YueXinMao happy={happy} hover={hover} eyeBlink={eyeBlink} tailWag={tailWag} />
+      case 'yuexinmao': return <YueXinMao happy={happy} eyeBlink={eyeBlink} tailWag={tailWag} />
+      case 'codex': return <CodexPet happy={happy} eyeBlink={eyeBlink} />
+      case 'claude': return <ClaudePet happy={happy} eyeBlink={eyeBlink} />
+      case 'cat': return <CatPet happy={happy} eyeBlink={eyeBlink} tailWag={tailWag} />
+      default: return <YueXinMao happy={happy} eyeBlink={eyeBlink} tailWag={tailWag} />
     }
   }
 

@@ -4,7 +4,7 @@ import hmac
 import threading
 import logging
 
-from config import BASE_DIR
+from config import DATA_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ shutdown_event = threading.Event()
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 # 优先复用已有的 token 文件，避免重启后客户端缓存失效
-_TOKEN_PATH = BASE_DIR / "data" / ".api_token"
+_TOKEN_PATH = DATA_DIR / ".api_token"
 if _TOKEN_PATH.exists():
     try:
         _existing = _TOKEN_PATH.read_text(encoding="utf-8").strip()
@@ -31,8 +31,12 @@ else:
     LOCAL_TOKEN = secrets.token_hex(16)
 TOKEN_PATH = _TOKEN_PATH
 
+# 关键修复：在模块加载时立即持久化 token，避免 Electron 前端在服务端启动完成前
+# 读取到空 token 导致 401。后续 start_server() 会再次调用 save_token() 作为兜底。
+save_token = None  # type: ignore
 
-def save_token():
+
+def _save_token_impl():
     TOKEN_PATH.parent.mkdir(parents=True, exist_ok=True)
     TOKEN_PATH.write_text(LOCAL_TOKEN, encoding="utf-8")
     try:
@@ -49,6 +53,14 @@ def save_token():
         win32security.SetFileSecurity(str(TOKEN_PATH), win32security.DACL_SECURITY_INFORMATION, sd)
     except ImportError:
         pass
+
+
+_save_token_impl()
+
+
+def save_token():
+    """持久化当前 token（供 server.py 在启动时调用）"""
+    _save_token_impl()
 
 
 def check_token(req) -> bool:
