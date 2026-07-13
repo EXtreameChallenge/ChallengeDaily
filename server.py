@@ -58,6 +58,8 @@ def set_collector(collector_instance):
 
 _PUBLIC_PATHS = {"/", "/api/health", "/api/metrics"}
 _PUBLIC_PREFIXES = ["/api/icons/"]
+# SSE 端点：不能通过 header 传 token，改用 query param ?token=xxx，在 handler 内自行校验
+_SSE_PATHS = {"/api/events/stream"}
 
 
 def _is_public_path(path: str) -> bool:
@@ -68,6 +70,11 @@ def _is_public_path(path: str) -> bool:
         if path.startswith(prefix):
             return True
     return False
+
+
+def _is_sse_path(path: str) -> bool:
+    """SSE 路径：跳过常规 header token 校验，改用 query param"""
+    return path in _SSE_PATHS
 
 
 # P0-04: Rate Limiting（内存实现，单进程足够），防暴力枚举 token
@@ -136,6 +143,9 @@ def auth_check():
         return jsonify({"error": "请求过于频繁"}), 429
     if _is_public_path(request.path) or request.method == "OPTIONS":
         return None
+    # SSE 端点：跳过 header token 校验（在 handler 内用 query param 校验）
+    if _is_sse_path(request.path):
+        return None
     if not _check_auth_fail_limit(client_ip):
         return jsonify({"error": "鉴权失败次数过多，请15分钟后重试"}), 429
     if not check_token(request):
@@ -203,39 +213,19 @@ def start_server():
     save_token()
     logger.info(f"API Token 已生成: {TOKEN_PATH}")
 
-    # 生产级 WSGI 服务器：waitress（比 Flask 内置服务器更稳定）
-    # 参考：https://docs.pylonsproject.org/projects/waitress/en/stable/
-    try:
-        from waitress import serve as waitress_serve
-        logger.info(f"使用 waitress 生产级 WSGI 服务器启动: http://127.0.0.1:{HTTP_PORT}")
-        # waitress 的启动消息输出到 stderr，Electron 的 stdout 解析器无法捕获
-        # 主动向 stdout 打印可识别的启动标记，让 Electron 立即知道后端已就绪
-        print(f"HTTP API 已启动: http://127.0.0.1:{HTTP_PORT}", flush=True)
-        # 4线程 + 增大队列：前端多个组件同时轮询时避免4092次"Task queue depth"警告
-        # waitress 正确参数名: channel_request_lookahead (不是lookaback也不是lookback)
-        # 增大backlog和connection_limit，避免请求被reject导致前端触发"后端断开"
-        waitress_serve(
-            app,
-            host="127.0.0.1",
-            port=HTTP_PORT,
-            threads=4,
-            connection_limit=100,       # 默认100，保持
-            channel_request_lookahead=50,  # 默认4，正确拼写: lookahead
-            channel_timeout=30,         # 空闲连接保持30秒（默认120秒过长，桌面应用无需）
-            cleanup_interval=15,        # 每15秒清理过期空闲连接（默认30秒）
-            max_request_body_size=10 * 1024 * 1024,  # 10MB，支持大请求体
-        )
-    except ImportError:
-        logger.warning("waitress 未安装，回退到 Flask 开发服务器（本地场景可用）")
-        # 本地桌面应用场景：Flask 开发服务器足够稳定
-        # 关闭 reloader 和 debug 模式，避免双进程和内存泄漏
-        app.run(
-            host="127.0.0.1",
-            port=HTTP_PORT,
-            debug=False,
-            use_reloader=False,
-            threaded=True,
-        )
+    # 本地桌面应用场景：使用 Flask 内置 threaded 服务器
+    # 原因：waitress 不支持 SSE 流式响应（/api/events/stream），会返回 500
+    # Flask threaded 服务器支持 streaming generator，且对单用户桌面应用足够稳定
+    # 参考：项目约束"本地桌面应用场景：Flask 开发服务器足够稳定"
+    logger.info(f"使用 Flask threaded 服务器启动: http://127.0.0.1:{HTTP_PORT}")
+    print(f"HTTP API 已启动: http://127.0.0.1:{HTTP_PORT}", flush=True)
+    app.run(
+        host="127.0.0.1",
+        port=HTTP_PORT,
+        debug=False,
+        use_reloader=False,
+        threaded=True,
+    )
 
 
 # ── O-02: 指标端点 ──
@@ -244,3 +234,48 @@ def start_server():
 def metrics_endpoint():
     from observability import get_metrics
     return jsonify(get_metrics())
+
+
+# ── SSE 事件流 ──
+
+@app.route('/api/events/stream')
+def event_stream():
+    """SSE 事件流（token 通过 query param ?token=xxx 传递）
+
+    返回 text/event-stream，每 30s 发送心跳防止连接超时。
+    """
+    import hmac
+    from flask import Response
+    from event_bus import subscribe, unsubscribe
+    from routes.deps import LOCAL_TOKEN
+
+    # 校验 query param token
+    token = request.args.get('token', '')
+    if not hmac.compare_digest(token, LOCAL_TOKEN):
+        return jsonify({"error": "未授权访问"}), 401
+
+    q = subscribe()
+
+    def generate():
+        import json as _json
+        import queue as _queue
+        try:
+            while True:
+                try:
+                    event = q.get(timeout=30)
+                    yield f"data: {_json.dumps(event, ensure_ascii=False)}\n\n"
+                except _queue.Empty:
+                    # 心跳，防止连接超时
+                    yield ": ping\n\n"
+        finally:
+            unsubscribe(q)
+
+    return Response(
+        generate(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive',
+        },
+    )

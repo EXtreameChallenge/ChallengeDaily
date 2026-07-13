@@ -1,9 +1,12 @@
 from flask import Blueprint, jsonify, request
 from datetime import date
+import logging
 
 import config
 from db import get_activities, get_daily_summary, get_conn, get_app_usage
 from routes.deps import validate_date
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('stats', __name__)
 
@@ -300,3 +303,100 @@ def recent_heatmap():
         })
 
     return jsonify({"days": days, "data": results})
+
+
+@bp.route('/api/stats/heatmap')
+def heatmap_by_range():
+    """热力图数据（支持周/月/年范围）
+
+    query:
+      range: week | month | year
+      date: YYYY-MM-DD（年视图取年份、月视图取年月、周视图忽略）
+    返回：{"data": [{"date","focus_min","level"}], "range": rng}
+    level 分档：0/120/240/360/480 分钟（max 4）
+    """
+    rng = request.args.get('range', 'week')
+    date_str = request.args.get('date', '') or date.today().isoformat()
+    # 颜色等级阈值（分钟）：0/<120/<240/<360/<480 -> 0/1/2/3/4
+    try:
+        with get_conn() as conn:
+            if rng == 'year':
+                # 年度：按日聚合（activities.timestamp + interval_sec）
+                year = date_str[:4]
+                rows = conn.execute(
+                    "SELECT date(timestamp) AS d, "
+                    "       COALESCE(SUM(CASE WHEN category != '生活' THEN interval_sec ELSE 0 END), 0) AS focus_sec "
+                    "FROM activities "
+                    "WHERE strftime('%Y', timestamp) = ? "
+                    "GROUP BY date(timestamp) ORDER BY d",
+                    (year,),
+                ).fetchall()
+                result = [{
+                    "date": r["d"],
+                    "focus_min": int(r["focus_sec"] // 60),
+                    "level": min(4, int((r["focus_sec"] or 0) // 60 // 120)),
+                } for r in rows]
+            elif rng == 'month':
+                # 月度：按日聚合
+                month = date_str[:7]
+                rows = conn.execute(
+                    "SELECT date(timestamp) AS d, "
+                    "       COALESCE(SUM(CASE WHEN category != '生活' THEN interval_sec ELSE 0 END), 0) AS focus_sec "
+                    "FROM activities "
+                    "WHERE strftime('%Y-%m', timestamp) = ? "
+                    "GROUP BY date(timestamp) ORDER BY d",
+                    (month,),
+                ).fetchall()
+                result = [{
+                    "date": r["d"],
+                    "focus_min": int(r["focus_sec"] // 60),
+                    "level": min(4, int((r["focus_sec"] or 0) // 60 // 120)),
+                } for r in rows]
+            else:
+                # 周度：复用现有 recent-heatmap 逻辑（按日聚合）
+                rows = conn.execute(
+                    "SELECT date(timestamp) AS d, "
+                    "       COALESCE(SUM(CASE WHEN category != '生活' THEN interval_sec ELSE 0 END), 0) AS focus_sec "
+                    "FROM activities "
+                    "WHERE date(timestamp) >= date(?, '-6 days') AND date(timestamp) <= date(?) "
+                    "GROUP BY date(timestamp) ORDER BY d",
+                    (date_str, date_str),
+                ).fetchall()
+                result = [{
+                    "date": r["d"],
+                    "focus_min": int(r["focus_sec"] // 60),
+                    "level": min(4, int((r["focus_sec"] or 0) // 60 // 120)),
+                } for r in rows]
+            return jsonify({"data": result, "range": rng})
+    except Exception as e:
+        logger.error(f"热力图查询失败: {e}", exc_info=True)
+        return jsonify({"error": "查询失败"}), 500
+
+
+@bp.route('/api/stats/distraction-heatmap')
+def distraction_heatmap():
+    """分心热点图：24小时分心次数分布
+
+    基于 activities 快照表（timestamp 列），统计 category='生活' 的记录按小时聚合。
+    duration_min 由 count * SCREENSHOT_INTERVAL_SEC 估算（activities 无 end_time）。
+    """
+    days = request.args.get('days', 7, type=int)
+    try:
+        with get_conn() as conn:
+            rows = conn.execute(
+                "SELECT CAST(strftime('%H', timestamp) AS INTEGER) AS hour, "
+                "       COUNT(*) AS count "
+                "FROM activities "
+                "WHERE category = '生活' AND date(timestamp) >= date('now', ?) "
+                "GROUP BY hour ORDER BY hour",
+                (f'-{days} days',),
+            ).fetchall()
+            result = [{
+                "hour": r["hour"],
+                "count": r["count"],
+                "duration_min": int(round(r["count"] * config.SCREENSHOT_INTERVAL_SEC / 60)),
+            } for r in rows]
+            return jsonify({"heatmap": result, "days": days})
+    except Exception as e:
+        logger.error(f"分心热点图查询失败: {e}", exc_info=True)
+        return jsonify({"error": "查询失败"}), 500

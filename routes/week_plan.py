@@ -1,8 +1,11 @@
 """周计划 API（月/周/日三级层级 + 拖拽分配 + 番茄数据条）"""
 from flask import Blueprint, request, jsonify
 from datetime import date, datetime, timedelta
+import logging
 import db
 from routes.deps import safe_error, validate_date
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('week_plan', __name__, url_prefix='/api/week-plan')
 
@@ -178,3 +181,52 @@ def today():
 
 
 # 导入 datetime 用于 stats 端点
+
+
+@bp.route('/auto-split', methods=['POST'])
+def auto_split():
+    """AI 拆解月目标为周待办草案（不直接写入，返回给用户确认）
+
+    body: {goal_title, goal_description, week_start}
+    返回：{draft_tasks: [...], status: "draft"} 或 {error}
+    """
+    data = request.get_json(silent=True) or {}
+    goal_title = (data.get('goal_title') or '').strip()
+    goal_description = (data.get('goal_description') or '').strip()
+    week_start = data.get('week_start') or ''
+    if not goal_title:
+        return jsonify({'error': '目标标题不能为空'}), 400
+    try:
+        from ai_client import _get_client
+        from prompt import _sanitize_user_input
+        import json as _json
+
+        client = _get_client()
+        prompt = (
+            f"请将以下月度目标拆解为 5-7 个周待办任务（JSON 数组格式）：\n"
+            f"目标：{_sanitize_user_input(goal_title)}\n"
+            f"描述：{_sanitize_user_input(goal_description, 500)}\n"
+            f"周开始日期：{week_start}\n\n"
+            "要求：\n"
+            "1. 每个待办包含 title（任务名）、target_min（预计分钟数）、category（分类）、day（1-5 表示周一到周五）\n"
+            "2. 任务粒度合理（每个 25-100 分钟可完成）\n"
+            "3. 按 5 个工作日分配\n\n"
+            '返回格式：[{"title":"任务1","target_min":60,"category":"开发","day":1},...]'
+        )
+        response = client.chat.completions.create(
+            model='glm-4-flash',
+            messages=[{'role': 'user', 'content': prompt}],
+            max_tokens=1000,
+            temperature=0.7,
+        )
+        content = response.choices[0].message.content or ''
+        # 提取 JSON 数组
+        start = content.find('[')
+        end = content.rfind(']') + 1
+        if start >= 0 and end > start:
+            tasks = _json.loads(content[start:end])
+            return jsonify({'draft_tasks': tasks, 'status': 'draft'})
+        return jsonify({'error': 'AI 返回格式错误', 'raw': content[:200]}), 500
+    except Exception as e:
+        logger.error(f"AI 拆解失败: {e}", exc_info=True)
+        return jsonify({'error': safe_error(e, '拆解失败')}), 500

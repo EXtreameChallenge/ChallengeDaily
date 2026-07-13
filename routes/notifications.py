@@ -27,6 +27,12 @@ def add_notification(title: str, body: str, ntype: str = "info"):
         _next_id += 1
         if len(_notifications) > 50:
             _notifications[:] = _notifications[-50:]
+    # 推送 SSE 事件（通知订阅者实时刷新）
+    try:
+        from event_bus import push_event
+        push_event('notification', {"title": title, "body": body, "type": ntype})
+    except Exception:
+        pass
 
 
 @bp.route("/api/notifications")

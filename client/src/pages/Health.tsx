@@ -13,6 +13,8 @@ import { useAsyncData, ApiErrorDisplay, formatDuration } from '../components/sha
 
 export default function Health() {
   const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'))
+  // 引导卡片可见性：首次进入显示，用户点击"知道了"后 localStorage 标记不再提示
+  const [guided, setGuided] = useState<boolean>(() => !localStorage.getItem('cd_calibration_guided'))
 
   const { data, loading, error, refresh } = useAsyncData<{
     coverage: HealthCoverage
@@ -37,7 +39,7 @@ export default function Health() {
 
   return (
     <div className="animate-fade-in space-y-5">
-      {/* ─── 标题 + 日期选择 ──────────────────── */}
+      {/* ─── 标题 + 日期选择（Health 数据校准） ──────────────────── */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-cd-text">数据校准</h1>
@@ -53,6 +55,23 @@ export default function Health() {
           className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
         />
       </div>
+
+      {/* ─── 首次进入引导卡片 ──────────────────── */}
+      {guided && (
+        <div className="p-4 bg-cd-blue-light/10 border border-cd-blue/30 rounded-lg">
+          <h3 className="text-sm font-medium text-cd-text mb-2">📋 什么是数据校准？</h3>
+          <p className="text-xs text-cd-text-secondary leading-relaxed">
+            本页对比 Windows 系统事件日志（开机关机/登录）与采集数据，计算覆盖率与漏采时段，
+            帮助你判断日报数据的可信度。覆盖率 ≥ 80% 表示数据高度可信。
+          </p>
+          <button
+            onClick={() => { localStorage.setItem('cd_calibration_guided', '1'); setGuided(false) }}
+            className="mt-2 text-xs text-cd-blue hover:underline"
+          >
+            知道了，不再提示
+          </button>
+        </div>
+      )}
 
       {error && <ApiErrorDisplay error={error} onRetry={refresh} />}
 

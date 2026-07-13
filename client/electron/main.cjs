@@ -782,6 +782,13 @@ function setupIPC() {
     }
   })
 
+  // 分心告警：主窗口 → 宠物窗口（宠物变红提示）
+  ipcMain.on('distraction-alert', (_event, data) => {
+    if (petWindow && !petWindow.isDestroyed()) {
+      petWindow.webContents.send('distraction-alert', data)
+    }
+  })
+
   // 后端状态
   ipcMain.handle('get-backend-port', () => BACKEND_PORT)
 

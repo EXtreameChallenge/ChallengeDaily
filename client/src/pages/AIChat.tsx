@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Send, Trash2, Bot, User, Sparkles, RefreshCw, CheckCircle, XCircle, Search, BarChart3, ListTodo, Timer, FileText, TrendingUp, UserCircle, Loader2 } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 import { aiChatStream, getChatHistory, clearChatHistory, executeChatAction, type ChatMessage, type ChatStreamEvent, type ActionConfirmation } from '../api/client'
 
 // ── 工具名称映射 ──
@@ -341,10 +342,23 @@ export default function AIChat() {
                         : 'bg-cd-bg-card text-cd-text rounded-tl-sm border border-cd-border'
                     }`}>
                       {msg.role === 'assistant' ? (
-                        <div
-                          className="text-sm leading-relaxed prose-sm [&_br]:block [&_pre]:my-2 [&_code]:text-cd-green [&_li]:text-cd-text [&_strong]:text-cd-text"
-                          dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
-                        />
+                        <div className="text-sm leading-relaxed prose-sm [&_br]:block [&_pre]:my-2 [&_code]:text-cd-green [&_li]:text-cd-text [&_strong]:text-cd-text">
+                          <ReactMarkdown
+                            components={{
+                              pre: ({ children }) => <pre className="bg-cd-bg-secondary rounded-lg p-3 my-2 text-xs overflow-x-auto border border-cd-border">{children}</pre>,
+                              code: ({ className, children }) => (
+                                <code className={className || 'bg-cd-bg-secondary px-1.5 py-0.5 rounded text-xs font-mono text-cd-accent'}>
+                                  {children}
+                                </code>
+                              ),
+                              h2: ({ children }) => <h2 className="text-base font-semibold mt-3 mb-1">{children}</h2>,
+                              h3: ({ children }) => <h3 className="text-sm font-semibold mt-3 mb-1">{children}</h3>,
+                              li: ({ children }) => <li className="ml-4 list-disc">{children}</li>,
+                            }}
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
                       ) : (
                         <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                       )}

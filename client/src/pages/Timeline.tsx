@@ -1,11 +1,18 @@
-import { useState, useCallback, useEffect, memo, useMemo } from 'react'
+import { useState, useCallback, useEffect, memo, useMemo, useRef } from 'react'
 import { getActivities, searchActivities, deleteActivity, undoDeleteActivity, getAppIconUrl, CATEGORY_COLORS, CATEGORIES, type Activity, type VisibleWindow } from '../api/client'
 import { CategoryFilter, useAsyncData, ApiErrorDisplay, useNewIds, RefreshIndicator } from '../components/shared'
 import { useToast } from '../components/Toast'
+import { useEventStream } from '../hooks/useEventStream'
 import ActivityCreateModal from '../components/ActivityCreateModal'
 import ActivityEditModal from '../components/ActivityEditModal'
 import { Search, Pencil, X, Plus, Trash2, Loader2 } from 'lucide-react'
 import dayjs from 'dayjs'
+
+// T6: 虚拟滚动常量
+const ITEM_HEIGHT = 80
+const VISIBLE_BUFFER = 50
+// T6: 图标缓存 TTL（7 天）
+const ICON_CACHE_TTL = 7 * 24 * 60 * 60 * 1000
 
 export default function Timeline() {
   const toast = useToast()
@@ -22,7 +29,7 @@ export default function Timeline() {
   const { data: activitiesData, loading, error, refresh: refreshList, refreshing } = useAsyncData(
     () => getActivities(selectedDate),
     [selectedDate],
-    30000, // 优化：从 15 秒调整为 30 秒，配合 useAsyncData 的可见性检测
+    60000, // T6: 从 30s 调整为 60s，配合 SSE 事件驱动增量更新
   )
   const activities = activitiesData?.activities ?? []
   const newIds = useNewIds(activities, (a) => a.id)
@@ -30,13 +37,35 @@ export default function Timeline() {
   const [searchResults, setSearchResults] = useState<Activity[] | null>(null)
   // 应用图标缓存：app_name -> iconUrl
   const [iconUrls, setIconUrls] = useState<Record<string, string>>({})
+  // T6: 图标内存缓存（TTL 7 天），避免重复请求
+  const iconCache = useRef(new Map<string, { icon: string; expire: number }>())
+
+  // T6: 虚拟滚动范围
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: VISIBLE_BUFFER })
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  // T6: SSE 事件流 — 增量更新（新活动到达时立即刷新，替代高频轮询）
+  const { event: sseEvent } = useEventStream()
+  const lastRefreshRef = useRef(0)
+  useEffect(() => {
+    if (!sseEvent) return
+    // activity_change 事件：有新活动写入，触发增量刷新
+    if (sseEvent.type === 'activity_change') {
+      const now = Date.now()
+      // 防抖：1s 内最多刷新一次，避免批量写入时频繁请求
+      if (now - lastRefreshRef.current > 1000) {
+        lastRefreshRef.current = now
+        refreshList()
+      }
+    }
+  }, [sseEvent, refreshList])
 
   const timelineAppsKey = useMemo(
     () => (searchResults ?? activities).map((a) => [a.app_name, ...(a.windows || []).map((w) => w.app_name)].join('|')).join(';'),
     [searchResults, activities],
   )
 
-  // 批量加载应用图标（前台应用 + 多窗口中的每个应用）
+  // T6: 批量加载应用图标（前台应用 + 多窗口中每个应用），优先读缓存
   useEffect(() => {
     const baseList = searchResults ?? activities
     const apps = Array.from(new Set(baseList.flatMap((a) => [
@@ -45,19 +74,40 @@ export default function Timeline() {
     ])))
     if (!apps.length) return
     let cancelled = false
+    const now = Date.now()
+    // 先读缓存，收集需要拉取的应用
+    const cachedMap: Record<string, string> = {}
+    const toFetch: string[] = []
+    for (const name of apps) {
+      if (!name) continue
+      const cached = iconCache.current.get(name)
+      if (cached && cached.expire > now) {
+        cachedMap[name] = cached.icon
+      } else {
+        toFetch.push(name)
+      }
+    }
+    // 立即应用缓存命中
+    if (Object.keys(cachedMap).length > 0) {
+      setIconUrls((prev) => ({ ...prev, ...cachedMap }))
+    }
+    if (!toFetch.length) return
     ;(async () => {
       const map: Record<string, string> = {}
       await Promise.all(
-        apps.map(async (name) => {
+        toFetch.map(async (name) => {
           if (!name) return
           try {
-            map[name] = await getAppIconUrl(name)
+            const icon = await getAppIconUrl(name)
+            map[name] = icon
+            // 写入缓存，TTL 7 天
+            iconCache.current.set(name, { icon, expire: now + ICON_CACHE_TTL })
           } catch {
             map[name] = ''
           }
         }),
       )
-      if (!cancelled) setIconUrls(map)
+      if (!cancelled) setIconUrls((prev) => ({ ...prev, ...map }))
     })()
     return () => { cancelled = true }
   }, [timelineAppsKey])
@@ -128,6 +178,25 @@ export default function Timeline() {
     act,
     time: dayjs(act.timestamp).format('HH:mm'),
   }))
+
+  // T6: 虚拟滚动 — 滚动时更新可见范围
+  const handleScroll = useCallback((e: React.UIEvent) => {
+    const scrollTop = (e.target as HTMLElement).scrollTop
+    const start = Math.floor(scrollTop / ITEM_HEIGHT)
+    const end = Math.min(start + VISIBLE_BUFFER, timelineItems.length)
+    setVisibleRange((prev) => {
+      if (prev.start === start && prev.end === end) return prev
+      return { start, end }
+    })
+  }, [timelineItems.length])
+
+  // T6: 切换日期/筛选时重置虚拟滚动范围
+  useEffect(() => {
+    setVisibleRange({ start: 0, end: VISIBLE_BUFFER })
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0
+    }
+  }, [selectedDate, filterCategory])
 
   // 切换日期时重置搜索
   const handleDateChange = (date: string) => {
@@ -213,19 +282,30 @@ export default function Timeline() {
           {searchQuery ? `未找到与「${searchQuery}」相关的记录` : '暂无活动记录'}
         </div>
       ) : (
-        <div className="space-y-1">
-          {timelineItems.map(({ act, time }) => (
-            <TimelineEntry
-              key={act.id}
-              activity={act}
-              displayTime={time}
-              iconUrl={iconUrls[act.app_name] || ''}
-              allIconUrls={iconUrls}
-              onStartEdit={setEditingActivity}
-              onDelete={handleDelete}
-              isNew={newIds.has(act.id)}
-            />
+        <div
+          ref={scrollContainerRef}
+          className="overflow-y-auto"
+          style={{ maxHeight: 'calc(100vh - 280px)' }}
+          onScroll={handleScroll}
+        >
+          {/* T6: 虚拟滚动 — 顶部占位 spacer */}
+          <div style={{ height: visibleRange.start * ITEM_HEIGHT, flexShrink: 0 }} />
+          {/* T6: 仅渲染可见范围内的项 */}
+          {timelineItems.slice(visibleRange.start, visibleRange.end).map(({ act, time }) => (
+            <div key={act.id} style={{ height: ITEM_HEIGHT, flexShrink: 0 }}>
+              <TimelineEntry
+                activity={act}
+                displayTime={time}
+                iconUrl={iconUrls[act.app_name] || ''}
+                allIconUrls={iconUrls}
+                onStartEdit={setEditingActivity}
+                onDelete={handleDelete}
+                isNew={newIds.has(act.id)}
+              />
+            </div>
           ))}
+          {/* T6: 虚拟滚动 — 底部占位 spacer */}
+          <div style={{ height: Math.max(0, (timelineItems.length - visibleRange.end) * ITEM_HEIGHT), flexShrink: 0 }} />
         </div>
       )}
     </div>

@@ -44,6 +44,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pomodoroWidgetHide: () => ipcRenderer.send('pomodoro-widget-hide'),
   onPomodoroTick: (cb) => ipcRenderer.on('pomodoro-tick', (_e, data) => cb(data)),
 
+  // 分心告警：主窗口 → 主进程 → 宠物窗口
+  sendDistractionAlert: (data) => ipcRenderer.send('distraction-alert', data),
+  onDistractionAlert: (cb) => ipcRenderer.on('distraction-alert', (_e, data) => cb(data)),
+
   // 主进程导航指令（悬浮窗点击跳转等）
   onNavigateTo: (cb) => ipcRenderer.on('navigate-to', (_e, path) => cb(path)),
 

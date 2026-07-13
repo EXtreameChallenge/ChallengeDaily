@@ -27,6 +27,7 @@ import {
 import dayjs from 'dayjs'
 import { RefreshIndicator } from '../components/shared'
 import HeroInfo from '../components/HeroInfo'
+import DistractionHeatmap from '../components/DistractionHeatmap'
 
 function getDisplayAppName(appName: string): string {
   const lower = appName.toLowerCase()
@@ -506,6 +507,11 @@ export default function Overview() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* ─── 分心热点图（AI 视觉专注教练） ──── */}
+      <div className="mt-6">
+        <DistractionHeatmap />
       </div>
 
       {/* ─── 最近活动（底部，更轻量的展示） ──── */}

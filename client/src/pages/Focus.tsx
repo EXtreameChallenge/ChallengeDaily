@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Play, Square, SkipForward, Brain, X } from 'lucide-react'
-import { startPomodoro, stopPomodoro, getPomodoroStats, getTodayTodos, formatLocalTimestamp, type TodoV2, POMODORO_SIZES, LONG_BREAK_INTERVAL } from '../api/client'
+import { startPomodoro, stopPomodoro, getPomodoroStats, getTodayTodos, checkPomodoroDistraction, formatLocalTimestamp, type TodoV2, POMODORO_SIZES, LONG_BREAK_INTERVAL } from '../api/client'
 import WhiteNoise from '../components/WhiteNoise'
 
 type Phase = 'idle' | 'working' | 'short_break' | 'long_break'
@@ -78,6 +78,10 @@ export default function Focus() {
   const [totalPomodoros, setTotalPomodoros] = useState(() => _ps?.totalPomodoros ?? 1)
   const [pomodoroSize, setPomodoroSize] = useState<PomodoroSize>(() => _ps?.pomodoroSize ?? 'big')
   const [completedPomodoros, setCompletedPomodoros] = useState(() => _ps?.completedPomodoros ?? 0)
+  const [strictMode, setStrictMode] = useState(false)
+  const [distractionCount, setDistractionCount] = useState(0)
+  const [distractionAlert, setDistractionAlert] = useState<{ app: string; count: number } | null>(null)
+  const [resumePrompt, setResumePrompt] = useState<{ remaining: number; phase: Phase } | null>(null)
   const [searchParams] = useSearchParams()
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const autoSelectedRef = useRef(false)
@@ -110,6 +114,40 @@ export default function Focus() {
       setRemaining(0)
     }
   }, [])
+
+  // T5: 检测到未完成番茄时弹窗提示（state 已自动恢复，此处仅做提示）
+  useEffect(() => {
+    const ps = _initState.current
+    if (!ps || ps.phase === 'idle') return
+    const elapsed = Math.floor((Date.now() - ps.startTimestamp) / 1000)
+    const left = ps.totalSec - elapsed
+    if (left > 0) {
+      setResumePrompt({ remaining: left, phase: ps.phase })
+    }
+  }, [])
+
+  // T2: 番茄运行中每 15 秒调用后端分心检测
+  const handleStopRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    if (phase !== 'working' || !sessionId) return
+    const interval = setInterval(async () => {
+      try {
+        const data = await checkPomodoroDistraction(sessionId)
+        if (data.is_distraction) {
+          setDistractionCount(data.distraction_count)
+          // 同步到 interruptedCount，确保停止时回写正确的计数
+          setInterruptedCount(data.distraction_count)
+          setDistractionAlert({ app: data.app_name, count: data.distraction_count })
+          // 通知宠物窗口变红
+          window.electronAPI?.sendDistractionAlert?.({ app: data.app_name, count: data.distraction_count })
+          if (strictMode) {
+            handleStopRef.current()
+          }
+        }
+      } catch { /* 静默失败，不打断专注 */ }
+    }, 15000)
+    return () => clearInterval(interval)
+  }, [phase, sessionId, strictMode])
 
   // 加载今日任务
   const loadTodos = useCallback(async () => {
@@ -202,6 +240,8 @@ export default function Focus() {
     const workSec = sizeConfig.work * 60
     setRemaining(workSec)
     setInterruptedCount(0)
+    setDistractionCount(0)
+    setDistractionAlert(null)
     setPomodoroIndex(1)
     setCompletedPomodoros(0)
     // 如果没有选任务，默认1个番茄；选了任务，读取其预估番茄数
@@ -375,10 +415,14 @@ export default function Focus() {
     setSessionId(null)
     setPhase('idle')
     setRemaining(sizeConfig.work * 60)
+    setDistractionCount(0)
+    setDistractionAlert(null)
     clearPomodoroState()
     loadStats()
     window.electronAPI?.pomodoroWidgetHide?.()
   }
+
+  useEffect(() => { handleStopRef.current = handleStop }, [handleStop])
 
   const handleSkip = () => {
     if (completingRef.current) return
@@ -475,6 +519,9 @@ export default function Focus() {
             {interruptedCount > 0 && phase === 'working' && (
               <span className="text-xs text-orange-400 mt-1">中断 {interruptedCount} 次</span>
             )}
+            {distractionCount > 0 && phase === 'working' && (
+              <span className="text-xs text-red-400 mt-1">已分心 {distractionCount} 次</span>
+            )}
           </div>
         </div>
 
@@ -563,6 +610,12 @@ export default function Focus() {
                 = {totalPomodoros * sizeConfig.work}分钟专注
               </span>
             </div>
+            {/* T2: 严格模式开关 */}
+            <label className="flex items-center gap-2 text-xs text-cd-text-secondary cursor-pointer select-none">
+              <input type="checkbox" checked={strictMode} onChange={(e) => setStrictMode(e.target.checked)}
+                className="rounded" />
+              严格模式（分心即作废）
+            </label>
           </div>
         )}
 
@@ -630,6 +683,43 @@ export default function Focus() {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* T2: 分心检测弹窗 */}
+      {distractionAlert && (
+        <div className="fixed top-4 right-4 p-4 bg-red-500/20 border border-red-500/40 rounded-lg shadow-lg z-50 max-w-sm">
+          <div className="flex items-start gap-2">
+            <span className="text-red-400 text-lg">⚠️</span>
+            <div className="flex-1">
+              <p className="text-sm text-cd-text font-medium">检测到分心！</p>
+              <p className="text-xs text-cd-text-secondary mt-1">
+                当前应用：{distractionAlert.app}<br />
+                已分心 {distractionCount} 次
+              </p>
+              <button onClick={() => setDistractionAlert(null)}
+                className="mt-2 text-xs text-cd-blue hover:underline">知道了</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* T5: 番茄中断恢复提示 */}
+      {resumePrompt && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-cd-card p-6 rounded-lg border border-cd-border max-w-md">
+            <h3 className="text-lg font-medium text-cd-text mb-2">⚠️ 检测到未完成的番茄</h3>
+            <p className="text-sm text-cd-text-secondary mb-4">
+              剩余时间：{Math.floor(resumePrompt.remaining / 60)} 分 {resumePrompt.remaining % 60} 秒<br />
+              阶段：{resumePrompt.phase === 'working' ? '专注中' : '休息中'}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => { handleStop(); setResumePrompt(null) }}
+                className="px-4 py-2 text-sm text-cd-text-tertiary hover:text-cd-text">放弃记录</button>
+              <button onClick={() => setResumePrompt(null)}
+                className="px-4 py-2 text-sm bg-cd-green text-white rounded hover:opacity-90">继续专注</button>
+            </div>
           </div>
         </div>
       )}

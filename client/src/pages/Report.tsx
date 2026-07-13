@@ -1,17 +1,26 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   generateDailyReport,
   generateWeeklyReport,
   generateMonthlyReport,
   getDailyReportContent,
   getTodayStats,
+  getPomodoroSummary,
+  getDailyCredibility,
+  getCustomTemplates,
+  saveCustomTemplate,
+  deleteCustomTemplate,
+  request,
   type TodayStats,
+  type PomodoroSummary,
+  type DailyCredibility,
+  type CustomTemplate,
 } from '../api/client'
 import { useTimeout, useAsyncData } from '../components/shared'
 import { useToast } from '../components/Toast'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { FileText, Calendar, Sparkles, Copy, Check, Download } from 'lucide-react'
+import { FileText, Calendar, Sparkles, Copy, Check, Download, Save, Trash2, BookOpen } from 'lucide-react'
 import dayjs from 'dayjs'
 
 type ReportType = 'daily' | 'weekly' | 'monthly'
@@ -40,6 +49,29 @@ export default function Report() {
   const [generating, setGenerating] = useState(false)
   const [copied, setCopied] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format('YYYY-MM'))
+  const [weeklyGoal, setWeeklyGoal] = useState<{ total: number; done: number; completion_rate: number } | null>(null)
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([])
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+
+  // 周报模式时拉取目标对比
+  useEffect(() => {
+    if (reportType !== 'weekly') {
+      setWeeklyGoal(null)
+      return
+    }
+    let cancelled = false
+    request(`/api/report/weekly-goal?date=${dayjs().format('YYYY-MM-DD')}`, undefined, 10000)
+      .then((res: any) => {
+        if (!cancelled && res && typeof res.total === 'number') {
+          setWeeklyGoal(res)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setWeeklyGoal(null)
+      })
+    return () => { cancelled = true }
+  }, [reportType])
 
   // 安全 setTimeout — copied 状态自动消失
   useTimeout(() => setCopied(false), copied ? 2000 : null)
@@ -61,6 +93,28 @@ export default function Report() {
   // 优先显示用户生成的内容，否则显示初始加载的
   const content = generating ? '' : (generatedContent || initialData?.content || '')
   const stats = initialData?.stats || null
+
+  // 番茄统计与数据可信度（fire-and-forget，仅日报时展示）
+  const { data: pomodoroStats } = useAsyncData<PomodoroSummary | null>(
+    async () => {
+      try {
+        return await getPomodoroSummary()
+      } catch {
+        return null
+      }
+    },
+    [],
+  )
+  const { data: credibility } = useAsyncData<DailyCredibility | null>(
+    async () => {
+      try {
+        return await getDailyCredibility()
+      } catch {
+        return null
+      }
+    },
+    [],
+  )
 
   const handleGenerate = async () => {
     setGenerating(true)
@@ -100,6 +154,48 @@ export default function Report() {
     a.download = filename
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  // ── 自定义模板：加载/保存/删除 ──
+  const loadCustomTemplates = useCallback(async () => {
+    try {
+      const res = await getCustomTemplates()
+      setCustomTemplates(res.templates || [])
+    } catch { /* 静默失败 */ }
+  }, [])
+
+  useEffect(() => { loadCustomTemplates() }, [loadCustomTemplates])
+
+  const handleSaveTemplate = async () => {
+    const name = templateName.trim()
+    if (!name || !content) {
+      toast.error('模板名称和报告内容不能为空')
+      return
+    }
+    try {
+      const res = await saveCustomTemplate(name, content)
+      setCustomTemplates(res.templates || [])
+      setShowSaveModal(false)
+      setTemplateName('')
+      toast.success('模板已保存')
+    } catch {
+      toast.error('保存失败')
+    }
+  }
+
+  const handleDeleteTemplate = async (id: number) => {
+    try {
+      const res = await deleteCustomTemplate(id)
+      setCustomTemplates(res.templates || [])
+      toast.success('已删除')
+    } catch {
+      toast.error('删除失败')
+    }
+  }
+
+  const handleLoadTemplate = (tpl: CustomTemplate) => {
+    setGeneratedContent(tpl.content)
+    toast.success(`已加载模板：${tpl.name}`)
   }
 
   return (
@@ -204,6 +300,14 @@ export default function Report() {
                 {copied ? <Check size={12} /> : <Copy size={12} />}
                 {copied ? '已复制' : '复制'}
               </button>
+              <button
+                onClick={() => setShowSaveModal(true)}
+                disabled={!content}
+                className="flex items-center gap-1 px-3 py-1 rounded-md text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border disabled:opacity-40"
+              >
+                <Save size={12} />
+                存为模板
+              </button>
             </div>
           </div>
           <div className="prose prose-sm max-w-none 
@@ -241,6 +345,142 @@ export default function Report() {
                 embed: () => null,
               }}
             >{content}</ReactMarkdown>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 周目标完成对比（仅周报时展示） ────────────── */}
+      {reportType === 'weekly' && weeklyGoal && weeklyGoal.total > 0 && (
+        <div className="card p-4">
+          <h3 className="text-sm font-medium text-cd-text mb-3">🎯 周目标完成情况</h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-cd-purple">{weeklyGoal.total}</div>
+              <div className="text-xs text-cd-text-tertiary">本周待办总数</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-cd-green">{weeklyGoal.done}</div>
+              <div className="text-xs text-cd-text-tertiary">已完成</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-cd-green">{weeklyGoal.completion_rate}%</div>
+              <div className="text-xs text-cd-text-tertiary">完成率</div>
+            </div>
+          </div>
+          {/* 进度条 */}
+          <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: 'var(--cd-bg-tertiary)' }}>
+            <div
+              className="h-full transition-all"
+              style={{ width: `${Math.min(100, weeklyGoal.completion_rate)}%`, background: 'var(--cd-green)' }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ─── 番茄统计卡片（仅日报时展示） ────────────── */}
+      {reportType === 'daily' && pomodoroStats && pomodoroStats.total > 0 && (
+        <div className="card p-4">
+          <h3 className="text-sm font-medium text-cd-text mb-3">🍅 番茄统计</h3>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-cd-green">{pomodoroStats.completed}</div>
+              <div className="text-xs text-cd-text-tertiary">完成番茄</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-cd-blue">{pomodoroStats.total_min}</div>
+              <div className="text-xs text-cd-text-tertiary">专注分钟</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-cd-orange">{pomodoroStats.distractions}</div>
+              <div className="text-xs text-cd-text-tertiary">分心次数</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-cd-purple">{pomodoroStats.total}</div>
+              <div className="text-xs text-cd-text-tertiary">总番茄数</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 数据可信度卡片（仅日报时展示） ────────────── */}
+      {reportType === 'daily' && credibility && (
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-cd-text">📊 数据可信度证明</h3>
+            <span className={`px-2 py-0.5 rounded text-xs ${
+              credibility.level === 'high' ? 'bg-cd-green-light text-cd-green' :
+              credibility.level === 'medium' ? 'bg-cd-gold/20 text-cd-gold' :
+              'bg-cd-red-light text-cd-red'
+            }`}>
+              {credibility.credibility_score}%
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-4 text-xs">
+            <div>
+              <div className="text-cd-text-tertiary">采集覆盖率</div>
+              <div className="text-cd-text font-medium">{credibility.coverage_rate}%</div>
+            </div>
+            <div>
+              <div className="text-cd-text-tertiary">漏采时段</div>
+              <div className="text-cd-text font-medium">{credibility.missing_periods?.length || 0} 段</div>
+            </div>
+            <div>
+              <div className="text-cd-text-tertiary">采样偏差</div>
+              <div className="text-cd-text font-medium">±{credibility.sampling_deviation}s</div>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-cd-text-tertiary">
+            ℹ️ 本日报数据基于自动截屏采集，可信度由 Windows 事件日志对比校准
+          </p>
+        </div>
+      )}
+
+      {/* ─── 我的模板列表 ────────────── */}
+      {customTemplates.length > 0 && (
+        <div className="card p-4">
+          <h3 className="text-sm font-medium text-cd-text mb-3 flex items-center gap-2">
+            <BookOpen size={14} />
+            我的模板
+          </h3>
+          <div className="space-y-2">
+            {customTemplates.map((tpl) => (
+              <div key={tpl.id} className="flex items-center justify-between bg-cd-bg-secondary rounded-lg px-3 py-2 border border-cd-border">
+                <button onClick={() => handleLoadTemplate(tpl)}
+                  className="flex-1 text-left text-sm text-cd-text hover:text-cd-green transition-colors truncate">
+                  {tpl.name}
+                </button>
+                <button onClick={() => handleDeleteTemplate(tpl.id)}
+                  className="ml-2 p-1 text-cd-text-tertiary hover:text-cd-red transition-colors"
+                  title="删除模板">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── 保存模板弹窗 ────────────── */}
+      {showSaveModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowSaveModal(false)}>
+          <div className="bg-cd-card p-6 rounded-lg border border-cd-border max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-medium text-cd-text mb-4">保存为我的模板</h3>
+            <input
+              type="text"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="模板名称（如：周报-技术向）"
+              maxLength={50}
+              autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveTemplate() }}
+              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors mb-4"
+            />
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => { setShowSaveModal(false); setTemplateName('') }}
+                className="px-4 py-2 text-sm text-cd-text-tertiary hover:text-cd-text">取消</button>
+              <button onClick={handleSaveTemplate}
+                className="px-4 py-2 text-sm bg-cd-green text-white rounded hover:opacity-90">保存</button>
+            </div>
           </div>
         </div>
       )}

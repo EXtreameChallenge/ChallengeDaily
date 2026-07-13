@@ -1,11 +1,13 @@
 from flask import Blueprint, jsonify, request
 from datetime import date, datetime
 import time
+import logging
 import config
 import routes.deps as deps
 from routes.deps import validate_date
 
 bp = Blueprint('health', __name__)
+logger = logging.getLogger(__name__)
 
 # 截图目录大小缓存
 _ss_size_cache = None
@@ -398,3 +400,62 @@ def deep_health():
         'checks': checks,
         'timestamp': time.time(),
     })
+
+
+# ──────────────────────────────────────────────────────────────────
+# 数据可信度 —— 日报数据可信度证明（供 Report.tsx 渲染卡片）
+# ──────────────────────────────────────────────────────────────────
+
+def _calculate_credibility_for_date(date_str: str) -> dict:
+    """计算指定日期的数据可信度。
+
+    复用现有 activities 表数据，结合采集跨度与采集条数计算可信度分数。
+    返回:
+      {"score": int, "coverage": int, "missing": list, "deviation": int}
+    任何异常都返回零值，确保日报生成不会因可信度计算失败而中断。
+    """
+    try:
+        import db
+        with db.get_conn() as conn:
+            # 当日采集次数 + 采集跨度（分钟）
+            row = conn.execute("""
+                SELECT COUNT(*) as cnt,
+                       (julianday(MAX(end_time)) - julianday(MIN(start_time))) * 24 * 60 as span_min
+                FROM activities WHERE date(start_time) = ?
+            """, (date_str,)).fetchone()
+            activity_count = row[0] if row else 0
+            span_min = row[1] if row else 0
+            # 简化覆盖率：采集跨度 / 8 小时（工作日基准）
+            expected_min = 480  # 8 小时
+            coverage = min(100, int(span_min / expected_min * 100)) if expected_min > 0 else 0
+            score = min(100, activity_count * 2 + coverage // 2)
+            return {
+                "score": score,
+                "coverage": coverage,
+                "missing": [],
+                "deviation": 0,
+            }
+    except Exception as e:
+        logger.warning(f"可信度计算异常: {e}")
+        return {"score": 0, "coverage": 0, "missing": [], "deviation": 0}
+
+
+@bp.route('/api/credibility/daily-report')
+def credibility_daily_report():
+    """数据可信度日报（供 Report.tsx 渲染）"""
+    today = date.today().isoformat()
+    try:
+        result = _calculate_credibility_for_date(today)
+        score = result["score"]
+        level = "high" if score >= 80 else "medium" if score >= 50 else "low"
+        return jsonify({
+            "date": today,
+            "credibility_score": score,
+            "coverage_rate": result["coverage"],
+            "missing_periods": result["missing"],
+            "sampling_deviation": result["deviation"],
+            "level": level,
+        })
+    except Exception as e:
+        logger.error(f"可信度计算失败: {e}", exc_info=True)
+        return jsonify({"error": "计算失败"}), 500

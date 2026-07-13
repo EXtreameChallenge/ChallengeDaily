@@ -3,7 +3,7 @@ import { getStatus, getSettings, updateSettings, testAiConnection, downloadExpor
 import { ToggleSwitch, useTimeout, useAsyncData, ApiErrorDisplay } from '../components/shared'
 import { useToast } from '../components/Toast'
 import { useTheme, ACCENT_PRESETS, FONT_PRESETS, RADIUS_PRESETS, SHADOW_PRESETS, OPACITY_PRESETS, SKIN_PRESETS } from '../components/ThemeContext'
-import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon, Cat, Rocket } from 'lucide-react'
+import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon, Cat, Rocket, Search } from 'lucide-react'
 import dayjs from 'dayjs'
 
 export default function Settings() {
@@ -52,6 +52,25 @@ export default function Settings() {
   const [petVisible, setPetVisible] = useState<boolean>(() => localStorage.getItem('cd_pet_visible') !== '0')
   // 开机自启动
   const [autoStart, setAutoStart] = useState(false)
+  // 设置搜索
+  const [searchQuery, setSearchQuery] = useState('')
+  const [highlightedSection, setHighlightedSection] = useState<string>('')
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+    if (!query.trim()) { setHighlightedSection(''); return }
+    // 简单匹配：遍历设置分区标题
+    const sections = ['外观', '采集', 'AI', '日报', '数据', '备份', '隐私', '关于']
+    const match = sections.find(s => s.toLowerCase().includes(query.toLowerCase()))
+    if (match) {
+      setHighlightedSection(match)
+      // 滚动到对应区域
+      const el = document.getElementById(`settings-section-${match}`)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } else {
+      setHighlightedSection('')
+    }
+  }
   useEffect(() => {
     const sync = () => setPetVisible(localStorage.getItem('cd_pet_visible') !== '0')
     window.addEventListener('cd-pet-visible-change', sync)
@@ -297,8 +316,23 @@ export default function Settings() {
         </button>
       </div>
 
+      {/* ─── 设置搜索 ──────────────────────────── */}
+      <div className="relative">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => handleSearch(e.target.value)}
+          placeholder="搜索设置项...（外观/采集/AI/日报/数据/备份/隐私/关于）"
+          className="w-full px-3 py-2 pl-9 bg-cd-bg-secondary border border-cd-border rounded-lg text-sm text-cd-text focus:outline-none focus:ring-1 focus:ring-cd-green"
+        />
+        <Search className="absolute left-3 top-2.5 w-4 h-4 text-cd-text-tertiary" />
+      </div>
+
       {/* ─── 外观设置 ──────────────────────────── */}
-      <section className="card space-y-4">
+      <section
+        id="settings-section-外观"
+        className={`card space-y-4 ${highlightedSection === '外观' ? 'ring-2 ring-cd-green' : ''}`}
+      >
         <div className="flex items-center gap-2">
           <Palette size={16} className="text-cd-green" />
           <h2 className="text-sm font-semibold text-cd-text">外观设置</h2>
@@ -551,7 +585,10 @@ export default function Settings() {
       </section>
 
       {/* ─── 采集设置 ────────────────────────── */}
-      <section className="card space-y-4">
+      <section
+        id="settings-section-采集"
+        className={`card space-y-4 ${highlightedSection === '采集' ? 'ring-2 ring-cd-green' : ''}`}
+      >
         <div className="flex items-center gap-2">
           <Server size={16} className="text-cd-green" />
           <h2 className="text-sm font-semibold text-cd-text">采集设置</h2>
@@ -649,7 +686,10 @@ export default function Settings() {
       </section>
 
       {/* ─── AI 配置 ──────────────────────────── */}
-      <section className="card space-y-4">
+      <section
+        id="settings-section-AI"
+        className={`card space-y-4 ${highlightedSection === 'AI' ? 'ring-2 ring-cd-green' : ''}`}
+      >
         <div className="flex items-center gap-2">
           <Bot size={16} className="text-cd-green" />
           <h2 className="text-sm font-semibold text-cd-text">AI 配置</h2>
@@ -770,7 +810,10 @@ export default function Settings() {
       </section>
 
       {/* ─── 日报自定义指令 ─────────────────────── */}
-      <section className="card space-y-4">
+      <section
+        id="settings-section-日报"
+        className={`card space-y-4 ${highlightedSection === '日报' ? 'ring-2 ring-cd-green' : ''}`}
+      >
         <div className="flex items-center gap-2">
           <FileText size={16} className="text-cd-green" />
           <h2 className="text-sm font-semibold text-cd-text">日报自定义指令</h2>
@@ -794,7 +837,10 @@ export default function Settings() {
       </section>
 
       {/* ─── 数据导出 ──────────────────────────── */}
-      <section className="card space-y-4">
+      <section
+        id="settings-section-数据"
+        className={`card space-y-4 ${highlightedSection === '数据' ? 'ring-2 ring-cd-green' : ''}`}
+      >
         <div className="flex items-center gap-2">
           <Download size={16} className="text-cd-green" />
           <h2 className="text-sm font-semibold text-cd-text">数据导出</h2>
@@ -847,7 +893,10 @@ export default function Settings() {
       </section>
 
       {/* ─── 数据备份与恢复 ────────────────────── */}
-      <section className="card space-y-4">
+      <section
+        id="settings-section-备份"
+        className={`card space-y-4 ${highlightedSection === '备份' ? 'ring-2 ring-cd-green' : ''}`}
+      >
         <div className="flex items-center gap-2">
           <Database size={16} className="text-cd-green" />
           <h2 className="text-sm font-semibold text-cd-text">数据备份与恢复</h2>
@@ -901,7 +950,10 @@ export default function Settings() {
       </section>
 
       {/* ─── 隐私说明 ──────────────────────────── */}
-      <section className="card space-y-4">
+      <section
+        id="settings-section-隐私"
+        className={`card space-y-4 ${highlightedSection === '隐私' ? 'ring-2 ring-cd-green' : ''}`}
+      >
         <div className="flex items-center gap-2">
           <Shield size={16} className="text-cd-green" />
           <h2 className="text-sm font-semibold text-cd-text">隐私保护</h2>
@@ -917,7 +969,10 @@ export default function Settings() {
       </section>
 
       {/* ─── 关于与更新 ────────────────────────── */}
-      <section className="card space-y-4">
+      <section
+        id="settings-section-关于"
+        className={`card space-y-4 ${highlightedSection === '关于' ? 'ring-2 ring-cd-green' : ''}`}
+      >
         <div className="flex items-center gap-2">
           <Info size={16} className="text-cd-green" />
           <h2 className="text-sm font-semibold text-cd-text">关于与更新</h2>

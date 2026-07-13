@@ -21,6 +21,10 @@ function ensureBaseUrl(): Promise<void> {
 // 启动时也立即触发一次（兼容现有调用模式）
 ensureBaseUrl()
 
+// 导出供 SSE 等场景使用
+export function getBaseUrl(): string { return BASE_URL }
+export { getApiToken, ensureBaseUrl }
+
 // ── 后端连接状态管理（企业级断线重连机制） ──
 type BackendState = 'connected' | 'disconnected' | 'connecting'
 let _backendState: BackendState = 'connecting'
@@ -352,10 +356,60 @@ export async function generateMonthlyReport(month?: string): Promise<ReportConte
   return data as ReportContent
 }
 
+// ── 自定义日报模板 ──
+export interface CustomTemplate {
+  id: number
+  name: string
+  content: string
+}
+export async function getCustomTemplates(): Promise<{ templates: CustomTemplate[] }> {
+  const data = await request('/api/reports/templates')
+  return data as { templates: CustomTemplate[] }
+}
+export async function saveCustomTemplate(name: string, content: string): Promise<{ status: string; templates: CustomTemplate[] }> {
+  const data = await request('/api/reports/templates', {
+    method: 'POST',
+    body: JSON.stringify({ name, content }),
+  })
+  return data as { status: string; templates: CustomTemplate[] }
+}
+export async function deleteCustomTemplate(id: number): Promise<{ status: string; templates: CustomTemplate[] }> {
+  const data = await request(`/api/reports/templates?id=${id}`, { method: 'DELETE' })
+  return data as { status: string; templates: CustomTemplate[] }
+}
+
 /** 获取已有日报内容 */
 export async function getDailyReportContent(): Promise<ReportContent> {
   const data = await request('/api/report/daily/content')
   return data as ReportContent
+}
+
+/** 番茄统计汇总（供日报番茄统计卡片渲染） */
+export interface PomodoroSummary {
+  date: string
+  total: number
+  completed: number
+  total_min: number
+  distractions: number
+}
+
+export async function getPomodoroSummary(date?: string): Promise<PomodoroSummary> {
+  const params = date ? `?date=${date}` : ''
+  return await request(`/api/report/pomodoro-summary${params}`) as PomodoroSummary
+}
+
+/** 数据可信度（供日报可信度卡片渲染） */
+export interface DailyCredibility {
+  date: string
+  credibility_score: number
+  coverage_rate: number
+  missing_periods: unknown[]
+  sampling_deviation: number
+  level: 'high' | 'medium' | 'low'
+}
+
+export async function getDailyCredibility(): Promise<DailyCredibility> {
+  return await request('/api/credibility/daily-report') as DailyCredibility
 }
 
 /** 手动截图 */
@@ -454,6 +508,17 @@ export interface RecentHeatmapDay {
 export async function getRecentHeatmap(days = 3): Promise<{ days: number; data: RecentHeatmapDay[] }> {
   const data = await request(`/api/stats/recent-heatmap?days=${days}`)
   return data as { days: number; data: RecentHeatmapDay[] }
+}
+
+// 分心热点图：24小时分心次数分布
+export interface DistractionHeatmapEntry {
+  hour: number
+  count: number
+  duration_min: number
+}
+export async function getDistractionHeatmap(days = 7): Promise<{ heatmap: DistractionHeatmapEntry[]; days: number }> {
+  const data = await request(`/api/stats/distraction-heatmap?days=${days}`)
+  return data as { heatmap: DistractionHeatmapEntry[]; days: number }
 }
 
 /** 测试 AI API 连接 */
@@ -1017,6 +1082,14 @@ export async function getPomodoroSessions(date?: string): Promise<{ sessions: Po
 
 export async function getPomodoroStats(range?: string): Promise<{ stats: Array<{ d: string; cnt: number; total_min: number }>; today: { count: number; total_min: number }; streak: number }> {
   return request(`/api/pomodoro/stats?range=${range || 'week'}`) as Promise<{ stats: Array<{ d: string; cnt: number; total_min: number }>; today: { count: number; total_min: number }; streak: number }>
+}
+
+// 番茄运行期间分心检测（前端定时调用，由后端查询前台应用分类）
+export async function checkPomodoroDistraction(sessionId: number): Promise<{ is_distraction: boolean; category: string; app_name: string; distraction_count: number }> {
+  return request('/api/pomodoro/distraction-check', {
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId }),
+  }) as Promise<{ is_distraction: boolean; category: string; app_name: string; distraction_count: number }>
 }
 
 // ── 待办清单 ──

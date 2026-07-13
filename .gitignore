@@ -17,6 +17,8 @@ pnpm-lock.yaml
 # Build outputs
 dist/
 dist-electron/
+dist-electron-tmp/
+dist-electron-tmp*/
 client/dist/
 out/
 
@@ -53,6 +55,10 @@ desktop.ini
 
 # Temp files
 .temp/
+.superpowers/
+tmp_*.diff
+check_db.py
+scripts/_test_singleton.py
 
 # Python cache
 .pytest_cache/

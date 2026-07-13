@@ -49,6 +49,7 @@ export default function Pet() {
   const [isDragging, setIsDragging] = useState(false)
   const [eyeBlink, setEyeBlink] = useState(false)
   const [tailWag, setTailWag] = useState(0)
+  const [distractionAlert, setDistractionAlert] = useState<{ app: string; count: number } | null>(null)
 
   const config = PET_CONFIGS[style]
 
@@ -120,6 +121,18 @@ export default function Pet() {
     if (bubbleTimer.current) window.clearTimeout(bubbleTimer.current)
     bubbleTimer.current = window.setTimeout(() => setBubbleVisible(false), duration)
   }, [])
+
+  // 监听分心告警（来自 Focus 番茄钟检测）→ 宠物变红 + 气泡提示
+  useEffect(() => {
+    if (!window.electronAPI?.onDistractionAlert) return
+    window.electronAPI.onDistractionAlert((data) => {
+      setDistractionAlert(data)
+      showBubble(`别分心！${data.app}`, 5000)
+      // 10 秒后自动恢复
+      if (happyTimer.current) window.clearTimeout(happyTimer.current)
+      happyTimer.current = window.setTimeout(() => setDistractionAlert(null), 10000)
+    })
+  }, [showBubble])
 
   const handlePetClick = useCallback(() => {
     if (isDragging) return
@@ -247,7 +260,9 @@ export default function Pet() {
       {/* 宠物本体 */}
       <div style={{
         width: config.width, height: config.height, position: 'relative',
-        transition: 'transform 0.2s ease', transform: hover && !isDragging ? 'scale(1.05)' : 'scale(1)',
+        transition: 'transform 0.2s ease, filter 0.3s ease',
+        transform: hover && !isDragging ? 'scale(1.05)' : 'scale(1)',
+        filter: distractionAlert ? 'drop-shadow(0 0 8px rgba(239,68,68,0.8)) hue-rotate(-20deg) saturate(1.5)' : 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))',
       }}>
         {hover && (
           <button data-pet-no-drag onClick={(e) => { e.stopPropagation(); window.electronAPI?.togglePet(false) }}

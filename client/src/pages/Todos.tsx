@@ -39,10 +39,21 @@ export default function Todos() {
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('确定删除该待办？')) return
+  const handleDelete = async (todo: TodoV2) => {
+    // E6: 删除级联提示 — 有关联番茄记录时警告
+    const pomCount = todo.pomodoro_count || 0
+    const hasProgress = (todo.progress_min || 0) > 0
+    let msg = '确定删除该待办？'
+    if (pomCount > 0 && hasProgress) {
+      msg = `该待办已有 ${pomCount} 个番茄记录（${todo.progress_min}分钟进度），删除后关联数据将一并清除。确定删除？`
+    } else if (pomCount > 0) {
+      msg = `该待办已有 ${pomCount} 个番茄记录，删除后关联数据将一并清除。确定删除？`
+    } else if (hasProgress) {
+      msg = `该待办已有 ${todo.progress_min}分钟进度记录，删除后无法恢复。确定删除？`
+    }
+    if (!window.confirm(msg)) return
     try {
-      await deleteTodo(id)
+      await deleteTodo(todo.id)
       load()
     } catch (e) {
       toast.error('删除失败，请重试')
@@ -131,7 +142,7 @@ export default function Todos() {
             <Play size={12} /> 开始专注
           </button>
         )}
-        <button onClick={() => handleDelete(todo.id)} className="text-cd-text-secondary hover:text-red-400 transition shrink-0">
+        <button onClick={() => handleDelete(todo)} className="text-cd-text-secondary hover:text-red-400 transition shrink-0">
           <Trash2 size={16} />
         </button>
       </div>

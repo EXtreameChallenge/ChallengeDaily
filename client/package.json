@@ -1,6 +1,6 @@
 {
   "name": "challenge-daily",
-  "version": "2.8.0",
+  "version": "3.1.0",
   "description": "ChallengeDaily Windows - AI Work Daily Report Assistant",
   "type": "module",
   "main": "electron/main.cjs",
@@ -54,7 +54,7 @@
     "appId": "com.challenge.daily",
     "productName": "ChallengeDaily",
     "directories": {
-      "output": "dist-electron-tmp3"
+      "output": "dist-electron-tmp4"
     },
     "files": [
       "dist/**/*",
@@ -188,6 +188,10 @@
       {
         "from": "../screenshot_redactor.py",
         "to": "backend/screenshot_redactor.py"
+      },
+      {
+        "from": "../event_bus.py",
+        "to": "backend/event_bus.py"
       },
       {
         "from": "../requirements.txt",

@@ -26,6 +26,8 @@ interface Window {
     pomodoroWidgetUpdate: (data: { phase: string; remaining: number; totalSec: number; task: string; duration: number }) => void
     pomodoroWidgetHide: () => void
     onPomodoroTick: (cb: (data: { phase: string; remaining: number; totalSec: number; task: string; duration: number }) => void) => void
+    sendDistractionAlert: (data: { app: string; count: number }) => void
+    onDistractionAlert: (cb: (data: { app: string; count: number }) => void) => void
     onNavigateTo: (cb: (path: string) => void) => void
     getAutoStart: () => Promise<boolean>
     setAutoStart: (enabled: boolean) => Promise<boolean>

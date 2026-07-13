@@ -14,9 +14,29 @@ from app_tracker import get_display_name
 from db import get_activities, get_daily_summary, get_app_usage, save_report
 from config import REPORT_DIR
 import config
+import db as _db
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _get_pomodoro_summary_line(target_date: str) -> str:
+    """构造一行番茄统计文本，注入到 AI 日报 prompt 上下文中。
+
+    复用 db.get_pomodoro_sessions 查询当日会话；失败时返回空串不影响日报生成。
+    """
+    try:
+        sessions = _db.get_pomodoro_sessions(target_date)
+        completed = [s for s in sessions if s.get('status') == 'completed']
+        total_min = sum(s.get('duration_min', 0) for s in completed)
+        distractions = sum(s.get('interrupted_count', 0) or 0 for s in sessions)
+        if not sessions:
+            return ""
+        return (f"番茄统计：今日完成 {len(completed)} 个番茄"
+                f"（{total_min}分钟），分心 {distractions} 次")
+    except Exception as e:
+        logger.debug(f"番茄统计行构造失败(非致命): {e}")
+        return ""
 
 
 # ── 公共工具函数 ──────────────────────────────────
@@ -1075,6 +1095,12 @@ def _build_rich_data_context(target_date, summary_data, app_usage, activities) -
     lines.append(f"专注时长：{focus_hours}，深度会话 {focus_sessions} 次")
     lines.append("")
 
+    # 注入番茄统计（一行，不超过 100 字符，不影响 prompt 预算）
+    pomo_line = _get_pomodoro_summary_line(target_date)
+    if pomo_line:
+        lines.append(pomo_line)
+        lines.append("")
+
     # 心流与专注
     lines.append("═══ 心流与专注 ═══")
     focus_ses = patterns.get("focus_sessions", [])
@@ -1554,6 +1580,11 @@ def _build_ai_report_prompt(target_date: str, activities, summary_data, app_usag
     for cat, cnt in (summary_data.get("categories") or {}).items():
         lines.append(f"- {cat}: {cnt} 次记录")
 
+    # 注入番茄统计（一行，不超过 100 字符，不影响 _USER_PROMPT_BUDGET）
+    pomo_line = _get_pomodoro_summary_line(target_date)
+    if pomo_line:
+        lines.extend(["", pomo_line])
+
     lines.extend(["", "主要工作段落："])
     for narr in cat_narratives[:8]:
         lines.append(
@@ -1568,6 +1599,23 @@ def _build_ai_report_prompt(target_date: str, activities, summary_data, app_usag
             time_str = _format_duration(total_sec)
             display_name = get_display_name(au["app_name"])
             lines.append(f"- {display_name}: {time_str}")
+
+    # AI 教练：注入今日分心热点时段（若某小时分心≥3次则提示）
+    try:
+        with _db.get_conn() as conn:
+            hot_hour = conn.execute(
+                "SELECT CAST(strftime('%H', timestamp) AS INTEGER) AS hour, COUNT(*) AS cnt "
+                "FROM activities WHERE category='生活' AND date(timestamp)=date('now') "
+                "GROUP BY hour ORDER BY cnt DESC LIMIT 1"
+            ).fetchone()
+            if hot_hour and hot_hour["cnt"] >= 3:
+                lines.append("")
+                lines.append(
+                    f"AI教练：你今天{hot_hour['hour']}点最容易分心（{hot_hour['cnt']}次），"
+                    f"建议该时段开严格模式。"
+                )
+    except Exception:
+        pass
 
     lines.extend(["", "---", "", "请直接输出 Markdown 日报内容，不要包含任何额外说明。"])
     return "\n".join(lines)

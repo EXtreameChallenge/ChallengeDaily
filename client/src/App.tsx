@@ -43,9 +43,9 @@ export default function App() {
     let isCancelled = false
     let attempts = 0
     let timerId: ReturnType<typeof setTimeout> | null = null
-    // 启动阶段最大重试：60次1秒 + 60次5秒 ≈ 6分钟
-    const PHASE1_ATTEMPTS = 60
-    const MAX_ATTEMPTS = 120
+    // E9: 启动阶段最大重试：30次1秒 + 30次3秒 ≈ 2分钟（从6分钟缩短）
+    const PHASE1_ATTEMPTS = 30
+    const MAX_ATTEMPTS = 60
 
     const scheduleNext = (delay: number) => {
       if (isCancelled) return
@@ -68,9 +68,9 @@ export default function App() {
         }
         if (isCancelled) return
         if (attempts === PHASE1_ATTEMPTS) {
-          // 1 秒轮询仍失败，切换到 5 秒轮询
+          // 1 秒轮询仍失败，切换到 3 秒轮询
           setChecking(false)
-          scheduleNext(5000)
+          scheduleNext(3000)
           return
         }
         if (attempts >= MAX_ATTEMPTS) {
@@ -79,7 +79,7 @@ export default function App() {
           return
         }
         // 根据当前阶段决定延迟
-        const currentDelay = attempts < PHASE1_ATTEMPTS ? 1000 : 5000
+        const currentDelay = attempts < PHASE1_ATTEMPTS ? 1000 : 3000
         scheduleNext(currentDelay)
       }, delay)
     }

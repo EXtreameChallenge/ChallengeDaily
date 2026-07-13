@@ -77,6 +77,73 @@ def get_conn():
         raise
 
 
+# T7: 归档数据库路径（与主库同目录下的 archives 子目录）
+_ARCHIVE_DB_PATH = None
+
+def _get_archive_db_path():
+    """获取归档数据库路径（惰性初始化）"""
+    global _ARCHIVE_DB_PATH
+    if _ARCHIVE_DB_PATH is not None:
+        return _ARCHIVE_DB_PATH
+    from config import DATA_DIR
+    archive_dir = DATA_DIR / "archives"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    _ARCHIVE_DB_PATH = archive_dir / "xiaohei-archive.db"
+    return _ARCHIVE_DB_PATH
+
+
+@contextmanager
+def get_conn_with_archive():
+    """获取带归档库 ATTACH 的连接（T7: 跨库查询 live + archived activities）
+
+    用法：
+        with db.get_conn_with_archive() as conn:
+            rows = conn.execute("SELECT * FROM main.activities UNION ALL SELECT * FROM archive.activities")
+
+    退出时自动 DETACH 归档库，避免连接泄漏。
+    """
+    conn = _get_thread_conn()
+    archive_path = _get_archive_db_path()
+    attached = False
+    try:
+        # 确保 archive 库有 activities 表
+        conn.execute(f"ATTACH DATABASE ? AS archive", (str(archive_path),))
+        attached = True
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS archive.activities (
+                id          INTEGER PRIMARY KEY,
+                timestamp   TEXT NOT NULL,
+                screenshot  TEXT,
+                app_name    TEXT,
+                window_title TEXT,
+                category    TEXT,
+                summary     TEXT,
+                interval_sec INTEGER DEFAULT 60,
+                ai_detail   TEXT DEFAULT '',
+                windows_json TEXT DEFAULT '[]',
+                created_at  TEXT,
+                original_id INTEGER,
+                archived_at TEXT DEFAULT (datetime('now','localtime'))
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS archive.idx_archive_ts ON activities(timestamp)")
+        yield conn
+    except sqlite3.DatabaseError as e:
+        logger.error(f"归档连接异常: {e}")
+        try:
+            if attached:
+                conn.execute("DETACH DATABASE archive")
+        except Exception:
+            pass
+        raise
+    finally:
+        if attached:
+            try:
+                conn.execute("DETACH DATABASE archive")
+            except Exception:
+                pass
+
+
 def _execute_with_retry(conn, sql, params=(), max_retries=3):
     """带重试的 SQL 执行（处理 SQLITE_BUSY 锁冲突）"""
     for attempt in range(max_retries):

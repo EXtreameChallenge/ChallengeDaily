@@ -422,6 +422,17 @@ class Collector:
                 ai_detail=ai_detail,
                 windows_json=json.dumps(windows_data, ensure_ascii=False) if windows_data else "[]",
             )
+            # 推送 SSE 事件（活动变化通知前端实时刷新）
+            try:
+                from event_bus import push_event
+                push_event('activity_change', {
+                    "category": category,
+                    "app_name": app_name,
+                    "summary": summary or "",
+                    "timestamp": timestamp,
+                })
+            except Exception:
+                pass
         except Exception as e:
             logger.error(f"insert_activity 失败: {e}", exc_info=True)
 

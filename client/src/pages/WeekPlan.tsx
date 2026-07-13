@@ -1,16 +1,25 @@
-﻿﻿import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import {
   Calendar, CalendarDays, ChevronLeft, ChevronRight, Plus, GripVertical, Play, X, Target,
 } from 'lucide-react'
 import {
   getWeekPlan, getUnassignedTodos, getWeekPlanStats, getMonthPlan, getMonthPlanStats,
-  assignTodo, unassignTodo,
+  assignTodo, unassignTodo, createTodo, request,
   getWeekStart, getWeekDates, getMonthKey,
   type TodoV2, type WeekPlanData, type WeekPlanStats, type MonthPlanData, type MonthPlanStats,
 } from '../api/client'
 import { useToast } from '../components/Toast'
 import TaskDetailModal from '../components/TaskDetailModal'
 import TaskCreateModal from '../components/TaskCreateModal'
+
+// AI 拆解草案任务类型
+interface SplitDraftTask {
+  title: string
+  target_min: number
+  category: string
+  day?: number
+  _checked?: boolean
+}
 
 // ── 常量 ──
 const PRIORITY_COLORS = ['#ef4444', '#f59e0b', '#F0C040', '#10b981', '#6b7280']
@@ -110,6 +119,10 @@ export default function WeekPlan() {
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [modalTodo, setModalTodo] = useState<TodoV2 | null>(null)
+  const [splitDraft, setSplitDraft] = useState<SplitDraftTask[] | null>(null)
+  const [splitLoading, setSplitLoading] = useState(false)
+  const [splitGoalTitle, setSplitGoalTitle] = useState('')
+  const [splitGoalDesc, setSplitGoalDesc] = useState('')
 
   const loadWeek = useCallback(async (ws: string) => {
     try {
@@ -171,6 +184,16 @@ export default function WeekPlan() {
     setDragOverCol(null)
     const todoId = Number(e.dataTransfer.getData('text/plain'))
     if (!todoId || dragId !== todoId) { setDragId(null); return }
+    // E7: 拖拽满负荷阻止 — 检查目标日负载是否超阈值
+    const existingTasks = weekPlan?.day_tasks?.[date] || []
+    const draggedTodo = [...(weekPlan?.day_tasks?.[date] || []), ...unassigned].find(t => t.id === todoId)
+    const currentLoad = dayMin(existingTasks)
+    const newTaskMin = draggedTodo?.target_min || 25
+    if (currentLoad + newTaskMin > DAILY_LIMIT) {
+      error(`${fmtDate(date)} 已达 ${currentLoad}分钟负载（上限 ${DAILY_LIMIT}分钟），无法继续分配`)
+      setDragId(null)
+      return
+    }
     try {
       await assignTodo({ todo_id: todoId, assigned_date: date })
       success(`已分配至 ${fmtDate(date)}`)
@@ -201,6 +224,81 @@ export default function WeekPlan() {
   const refreshAfterModal = () => { if (viewMode === 'month') loadMonth(monthKey); else loadWeek(weekStart) }
   const startFocus = (id: number) => { window.location.hash = '#/focus?todo_id=' + id }
   const dates = weekPlan?.dates || getWeekDates(weekStart)
+
+  // ── AI 拆解目标 ──
+  const handleAutoSplit = async () => {
+    if (!splitGoalTitle.trim()) {
+      error('请先输入目标标题')
+      return
+    }
+    setSplitLoading(true)
+    try {
+      const res = await request('/api/week-plan/auto-split', {
+        method: 'POST',
+        body: JSON.stringify({
+          goal_title: splitGoalTitle,
+          goal_description: splitGoalDesc,
+          week_start: weekStart,
+        }),
+      }, 30000) as { draft_tasks?: SplitDraftTask[]; error?: string }
+      if (res.error) {
+        error(res.error)
+        return
+      }
+      const tasks = (res.draft_tasks || []).map(t => ({ ...t, _checked: true }))
+      setSplitDraft(tasks)
+    } catch (e) {
+      error(e instanceof Error ? e.message : 'AI 拆解失败')
+    } finally {
+      setSplitLoading(false)
+    }
+  }
+
+  const removeSplitTask = (idx: number) => {
+    setSplitDraft(prev => prev ? prev.filter((_, i) => i !== idx) : null)
+  }
+
+  const toggleSplitTask = (idx: number) => {
+    setSplitDraft(prev => prev ? prev.map((t, i) => i === idx ? { ...t, _checked: !t._checked } : t) : null)
+  }
+
+  const updateSplitTask = (idx: number, field: keyof SplitDraftTask, value: string | number) => {
+    setSplitDraft(prev => prev ? prev.map((t, i) => i === idx ? { ...t, [field]: value } : t) : null)
+  }
+
+  const confirmSplit = async () => {
+    if (!splitDraft) return
+    const checked = splitDraft.filter(t => t._checked)
+    if (checked.length === 0) {
+      error('请至少选择一个任务')
+      return
+    }
+    // 按 day 分配到对应日期（day 1-5 -> 周一到周五）
+    const weekDates = getWeekDates(weekStart)
+    let created = 0
+    for (const t of checked) {
+      try {
+        const dayIdx = (t.day || 1) - 1
+        const assignedDate = dayIdx >= 0 && dayIdx < 5 ? weekDates[dayIdx] : ''
+        await createTodo({
+          title: t.title,
+          category: t.category || '开发',
+          target_min: Number(t.target_min) || 25,
+          task_level: 'day',
+          assigned_date: assignedDate || undefined,
+          week_start: weekStart,
+        })
+        created++
+      } catch {
+        // 单条失败继续
+      }
+    }
+    success(`已创建 ${created} 个任务`)
+    setSplitDraft(null)
+    setSplitGoalTitle('')
+    setSplitGoalDesc('')
+    if (viewMode === 'month') loadMonth(monthKey); else loadWeek(weekStart)
+  }
 
   // ── 底部数据条 ──
   function renderBottomBar() {
@@ -494,6 +592,13 @@ export default function WeekPlan() {
             className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
             <Plus size={12} /> 新建
           </button>
+          <button
+            onClick={() => setSplitDraft([])}
+            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-cd-purple/20 text-cd-purple border border-cd-purple/30 hover:bg-cd-purple/30 transition"
+            title="AI 拆解月目标为周待办草案"
+          >
+            🤖 AI 拆解
+          </button>
         </div>
       </div>
 
@@ -517,6 +622,130 @@ export default function WeekPlan() {
         onCreated={handleTaskCreated}
         defaults={{ week_start: weekStart, assigned_date: '' }}
       />
+
+      {/* AI 拆解草案弹窗 */}
+      {splitDraft !== null && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="rounded-lg max-w-2xl w-full max-h-[85vh] overflow-auto flex flex-col" style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)' }}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-cd-border">
+              <h3 className="text-sm font-semibold text-cd-text">🤖 AI 拆解目标为周待办</h3>
+              <button onClick={() => { setSplitDraft(null); setSplitGoalTitle(''); setSplitGoalDesc('') }} className="text-cd-text-tertiary hover:text-cd-text">
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* 目标输入区（草案为空时显示） */}
+            {splitDraft.length === 0 && (
+              <div className="p-5 space-y-3">
+                <div>
+                  <label className="text-xs text-cd-text-tertiary block mb-1">目标标题 *</label>
+                  <input
+                    value={splitGoalTitle}
+                    onChange={e => setSplitGoalTitle(e.target.value)}
+                    placeholder="例如：完成 v3.1.0 版本开发"
+                    className="w-full px-3 py-2 rounded text-sm border border-cd-border"
+                    style={{ background: 'var(--cd-bg-input)', color: 'var(--cd-text)' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-cd-text-tertiary block mb-1">目标描述（可选）</label>
+                  <textarea
+                    value={splitGoalDesc}
+                    onChange={e => setSplitGoalDesc(e.target.value)}
+                    placeholder="补充目标细节、验收标准等"
+                    rows={3}
+                    className="w-full px-3 py-2 rounded text-sm border border-cd-border resize-none"
+                    style={{ background: 'var(--cd-bg-input)', color: 'var(--cd-text)' }}
+                  />
+                </div>
+                <div className="text-xs text-cd-text-tertiary">周开始：{weekStart}</div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => { setSplitDraft(null); setSplitGoalTitle(''); setSplitGoalDesc('') }}
+                    className="px-4 py-2 text-xs text-cd-text-tertiary hover:text-cd-text"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleAutoSplit}
+                    disabled={splitLoading || !splitGoalTitle.trim()}
+                    className="px-4 py-2 text-xs rounded text-white disabled:opacity-50"
+                    style={{ background: 'var(--cd-purple)' }}
+                  >
+                    {splitLoading ? '🤖 拆解中...' : '🤖 开始拆解'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 草案列表（有任务时显示） */}
+            {splitDraft.length > 0 && (
+              <>
+                <div className="px-5 py-2 text-xs text-cd-text-tertiary border-b border-cd-border">
+                  共 {splitDraft.length} 个草案任务，请勾选确认（可编辑标题/分钟数，或删除不需要的项）
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                  {splitDraft.map((task, i) => (
+                    <div key={i} className="flex items-center gap-2 p-2 rounded" style={{ background: 'var(--cd-bg-tertiary)' }}>
+                      <input
+                        type="checkbox"
+                        checked={task._checked !== false}
+                        onChange={() => toggleSplitTask(i)}
+                        className="rounded"
+                      />
+                      <input
+                        value={task.title}
+                        onChange={e => updateSplitTask(i, 'title', e.target.value)}
+                        className="flex-1 px-2 py-1 rounded text-sm border border-cd-border"
+                        style={{ background: 'var(--cd-bg-input)', color: 'var(--cd-text)' }}
+                      />
+                      <input
+                        type="number"
+                        value={task.target_min}
+                        onChange={e => updateSplitTask(i, 'target_min', Number(e.target.value))}
+                        className="w-16 px-2 py-1 rounded text-xs text-center border border-cd-border"
+                        style={{ background: 'var(--cd-bg-input)', color: 'var(--cd-text)' }}
+                        title="预计分钟数"
+                      />
+                      <span className="text-[10px] text-cd-text-tertiary">min</span>
+                      <select
+                        value={task.day || 1}
+                        onChange={e => updateSplitTask(i, 'day', Number(e.target.value))}
+                        className="px-1 py-1 rounded text-[10px] border border-cd-border"
+                        style={{ background: 'var(--cd-bg-input)', color: 'var(--cd-text)' }}
+                      >
+                        {[1, 2, 3, 4, 5].map(d => <option key={d} value={d}>周{['一', '二', '三', '四', '五'][d - 1]}</option>)}
+                      </select>
+                      <button
+                        onClick={() => removeSplitTask(i)}
+                        className="text-red-400 hover:text-red-300 px-1"
+                        title="删除"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end gap-3 px-5 py-3 border-t border-cd-border">
+                  <button
+                    onClick={() => { setSplitDraft([]); setSplitGoalTitle(''); setSplitGoalDesc('') }}
+                    className="px-4 py-2 text-xs text-cd-text-tertiary hover:text-cd-text"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={confirmSplit}
+                    className="px-4 py-2 text-xs rounded text-white"
+                    style={{ background: 'var(--cd-green)' }}
+                  >
+                    确认创建（{splitDraft.filter(t => t._checked !== false).length}）
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
