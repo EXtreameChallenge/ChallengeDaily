@@ -10,7 +10,7 @@ import {
   CATEGORY_COLORS, formatLocalDate, getWeekStart, getWeekDates, getMonthKey,
   type TodoV2, type WeekPlanStats, type MonthPlanStats,
 } from '../api/client'
-import { Flame, TrendingUp, Calendar, CalendarDays, CalendarRange, Clock, Loader2 } from 'lucide-react'
+import { Flame, TrendingUp, Calendar, CalendarDays, CalendarRange, Clock, Loader2, LayoutDashboard } from 'lucide-react'
 
 /** 简单进度条 */
 function ProgressBar({ value, color = 'var(--cd-green)' }: { value: number; color?: string }) {
@@ -239,9 +239,12 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold text-cd-text">进度仪表盘</h1>
           <p className="text-xs text-cd-text-tertiary mt-1">
-            本周 {weekStart} · 今日 {todayStr}
+            年/月/周/日四级进度穿透 · 燃尽图 · 连续天数 · 分类分布
           </p>
         </div>
+        <a href="#/" className="text-sm text-cd-green hover:underline flex items-center gap-1">
+          <LayoutDashboard className="w-4 h-4" /> 返回今日总览
+        </a>
       </div>
 
       {/* 顶部：四级进度穿透卡片 */}

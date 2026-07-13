@@ -246,7 +246,10 @@ export default function Todos() {
   return (
     <div className="min-h-screen p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-cd-text">待办清单</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-cd-text">待办清单</h1>
+          <p className="text-xs text-cd-text-tertiary mt-1">快速管理任务 · 点击卡片可启动番茄专注</p>
+        </div>
         <div className="flex items-center gap-2">
           {/* 过滤器 */}
           <div className="flex items-center gap-1 bg-cd-bg-card rounded-lg border border-white/5 p-0.5">

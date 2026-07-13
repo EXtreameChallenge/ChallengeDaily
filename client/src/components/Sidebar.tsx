@@ -35,48 +35,42 @@ import { useTheme } from './ThemeContext'
 
 const NAV_GROUPS = [
   {
-    label: '核心工作',
+    label: '工作台',
     items: [
-      { to: '/', icon: LayoutDashboard, label: '今日工作' },
-      { to: '/report', icon: FileText, label: '生成报告' },
+      { to: '/', icon: LayoutDashboard, label: '今日总览' },
+    ]
+  },
+  {
+    label: '计划与执行',
+    items: [
       { to: '/week-plan', icon: CalendarDays, label: '周计划' },
-    ]
-  },
-  {
-    label: '效率工具',
-    items: [
-      { to: '/focus', icon: Timer, label: '专注' },
       { to: '/todos', icon: CheckSquare, label: '待办清单' },
-      { to: '/habits', icon: Flame, label: '习惯追踪' },
+      { to: '/focus', icon: Timer, label: '专注番茄' },
     ]
   },
   {
-    label: '数据回顾',
+    label: '数据与回顾',
     items: [
       { to: '/dashboard', icon: TrendingUp, label: '进度仪表盘' },
       { to: '/timeline', icon: Clock, label: '工作时间线' },
       { to: '/heatmap', icon: Grid3X3, label: '时段热力图' },
       { to: '/apps', icon: AppWindow, label: '应用记录' },
+      { to: '/report', icon: FileText, label: '生成报告' },
       { to: '/history', icon: History, label: '历史报告' },
       { to: '/export', icon: Download, label: '数据导出' },
       { to: '/health', icon: Activity, label: '数据校准' },
     ]
   },
   {
-    label: '生活记录',
+    label: 'AI 与生活',
     items: [
-      { to: '/diary', icon: BookOpen, label: '每日日记' },
-      { to: '/achievements', icon: Trophy, label: '成就墙' },
-      { to: '/countdowns', icon: Calendar, label: '倒数日' },
-    ]
-  },
-  {
-    label: 'AI 智能',
-    items: [
+      { to: '/ai-chat', icon: Bot, label: 'AI 对话' },
+      { to: '/ai-coach', icon: Sparkles, label: 'AI 教练' },
       { to: '/profile', icon: Brain, label: '深度画像' },
-      { to: '/ai-chat', icon: Bot, label: 'AI对话' },
-      { to: '/ai-coach', icon: Sparkles, label: 'AI教练' },
-      { to: '/agent', icon: Bot, label: '接入Agent' },
+      { to: '/diary', icon: BookOpen, label: '每日日记' },
+      { to: '/habits', icon: Flame, label: '习惯追踪' },
+      { to: '/countdowns', icon: Calendar, label: '倒数日' },
+      { to: '/achievements', icon: Trophy, label: '成就墙' },
     ]
   },
 ]

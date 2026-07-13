@@ -21,7 +21,7 @@ import {
   type RecentHeatmapDay,
 } from '../api/client'
 import {
-  Clock, Monitor, Zap, TrendingUp, Camera, Focus,
+  Clock, Monitor, Zap, TrendingUp, Camera, Focus, CalendarDays,
   Activity as ActivityIcon, Play, ArrowRight,
 } from 'lucide-react'
 import dayjs from 'dayjs'
@@ -299,6 +299,21 @@ export default function Overview() {
             <p className="text-3xl font-bold text-cd-text font-display tracking-tight">{peakPeriod ? rhythmShort[peakPeriod] || peakPeriod.split(' ')[0] : '-'}</p>
             <p className="text-xs text-cd-text-tertiary mt-0.5">主要分类 · {topCategory}</p>
           </div>
+        </div>
+
+        {/* 快捷入口：查看完整进度仪表盘 */}
+        <div className="flex items-center gap-3 mt-5">
+          <a href="#/dashboard" className="text-sm text-cd-green hover:underline flex items-center gap-1">
+            <TrendingUp size={14} /> 查看完整进度仪表盘
+          </a>
+          <span className="text-cd-text-tertiary">·</span>
+          <a href="#/week-plan" className="text-sm text-cd-green hover:underline flex items-center gap-1">
+            <CalendarDays size={14} /> 前往周计划
+          </a>
+          <span className="text-cd-text-tertiary">·</span>
+          <a href="#/focus" className="text-sm text-cd-green hover:underline flex items-center gap-1">
+            <Focus size={14} /> 开始专注
+          </a>
         </div>
       </div>
 
