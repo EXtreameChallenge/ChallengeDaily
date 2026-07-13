@@ -170,6 +170,26 @@
         "to": "backend/install_deps.py"
       },
       {
+        "from": "../observability.py",
+        "to": "backend/observability.py"
+      },
+      {
+        "from": "../backup_scheduler.py",
+        "to": "backend/backup_scheduler.py"
+      },
+      {
+        "from": "../db_consistency_check.py",
+        "to": "backend/db_consistency_check.py"
+      },
+      {
+        "from": "../feature_flags.py",
+        "to": "backend/feature_flags.py"
+      },
+      {
+        "from": "../screenshot_redactor.py",
+        "to": "backend/screenshot_redactor.py"
+      },
+      {
         "from": "../requirements.txt",
         "to": "backend/requirements.txt"
       },
