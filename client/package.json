@@ -54,7 +54,7 @@
     "appId": "com.challenge.daily",
     "productName": "ChallengeDaily",
     "directories": {
-      "output": "dist-electron-tmp"
+      "output": "dist-electron-tmp3"
     },
     "files": [
       "dist/**/*",
