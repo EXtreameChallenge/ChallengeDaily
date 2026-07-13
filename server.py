@@ -78,15 +78,27 @@ def _is_sse_path(path: str) -> bool:
 
 
 # P0-04: Rate Limiting（内存实现，单进程足够），防暴力枚举 token
+# 注意：本地桌面应用场景下，前端启动时会并发发起几十个请求（diaries/settings/status/ai-chat 等），
+# 若限制过严会触发 429 雪崩（前端重试→更多请求→更多 429）。
+# 因此对 localhost 豁免 rate limit（已有 token 鉴权 + auth_fail 锁定兜底安全），
+# 仅对非 localhost IP 保留 rate limit，防止外部暴力枚举。
 _RATE_LIMIT_WINDOW = 60      # 60秒窗口
-_RATE_LIMIT_MAX = 60         # 每IP每窗口60次
+_RATE_LIMIT_MAX = 300        # 每IP每窗口300次（对外部IP，localhost豁免）
 _AUTH_FAIL_LIMIT = 5         # 鉴权失败5次锁定
 _AUTH_FAIL_LOCK_SEC = 900    # 锁定15分钟
 _rate_limit_store = defaultdict(list)   # ip -> [timestamps]
 _auth_fail_store = defaultdict(list)    # ip -> [fail timestamps]
 
 
+def _is_localhost(ip: str) -> bool:
+    """判断是否为本机回环地址（本地桌面应用，豁免 rate limit）"""
+    return ip in ('127.0.0.1', '::1', 'localhost', 'unknown')
+
+
 def _check_rate_limit(ip: str) -> bool:
+    # localhost 豁免：本地桌面应用已有 token 鉴权，无需 rate limit
+    if _is_localhost(ip):
+        return True
     now = time.time()
     _rate_limit_store[ip] = [t for t in _rate_limit_store[ip] if now - t < _RATE_LIMIT_WINDOW]
     if len(_rate_limit_store[ip]) >= _RATE_LIMIT_MAX:

@@ -418,10 +418,11 @@ def _calculate_credibility_for_date(date_str: str) -> dict:
         import db
         with db.get_conn() as conn:
             # 当日采集次数 + 采集跨度（分钟）
+            # activities 表使用 timestamp 列（非 start_time/end_time）
             row = conn.execute("""
                 SELECT COUNT(*) as cnt,
-                       (julianday(MAX(end_time)) - julianday(MIN(start_time))) * 24 * 60 as span_min
-                FROM activities WHERE date(start_time) = ?
+                       (julianday(MAX(timestamp)) - julianday(MIN(timestamp))) * 24 * 60 as span_min
+                FROM activities WHERE date(timestamp) = ?
             """, (date_str,)).fetchone()
             activity_count = row[0] if row else 0
             span_min = row[1] if row else 0
