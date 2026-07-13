@@ -236,8 +236,12 @@ async function _doStartBackend() {
       // 真正的打包后环境
       mainScript = packagedMain
       backendDir = path.dirname(mainScript)
+      // 优先使用系统标准 Python 安装（避免 PATH 中被第三方 venv 覆盖）
+      const standardPython = 'C:\\Users\\Challenge\\AppData\\Local\\Programs\\Python\\Python311\\python.exe'
       const embeddedPython = path.join(process.resourcesPath, 'python', 'python.exe')
-      if (fs.existsSync(embeddedPython)) {
+      if (fs.existsSync(standardPython)) {
+        pythonExe = standardPython
+      } else if (fs.existsSync(embeddedPython)) {
         pythonExe = embeddedPython
       }
     } else {
