@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, memo, useMemo, useRef } from 'react'
+import { useState, useEffect, memo, useMemo, useRef } from 'react'
 import { getActivities, searchActivities, deleteActivity, undoDeleteActivity, getAppIconUrl, CATEGORY_COLORS, CATEGORIES, type Activity, type VisibleWindow } from '../api/client'
 import { CategoryFilter, useAsyncData, ApiErrorDisplay, useNewIds, RefreshIndicator } from '../components/shared'
 import { useToast } from '../components/Toast'
@@ -8,10 +8,6 @@ import ActivityEditModal from '../components/ActivityEditModal'
 import { Search, Pencil, X, Plus, Trash2, Loader2 } from 'lucide-react'
 import dayjs from 'dayjs'
 
-// 虚拟滚动常量 — 不再固定行高，改为自适应高度
-// 估算行高用于滚动条定位（仅影响滚动条高度，不影响实际渲染）
-const ESTIMATED_ITEM_HEIGHT = 120
-const VISIBLE_BUFFER = 30
 // 图标缓存 TTL（7 天）
 const ICON_CACHE_TTL = 7 * 24 * 60 * 60 * 1000
 
@@ -40,12 +36,6 @@ export default function Timeline() {
   const [iconUrls, setIconUrls] = useState<Record<string, string>>({})
   // T6: 图标内存缓存（TTL 7 天），避免重复请求
   const iconCache = useRef(new Map<string, { icon: string; expire: number }>())
-
-  // 虚拟滚动：记录每个条目的实际高度（用 ResizeObserver 或默认估算值）
-  const itemHeightMap = useRef(new Map<number, number>())  // index -> actual height
-  const [renderRange, setRenderRange] = useState({ start: 0, end: VISIBLE_BUFFER })
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const itemRefs = useRef(new Map<number, HTMLDivElement>())  // index -> DOM element
 
   // T6: SSE 事件流 — 增量更新（新活动到达时立即刷新，替代高频轮询）
   const { event: sseEvent } = useEventStream()
@@ -182,57 +172,6 @@ export default function Timeline() {
     time: dayjs(act.timestamp).format('HH:mm'),
   }))
 
-  // 虚拟滚动 — 滚动时基于估算高度计算可见范围
-  const handleScroll = useCallback((e: React.UIEvent) => {
-    const scrollTop = (e.target as HTMLElement).scrollTop
-    const viewportHeight = (e.target as HTMLElement).clientHeight
-    const start = Math.max(0, Math.floor(scrollTop / ESTIMATED_ITEM_HEIGHT) - 5)
-    const end = Math.min(
-      timelineItems.length,
-      Math.ceil((scrollTop + viewportHeight) / ESTIMATED_ITEM_HEIGHT) + 10
-    )
-    setRenderRange((prev) => {
-      if (prev.start === start && prev.end === end) return prev
-      return { start, end }
-    })
-  }, [timelineItems.length])
-
-  // 切换日期/筛选时重置虚拟滚动范围
-  useEffect(() => {
-    setRenderRange({ start: 0, end: VISIBLE_BUFFER })
-    itemHeightMap.current.clear()
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0
-    }
-  }, [selectedDate, filterCategory])
-
-  // ResizeObserver：记录每个条目的实际高度
-  useEffect(() => {
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const idx = Number(entry.target.getAttribute('data-idx'))
-        if (!isNaN(idx)) {
-          itemHeightMap.current.set(idx, entry.contentRect.height)
-        }
-      }
-    })
-    itemRefs.current.forEach((el) => observer.observe(el))
-    return () => observer.disconnect()
-  }, [renderRange, timelineItems])
-
-  // 计算总高度和偏移量（基于实际高度或估算值）
-  const getItemHeight = (idx: number) => itemHeightMap.current.get(idx) || ESTIMATED_ITEM_HEIGHT
-  // 缓存累积偏移量，避免每次渲染重复 reduce
-  const offsetCache = useMemo(() => {
-    const offsets: number[] = [0]
-    for (let i = 1; i <= timelineItems.length; i++) {
-      offsets.push(offsets[i - 1] + getItemHeight(i - 1))
-    }
-    return offsets
-  }, [timelineItems.length, renderRange]) // renderRange 变化时可能高度变了
-  const totalHeight = offsetCache[timelineItems.length] || timelineItems.length * ESTIMATED_ITEM_HEIGHT
-  const topOffset = offsetCache[renderRange.start] || 0
-
   // 切换日期时重置搜索
   const handleDateChange = (date: string) => {
     setSelectedDate(date)
@@ -318,43 +257,21 @@ export default function Timeline() {
         </div>
       ) : (
         <div
-          ref={scrollContainerRef}
           className="overflow-y-auto"
           style={{ maxHeight: 'calc(100vh - 280px)' }}
-          onScroll={handleScroll}
         >
-          {/* 虚拟滚动 — 容器总高度 */}
-          <div style={{ height: totalHeight, position: 'relative' }}>
-            {/* 顶部偏移 */}
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: topOffset }} />
-            {/* 仅渲染可见范围内的项 — 自适应高度 */}
-            {timelineItems.slice(renderRange.start, renderRange.end).map(({ act, time }, relativeIdx) => {
-              const idx = renderRange.start + relativeIdx
-              return (
-                <div
-                  key={act.id}
-                  ref={(el) => { if (el) itemRefs.current.set(idx, el) }}
-                  data-idx={idx}
-                  style={{
-                    position: 'absolute',
-                    top: offsetCache[idx] || 0,
-                    left: 0,
-                    right: 0,
-                  }}
-                >
-                  <TimelineEntry
-                    activity={act}
-                    displayTime={time}
-                    iconUrl={iconUrls[act.app_name] || ''}
-                    allIconUrls={iconUrls}
-                    onStartEdit={setEditingActivity}
-                    onDelete={handleDelete}
-                    isNew={newIds.has(act.id)}
-                  />
-                </div>
-              )
-            })}
-          </div>
+          {timelineItems.map(({ act, time }) => (
+            <TimelineEntry
+              key={act.id}
+              activity={act}
+              displayTime={time}
+              iconUrl={iconUrls[act.app_name] || ''}
+              allIconUrls={iconUrls}
+              onStartEdit={setEditingActivity}
+              onDelete={handleDelete}
+              isNew={newIds.has(act.id)}
+            />
+          ))}
         </div>
       )}
     </div>
