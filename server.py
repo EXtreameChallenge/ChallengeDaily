@@ -14,6 +14,7 @@ from config import HTTP_PORT
 from routes.deps import shutdown_event, check_token, save_token, TOKEN_PATH, install_log_redaction
 import routes.deps as deps
 from routes import ALL_BLUEPRINTS
+from observability import generate_trace_id, set_trace_id, get_trace_id, record_request, get_metrics, setup_structured_logging
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ def set_collector(collector_instance):
 
 # ── 鉴权中间件 ──
 
-_PUBLIC_PATHS = {"/", "/api/health"}
+_PUBLIC_PATHS = {"/", "/api/health", "/api/metrics"}
 _PUBLIC_PREFIXES = ["/api/icons/"]
 
 
@@ -107,6 +108,25 @@ def check_body_size():
         cl = request.content_length
         if cl and cl > _MAX_BODY_SIZE:
             return jsonify({"error": "请求体过大"}), 413
+
+
+@app.before_request
+def add_trace_id():
+    import time as _time
+    request._start_time = _time.time()
+    trace_id = request.headers.get('X-Request-ID') or generate_trace_id()
+    set_trace_id(trace_id)
+
+
+@app.after_request
+def record_metrics(response):
+    endpoint = request.endpoint or request.path
+    duration = getattr(request, '_start_time', None)
+    if duration:
+        import time as _time
+        record_request(endpoint, _time.time() - duration, error=response.status_code >= 500)
+    response.headers['X-Request-ID'] = get_trace_id()
+    return response
 
 
 @app.before_request
@@ -178,6 +198,7 @@ def __getattr__(name):
 # ── 启动 ──
 
 def start_server():
+    setup_structured_logging(json_output=False)  # O-01: 结构化日志（先保持文本格式，避免破坏现有日志解析）
     install_log_redaction()  # P0-06: 安装日志脱敏过滤器
     save_token()
     logger.info(f"API Token 已生成: {TOKEN_PATH}")
@@ -215,3 +236,11 @@ def start_server():
             use_reloader=False,
             threaded=True,
         )
+
+
+# ── O-02: 指标端点 ──
+
+@app.route('/api/metrics')
+def metrics_endpoint():
+    from observability import get_metrics
+    return jsonify(get_metrics())

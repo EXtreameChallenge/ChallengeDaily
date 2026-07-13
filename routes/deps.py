@@ -119,3 +119,29 @@ def install_log_redaction():
     root = logging.getLogger()
     if not any(isinstance(f, SensitiveDataFilter) for f in root.filters):
         root.addFilter(SensitiveDataFilter())
+
+
+def _get_machine_id() -> str:
+    """获取本机唯一标识（Windows MachineGuid）"""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+            return winreg.QueryValueEx(key, "MachineGuid")[0]
+    except Exception:
+        return "unknown"
+
+
+_MACHINE_ID = _get_machine_id()
+
+
+def check_token_with_device(req) -> bool:
+    """增强鉴权：token + 设备指纹（可选，不破坏现有兼容性）"""
+    # 第一层：token 校验
+    if not check_token(req):
+        return False
+    # 第二层：设备指纹（如果 header 带了就校验，没带就放行兼容旧客户端）
+    client_mid = req.headers.get("X-Machine-Id", "")
+    if client_mid and client_mid != _MACHINE_ID:
+        logger.warning(f"Token used from different machine, expected={_MACHINE_ID[:8]}..., got={client_mid[:8]}...")
+        return False
+    return True

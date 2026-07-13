@@ -16,6 +16,9 @@ from prompt import SYSTEM_PROMPT, build_user_prompt
 
 logger = logging.getLogger(__name__)
 
+# S-04: AI 调用 max_tokens 上限（防止 token 滥用）
+AI_MAX_TOKENS = 4000
+
 
 # ── 日志脱敏：过滤 Bearer token / api_key 等敏感串 ──
 _BEARER_RE = re.compile(r"(Bearer\s+)[^\s]+")

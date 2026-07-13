@@ -16,7 +16,10 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 24
+SCHEMA_VERSION = 25
+
+# P-01: 默认数据保留天数（90 天）
+DEFAULT_DATA_RETENTION_DAYS = 90
 
 # ── 线程局部连接（每线程独立 Connection，避免多线程共享导致 InterfaceError）──
 _local = threading.local()
@@ -662,6 +665,18 @@ def _init_db_impl():
             if 'total_pomodoros' not in existing_pomo_cols:
                 conn.execute("ALTER TABLE pomodoro_sessions ADD COLUMN total_pomodoros INTEGER DEFAULT 1")
 
+        # V25: 创建 settings 表（用于 feature_flags / data_retention_days / privacy_apps 等配置）
+        if current_version < 25:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_settings_key ON settings(key)")
+            logger.info("V25: settings 表创建完成")
+
         # 更新版本号
         conn.execute(
             "INSERT OR REPLACE INTO schema_version (key, value) VALUES ('version', ?)",
@@ -672,6 +687,16 @@ def _init_db_impl():
     # P0-10: 首次创建 DB 文件时设置 ACL（仅当前用户可读写）
     if _db_first_create:
         _set_db_acl(DB_PATH)
+
+    # WAL checkpoint 配置：每 1000 页自动 checkpoint
+    try:
+        with get_conn() as conn:
+            conn.execute("PRAGMA wal_autocheckpoint=1000")
+            # 启动时主动 checkpoint 一次，防止 WAL 文件过大
+            conn.execute("PRAGMA wal_checkpoint(PASSIVE)")
+        logger.info("WAL checkpoint 配置完成")
+    except Exception as e:
+        logger.warning(f"WAL checkpoint 配置失败: {e}")
 
     logger.info(f"Database initialized, schema version: {SCHEMA_VERSION}")
 
@@ -958,6 +983,23 @@ def cleanup_old_data(days: int):
             else:
                 raise
         conn.commit()
+
+
+def get_retention_days() -> int:
+    """从 settings 表读取保留天数，默认 90"""
+    try:
+        with get_conn() as conn:
+            row = conn.execute("SELECT value FROM settings WHERE key='data_retention_days'").fetchone()
+            return int(row[0]) if row else DEFAULT_DATA_RETENTION_DAYS
+    except Exception:
+        return DEFAULT_DATA_RETENTION_DAYS
+
+
+def auto_cleanup_old_data():
+    """自动清理过期数据（供定时任务调用）"""
+    days = get_retention_days()
+    cleanup_old_data(days)
+    logger.info(f"自动清理完成，保留 {days} 天数据")
 
 
 def get_hourly_activity(target_date: str):

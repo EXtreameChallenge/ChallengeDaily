@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from config import load_settings, save_settings
 import routes.deps as deps
+import db
 
 logger = logging.getLogger(__name__)
 
@@ -121,3 +122,22 @@ def resume_collector():
     with deps.state_lock:
         deps.collector_paused = False
     return jsonify({"status": "ok", "paused": False})
+
+
+@bp.route('/api/settings/privacy-apps', methods=['GET', 'PUT'])
+def privacy_apps():
+    """查询/设置隐私应用名单"""
+    if request.method == 'GET':
+        with db.get_conn() as conn:
+            row = conn.execute("SELECT value FROM settings WHERE key='privacy_apps'").fetchone()
+            apps = __import__('json').loads(row[0]) if row else []
+        return jsonify({"apps": apps})
+    data = request.get_json(silent=True) or {}
+    apps = data.get('apps', [])
+    if not isinstance(apps, list) or len(apps) > 100:
+        return jsonify({"error": "apps 必须是列表（最多100项）"}), 400
+    with db.get_conn() as conn:
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('privacy_apps', ?)",
+                    (__import__('json').dumps(apps, ensure_ascii=False),))
+    logger.info(f"[AUDIT] Privacy apps updated by {request.remote_addr}: {len(apps)} apps")
+    return jsonify({"status": "updated", "apps": apps})
