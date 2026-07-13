@@ -7,13 +7,14 @@
 """
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 import db
-from routes.deps import shutdown_event
+from routes.deps import shutdown_event, check_token, safe_error
 import os
 import re
 import json
 import logging
 import threading
 import time
+from datetime import date, datetime, timedelta
 import config
 from ai_client import _cb_check, _cb_record_success, _cb_record_failure, _get_client, _rate_limit_check
 
@@ -849,3 +850,333 @@ def chat_history():
 def clear_chat():
     db.clear_chat_history()
     return jsonify({"status": "ok"})
+
+
+# ═══════════════════════════════════════════════════════════════
+# AI 教练：周复盘 / 目标进度点评 / 智能排程
+# ═══════════════════════════════════════════════════════════════
+
+# 周复盘/点评/排程 共用频率限制（每小时 20 次）
+_COACH_RATE_LOCK = threading.Lock()
+_COACH_RATE_MAX = 20
+_COACH_RATE_WINDOW = 3600
+_coach_rate_times: list[float] = []
+
+
+def _coach_rate_check() -> bool:
+    now = time.monotonic()
+    with _COACH_RATE_LOCK:
+        while _coach_rate_times and now - _coach_rate_times[0] > _COACH_RATE_WINDOW:
+            _coach_rate_times.pop(0)
+        if len(_coach_rate_times) >= _COACH_RATE_MAX:
+            return False
+        _coach_rate_times.append(now)
+    return True
+
+
+def _ai_precheck():
+    """AI 教练端点通用预检：鉴权 + 配置 + 熔断 + 频率。
+    返回 (err_response, ok)：ok=False 时 err_response 是 (response, status_code) 元组
+    """
+    if not check_token(request):
+        return (jsonify({"error": "未授权访问"}), 401), False
+    if not config.AI_API_KEY:
+        return (jsonify({"error": "AI 尚未配置，请先在「设置 → AI 分析」中配置 API Key。"}), 400), False
+    if not _cb_check():
+        return (jsonify({"error": "AI 服务暂时不可用，请稍后再试"}), 503), False
+    if not _rate_limit_check("text"):
+        return (jsonify({"error": "AI 请求过于频繁，请稍后再试"}), 429), False
+    if not _coach_rate_check():
+        return (jsonify({"error": "AI 教练请求过于频繁，请稍后再试"}), 429), False
+    return None, True
+
+
+def _ai_call_json(messages: list, max_tokens: int = 1500, temperature: float = 0.85) -> dict | None:
+    """调用 AI 并解析 JSON 响应。失败返回 None。"""
+    try:
+        client = _get_client()
+        resp = client.chat.completions.create(
+            model=config.AI_TEXT_MODEL,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        content = resp.choices[0].message.content or ""
+        _cb_record_success()
+        # 尝试提取 JSON 块（AI 可能把 JSON 包在 ```json ... ``` 中）
+        content = content.strip()
+        if content.startswith("```"):
+            # 去掉 markdown 代码块
+            content = re.sub(r"^```(?:json)?\s*", "", content)
+            content = re.sub(r"\s*```$", "", content)
+        # 尝试找到第一个 { ... } 块
+        m = re.search(r"\{[\s\S]*\}", content)
+        if m:
+            content = m.group(0)
+        return json.loads(content)
+    except Exception as e:
+        logger.warning(f"_ai_call_json failed: {type(e).__name__}: {str(e)[:120]}")
+        try:
+            _cb_record_failure()
+        except Exception:
+            pass
+        return None
+
+
+@bp.route('/weekly-review', methods=['POST'])
+def ai_weekly_review():
+    """AI 周复盘：基于本周任务 + 番茄 + 活动，生成温馨活泼的周复盘"""
+    pre, ok = _ai_precheck()
+    if not ok:
+        return pre
+    data = request.get_json(force=True, silent=True) or {}
+    week_start = data.get("week_start", "")
+    if not week_start:
+        today = date.today()
+        week_start = (today - timedelta(days=today.weekday())).strftime("%Y-%m-%d")
+    try:
+        datetime.strptime(week_start, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": "week_start 格式应为 YYYY-MM-DD"}), 400
+
+    try:
+        # 汇总本周数据
+        dates = [(datetime.strptime(week_start, "%Y-%m-%d").date() + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+        week_tasks = db.get_week_tasks(week_start)
+        day_tasks = []
+        for d in dates:
+            day_tasks.extend(week_tasks.get("day_tasks", {}).get(d, []))
+        total_day = len(day_tasks)
+        completed_day = sum(1 for t in day_tasks if t.get("status") == "completed")
+        pomodoro_sessions = []
+        for d in dates:
+            pomodoro_sessions.extend(db.get_pomodoro_sessions(d))
+        completed_pomodoros = [s for s in pomodoro_sessions if s.get("status") == "completed"]
+        total_focus_min = sum(s.get("duration_min", 0) for s in completed_pomodoros)
+        activities = db.get_activities(dates[0], dates[6])
+        cat_dist = {}
+        for a in activities:
+            cat = a.get("category", "其他")
+            cat_dist[cat] = cat_dist.get(cat, 0) + 1
+
+        # 构造给 AI 的数据摘要
+        data_summary = (
+            f"本周（{week_start} ~ {dates[-1]}）数据汇总：\n"
+            f"- 日任务：共 {total_day} 个，已完成 {completed_day} 个，完成率 {int(completed_day / total_day * 100) if total_day else 0}%\n"
+            f"- 番茄钟：共 {len(pomodoro_sessions)} 个，完成 {len(completed_pomodoros)} 个\n"
+            f"- 累计专注：{total_focus_min} 分钟（约 {total_focus_min / 60:.1f} 小时）\n"
+            f"- 活动记录：{len(activities)} 条\n"
+            f"- 分类分布：{', '.join(f'{k}({v})' for k, v in sorted(cat_dist.items(), key=lambda x: -x[1])[:6])}\n"
+            f"- 周任务：{len(week_tasks.get('week_tasks', []))} 个"
+        )
+
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "你是 ChallengeDaily 的 AI 教练，负责为用户生成周复盘。"
+                    "语气要求：活泼可爱温馨，不肉麻，文字堆砌风格（用短句、emoji、列表堆叠出节奏感，像朋友在旁边叨叨）。"
+                    "禁止说教、禁止空洞口号、禁止'加油你一定行'这类废话。"
+                    "基于真实数据说话，给出具体亮点和可执行建议。"
+                    "必须返回 JSON，字段：review(复盘文本，200-400字)、score(0-100整数)、highlights(亮点数组，2-4条)、suggestions(建议数组，2-3条)。"
+                    "不要返回 JSON 以外的内容。"
+                ),
+            },
+            {"role": "user", "content": data_summary + "\n\n请生成本周复盘，要求活泼可爱温馨，文字堆砌风格。"},
+        ]
+        result = _ai_call_json(messages, max_tokens=1200, temperature=0.9)
+        if not result:
+            # 降级：返回基础复盘
+            return jsonify({
+                "review": f"这周的数据出来啦~ 一共完成了 {completed_day}/{total_day} 个任务，专注了 {total_focus_min} 分钟。继续保持呀，下周也要加油哦！🍅✨",
+                "score": min(100, int(completed_day / total_day * 100) if total_day else 50),
+                "highlights": [f"完成 {completed_day} 个任务", f"专注 {total_focus_min} 分钟"],
+                "suggestions": ["下周尝试拆分更多日任务", "保持番茄钟节奏"],
+            })
+        # 字段兜底
+        result.setdefault("review", "")
+        result.setdefault("score", 75)
+        result.setdefault("highlights", [])
+        result.setdefault("suggestions", [])
+        return jsonify(result)
+    except Exception as e:
+        logger.warning(f"ai_weekly_review failed: {type(e).__name__}")
+        return jsonify({"error": safe_error(e, "周复盘生成失败，请稍后重试")}), 500
+
+
+@bp.route('/goal-progress-comment', methods=['POST'])
+def ai_goal_progress_comment():
+    """AI 目标进度点评：鼓励性，不否定"""
+    pre, ok = _ai_precheck()
+    if not ok:
+        return pre
+    data = request.get_json(force=True, silent=True) or {}
+    level = data.get("level", "week")
+    if level not in ("month", "week", "day"):
+        return jsonify({"error": "level 仅支持 month / week / day"}), 400
+    progress = data.get("progress", 0)
+    try:
+        progress = int(progress)
+    except (TypeError, ValueError):
+        progress = 0
+    progress = max(0, min(100, progress))
+    tasks = data.get("tasks", []) or []
+
+    try:
+        # 任务摘要
+        task_summary = "无任务数据"
+        if tasks:
+            lines = []
+            for t in tasks[:10]:
+                title = t.get("title", "") if isinstance(t, dict) else str(t)
+                status = t.get("status", "") if isinstance(t, dict) else ""
+                icon = "✅" if status == "completed" else "⬜"
+                lines.append(f"{icon} {title}")
+            task_summary = "\n".join(lines)
+
+        level_label = {"month": "月目标", "week": "周目标", "day": "日目标"}.get(level, "目标")
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "你是 ChallengeDaily 的 AI 教练，负责为用户的目标进度做点评。"
+                    "语气要求：鼓励性，绝不否定，活泼可爱温馨，文字堆砌风格（短句+emoji+列表）。"
+                    "即使进度低，也要找到正向角度，给出可执行的小步骤。"
+                    "禁止泼冷水、禁止'你这样做不行'、禁止空洞口号。"
+                    "必须返回 JSON，字段：comment(点评文本，100-250字)、encouragement(一句鼓励语，20字内)。"
+                    "不要返回 JSON 以外的内容。"
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"目标层级：{level_label}\n"
+                    f"当前进度：{progress}%\n"
+                    f"任务列表：\n{task_summary}\n\n"
+                    f"请给出鼓励性点评，活泼可爱温馨。"
+                ),
+            },
+        ]
+        result = _ai_call_json(messages, max_tokens=600, temperature=0.9)
+        if not result:
+            return jsonify({
+                "comment": f"{level_label}进度 {progress}%，已经迈出一大步啦~ 继续保持节奏，一步一步来，每个小任务都是通往大目标的台阶呀 🌱✨",
+                "encouragement": "稳住节奏，你超棒的！",
+            })
+        result.setdefault("comment", "")
+        result.setdefault("encouragement", "")
+        return jsonify(result)
+    except Exception as e:
+        logger.warning(f"ai_goal_progress_comment failed: {type(e).__name__}")
+        return jsonify({"error": safe_error(e, "点评生成失败，请稍后重试")}), 500
+
+
+@bp.route('/smart-schedule', methods=['POST'])
+def ai_smart_schedule():
+    """AI 智能排程：基于历史活动数据 + 待分配任务列表，返回排程建议（不直接写入）"""
+    pre, ok = _ai_precheck()
+    if not ok:
+        return pre
+    data = request.get_json(force=True, silent=True) or {}
+
+    try:
+        # 拉取待分配任务
+        unassigned = db.get_unassigned_todos(limit=20)
+        if not unassigned:
+            return jsonify({"suggestions": [], "message": "待分配区暂无任务，无需排程~"})
+
+        # 历史活动分析：最近 14 天每个时段的专注度
+        today = date.today()
+        start_14 = (today - timedelta(days=13)).isoformat()
+        activities = db.get_activities(start_14, today.isoformat())
+        # 按小时统计活动密度
+        hour_density = {}
+        weekday_density = {}
+        for a in activities:
+            ts = a.get("timestamp", "")
+            if not ts:
+                continue
+            try:
+                dt = datetime.fromisoformat(ts.replace("Z", ""))
+                hour_density[dt.hour] = hour_density.get(dt.hour, 0) + 1
+                weekday_density[dt.weekday()] = weekday_density.get(dt.weekday(), 0) + 1
+            except Exception:
+                continue
+        # 找出最高效时段（活动密度最高的 3 个小时）
+        top_hours = sorted(hour_density.items(), key=lambda x: -x[1])[:3]
+        top_hours_str = ", ".join(f"{h}:00({cnt}条)" for h, cnt in top_hours) if top_hours else "数据不足"
+        # 找出最高效星期
+        top_weekdays = sorted(weekday_density.items(), key=lambda x: -x[1])[:3]
+        wd_names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+        top_weekdays_str = ", ".join(f"{wd_names[wd]}({cnt}条)" for wd, cnt in top_weekdays) if top_weekdays else "数据不足"
+
+        # 番茄钟历史：最近 7 天每天完成数
+        pomodoro_history = []
+        for i in range(7):
+            d = (today - timedelta(days=6 - i)).strftime("%Y-%m-%d")
+            sessions = db.get_pomodoro_sessions(d)
+            completed = sum(1 for s in sessions if s.get("status") == "completed")
+            pomodoro_history.append({"date": d, "completed": completed})
+
+        # 任务摘要
+        task_list = []
+        for t in unassigned:
+            task_list.append({
+                "todo_id": t.get("id"),
+                "title": t.get("title", ""),
+                "category": t.get("category", ""),
+                "estimated_pomodoros": t.get("estimated_pomodoros", 1),
+                "priority": t.get("priority", 2),
+            })
+
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "你是 ChallengeDaily 的 AI 教练，负责智能排程。"
+                    "基于用户历史活动数据（高效时段、高效星期）和待分配任务列表，给出排程建议。"
+                    "语气活泼可爱温馨，文字堆砌风格。"
+                    "必须返回 JSON：{\"suggestions\": [{\"todo_id\": 数字, \"suggested_day\": \"YYYY-MM-DD\", \"suggested_time\": \"HH:MM\", \"reason\": \"简短理由\"}]}。"
+                    "suggested_day 必须是未来 7 天内的日期（从明天开始）。"
+                    "每个任务给一条建议。reason 不超过 30 字。"
+                    "不要返回 JSON 以外的内容。"
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"今天是 {today.isoformat()}。\n"
+                    f"用户高效时段（按活动密度）：{top_hours_str}\n"
+                    f"用户高效星期：{top_weekdays_str}\n"
+                    f"最近7天番茄完成：{json.dumps(pomodoro_history, ensure_ascii=False)}\n"
+                    f"待分配任务：{json.dumps(task_list, ensure_ascii=False)}\n\n"
+                    f"请给出排程建议。"
+                ),
+            },
+        ]
+        result = _ai_call_json(messages, max_tokens=1500, temperature=0.7)
+        if not result or not isinstance(result.get("suggestions"), list):
+            # 降级：简单按优先级排到未来几天
+            suggestions = []
+            for i, t in enumerate(unassigned[:5]):
+                future_day = (today + timedelta(days=i // 2 + 1)).strftime("%Y-%m-%d")
+                suggestions.append({
+                    "todo_id": t.get("id"),
+                    "suggested_day": future_day,
+                    "suggested_time": "10:00",
+                    "reason": "按优先级分配到近期时段",
+                })
+            return jsonify({"suggestions": suggestions, "message": "AI 排程降级模式：按优先级分配"})
+        # 校验 suggested_day 格式
+        for s in result["suggestions"]:
+            if not s.get("suggested_day"):
+                s["suggested_day"] = (today + timedelta(days=1)).strftime("%Y-%m-%d")
+            if not s.get("suggested_time"):
+                s["suggested_time"] = "10:00"
+            if not s.get("reason"):
+                s["reason"] = "AI 建议时段"
+            s.setdefault("todo_id", None)
+        return jsonify(result)
+    except Exception as e:
+        logger.warning(f"ai_smart_schedule failed: {type(e).__name__}")
+        return jsonify({"error": safe_error(e, "智能排程生成失败，请稍后重试")}), 500

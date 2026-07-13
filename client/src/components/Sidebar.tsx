@@ -26,6 +26,8 @@ import {
   Calendar,
   CalendarDays,
   Flame,
+  Download,
+  TrendingUp,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { getStatus, pauseCollector, resumeCollector, getTodayStats, type CollectorStatus, type TodayStats } from '../api/client'
@@ -51,10 +53,12 @@ const NAV_GROUPS = [
   {
     label: '数据回顾',
     items: [
+      { to: '/dashboard', icon: TrendingUp, label: '进度仪表盘' },
       { to: '/timeline', icon: Clock, label: '工作时间线' },
       { to: '/heatmap', icon: Grid3X3, label: '时段热力图' },
       { to: '/apps', icon: AppWindow, label: '应用记录' },
       { to: '/history', icon: History, label: '历史报告' },
+      { to: '/export', icon: Download, label: '数据导出' },
       { to: '/health', icon: Activity, label: '数据校准' },
     ]
   },
@@ -71,6 +75,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/profile', icon: Brain, label: '深度画像' },
       { to: '/ai-chat', icon: Bot, label: 'AI对话' },
+      { to: '/ai-coach', icon: Sparkles, label: 'AI教练' },
       { to: '/agent', icon: Bot, label: '接入Agent' },
     ]
   },

@@ -1281,6 +1281,60 @@ export async function clearChatHistory(): Promise<{ status: string }> {
   return request('/api/ai/chat/clear', { method: 'DELETE' }) as Promise<{ status: string }>
 }
 
+// ── AI 教练：周复盘 / 目标点评 / 智能排程 ──
+
+export interface WeeklyReview {
+  review: string
+  score: number
+  highlights: string[]
+  suggestions: string[]
+}
+
+export interface GoalProgressComment {
+  comment: string
+  encouragement: string
+}
+
+export interface ScheduleSuggestion {
+  todo_id: number | null
+  suggested_day: string
+  suggested_time: string
+  reason: string
+}
+
+export interface SmartScheduleResult {
+  suggestions: ScheduleSuggestion[]
+  message?: string
+}
+
+/** AI 周复盘 */
+export async function aiWeeklyReview(weekStart?: string): Promise<WeeklyReview> {
+  return request('/api/ai/weekly-review', {
+    method: 'POST',
+    body: JSON.stringify({ week_start: weekStart }),
+  }, 30000) as Promise<WeeklyReview>
+}
+
+/** AI 目标进度点评 */
+export async function aiGoalProgressComment(
+  level: 'month' | 'week' | 'day',
+  progress: number,
+  tasks?: Array<Record<string, any>>,
+): Promise<GoalProgressComment> {
+  return request('/api/ai/goal-progress-comment', {
+    method: 'POST',
+    body: JSON.stringify({ level, progress, tasks }),
+  }, 30000) as Promise<GoalProgressComment>
+}
+
+/** AI 智能排程 */
+export async function aiSmartSchedule(): Promise<SmartScheduleResult> {
+  return request('/api/ai/smart-schedule', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  }, 30000) as Promise<SmartScheduleResult>
+}
+
 // ── 习惯追踪 ──
 export interface Habit {
   id: number

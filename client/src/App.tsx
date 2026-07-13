@@ -30,6 +30,9 @@ const Countdowns = lazy(() => import('./pages/Countdowns'))
 const AIChat = lazy(() => import('./pages/AIChat'))
 const Habits = lazy(() => import('./pages/Habits'))
 const WeekPlan = lazy(() => import('./pages/WeekPlan'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const ExportCenter = lazy(() => import('./pages/ExportCenter'))
+const AICoach = lazy(() => import('./pages/AICoach'))
 
 // 首次启动流程：法律协议 → 新手引导 → 主界面
 type FirstLaunchPhase = 'legal' | 'onboarding' | 'done'
@@ -269,6 +272,9 @@ export default function App() {
                         <Route path="/achievements" element={<Achievements />} />
                         <Route path="/countdowns" element={<Countdowns />} />
                         <Route path="/ai-chat" element={<AIChat />} />
+                        <Route path="/dashboard" element={<Dashboard />} />
+                        <Route path="/ai-coach" element={<AICoach />} />
+                        <Route path="/export" element={<ExportCenter />} />
                         <Route path="/habits" element={<Habits />} />
                         <Route path="/health" element={<Health />} />
                         <Route path="*" element={<NotFoundPage />} />

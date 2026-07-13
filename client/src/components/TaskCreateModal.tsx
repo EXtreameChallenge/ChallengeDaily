@@ -45,6 +45,8 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
   const [pomodoroSize, setPomodoroSize] = useState<PomodoroSize>('big')
   const [dueDate, setDueDate] = useState('')
   const [assignedDate, setAssignedDate] = useState('')
+  const [taskLevel, setTaskLevel] = useState<TaskLevel>('day')
+  const [targetMinOverride, setTargetMinOverride] = useState<number>(0)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [saving, setSaving] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
@@ -59,6 +61,8 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
       setPomodoroSize('big')
       setDueDate('')
       setAssignedDate(defaults?.assigned_date ?? formatLocalDate(new Date()))
+      setTaskLevel(defaults?.task_level ?? 'day')
+      setTargetMinOverride(0)
       setShowAdvanced(false)
       setSaving(false)
       setTimeout(() => titleRef.current?.focus(), 100)
@@ -66,7 +70,8 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
   }, [open, defaults])
 
   const sizeConfig = POMODORO_SIZES[pomodoroSize]
-  const totalMinutes = estimatedPomodoros * sizeConfig.work
+  const derivedMinutes = estimatedPomodoros * sizeConfig.work
+  const totalMinutes = targetMinOverride > 0 ? targetMinOverride : derivedMinutes
   const breakMinutes = estimatedPomodoros > 1
     ? (Math.floor((estimatedPomodoros - 1) / 4) * 15 + (estimatedPomodoros - 1 - Math.floor((estimatedPomodoros - 1) / 4) * 4) * sizeConfig.short_break)
     : 0
@@ -79,11 +84,11 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
         title: title.trim(),
         category,
         mode,
-        target_min: estimatedPomodoros * sizeConfig.work,
+        target_min: targetMinOverride > 0 ? targetMinOverride : estimatedPomodoros * sizeConfig.work,
         priority,
         estimated_pomodoros: estimatedPomodoros,
         pomodoro_size: pomodoroSize,
-        task_level: defaults?.task_level ?? 'day',
+        task_level: taskLevel,
       }
       if (dueDate) data.due_date = dueDate
       if (assignedDate) {
@@ -270,6 +275,51 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
 
       {showAdvanced && (
         <div className="space-y-3 pt-1">
+          {/* 任务层级 */}
+          <div>
+            <label className="block text-xs font-medium text-cd-text-secondary mb-1.5">任务层级</label>
+            <div className="flex gap-1.5">
+              {([
+                { key: 'month' as TaskLevel, label: '月级', desc: '月目标' },
+                { key: 'week' as TaskLevel, label: '周级', desc: '周任务' },
+                { key: 'day' as TaskLevel, label: '日级', desc: '日待办' },
+              ]).map(l => (
+                <button
+                  key={l.key}
+                  onClick={() => setTaskLevel(l.key)}
+                  className={`flex-1 py-2 rounded-lg text-sm transition border ${
+                    taskLevel === l.key
+                      ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30 font-medium'
+                      : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
+                  }`}
+                >
+                  <div>{l.label}</div>
+                  <div className="text-[10px] text-cd-text-tertiary">{l.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 目标时长（直接输入，覆盖番茄派生值） */}
+          <div>
+            <label className="block text-xs font-medium text-cd-text-secondary mb-1.5">
+              目标时长（分钟，0 表示由番茄数推算）
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={480}
+              step={5}
+              value={targetMinOverride || ''}
+              onChange={e => {
+                const v = parseInt(e.target.value, 10)
+                setTargetMinOverride(isNaN(v) ? 0 : Math.max(0, Math.min(480, v)))
+              }}
+              placeholder={`默认 ${derivedMinutes} 分钟`}
+              className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
+            />
+          </div>
+
           <div>
             <label className="block text-xs font-medium text-cd-text-secondary mb-1">截止日期</label>
             <input
