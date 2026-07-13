@@ -27,7 +27,9 @@ const QUICK_ACTIONS = [
 
 // ── 简易 Markdown 渲染 ──
 function renderMarkdown(text: string): string {
-  let html = text
+  // 先做 HTML 实体转义，防止 AI 返回的 <script> 等标签注入 DOM
+  const escapeHtml = (s: string): string => s.replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c] as string))
+  let html = escapeHtml(text)
   // 代码块
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="bg-cd-bg-secondary rounded-lg p-3 my-2 text-xs overflow-x-auto border border-cd-border"><code>$2</code></pre>')
   // 行内代码

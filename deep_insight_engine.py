@@ -110,15 +110,16 @@ def _extract_focus_segments(activities, interval_sec=60):
 
 
 def _ts_diff_min(ts1, ts2):
-    """计算两个时间戳字符串之间的分钟差。失败返回 0。"""
+    """计算两个时间戳字符串之间的分钟差。失败返回大数以触发分段，避免错误合并。"""
     try:
         from datetime import datetime as _dt
         # 兼容 ISO 格式 (T 或空格)
         t1 = _dt.fromisoformat(ts1.replace('T', ' '))
         t2 = _dt.fromisoformat(ts2.replace('T', ' '))
         return abs((t2 - t1).total_seconds()) / 60
-    except Exception:
-        return 0
+    except Exception as e:
+        logger.warning(f"_ts_diff_min 解析失败: {e}")
+        return 99999.0
 
 
 def _derive_hour(ts_str):
@@ -188,7 +189,7 @@ def compute_deliberate_practice_metrics(activities, interval_sec=60, history_act
         zone = profile.get('deliberate_practice_zone', 'comfort')
         # 多工具 = 新元素 → 学习区信号
         apps_count = len(seg['apps_set'])
-        is_learning = (zone == 'learning') or (zone == 'learning' and apps_count >= 2)
+        is_learning = (zone == 'learning') or (apps_count >= 2)
         
         # 学习分类始终算学习区
         if seg['category'] == '学习':
@@ -435,7 +436,7 @@ def compute_structural_holes_metrics(activities, interval_sec=60):
     # 跨域指数
     all_categories = set(_CATEGORY_PROFILES.keys()) if _CATEGORY_PROFILES else set()
     used_categories = set(cat_durations.keys())
-    cross_domain = round(len(used_categories) / max(len(all_categories), 1), 3)
+    cross_domain = round(min(1.0, len(used_categories) / max(len(all_categories), 1)), 3)
     
     # 知识桥接度
     segments = _extract_focus_segments(activities, interval_sec)
@@ -535,11 +536,11 @@ def compute_habit_metrics(activities, interval_sec=60, daily_summaries=None):
                 consecutive_days += 1
             else:
                 break
-        consistency = round(consecutive_days / 66 * 100, 0)  # 66天=研究中位数
+        consistency = round(min(100, consecutive_days / 66 * 100), 0)  # 66天=研究中位数
     
     # 常规稳定性
     if patterns:
-        routine_stability = round(len(patterns) / 12, 3)  # 12小时工作日
+        routine_stability = round(min(1.0, len(patterns) / 12), 3)  # 12小时工作日
     else:
         routine_stability = 0
     

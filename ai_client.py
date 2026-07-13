@@ -55,7 +55,7 @@ _cb_cooldown_sec = _CB_COOLDOWN_INIT_SEC  # 当前冷却时间（指数退避）
 def _cb_check() -> bool:
     """检查熔断器是否允许请求通过。返回 True 表示放行，False 表示熔断中。"""
     with _cb_lock:
-        global _cb_state, _cb_opened_at, _cb_half_open_tries
+        global _cb_state, _cb_opened_at, _cb_half_open_tries, _cb_cooldown_sec
 
         if _cb_state == "closed":
             return True
@@ -73,6 +73,15 @@ def _cb_check() -> bool:
             if _cb_half_open_tries < _CB_HALF_OPEN_MAX:
                 _cb_half_open_tries += 1
                 return True
+            # 半开状态超过试探数后，自动转回 open 并指数退避，避免永久卡死
+            _cb_cooldown_sec = min(_cb_cooldown_sec * 2, _CB_COOLDOWN_MAX_SEC)
+            _cb_state = "open"
+            _cb_opened_at = time.monotonic()
+            _cb_half_open_tries = 0
+            logger.warning(
+                f"Circuit breaker: HALF_OPEN → OPEN，半开试探次数耗尽，"
+                f"冷却 {_cb_cooldown_sec}s"
+            )
             return False
 
         return True
@@ -104,7 +113,8 @@ def _cb_record_failure():
                 f"冷却 {_cb_cooldown_sec}s"
             )
         elif _cb_consecutive_failures >= _CB_FAILURE_THRESHOLD:
-            _cb_cooldown_sec = min(_cb_cooldown_sec * 2, _CB_COOLDOWN_MAX_SEC)
+            # closed→open 首次熔断使用初始冷却值，避免翻倍导致首次即 120s
+            _cb_cooldown_sec = _CB_COOLDOWN_INIT_SEC
             _cb_state = "open"
             _cb_opened_at = time.monotonic()
             logger.warning(
@@ -254,6 +264,8 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
             # 尝试提取 JSON
             result = _parse_json_response(raw)
             if result:
+                # P0-09: 字段白名单过滤，移除意外/恶意字段
+                result = _validate_ai_response(result)
                 # 验证 AI 返回的 category 是否在合法列表内
                 ai_category = result.get("category", "")
                 if ai_category not in config.CATEGORIES:
@@ -282,7 +294,7 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
 
 
 # IDE/编辑器进程名列表
-_IDE_PROCESSES = {"trae soolo cn.exe", "trae.exe", "code.exe", "cursor.exe", "idea64.exe", "pycharm64.exe", "webstorm64.exe", "clion64.exe", "goland64.exe", "rubymine64.exe", "phpstorm64.exe", "datagrip64.exe", "rider64.exe", "visualstudio.exe", "devenv.exe", "notepad++.exe", "sublime_text.exe", "atom.exe", "brackets.exe"}
+_IDE_PROCESSES = {"trae solo cn.exe", "trae.exe", "code.exe", "cursor.exe", "idea64.exe", "pycharm64.exe", "webstorm64.exe", "clion64.exe", "goland64.exe", "rubymine64.exe", "phpstorm64.exe", "datagrip64.exe", "rider64.exe", "visualstudio.exe", "devenv.exe", "notepad++.exe", "sublime_text.exe", "atom.exe", "brackets.exe"}
 
 
 def _is_ide_app(app_name: str) -> bool:
@@ -435,6 +447,17 @@ def _parse_json_response(raw: str) -> dict | None:
         start = raw.find('{', start + 1)
 
     return None
+
+
+# P0-09: AI 响应字段白名单校验，仅保留允许的字段，过滤意外/恶意字段
+_ALLOWED_AI_FIELDS = {'category', 'activity', 'duration', 'confidence', 'summary', 'tags', 'detail', 'windows'}
+
+
+def _validate_ai_response(data: dict) -> dict:
+    """仅保留白名单字段，过滤 AI 返回的意外字段"""
+    if not isinstance(data, dict):
+        return data
+    return {k: v for k, v in data.items() if k in _ALLOWED_AI_FIELDS}
 
 
 def _format_min_greeting(minutes: float) -> str:

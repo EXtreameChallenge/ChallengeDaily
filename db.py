@@ -92,8 +92,33 @@ def _execute_with_retry(conn, sql, params=(), max_retries=3):
     raise sqlite3.OperationalError(f"Failed after {max_retries} retries")
 
 
+# P0-10: 数据库文件 ACL（Windows），仅当前用户可读写
+def _set_db_acl(db_path):
+    try:
+        import win32security, win32con, win32api
+        username = win32api.GetUserNameEx(win32con.NameSamCompatible)
+        sid, _, _ = win32security.LookupAccountName(None, username)
+        sd = win32security.SECURITY_DESCRIPTOR()
+        sd.SetSecurityDescriptorOwner(sid, False)
+        dacl = win32security.ACL()
+        dacl.AddAccessAllowedAce(win32security.ACL_REVISION, win32con.GENERIC_ALL, sid)
+        sd.SetSecurityDescriptorDacl(True, dacl, False)
+        win32security.SetFileSecurity(str(db_path), win32security.DACL_SECURITY_INFORMATION, sd)
+    except ImportError:
+        pass  # 非 Windows 平台跳过
+
+
 def init_db():
     """初始化数据库表 + Schema 版本管理"""
+    try:
+        _init_db_impl()
+    except Exception as e:
+        logger.error(f"init_db 失败: {e}", exc_info=True)
+        raise
+
+
+def _init_db_impl():
+    """init_db 的实际实现（被 init_db 包装在 try/except 中）"""
     with get_conn() as conn:
         # 创建 schema 版本表
         conn.execute("""
@@ -108,6 +133,7 @@ def init_db():
             "SELECT value FROM schema_version WHERE key='version'"
         ).fetchone()
         current_version = int(row["value"]) if row else 0
+        _db_first_create = (current_version == 0)  # P0-10: 标记 DB 是否首次创建
 
         # V1: 基础表
         if current_version < 1:
@@ -548,36 +574,58 @@ def init_db():
         # V22: app_usage window_title NULL → NOT NULL DEFAULT ''，修复 UNIQUE 约束语义
         # SQL NULL != NULL 导致 NULL window_title 的行不参与 UNIQUE 冲突检测
         if current_version < 22:
-            # 将现有 NULL 值替换为空字符串
-            conn.execute("UPDATE app_usage SET window_title = '' WHERE window_title IS NULL")
-            # 重建表以添加 NOT NULL 约束（SQLite 不支持 ALTER COLUMN）
-            conn.execute("DROP TABLE IF EXISTS app_usage_v22")
-            conn.execute("""
-                CREATE TABLE app_usage_v22 (
-                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    app_name    TEXT NOT NULL,
-                    window_title TEXT NOT NULL DEFAULT '',
-                    start_time  TEXT NOT NULL,
-                    end_time    TEXT,
-                    duration_sec INTEGER DEFAULT 0,
-                    UNIQUE(app_name, window_title, start_time)
-                )
-            """)
-            conn.execute("""
-                INSERT OR IGNORE INTO app_usage_v22 (id, app_name, window_title, start_time, end_time, duration_sec)
-                SELECT id, app_name, COALESCE(window_title, ''), start_time, end_time, duration_sec FROM app_usage
-            """)
-            # 校验行数
-            old_count = conn.execute("SELECT COUNT(*) FROM app_usage").fetchone()[0]
-            new_count = conn.execute("SELECT COUNT(*) FROM app_usage_v22").fetchone()[0]
-            if new_count < old_count:
-                logger.warning(f"V22 迁移：app_usage 行数减少 {old_count}->{new_count}，可能有重复数据被合并")
-            conn.execute("DROP TABLE app_usage")
-            conn.execute("ALTER TABLE app_usage_v22 RENAME TO app_usage")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_app ON app_usage(app_name)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_start ON app_usage(start_time)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_start_app ON app_usage(start_time, app_name)")
-            logger.info(f"V22: app_usage window_title NOT NULL DEFAULT '' 迁移完成 ({new_count} rows)")
+            # 事务保护：DROP/RENAME 失败时回滚，避免数据丢失
+            try:
+                conn.execute("BEGIN IMMEDIATE")
+                # 迁移前备份原表，便于异常恢复
+                conn.execute("DROP TABLE IF EXISTS app_usage_v22_backup")
+                conn.execute("CREATE TABLE app_usage_v22_backup AS SELECT * FROM app_usage")
+                # 将现有 NULL 值替换为空字符串
+                conn.execute("UPDATE app_usage SET window_title = '' WHERE window_title IS NULL")
+                # 重建表以添加 NOT NULL 约束（SQLite 不支持 ALTER COLUMN）
+                conn.execute("DROP TABLE IF EXISTS app_usage_v22")
+                conn.execute("""
+                    CREATE TABLE app_usage_v22 (
+                        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                        app_name    TEXT NOT NULL,
+                        window_title TEXT NOT NULL DEFAULT '',
+                        start_time  TEXT NOT NULL,
+                        end_time    TEXT,
+                        duration_sec INTEGER DEFAULT 0,
+                        UNIQUE(app_name, window_title, start_time)
+                    )
+                """)
+                conn.execute("""
+                    INSERT OR IGNORE INTO app_usage_v22 (id, app_name, window_title, start_time, end_time, duration_sec)
+                    SELECT id, app_name, COALESCE(window_title, ''), start_time, end_time, duration_sec FROM app_usage
+                """)
+                # 校验行数
+                old_count = conn.execute("SELECT COUNT(*) FROM app_usage").fetchone()[0]
+                new_count = conn.execute("SELECT COUNT(*) FROM app_usage_v22").fetchone()[0]
+                if new_count < old_count:
+                    logger.warning(f"V22 迁移：app_usage 行数减少 {old_count}->{new_count}，可能有重复数据被合并")
+                conn.execute("DROP TABLE app_usage")
+                conn.execute("ALTER TABLE app_usage_v22 RENAME TO app_usage")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_app ON app_usage(app_name)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_start ON app_usage(start_time)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_app_usage_start_app ON app_usage(start_time, app_name)")
+                # 迁移成功，删除备份表
+                conn.execute("DROP TABLE IF EXISTS app_usage_v22_backup")
+                conn.execute("COMMIT")
+                logger.info(f"V22: app_usage window_title NOT NULL DEFAULT '' 迁移完成 ({new_count} rows)")
+            except Exception as v22_err:
+                try:
+                    conn.execute("ROLLBACK")
+                except Exception:
+                    pass
+                # 尝试从备份恢复
+                try:
+                    conn.execute("DROP TABLE IF EXISTS app_usage")
+                    conn.execute("ALTER TABLE app_usage_v22_backup RENAME TO app_usage")
+                except Exception:
+                    pass
+                logger.error(f"V22 迁移失败，已尝试回滚: {v22_err}", exc_info=True)
+                raise
 
             # 复合索引优化（提升常用查询性能）
             conn.execute("CREATE INDEX IF NOT EXISTS idx_activities_app_cat ON activities(app_name, category)")
@@ -601,15 +649,18 @@ def init_db():
 
         # V24: 待办-番茄钟深度整合 — 预估番茄数 + 番茄大小 + 连续执行
         if current_version < 24:
-            conn.executescript("""
-                -- todos: 新增预估番茄数、番茄大小（大番茄25+5 / 小番茄20+10）
-                ALTER TABLE todos ADD COLUMN estimated_pomodoros INTEGER DEFAULT 1;
-                ALTER TABLE todos ADD COLUMN pomodoro_size TEXT DEFAULT 'big';
+            # SQLite ALTER TABLE ADD COLUMN 不支持 IF NOT EXISTS，需检查列存在性（避免重跑失败）
+            existing_todos_cols = {row[1] for row in conn.execute("PRAGMA table_info(todos)").fetchall()}
+            if 'estimated_pomodoros' not in existing_todos_cols:
+                conn.execute("ALTER TABLE todos ADD COLUMN estimated_pomodoros INTEGER DEFAULT 1")
+            if 'pomodoro_size' not in existing_todos_cols:
+                conn.execute("ALTER TABLE todos ADD COLUMN pomodoro_size TEXT DEFAULT 'big'")
 
-                -- pomodoro_sessions: 新增连续执行支持字段
-                ALTER TABLE pomodoro_sessions ADD COLUMN pomodoro_index INTEGER DEFAULT 1;
-                ALTER TABLE pomodoro_sessions ADD COLUMN total_pomodoros INTEGER DEFAULT 1;
-            """)
+            existing_pomo_cols = {row[1] for row in conn.execute("PRAGMA table_info(pomodoro_sessions)").fetchall()}
+            if 'pomodoro_index' not in existing_pomo_cols:
+                conn.execute("ALTER TABLE pomodoro_sessions ADD COLUMN pomodoro_index INTEGER DEFAULT 1")
+            if 'total_pomodoros' not in existing_pomo_cols:
+                conn.execute("ALTER TABLE pomodoro_sessions ADD COLUMN total_pomodoros INTEGER DEFAULT 1")
 
         # 更新版本号
         conn.execute(
@@ -617,6 +668,10 @@ def init_db():
             (str(SCHEMA_VERSION),),
         )
         conn.commit()
+
+    # P0-10: 首次创建 DB 文件时设置 ACL（仅当前用户可读写）
+    if _db_first_create:
+        _set_db_acl(DB_PATH)
 
     logger.info(f"Database initialized, schema version: {SCHEMA_VERSION}")
 

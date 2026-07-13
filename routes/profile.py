@@ -181,7 +181,8 @@ def trigger_analysis():
                 continue
             try:
                 if atype in ("mbti_inference", "jungian_functions", "big_five"):
-                    metrics = fn(act_dicts, interval_sec, act_dicts)  # 用自身做历史
+                    # 传空列表作为 historical，避免用自身做历史导致 ZPD/MBTI 新元素检测失效
+                    metrics = fn(act_dicts, interval_sec, [])
                 else:
                     metrics = fn(act_dicts, interval_sec)
 

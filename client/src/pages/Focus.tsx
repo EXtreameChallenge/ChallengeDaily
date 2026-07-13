@@ -84,6 +84,8 @@ export default function Focus() {
   const handleWorkCompleteRef = useRef<() => void>(() => {})
   const handleBreakCompleteRef = useRef<() => void>(() => {})
   const completingRef = useRef(false)
+  const remainingRef = useRef(remaining)
+  remainingRef.current = remaining
 
   const sizeConfig = POMODORO_SIZES[pomodoroSize]
 
@@ -141,15 +143,16 @@ export default function Focus() {
 
   // ── 番茄钟悬浮窗同步 ──
   const syncWidget = useCallback((override?: Partial<{ phase: Phase; remaining: number; totalSec: number; task: string; duration: number }>) => {
+    const curRemaining = override?.remaining ?? remainingRef.current
     const data = {
       phase: override?.phase ?? phase,
-      remaining: override?.remaining ?? remaining,
-      totalSec: override?.totalSec ?? (phase === 'idle' ? sizeConfig.work * 60 : remaining + (remaining > 0 ? 0 : 0)),
+      remaining: curRemaining,
+      totalSec: override?.totalSec ?? (phase === 'idle' ? sizeConfig.work * 60 : curRemaining + (curRemaining > 0 ? 0 : 0)),
       task: override?.task ?? task,
       duration: override?.duration ?? sizeConfig.work,
     }
     window.electronAPI?.pomodoroWidgetUpdate?.(data)
-  }, [phase, remaining, task, sizeConfig])
+  }, [phase, task, sizeConfig])
 
   // 倒计时
   useEffect(() => {
@@ -158,8 +161,7 @@ export default function Focus() {
     timerRef.current = setInterval(() => {
       setRemaining(prev => {
         const next = prev > 0 ? prev - 1 : 0
-        const ps = loadPomodoroState()
-        if (ps) savePomodoroState({ ...ps, totalSec: ps.totalSec })
+        // 持久化应基于 phase 切换时机，而非每 tick；移除原 savePomodoroState no-op 调用
         return next
       })
     }, 1000)

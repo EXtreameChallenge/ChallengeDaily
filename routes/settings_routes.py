@@ -76,6 +76,12 @@ def update_settings():
         url_val = str(data["ai_base_url"]).strip()
         if url_val and not (url_val.startswith("http://") or url_val.startswith("https://")):
             return jsonify({"error": "AI Base URL 必须以 http:// 或 https:// 开头"}), 400
+        # SSRF 校验：拒绝回环/内网/链路本地等地址
+        if url_val:
+            from routes.webhooks import _validate_webhook_url
+            ssrf_error = _validate_webhook_url(url_val)
+            if ssrf_error:
+                return jsonify({"error": f"AI Base URL 校验失败：{ssrf_error}"}), 400
 
     save_settings(current)
 

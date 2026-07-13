@@ -1,12 +1,25 @@
 // 后端 API 基础 URL：优先从 Electron 主进程获取端口，兼容非 Electron 环境
 let BASE_URL = 'http://127.0.0.1:58888'
 
-// 启动时动态获取后端端口（Electron 环境下由主进程分配）
-if (typeof window !== 'undefined' && window.electronAPI?.getBackendPort) {
-  window.electronAPI.getBackendPort().then((port: number) => {
-    if (port) BASE_URL = `http://127.0.0.1:${port}`
-  }).catch(() => {})
+// 异步初始化 BASE_URL 的 Promise（避免启动初期竞态：模块加载时端口尚未就绪）
+let _baseUrlPromise: Promise<void> | null = null
+function ensureBaseUrl(): Promise<void> {
+  if (_baseUrlPromise) return _baseUrlPromise
+  _baseUrlPromise = (async () => {
+    if (typeof window !== 'undefined' && window.electronAPI?.getBackendPort) {
+      try {
+        const port = await window.electronAPI.getBackendPort()
+        if (port) BASE_URL = `http://127.0.0.1:${port}`
+      } catch {
+        // 保留默认 BASE_URL
+      }
+    }
+  })()
+  return _baseUrlPromise
 }
+
+// 启动时也立即触发一次（兼容现有调用模式）
+ensureBaseUrl()
 
 // ── 后端连接状态管理（企业级断线重连机制） ──
 type BackendState = 'connected' | 'disconnected' | 'connecting'
@@ -88,6 +101,8 @@ function invalidateToken() {
  * 则该 signal 触发 abort 时也会同步中断 fetch；同时保留超时机制。
  */
 export async function request(endpoint: string, options?: RequestInit, timeoutMs = 10000, _retryCount = 0): Promise<unknown> {
+  // 确保 BASE_URL 已初始化（避免启动初期端口尚未就绪导致请求失败）
+  await ensureBaseUrl()
   const token = await getApiToken()
   const controller = new AbortController()
   // 连接超时：后端是本地服务，默认 10 秒；生成报告等长耗时操作可自定义

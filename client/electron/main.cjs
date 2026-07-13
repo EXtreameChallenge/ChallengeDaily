@@ -16,8 +16,25 @@ const fs = require('fs')
 const crypto = require('crypto')
 
 // 把主进程 console 输出持久化到文件，方便排查无窗口启动问题
-const mainLogDir = path.join(__dirname, '..', '..', 'data', 'logs')
-fs.mkdirSync(mainLogDir, { recursive: true })
+// 注意：__dirname 在打包后位于 asar 只读区，必须使用外部可写路径
+const _resolveMainLogDir = () => {
+  // 优先用 app.getPath('userData')（app ready 后可用）
+  try {
+    const electron = require('electron')
+    if (electron.app && electron.app.getPath) {
+      const p = electron.app.getPath('userData')
+      if (p) return path.join(p, 'logs')
+    }
+  } catch (_) {}
+  // 兜底：Windows APPDATA 或用户主目录
+  if (process.env.APPDATA) return path.join(process.env.APPDATA, 'challenge-daily', 'logs')
+  if (process.env.HOME) return path.join(process.env.HOME, '.challenge-daily', 'logs')
+  // 最终兜底：临时目录
+  const os = require('os')
+  return path.join(os.tmpdir(), 'challenge-daily-logs')
+}
+const mainLogDir = _resolveMainLogDir()
+try { fs.mkdirSync(mainLogDir, { recursive: true }) } catch (_) {}
 const mainLogFile = path.join(mainLogDir, 'electron-main.log')
 const mainLogStream = fs.createWriteStream(mainLogFile, { flags: 'a' })
 const _origLog = console.log
@@ -172,14 +189,13 @@ function isBackendTokenValid() {
   })
 }
 
-// 同步等待 token 文件出现（后端启动时写入 .api_token 可能有毫秒级延迟）
-function _waitForTokenFile(timeoutMs = 10000) {
+// 异步等待 token 文件出现（后端启动时写入 .api_token 可能有毫秒级延迟）
+async function _waitForTokenFile(timeoutMs = 10000) {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
     if (readApiToken(1)) return true
-    // 非阻塞忙等 200ms，主进程启动阶段可接受
-    const t = Date.now()
-    while (Date.now() - t < 200) {}
+    // 用 Promise 延迟替代 CPU 忙等，避免阻塞主进程
+    await new Promise(r => setTimeout(r, 200))
   }
   return false
 }
@@ -340,7 +356,7 @@ async function _doStartBackend() {
         if (probeCount > 20) { clearInterval(probeInterval); return }
         const running = await isBackendRunning()
         if (running) {
-          const tokenReady = _waitForTokenFile(5000)
+          const tokenReady = await _waitForTokenFile(5000)
           if (tokenReady) {
             log('Main', `Backend confirmed via health probe (attempt ${probeCount})`)
             clearInterval(probeInterval)
@@ -417,12 +433,19 @@ function createMainWindow() {
     ? "script-src 'self' 'unsafe-inline'; "
     : "script-src 'self'; "
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    // 每次响应生成一次性 nonce，供未来 style-src 收紧使用
+    const _styleNonce = crypto.randomBytes(16).toString('base64')
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           "default-src 'self'; " +
           _cspScriptSrc +
+          // TODO(P0-02): style-src 仍保留 'unsafe-inline'，存在 CSS data exfiltration 风险。
+          // 未直接改用 'nonce-${_styleNonce}' 的原因：React 内联样式（style={{...}}）会生成
+          // style 属性，CSP3 规定当 style-src 含 nonce 时 'unsafe-inline' 会被忽略，导致所有
+          // 内联 style 属性被拦截、UI 渲染崩溃。要彻底移除 'unsafe-inline'，需先将所有内联
+          // 样式迁移到 CSS 类，再启用 style-src-elem 'nonce-...' + style-src-attr。
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
           "img-src 'self' data: blob: http: https:; " +
           "font-src 'self' data: https://fonts.gstatic.com; " +
@@ -667,10 +690,40 @@ function quitApp() {
 
 // ─── IPC 通信 ────────────────────────────────────
 // IPC sender 校验：仅允许主窗口来源调用敏感通道
+// 安全设计：多层校验，优先 webContents 引用比较，兜底用路径前缀比较（非 origin）
+// 注意：file:// 协议下所有页面 origin 都是 "file://"，不能用 origin 比较防外部页面
 const isFromMainWindow = (sender) => {
   try {
-    const url = sender.getURL()
-    return url.includes('localhost:5173') || url.includes('file://') || url.includes('index.html')
+    // 第一层：webContents 引用比较（最严格，主路径）
+    if (mainWindow && sender === mainWindow.webContents) {
+      return true
+    }
+    // 第二层：webContents ID 比较（防止引用未更新）
+    if (mainWindow && sender.id === mainWindow.webContents.id) {
+      return true
+    }
+    // 第三层：兜底用 URL 路径前缀比较（非 origin 比较）
+    // file:// 协议下 origin 不可靠（所有 file:// 页面 origin 都是 "file://"）
+    const senderUrl = sender.getURL()
+    if (!senderUrl) return false
+    if (senderUrl.startsWith('file://')) {
+      // 生产模式：仅允许本应用 dist 目录下的 file:// 资源
+      // __dirname = client/electron，dist 在 client/dist
+      const appDistPath = path.join(__dirname, '..', 'dist').replace(/\\/g, '/')
+      // 规范化为 file:///D:/path 形式
+      const appDistUrl = `file:///${appDistPath.replace(/^\//, '')}`
+      return senderUrl.startsWith(appDistUrl)
+    }
+    // 开发模式：仅允许 localhost:5173
+    if (isDev) {
+      try {
+        const origin = new URL(senderUrl).origin
+        return origin === 'http://localhost:5173'
+      } catch (_) {
+        return false
+      }
+    }
+    return false // 生产模式非 file:// 一律拒绝
   } catch (_) {
     return false // 校验失败时默认拒绝，防止未授权渲染进程调用敏感通道
   }
@@ -942,11 +995,13 @@ function readApiToken(maxAttempts = 1) {
   try {
     const fs = require('fs')
     const path = require('path')
-    // 优先使用实际后端工作目录，避免源码/打包/不同安装路径导致 token 错位
+    // 查找顺序说明：
+    // 持久化目录 backend-data 必须排在最前——后端实际通过 CHALLENGE_DAILY_DATA_DIR
+    // 环境变量把 .api_token 写入此目录。若把 _backendDir/data 放在前面，
+    // 会读到源码目录下残留的旧 token，与后端当前 token 不匹配 → 401 → 断连误判。
     const possibleDirs = []
-    if (_backendDir) possibleDirs.push(path.join(_backendDir, 'data'))
-    // 优先查找新的持久化数据目录 backend-data
     possibleDirs.push(path.join(app.getPath('userData'), 'backend-data'))
+    if (_backendDir) possibleDirs.push(path.join(_backendDir, 'data'))
     possibleDirs.push(path.join(__dirname, '..', '..', 'data'))
     possibleDirs.push(path.join(app.getPath('userData'), 'data'))
     possibleDirs.push(path.join(process.resourcesPath, 'backend', 'data'))
@@ -982,6 +1037,10 @@ try {
     owner: 'ChallengeDaily',
     repo: 'ChallengeDaily',
   })
+  // P0-11: 禁用更新缓存，避免拿到缓存的旧版本元数据
+  autoUpdater.requestHeaders = { 'Cache-Control': 'no-cache' }
+  // 签名校验：未来购买代码签名证书后启用
+  // autoUpdater.verifyUpdateCodeSignature = true
 
   autoUpdater.on('update-available', (info) => {
     // 通知渲染进程有新版本

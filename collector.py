@@ -410,17 +410,20 @@ class Collector:
             logger.debug(f"分类平滑失败（不影响采集）: {e}")
 
         # 6. 存储
-        insert_activity(
-            timestamp=timestamp,
-            screenshot=filename,
-            app_name=app_name,
-            window_title=window_title,
-            category=category,
-            summary=summary or f"{display_name} - {window_title[:20]}",
-            interval_sec=config.SCREENSHOT_INTERVAL_SEC,
-            ai_detail=ai_detail,
-            windows_json=json.dumps(windows_data, ensure_ascii=False) if windows_data else "[]",
-        )
+        try:
+            insert_activity(
+                timestamp=timestamp,
+                screenshot=filename,
+                app_name=app_name,
+                window_title=window_title,
+                category=category,
+                summary=summary or f"{display_name} - {window_title[:20]}",
+                interval_sec=config.SCREENSHOT_INTERVAL_SEC,
+                ai_detail=ai_detail,
+                windows_json=json.dumps(windows_data, ensure_ascii=False) if windows_data else "[]",
+            )
+        except Exception as e:
+            logger.error(f"insert_activity 失败: {e}", exc_info=True)
 
         logger.info(f"[{category}] {summary} ({display_name})")
 

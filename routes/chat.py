@@ -9,6 +9,7 @@ from flask import Blueprint, request, jsonify, Response, stream_with_context
 import db
 from routes.deps import shutdown_event
 import os
+import re
 import json
 import logging
 import threading
@@ -39,6 +40,24 @@ def _chat_rate_check() -> bool:
             return False
         _chat_rate_times.append(now)
     return True
+
+
+# P0-08: Prompt injection 模式检测
+_PROMPT_INJECTION_PATTERNS = [
+    r'ignore\s+(previous|above|prior)\s+instructions',
+    r'system\s*:',
+    r'<\|im_start\|>',
+    r'<\|im_end\|>',
+    r'forget\s+(everything|all)\s+(previous|prior)',
+    r'you\s+are\s+(now|a)\s+(system|admin|root)',
+    r'</?(script|iframe|object|embed)',
+]
+_INJECTION_RE = re.compile('|'.join(_PROMPT_INJECTION_PATTERNS), re.IGNORECASE)
+
+
+def _detect_prompt_injection(text: str) -> bool:
+    """检测明显的 prompt injection 模式"""
+    return bool(_INJECTION_RE.search(text))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -496,6 +515,9 @@ def ai_chat_stream():
         return jsonify({"error": "消息不能为空"}), 400
     if len(user_message) > _MAX_USER_MESSAGE_LEN:
         return jsonify({"error": f"消息过长，请控制在 {_MAX_USER_MESSAGE_LEN} 字符以内"}), 400
+    # P0-08: prompt injection 检测
+    if _detect_prompt_injection(user_message):
+        return jsonify({"error": "消息包含不允许的内容"}), 400
 
     if not config.AI_API_KEY:
         def no_key():
@@ -750,6 +772,9 @@ def ai_chat():
         return jsonify({"error": "消息不能为空"}), 400
     if len(user_message) > _MAX_USER_MESSAGE_LEN:
         return jsonify({"error": f"消息过长，请控制在 {_MAX_USER_MESSAGE_LEN} 字符以内"}), 400
+    # P0-08: prompt injection 检测
+    if _detect_prompt_injection(user_message):
+        return jsonify({"error": "消息包含不允许的内容"}), 400
 
     db.insert_chat('user', user_message)
 

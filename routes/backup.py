@@ -20,6 +20,7 @@ bp = Blueprint('backup', __name__)
 def create_backup():
     import zipfile
 
+    logger.info(f"[AUDIT] Backup operation: {request.method} {request.path} from {request.remote_addr}")
     # 创建备份前先执行 WAL checkpoint，确保所有数据都写入主 DB 文件
     try:
         from db import get_conn
@@ -85,6 +86,7 @@ def restore_backup():
     import zipfile
     import tempfile
 
+    logger.info(f"[AUDIT] Restore operation: {request.method} {request.path} from {request.remote_addr}")
     if "file" not in request.files:
         return jsonify({"error": "未找到备份文件"}), 400
 
@@ -207,6 +209,9 @@ def restore_backup():
         except Exception:
             pass
 
+        # P0-12: 审计日志 — 记录恢复的文件名、大小、时间戳
+        _audit_detail = ", ".join(f"{n}({restore_map[n].stat().st_size}B)" for n in restored if n in restore_map and restore_map[n].exists())
+        logger.info(f"[AUDIT] Restore completed: {_audit_detail}, timestamp={_datetime.now().isoformat()}")
         logger.info(f"数据恢复完成，恢复了 {len(restored)} 个文件: {restored}")
         return jsonify({"status": "ok", "restored_files": restored})
     except zipfile.BadZipFile:

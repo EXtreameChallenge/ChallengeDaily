@@ -128,19 +128,25 @@ export default function App() {
 
   useEffect(() => {
     if (!window.electronAPI) return
+    // 用 cancelled 标志避免 StrictMode 重复注册导致的状态污染
+    let cancelled = false
     window.electronAPI.onUpdateAvailable((info) => {
+      if (cancelled) return
       setUpdateInfo(info)
       setUpdateDismissed(false)
     })
     window.electronAPI.onUpdateProgress((progress) => {
+      if (cancelled) return
       setUpdateProgress(progress)
     })
     window.electronAPI.onUpdateDownloaded(() => {
+      if (cancelled) return
       setUpdateDownloaded(true)
     })
     // 应用启动时同步宠物窗口可见性：根据 localStorage 恢复宠物窗口状态
     const petVisible = localStorage.getItem('cd_pet_visible') !== '0'
     window.electronAPI.togglePet(petVisible)
+    return () => { cancelled = true }
   }, [])
 
   const handleInstallUpdate = () => {

@@ -232,6 +232,14 @@ export default function Report() {
                 }
                 return url
               }}
+              // sanitize：将危险标签映射为 null，防止 iframe/form/style/object/embed 注入
+              components={{
+                iframe: () => null,
+                form: () => null,
+                style: () => null,
+                object: () => null,
+                embed: () => null,
+              }}
             >{content}</ReactMarkdown>
           </div>
         </div>

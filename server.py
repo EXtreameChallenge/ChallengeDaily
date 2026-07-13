@@ -3,11 +3,15 @@ ChallengeDaily Windows 版 — Flask HTTP API
 企业级：token 鉴权、graceful shutdown、数据导出、AI 测试
 """
 import logging
+import time
+import uuid
+from collections import defaultdict
 
 from flask import Flask, jsonify, request
+from werkzeug.exceptions import HTTPException
 
 from config import HTTP_PORT
-from routes.deps import shutdown_event, check_token, save_token, TOKEN_PATH
+from routes.deps import shutdown_event, check_token, save_token, TOKEN_PATH, install_log_redaction
 import routes.deps as deps
 from routes import ALL_BLUEPRINTS
 
@@ -65,11 +69,57 @@ def _is_public_path(path: str) -> bool:
     return False
 
 
+# P0-04: Rate Limiting（内存实现，单进程足够），防暴力枚举 token
+_RATE_LIMIT_WINDOW = 60      # 60秒窗口
+_RATE_LIMIT_MAX = 60         # 每IP每窗口60次
+_AUTH_FAIL_LIMIT = 5         # 鉴权失败5次锁定
+_AUTH_FAIL_LOCK_SEC = 900    # 锁定15分钟
+_rate_limit_store = defaultdict(list)   # ip -> [timestamps]
+_auth_fail_store = defaultdict(list)    # ip -> [fail timestamps]
+
+
+def _check_rate_limit(ip: str) -> bool:
+    now = time.time()
+    _rate_limit_store[ip] = [t for t in _rate_limit_store[ip] if now - t < _RATE_LIMIT_WINDOW]
+    if len(_rate_limit_store[ip]) >= _RATE_LIMIT_MAX:
+        return False
+    _rate_limit_store[ip].append(now)
+    return True
+
+
+def _check_auth_fail_limit(ip: str) -> bool:
+    now = time.time()
+    _auth_fail_store[ip] = [t for t in _auth_fail_store[ip] if now - t < _AUTH_FAIL_LOCK_SEC]
+    return len(_auth_fail_store[ip]) < _AUTH_FAIL_LIMIT
+
+
+def _record_auth_fail(ip: str):
+    _auth_fail_store[ip].append(time.time())
+
+
+# P0-07: 请求体大小限制（Flask 兜底模式兜底，waitress 已有 max_request_body_size）
+_MAX_BODY_SIZE = 10 * 1024 * 1024  # 10MB
+
+
+@app.before_request
+def check_body_size():
+    if request.method in ('POST', 'PUT', 'PATCH'):
+        cl = request.content_length
+        if cl and cl > _MAX_BODY_SIZE:
+            return jsonify({"error": "请求体过大"}), 413
+
+
 @app.before_request
 def auth_check():
+    client_ip = request.remote_addr or 'unknown'
+    if not _check_rate_limit(client_ip):
+        return jsonify({"error": "请求过于频繁"}), 429
     if _is_public_path(request.path) or request.method == "OPTIONS":
         return None
+    if not _check_auth_fail_limit(client_ip):
+        return jsonify({"error": "鉴权失败次数过多，请15分钟后重试"}), 429
     if not check_token(request):
+        _record_auth_fail(client_ip)
         return jsonify({"error": "未授权访问，请通过客户端操作"}), 401
 
 
@@ -94,6 +144,23 @@ for bp in ALL_BLUEPRINTS:
     app.register_blueprint(bp)
 
 
+# P0-05: 500 错误统一脱敏，避免堆栈信息泄露
+@app.errorhandler(500)
+def handle_500(e):
+    trace_id = str(uuid.uuid4())[:8]
+    logger.error(f"[trace:{trace_id}] Internal error: {e}", exc_info=True)
+    return jsonify({"error": "服务器内部错误", "trace_id": trace_id}), 500
+
+
+@app.errorhandler(Exception)
+def handle_unexpected(e):
+    trace_id = str(uuid.uuid4())[:8]
+    logger.error(f"[trace:{trace_id}] Unexpected error: {e}", exc_info=True)
+    if isinstance(e, HTTPException):
+        return e
+    return jsonify({"error": "服务器内部错误", "trace_id": trace_id}), 500
+
+
 # ── Backward-compatible module attributes for main.py ──
 
 def __getattr__(name):
@@ -111,6 +178,7 @@ def __getattr__(name):
 # ── 启动 ──
 
 def start_server():
+    install_log_redaction()  # P0-06: 安装日志脱敏过滤器
     save_token()
     logger.info(f"API Token 已生成: {TOKEN_PATH}")
 
