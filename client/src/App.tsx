@@ -8,6 +8,7 @@ import { ThemeProvider } from './components/ThemeContext'
 import { BackendStatusBar } from './components/shared'
 import { getNotifications, startupHealthCheck } from './api/client'
 import { useAppLock, LockScreen } from './components/AppLock'
+import { CommandPalette, useCommandPaletteShortcut } from './components/CommandPalette'
 
 // 懒加载页面组件 — 减少首屏加载体积
 const Overview = lazy(() => import('./pages/Overview'))
@@ -46,6 +47,8 @@ export default function App() {
   const [checking, setChecking] = useState(true)
   const [firstLaunchPhase, setFirstLaunchPhase] = useState<FirstLaunchPhase>('done')
   const { locked, unlock } = useAppLock()
+  const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false)
+  useCommandPaletteShortcut(() => setCmdPaletteOpen(true))
 
   useEffect(() => {
     let isCancelled = false
@@ -256,6 +259,7 @@ export default function App() {
               <Onboarding onComplete={handleOnboardingComplete} />
             ) : (
               <HashRouter>
+                <CommandPalette open={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} />
                 <Sidebar />
                 <main className="flex-1 overflow-auto bg-cd-bg p-6">
                   <RouteErrorBoundary>

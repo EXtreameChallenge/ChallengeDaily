@@ -1178,6 +1178,29 @@ export async function getMoodHeatmap(year?: number): Promise<{ data: MoodEntry[]
   return request(`/api/goals/mood-heatmap${qs}`) as Promise<{ data: MoodEntry[]; year: number | null }>
 }
 
+// ── 数据迁移导入 ──
+export interface ImportPreview {
+  source: string
+  format: string
+  total_rows: number
+  sample: Array<Record<string, unknown>>
+  detected_type: string
+}
+export interface ImportResult {
+  total: number
+  imported: number
+  skipped: number
+  errors: string[]
+  dry_run?: boolean
+  target_table?: string
+}
+export async function previewImport(source: string, format: 'json' | 'csv', data: string): Promise<ImportPreview> {
+  return request('/api/data-import/preview', { method: 'POST', body: JSON.stringify({ source, format, data }) }) as Promise<ImportPreview>
+}
+export async function executeImport(source: string, format: 'json' | 'csv', data: string, target_table?: string, dry_run?: boolean): Promise<ImportResult> {
+  return request('/api/data-import/execute', { method: 'POST', body: JSON.stringify({ source, format, data, target_table, dry_run }) }) as Promise<ImportResult>
+}
+
 // ── 规则引擎 ──
 export interface Rule {
   id: number; name: string; description: string;
