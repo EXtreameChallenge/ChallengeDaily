@@ -248,6 +248,84 @@ def metrics_endpoint():
     return jsonify(get_metrics())
 
 
+# ── P10-2：健康检查端点 ──
+
+@app.route('/api/health')
+def health_check():
+    """系统健康检查（供监控/自动重启使用）
+
+    返回各子系统状态：数据库 / AI / 采集 / 重试队列 / 磁盘
+    status: ok / degraded / down
+    """
+    import os
+    import shutil
+    from datetime import datetime
+    checks = {}
+    overall = "ok"
+
+    # 1. 数据库
+    try:
+        import db
+        with db.get_conn() as conn:
+            cnt = conn.execute("SELECT COUNT(*) AS c FROM activities").fetchone()
+        checks["database"] = {"status": "ok", "activities": cnt["c"] if cnt else 0}
+    except Exception as e:
+        checks["database"] = {"status": "down", "error": str(e)[:80]}
+        overall = "down"
+
+    # 2. AI 在线状态
+    try:
+        from offline_ai import is_online, get_queue_size
+        checks["ai"] = {"status": "online" if is_online() else "offline", "queue_size": get_queue_size()}
+        if not is_online():
+            overall = "degraded" if overall == "ok" else overall
+    except Exception as e:
+        checks["ai"] = {"status": "unknown", "error": str(e)[:80]}
+
+    # 3. 采集器状态（通过最近活动时间判断）
+    try:
+        import db
+        with db.get_conn() as conn:
+            row = conn.execute(
+                "SELECT MAX(timestamp) AS latest FROM activities"
+            ).fetchone()
+        latest = row["latest"] if row and row["latest"] else None
+        stale = True
+        if latest:
+            try:
+                latest_dt = datetime.strptime(latest, "%Y-%m-%d %H:%M:%S")
+                # 10 分钟内有采集视为正常
+                stale = (datetime.now() - latest_dt).total_seconds() > 600
+            except Exception:
+                pass
+        checks["collector"] = {"status": "stale" if stale else "ok", "last_activity": latest}
+        if stale:
+            overall = "degraded" if overall == "ok" else overall
+    except Exception as e:
+        checks["collector"] = {"status": "unknown", "error": str(e)[:80]}
+
+    # 4. 磁盘
+    try:
+        from config import DATA_DIR
+        usage = shutil.disk_usage(str(DATA_DIR))
+        free_pct = (usage.free / usage.total) * 100
+        checks["disk"] = {
+            "status": "ok" if free_pct > 10 else "warn",
+            "free_gb": round(usage.free / (1024 ** 3), 2),
+            "free_pct": round(free_pct, 1),
+        }
+        if free_pct < 10:
+            overall = "degraded" if overall == "ok" else overall
+    except Exception as e:
+        checks["disk"] = {"status": "unknown", "error": str(e)[:80]}
+
+    return jsonify({
+        "status": overall,
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "checks": checks,
+    })
+
+
 # ── SSE 事件流 ──
 
 @app.route('/api/events/stream')

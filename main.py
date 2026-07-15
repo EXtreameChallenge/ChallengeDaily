@@ -132,6 +132,70 @@ def _get_version() -> str:
         return "v0.0.0"
 
 
+# P10-2：看门狗状态（模块级，跨调用持久）
+_watchdog_state = {"stale_since": None, "restart_count": 0, "last_check": None}
+
+
+def _watchdog_check(collector):
+    """采集器健康看门狗
+
+    - 每小时检查一次最近 activities 时间戳
+    - 连续 2 小时无新活动视为采集异常，重启采集器（on_start）
+    - 最多重启 3 次，超过则仅告警不操作
+    """
+    from datetime import datetime, timedelta
+    global _watchdog_state
+    now = datetime.now()
+    _watchdog_state["last_check"] = now.strftime('%Y-%m-%d %H:%M:%S')
+
+    try:
+        import db
+        with db.get_conn() as conn:
+            row = conn.execute("SELECT MAX(timestamp) AS latest FROM activities").fetchone()
+        latest_str = row["latest"] if row and row["latest"] else None
+        if not latest_str:
+            return  # 无数据（首次启动）
+        latest_dt = datetime.strptime(latest_str, "%Y-%m-%d %H:%M:%S")
+        age_sec = (now - latest_dt).total_seconds()
+
+        if age_sec < 3600:
+            # 1 小时内有活动，状态正常，重置计数
+            _watchdog_state["stale_since"] = None
+            return
+
+        # 进入 stale 状态
+        if _watchdog_state["stale_since"] is None:
+            _watchdog_state["stale_since"] = now
+            logger.warning(f"看门狗：采集器疑似停滞（最近活动 {latest_str}），等待下次检查确认")
+            return
+
+        # 已经 stale，判断是否达到重启阈值（2 小时）
+        stale_dur = (now - _watchdog_state["stale_since"]).total_seconds()
+        if stale_dur < 7200:
+            logger.warning(f"看门狗：采集器停滞 {int(stale_dur/60)} 分钟，将在 120 分钟时重启")
+            return
+
+        # 达到重启阈值
+        if _watchdog_state["restart_count"] >= 3:
+            logger.error(f"看门狗：已重启 3 次仍无改善，放弃自动重启，请人工检查")
+            return
+
+        logger.error(f"看门狗：采集器停滞超过 2 小时，尝试重启采集器（第 {_watchdog_state['restart_count']+1} 次）")
+        try:
+            collector.stop()
+        except Exception:
+            pass
+        try:
+            collector.on_start()
+            _watchdog_state["restart_count"] += 1
+            _watchdog_state["stale_since"] = None
+            logger.info("看门狗：采集器已重启")
+        except Exception as e:
+            logger.error(f"看门狗：采集器重启失败: {e}")
+    except Exception as e:
+        logger.debug(f"看门狗检查异常: {e}")
+
+
 def main():
     # 0. 单例保护
     _acquire_singleton()
@@ -185,6 +249,12 @@ def main():
 
     # 6. 主循环
     collector.on_start()
+    # P10-1：启动 AI 重试队列
+    try:
+        from offline_ai import start_retry_queue
+        start_retry_queue()
+    except Exception as e:
+        logger.debug(f"AI 重试队列启动失败（不影响主流程）: {e}")
     stop = threading.Event()
     import server as _server_module  # 避免使用 from ... import 绑定值
     logger.info("ChallengeDaily已启动，按 Ctrl+C 退出")
@@ -228,6 +298,13 @@ def main():
                             push_morning_insights_if_due()
                         except Exception as e:
                             logger.debug(f"晨报洞察推送异常: {e}")
+
+                    # P10-2：看门狗 — 每小时整点检查采集器健康，连续 2 小时无活动自动重启
+                    if now_minutes == 0 and in_work_hours:
+                        try:
+                            _watchdog_check(collector)
+                        except Exception as e:
+                            logger.debug(f"看门狗检查异常: {e}")
 
             except Exception as e:
                 logger.error(f"采集循环异常: {e}")

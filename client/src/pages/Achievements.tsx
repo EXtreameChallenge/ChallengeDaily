@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Trophy, Lock, Sparkles } from 'lucide-react'
-import { getAchievements, checkAchievements, getQuote, type Achievement } from '../api/client'
+import { Trophy, Lock, Sparkles, Crown, Calendar } from 'lucide-react'
+import { getAchievements, checkAchievements, getQuote, getSeason, type Achievement, type SeasonData } from '../api/client'
 import { useToast } from '../components/Toast'
 
 const ALL_BADGES = [
@@ -24,6 +24,7 @@ export default function Achievements() {
   const [achievements, setAchievements] = useState<Achievement[]>([])
   const [quote, setQuote] = useState('')
   const [newlyUnlocked, setNewlyUnlocked] = useState<string[]>([])
+  const [season, setSeason] = useState<SeasonData | null>(null)
   const toast = useToast()
   // 用于在组件卸载时清理 newlyUnlocked 的 setTimeout
   const unlockTimerRef = useRef<number | undefined>(undefined)
@@ -34,9 +35,14 @@ export default function Achievements() {
 
   const load = useCallback(async () => {
     try {
-      const [aRes, qRes] = await Promise.all([getAchievements(), getQuote()])
+      const [aRes, qRes, sRes] = await Promise.all([
+        getAchievements(),
+        getQuote(),
+        getSeason().catch(() => null),
+      ])
       setAchievements(aRes.achievements)
       setQuote(qRes.quote)
+      if (sRes) setSeason(sRes)
     } catch { toast.error('加载成就数据失败') }
   }, [toast])
 
@@ -102,6 +108,68 @@ export default function Achievements() {
           )
         })}
       </div>
+
+      {/* P10-4：本月赛季成就 */}
+      {season && (
+        <div className="mt-8 bg-gradient-to-br from-purple-500/10 to-gold/5 rounded-xl p-5 border border-purple-400/20">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-cd-text flex items-center gap-2">
+              <Crown size={20} className="text-gold" /> 本月赛季
+              <span className="text-xs text-cd-text-tertiary font-normal flex items-center gap-1 ml-2">
+                <Calendar size={12} />
+                {season.start_date} ~ {season.end_date}
+              </span>
+            </h2>
+            <span className="text-sm text-cd-text-secondary">
+              {season.unlocked_count}/{season.total_count} 已解锁
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {season.achievements.map(a => (
+              <div key={a.key} className={`rounded-lg p-3 border transition ${
+                a.unlocked
+                  ? 'bg-gold/10 border-gold/30'
+                  : 'bg-cd-bg-input border-white/5'
+              }`}>
+                <div className="flex items-start justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{a.unlocked ? '🏆' : '🎯'}</span>
+                    <div>
+                      <div className={`text-sm font-medium ${a.unlocked ? 'text-gold' : 'text-cd-text'}`}>
+                        {a.name}
+                      </div>
+                      <div className="text-[10px] text-cd-text-tertiary">{a.desc}</div>
+                    </div>
+                  </div>
+                  {a.unlocked && (
+                    <span className="text-[10px] text-gold bg-gold/10 px-2 py-0.5 rounded">已解锁</span>
+                  )}
+                </div>
+                {/* 进度条 */}
+                <div className="mt-2">
+                  <div className="flex items-center justify-between text-[10px] text-cd-text-tertiary mb-1">
+                    <span>{a.current} / {a.target}</span>
+                    <span>{a.progress_pct}%</span>
+                  </div>
+                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${a.unlocked ? 'bg-gold' : 'bg-purple-400'}`}
+                      style={{ width: `${a.progress_pct}%` }}
+                    />
+                  </div>
+                </div>
+                {a.unlocked && a.reward && (
+                  <div className="mt-2 text-[10px] text-gold/80">奖励称号：{a.reward}</div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 text-[10px] text-cd-text-tertiary text-center">
+            每月 1 号重置赛季，挑战自己赢取月度专属称号
+          </div>
+        </div>
+      )}
     </div>
   )
 }

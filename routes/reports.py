@@ -145,7 +145,21 @@ def generate_report():
         content = generate_daily_report(target_date, template=template)
         return jsonify({"status": "ok", "date": target_date, "length": len(content), "template": template})
     except Exception as e:
-        return jsonify({"error": safe_error(e, "日报生成失败")}), 500
+        # P10-1：离线降级 — 使用规则引擎生成简化版日报
+        try:
+            from offline_ai import generate_offline_daily_report, is_online
+            offline_content = generate_offline_daily_report(target_date)
+            return jsonify({
+                "status": "offline_fallback",
+                "date": target_date,
+                "length": len(offline_content),
+                "template": template,
+                "offline": True,
+                "online": is_online(),
+                "message": "AI 暂不可用，已使用规则引擎生成简化版日报",
+            })
+        except Exception:
+            return jsonify({"error": safe_error(e, "日报生成失败")}), 500
 
 
 @bp.route("/api/report/weekly")

@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 30
+SCHEMA_VERSION = 31
 
 # P-01: 默认数据保留天数（90 天）
 DEFAULT_DATA_RETENTION_DAYS = 90
@@ -836,6 +836,43 @@ def _init_db_impl():
                 logger.info("V30: reports_fts 全文检索索引创建完成（含触发器与回填）")
             except Exception as e:
                 logger.warning(f"V30 FTS5 创建失败（可能 SQLite 未启用 FTS5）: {e}")
+
+        # V31: AI 重试队列 + 赛季成就表
+        if current_version < 31:
+            try:
+                conn.executescript("""
+                    CREATE TABLE IF NOT EXISTS ai_retry_queue (
+                        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                        kind          TEXT NOT NULL,
+                        payload       TEXT NOT NULL,
+                        attempts      INTEGER DEFAULT 0,
+                        last_attempt  TEXT,
+                        created_at    TEXT,
+                        status        TEXT DEFAULT 'pending'
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_ai_retry_status ON ai_retry_queue(status, attempts);
+
+                    CREATE TABLE IF NOT EXISTS achievement_seasons (
+                        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                        season_key    TEXT NOT NULL UNIQUE,
+                        start_date    TEXT NOT NULL,
+                        end_date      TEXT NOT NULL,
+                        created_at    TEXT DEFAULT (datetime('now','localtime'))
+                    );
+                    CREATE TABLE IF NOT EXISTS season_achievements (
+                        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                        season_key    TEXT NOT NULL,
+                        achievement_key TEXT NOT NULL,
+                        user_id       INTEGER,
+                        unlocked_at   TEXT,
+                        progress      INTEGER DEFAULT 0,
+                        UNIQUE(season_key, achievement_key)
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_season_ach_key ON season_achievements(season_key, achievement_key);
+                """)
+                logger.info("V31: AI 重试队列 + 赛季成就表创建完成")
+            except Exception as e:
+                logger.warning(f"V31 schema 升级失败: {e}")
 
         # 更新版本号
         conn.execute(

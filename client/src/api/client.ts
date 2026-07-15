@@ -576,6 +576,63 @@ export async function downloadExportActivitiesDetail(start: string, end: string)
   _triggerDownload(blob, `activities_detail_${start}_${end}.csv`)
 }
 
+// ── P10-3：数据导入（Toggl / RescueTime CSV） ──
+export interface ImportResult {
+  status: string
+  source: string
+  parsed: number
+  inserted: number
+  message?: string
+  dry_run?: boolean
+  sample?: Array<Record<string, unknown>>
+}
+export async function importTogglCsv(csv: string, dryRun = false): Promise<ImportResult> {
+  return request('/api/imports/toggl', {
+    method: 'POST',
+    body: JSON.stringify({ csv, dry_run: dryRun }),
+  }) as Promise<ImportResult>
+}
+export async function importRescueTimeCsv(csv: string, dryRun = false): Promise<ImportResult> {
+  return request('/api/imports/rescuetime', {
+    method: 'POST',
+    body: JSON.stringify({ csv, dry_run: dryRun }),
+  }) as Promise<ImportResult>
+}
+
+// ── P10-4：赛季成就 ──
+export interface SeasonAchievement {
+  key: string
+  name: string
+  desc: string
+  target: number
+  metric: string
+  reward: string
+  current: number
+  progress_pct: number
+  unlocked: boolean
+}
+export interface SeasonData {
+  season_key: string
+  start_date: string
+  end_date: string
+  achievements: SeasonAchievement[]
+  unlocked_count: number
+  total_count: number
+}
+export async function getSeason(month?: string): Promise<SeasonData> {
+  const m = month ? `?month=${month}` : ''
+  return request(`/api/achievements/season${m}`) as Promise<SeasonData>
+}
+export interface SeasonHistoryItem {
+  season_key: string
+  unlocked_count: number
+  total_count: number
+  achievements: Array<{ key: string; name: string; unlocked: boolean; current: number; target: number }>
+}
+export async function getSeasonHistory(months = 6): Promise<{ history: SeasonHistoryItem[] }> {
+  return request(`/api/achievements/season/history?months=${months}`) as Promise<{ history: SeasonHistoryItem[] }>
+}
+
 /** 创建备份（安全下载：使用 header 传 token） */
 export async function downloadBackup(): Promise<void> {
   const token = await getApiToken()

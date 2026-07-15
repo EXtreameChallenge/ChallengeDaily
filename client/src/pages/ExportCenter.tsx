@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { BarChart3, TrendingUp, Calendar, Database, Download, Loader2, CheckCircle, FileText, ListTree } from 'lucide-react'
-import { getApiToken, getBaseUrl, ensureBaseUrl } from '../api/client'
+import { useState, useRef } from 'react'
+import { BarChart3, TrendingUp, Calendar, Database, Download, Loader2, CheckCircle, FileText, ListTree, Upload, AlertCircle } from 'lucide-react'
+import { getApiToken, getBaseUrl, ensureBaseUrl, importTogglCsv, importRescueTimeCsv } from '../api/client'
 
 // ── 下载状态 ──
 type DownloadState = 'idle' | 'loading' | 'success' | 'error'
@@ -431,10 +431,109 @@ export default function ExportCenter() {
         </ExportCard>
       </div>
 
+      {/* P10-3：数据导入 */}
+      <ImportSection />
+
       {/* 底部提示 */}
       <div className="mt-6 text-xs text-cd-text-tertiary text-center">
         💡 导出文件会自动下载到浏览器默认下载目录，可在设置中查看存储路径
       </div>
+    </div>
+  )
+}
+
+// ── P10-3：数据导入区块 ──
+function ImportSection() {
+  const [importing, setImporting] = useState<'toggl' | 'rescuetime' | null>(null)
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [pendingSource, setPendingSource] = useState<'toggl' | 'rescuetime' | null>(null)
+
+  const handleFile = async (file: File, source: 'toggl' | 'rescuetime') => {
+    setImporting(source)
+    setResult(null)
+    try {
+      const text = await file.text()
+      if (!text.trim()) {
+        setResult({ ok: false, message: '文件为空' })
+        return
+      }
+      const res = source === 'toggl'
+        ? await importTogglCsv(text)
+        : await importRescueTimeCsv(text)
+      setResult({
+        ok: true,
+        message: res.message || `成功解析 ${res.parsed} 条，导入 ${res.inserted} 条`,
+      })
+    } catch (e: any) {
+      setResult({ ok: false, message: e?.message || '导入失败' })
+    } finally {
+      setImporting(null)
+      setPendingSource(null)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  const triggerFile = (source: 'toggl' | 'rescuetime') => {
+    setPendingSource(source)
+    fileRef.current?.click()
+  }
+
+  return (
+    <div className="mt-6 bg-cd-bg-card border border-white/5 rounded-xl p-5">
+      <h2 className="text-lg font-bold text-cd-text flex items-center gap-2 mb-1">
+        <Upload size={18} className="text-cd-accent" /> 数据导入
+      </h2>
+      <p className="text-xs text-cd-text-tertiary mb-4">
+        从其他时间追踪工具迁移数据，导入记录会标记为 [imported]，仅用于历史对比
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <button
+          onClick={() => triggerFile('toggl')}
+          disabled={importing !== null}
+          className="flex items-center gap-3 p-3 bg-cd-bg-input border border-white/5 rounded-lg hover:border-cd-accent/30 transition disabled:opacity-50 text-left"
+        >
+          {importing === 'toggl' ? <Loader2 size={20} className="animate-spin text-cd-accent" /> : <Upload size={20} className="text-cd-accent" />}
+          <div>
+            <div className="text-sm font-medium text-cd-text">Toggl Track CSV</div>
+            <div className="text-[10px] text-cd-text-tertiary">Description, Start date, Duration...</div>
+          </div>
+        </button>
+        <button
+          onClick={() => triggerFile('rescuetime')}
+          disabled={importing !== null}
+          className="flex items-center gap-3 p-3 bg-cd-bg-input border border-white/5 rounded-lg hover:border-cd-accent/30 transition disabled:opacity-50 text-left"
+        >
+          {importing === 'rescuetime' ? <Loader2 size={20} className="animate-spin text-cd-accent" /> : <Upload size={20} className="text-cd-accent" />}
+          <div>
+            <div className="text-sm font-medium text-cd-text">RescueTime CSV</div>
+            <div className="text-[10px] text-cd-text-tertiary">Activity, Category, Duration sec...</div>
+          </div>
+        </button>
+      </div>
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".csv,text/csv"
+        className="hidden"
+        onChange={e => {
+          const f = e.target.files?.[0]
+          if (f && pendingSource) handleFile(f, pendingSource)
+        }}
+      />
+
+      {result && (
+        <div className={`mt-3 flex items-start gap-2 p-3 rounded-lg text-sm ${
+          result.ok
+            ? 'bg-green-500/10 border border-green-400/20 text-green-400'
+            : 'bg-red-500/10 border border-red-400/20 text-red-400'
+        }`}>
+          {result.ok ? <CheckCircle size={16} className="mt-0.5" /> : <AlertCircle size={16} className="mt-0.5" />}
+          <span>{result.message}</span>
+        </div>
+      )}
     </div>
   )
 }
