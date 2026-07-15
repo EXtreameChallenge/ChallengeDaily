@@ -505,3 +505,62 @@ code, pre, kbd, .font-mono {
     transition: none !important;
   }
 }
+
+/* ─── P45: 高对比度模式 ─────────────────────────── */
+@media (prefers-contrast: more) {
+  * {
+    border-color: currentColor !important;
+  }
+  .bg-white\/5,
+  .bg-white\/10,
+  .bg-black\/5,
+  .bg-black\/10 {
+    background-color: transparent !important;
+    border: 1px solid currentColor !important;
+  }
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 3px solid currentColor !important;
+    outline-offset: 2px !important;
+  }
+}
+
+/* ─── P50: 加载骨架屏 ─────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-text {
+  height: 14px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+.skeleton-text:last-child {
+  width: 60%;
+}
+.skeleton-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+/* ─── P47: 全局 reduced-motion 兜底 ─────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none !important;
+  }
+}
