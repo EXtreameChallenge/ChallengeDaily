@@ -79,6 +79,7 @@ export default function Focus() {
   const [pomodoroSize, setPomodoroSize] = useState<PomodoroSize>(() => _ps?.pomodoroSize ?? 'big')
   const [completedPomodoros, setCompletedPomodoros] = useState(() => _ps?.completedPomodoros ?? 0)
   const [strictMode, setStrictMode] = useState(false)
+  const [lockLevel, setLockLevel] = useState(0)  // 0=关 1=L1软提醒 2=L2硬拦截 3=L3锁屏
   const [distractionCount, setDistractionCount] = useState(0)
   const [distractionAlert, setDistractionAlert] = useState<{ app: string; count: number } | null>(null)
   const [resumePrompt, setResumePrompt] = useState<{ remaining: number; phase: Phase } | null>(null)
@@ -274,6 +275,7 @@ export default function Focus() {
         todo_id: selectedTodoId ?? undefined,
         pomodoro_index: 1,
         total_pomodoros: totalPomo,
+        lock_level: strictMode ? lockLevel : 0,
       })
       setSessionId(res.id)
       // 后端可能根据 todo 自动调整了 duration_min 和 total_pomodoros
@@ -398,6 +400,7 @@ export default function Focus() {
       todo_id: selectedTodoId ?? undefined,
       pomodoro_index: nextIndex,
       total_pomodoros: totalPomodoros,
+      lock_level: strictMode ? lockLevel : 0,
     }).then(res => {
       setSessionId(res.id)
       const ps = loadPomodoroState()
@@ -610,12 +613,30 @@ export default function Focus() {
                 = {totalPomodoros * sizeConfig.work}分钟专注
               </span>
             </div>
-            {/* T2: 严格模式开关 */}
-            <label className="flex items-center gap-2 text-xs text-cd-text-secondary cursor-pointer select-none">
-              <input type="checkbox" checked={strictMode} onChange={(e) => setStrictMode(e.target.checked)}
-                className="rounded" />
-              严格模式（分心即作废）
-            </label>
+            {/* T2: 严格模式开关 + 学霸硬锁机三档 */}
+            <div className="flex flex-col gap-1.5">
+              <label className="flex items-center gap-2 text-xs text-cd-text-secondary cursor-pointer select-none">
+                <input type="checkbox" checked={strictMode} onChange={(e) => setStrictMode(e.target.checked)}
+                  className="rounded" />
+                学霸模式（分心拦截）
+              </label>
+              {strictMode && (
+                <div className="flex gap-1 ml-5">
+                  {[
+                    { lv: 1, label: 'L1 软提醒', color: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10' },
+                    { lv: 2, label: 'L2 关进程', color: 'text-orange-400 border-orange-400/30 bg-orange-400/10' },
+                    { lv: 3, label: 'L3 锁屏', color: 'text-red-400 border-red-400/30 bg-red-400/10' },
+                  ].map(opt => (
+                    <button key={opt.lv} onClick={() => setLockLevel(opt.lv)}
+                      className={`px-2 py-0.5 rounded text-[10px] border transition ${
+                        lockLevel === opt.lv ? opt.color : 'text-cd-text-tertiary border-white/5 bg-cd-bg-input'
+                      }`}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

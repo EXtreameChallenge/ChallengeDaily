@@ -1067,12 +1067,36 @@ export const POMODORO_SIZES: Record<string, PomodoroSizeConfig> = {
 }
 export const LONG_BREAK_INTERVAL = 4
 
-export async function startPomodoro(data: { task?: string; duration_min?: number; category?: string; todo_id?: number | null; pomodoro_index?: number; total_pomodoros?: number }): Promise<{ status: string; id: number; start_time: string; todo_id: number | null; duration_min: number; pomodoro_index: number; total_pomodoros: number }> {
+export async function startPomodoro(data: { task?: string; duration_min?: number; category?: string; todo_id?: number | null; pomodoro_index?: number; total_pomodoros?: number; lock_level?: number; custom_blacklist?: string[] }): Promise<{ status: string; id: number; start_time: string; todo_id: number | null; duration_min: number; pomodoro_index: number; total_pomodoros: number }> {
   return request('/api/pomodoro/start', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; id: number; start_time: string; todo_id: number | null; duration_min: number; pomodoro_index: number; total_pomodoros: number }>
 }
 
 export async function stopPomodoro(data: { id: number; status?: string; interrupted_count?: number }): Promise<{ status: string; end_time: string }> {
   return request('/api/pomodoro/stop', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; end_time: string }>
+}
+
+// ── 日报多渠道提交 ──
+export interface ReportChannelConfig {
+  type: 'email' | 'feishu_report' | 'dingtalk_report' | 'wecom_report'
+  config: Record<string, string>
+  enabled: boolean
+  label?: string
+}
+
+export async function getReportChannels(): Promise<{ channels: ReportChannelConfig[] }> {
+  return request('/api/report-channels/config') as Promise<{ channels: ReportChannelConfig[] }>
+}
+
+export async function saveReportChannels(channels: ReportChannelConfig[]): Promise<{ status: string }> {
+  return request('/api/report-channels/config', { method: 'POST', body: JSON.stringify({ channels }) }) as Promise<{ status: string }>
+}
+
+export async function testReportChannel(type: string, config: Record<string, string>): Promise<{ success: boolean; message: string; channel: string }> {
+  return request('/api/report-channels/test', { method: 'POST', body: JSON.stringify({ type, config }) }) as Promise<{ success: boolean; message: string; channel: string }>
+}
+
+export async function submitReportToChannels(report_text: string, report_date?: string): Promise<{ status: string; total: number; success: number; results: Array<{ channel: string; success: boolean; message: string }> }> {
+  return request('/api/report-channels/submit', { method: 'POST', body: JSON.stringify({ report_text, report_date }) }) as Promise<{ status: string; total: number; success: number; results: Array<{ channel: string; success: boolean; message: string }> }>
 }
 
 export async function getPomodoroSessions(date?: string): Promise<{ sessions: PomodoroSession[] }> {
@@ -1130,6 +1154,13 @@ export async function deleteTodo(id: number): Promise<{ status: string }> {
 }
 
 // ── 每日日记 ──
+export interface DiaryMedia {
+  type: 'image' | 'audio' | 'link'
+  url: string
+  title?: string
+  thumbnail?: string
+  duration?: number
+}
 export interface Diary {
   id: number
   diary_date: string
@@ -1139,6 +1170,8 @@ export interface Diary {
   tags: string
   highlights: string
   gratitude: string
+  media_json: string
+  font_style: string
   created_at: string
   updated_at: string
 }

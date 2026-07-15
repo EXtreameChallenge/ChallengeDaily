@@ -64,6 +64,20 @@ def start_pomodoro():
     except Exception:
         pass
 
+    # 学霸硬锁机激活（如果启用了严格模式）
+    lock_level = int(data.get('lock_level', 0))  # 0=关 1=L1软提醒 2=L2硬拦截 3=L3锁屏
+    custom_blacklist = data.get('custom_blacklist', [])
+    if lock_level > 0:
+        try:
+            from lock_manager import lock_manager
+            lock_manager.activate(
+                level=lock_level,
+                session_id=session_id,
+                custom_blacklist=set(custom_blacklist),
+            )
+        except Exception as e:
+            logger.warning(f"硬锁机激活失败: {e}")
+
     return jsonify({
         "status": "ok", "id": session_id, "start_time": now,
         "todo_id": todo_id, "duration_min": duration_min,
@@ -94,6 +108,12 @@ def stop_pomodoro():
                 "action": "stop", "session_id": session_id, "status": status,
                 "interrupted_count": interrupted_count,
             })
+        except Exception:
+            pass
+        # 关闭学霸硬锁机
+        try:
+            from lock_manager import lock_manager
+            lock_manager.deactivate()
         except Exception:
             pass
     return jsonify({"status": "ok", "end_time": now})
@@ -174,11 +194,23 @@ def distraction_check():
                 (session_id,),
             ).fetchone()
 
+        # 叠加学霸硬锁机拦截（L2 关进程 / L3 置顶窗口）
+        lock_action = "none"
+        try:
+            from lock_manager import lock_manager
+            if lock_manager.active_level > 0:
+                lock_result = lock_manager.check_and_enforce()
+                if lock_result.get("is_distraction"):
+                    lock_action = lock_result.get("action", "none")
+        except Exception:
+            pass
+
         return jsonify({
             "is_distraction": is_distraction,
             "category": category,
             "app_name": app_name,
             "distraction_count": distraction_count[0] if distraction_count else 0,
+            "lock_action": lock_action,
         })
     except Exception as e:
         logger.error(f"分心检测失败: {e}", exc_info=True)

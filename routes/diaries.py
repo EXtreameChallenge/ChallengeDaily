@@ -33,6 +33,8 @@ def save_diary():
         tags=data.get('tags', ''),
         highlights=data.get('highlights', ''),
         gratitude=data.get('gratitude', ''),
+        media_json=data.get('media_json', '[]'),
+        font_style=data.get('font_style', ''),
     )
     return jsonify({"status": "ok", "diary_date": diary_date})
 

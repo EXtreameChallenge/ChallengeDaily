@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 25
+SCHEMA_VERSION = 26
 
 # P-01: 默认数据保留天数（90 天）
 DEFAULT_DATA_RETENTION_DAYS = 90
@@ -744,6 +744,15 @@ def _init_db_impl():
             conn.execute("CREATE INDEX IF NOT EXISTS idx_settings_key ON settings(key)")
             logger.info("V25: settings 表创建完成")
 
+        # V26: 多媒体日记 — diaries 加 media_json 列（图片/语音/链接卡片 JSON）
+        if current_version < 26:
+            existing_diary_cols = {row[1] for row in conn.execute("PRAGMA table_info(diaries)").fetchall()}
+            if 'media_json' not in existing_diary_cols:
+                conn.execute("ALTER TABLE diaries ADD COLUMN media_json TEXT DEFAULT '[]'")
+            if 'font_style' not in existing_diary_cols:
+                conn.execute("ALTER TABLE diaries ADD COLUMN font_style TEXT DEFAULT ''")
+            logger.info("V26: diaries 表扩展完成（media_json + font_style）")
+
         # 更新版本号
         conn.execute(
             "INSERT OR REPLACE INTO schema_version (key, value) VALUES ('version', ?)",
@@ -1461,19 +1470,19 @@ def update_todo_progress(todo_id, minutes):
         return True
 
 # ── 每日日记 ──
-def upsert_diary(diary_date, mood="", weather="", content="", tags="", highlights="", gratitude=""):
+def upsert_diary(diary_date, mood="", weather="", content="", tags="", highlights="", gratitude="", media_json="[]", font_style=""):
     _flush_pending_commits()
     with get_conn() as conn:
         existing = conn.execute("SELECT id FROM diaries WHERE diary_date=?", (diary_date,)).fetchone()
         if existing:
             conn.execute(
-                "UPDATE diaries SET mood=?, weather=?, content=?, tags=?, highlights=?, gratitude=?, updated_at=datetime('now','localtime') WHERE diary_date=?",
-                (mood, weather, content, tags, highlights, gratitude, diary_date)
+                "UPDATE diaries SET mood=?, weather=?, content=?, tags=?, highlights=?, gratitude=?, media_json=?, font_style=?, updated_at=datetime('now','localtime') WHERE diary_date=?",
+                (mood, weather, content, tags, highlights, gratitude, media_json, font_style, diary_date)
             )
         else:
             conn.execute(
-                "INSERT INTO diaries (diary_date, mood, weather, content, tags, highlights, gratitude) VALUES (?,?,?,?,?,?,?)",
-                (diary_date, mood, weather, content, tags, highlights, gratitude)
+                "INSERT INTO diaries (diary_date, mood, weather, content, tags, highlights, gratitude, media_json, font_style) VALUES (?,?,?,?,?,?,?,?,?)",
+                (diary_date, mood, weather, content, tags, highlights, gratitude, media_json, font_style)
             )
         conn.commit()
         return True

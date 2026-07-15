@@ -22,6 +22,7 @@ from routes.habits import bp as habits_bp
 from routes.week_plan import bp as week_plan_bp
 from routes.auth_routes import auth_bp
 from routes.privacy_routes import privacy_bp
+from routes.report_channels import bp as report_channels_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -48,4 +49,5 @@ ALL_BLUEPRINTS = [
     week_plan_bp,
     auth_bp,
     privacy_bp,
+    report_channels_bp,
 ]
