@@ -7,10 +7,11 @@ import {
 } from 'recharts'
 import {
   getTodos, getTodayTodos, getWeekPlan, getWeekPlanStats, getMonthPlanStats, getActivities,
+  getGoalSummary,
   CATEGORY_COLORS, formatLocalDate, getWeekStart, getWeekDates, getMonthKey,
   type TodoV2, type WeekPlanStats, type MonthPlanStats,
 } from '../api/client'
-import { Flame, TrendingUp, Calendar, CalendarDays, CalendarRange, Clock, Loader2, LayoutDashboard } from 'lucide-react'
+import { Flame, TrendingUp, Calendar, CalendarDays, CalendarRange, Clock, Loader2, LayoutDashboard, Target } from 'lucide-react'
 
 /** 简单进度条 */
 function ProgressBar({ value, color = 'var(--cd-green)' }: { value: number; color?: string }) {
@@ -104,6 +105,17 @@ interface CategorySlice {
   color: string
 }
 
+interface GoalSummaryItem {
+  id: number
+  title: string
+  category: string
+  timeframe: string
+  target_date: string
+  progress: number
+  color: string
+  status: string
+}
+
 export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -114,6 +126,7 @@ export default function Dashboard() {
   const [burndown, setBurndown] = useState<BurndownPoint[]>([])
   const [categoryData, setCategoryData] = useState<CategorySlice[]>([])
   const [deepFocusTrend, setDeepFocusTrend] = useState<Array<{ date: string; min: number }>>([])
+  const [goals, setGoals] = useState<GoalSummaryItem[]>([])
 
   const now = useMemo(() => new Date(), [])
   const weekStart = useMemo(() => getWeekStart(now), [now])
@@ -128,13 +141,15 @@ export default function Dashboard() {
       setError('')
       try {
         // 并行拉取主数据
-        const [todosRes, todayTodosRes, wkStats, moStats, weekPlan] = await Promise.all([
+        const [todosRes, todayTodosRes, wkStats, moStats, weekPlan, goalSum] = await Promise.all([
           getTodos(),
           getTodayTodos(),
           getWeekPlanStats(weekStart).catch(() => null),
           getMonthPlanStats(monthKey).catch(() => null),
           getWeekPlan(weekStart).catch(() => null),
+          getGoalSummary().catch(() => ({ goals: [] })),
         ])
+        setGoals(goalSum.goals || [])
 
         // 年度统计：按 assigned_date 或 created_at 过滤本年
         const yearTodos = (todosRes.todos as TodoV2[]).filter(t => {
@@ -405,6 +420,71 @@ export default function Dashboard() {
                 )
               })}
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* P5-5：长期目标进度穿透卡片 */}
+      <div className="bg-cd-bg-card rounded-xl border border-white/5 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-cd-text flex items-center gap-1.5">
+            <Target size={14} className="text-cd-accent" /> 长期目标进度
+          </h3>
+          <a href="#/goals" className="text-xs text-cd-green hover:underline">管理目标 →</a>
+        </div>
+        {goals.length === 0 ? (
+          <div className="text-center py-8 text-cd-text-tertiary text-sm">
+            <Target size={28} className="mx-auto mb-2 opacity-40" />
+            <p>还没有活跃的长期目标</p>
+            <a href="#/goals" className="inline-block mt-2 text-xs text-cd-green hover:underline">去创建第一个目标 →</a>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {goals.slice(0, 6).map(g => {
+              const daysLeft = g.target_date
+                ? Math.ceil((new Date(g.target_date + 'T00:00:00').getTime() - now.getTime()) / 86400000)
+                : null
+              const isOverdue = daysLeft !== null && daysLeft < 0
+              const tfLabel = g.timeframe === 'yearly' ? '年度' : g.timeframe === 'quarterly' ? '季度' : '月度'
+              return (
+                <a
+                  key={g.id}
+                  href="#/goals"
+                  className="block bg-cd-bg-input/50 rounded-lg border border-cd-border p-3 hover:border-cd-accent/40 transition group"
+                >
+                  <div className="flex items-start gap-2 mb-2">
+                    <span
+                      className="w-2 h-2 rounded-full mt-1.5 shrink-0"
+                      style={{ background: g.color || '#7B68EE' }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-cd-text truncate group-hover:text-cd-accent transition">
+                        {g.title}
+                      </div>
+                      <div className="text-[10px] text-cd-text-tertiary mt-0.5 flex items-center gap-1.5">
+                        <span>{tfLabel}</span>
+                        <span>·</span>
+                        <span>{g.category}</span>
+                        {daysLeft !== null && (
+                          <>
+                            <span>·</span>
+                            <span className={isOverdue ? 'text-cd-red' : daysLeft <= 7 ? 'text-orange-400' : ''}>
+                              {isOverdue ? `逾期 ${-daysLeft} 天` : `剩 ${daysLeft} 天`}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ProgressBar value={g.progress} color={g.color || '#7B68EE'} />
+                    <span className="text-xs font-bold tabular-nums text-cd-text shrink-0 w-9 text-right">
+                      {g.progress}%
+                    </span>
+                  </div>
+                </a>
+              )
+            })}
           </div>
         )}
       </div>

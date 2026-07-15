@@ -67,3 +67,17 @@ def mood_heatmap():
     year = request.args.get('year', type=int)
     data = db.get_mood_heatmap(year=year)
     return jsonify({"data": data, "year": year or data[0]['date'][:4] if data else None})
+
+
+@bp.route('/<int:gid>/progress', methods=['GET'])
+def goal_progress(gid):
+    """获取目标进度：关联待办统计"""
+    data = db.get_goal_progress(gid)
+    return jsonify(data)
+
+
+@bp.route('/summary', methods=['GET'])
+def goal_summary():
+    """目标概览（用于仪表盘）"""
+    data = db.get_goal_summary()
+    return jsonify({"goals": data})

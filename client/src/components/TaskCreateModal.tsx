@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Timer, Target, RotateCw, ChevronDown, ChevronUp } from 'lucide-react'
 import Modal from './Modal'
-import { createTodo, POMODORO_SIZES, type TaskLevel, formatLocalDate, getWeekStart } from '../api/client'
+import { createTodo, getGoals, POMODORO_SIZES, type TaskLevel, formatLocalDate, getWeekStart, type Goal } from '../api/client'
 
 const CATEGORIES: { value: string; emoji: string }[] = [
   { value: '开发', emoji: '💻' }, { value: '测试', emoji: '🧪' },
@@ -49,6 +49,8 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
   const [targetMinOverride, setTargetMinOverride] = useState<number>(0)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [goals, setGoals] = useState<Goal[]>([])
+  const [goalId, setGoalId] = useState<number | null>(null)
   const titleRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -65,7 +67,10 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
       setTargetMinOverride(0)
       setShowAdvanced(false)
       setSaving(false)
+      setGoalId(null)
       setTimeout(() => titleRef.current?.focus(), 100)
+      // 拉取活跃目标列表（用于高级选项关联）
+      getGoals('active').then(r => setGoals(r.goals)).catch(() => setGoals([]))
     }
   }, [open, defaults])
 
@@ -99,6 +104,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
       }
       if (defaults?.parent_id) data.parent_id = defaults.parent_id
       if (defaults?.month_key) data.month_key = defaults.month_key
+      if (goalId) data.goal_id = goalId
 
       const res = await createTodo(data as Parameters<typeof createTodo>[0])
       onCreated?.(res.id)
@@ -318,6 +324,24 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
               placeholder={`默认 ${derivedMinutes} 分钟`}
               className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-cd-text-secondary mb-1.5">
+              <Target size={11} className="inline mr-1 -mt-0.5" />关联长期目标（可选）
+            </label>
+            <select
+              value={goalId ?? ''}
+              onChange={e => setGoalId(e.target.value ? Number(e.target.value) : null)}
+              className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
+            >
+              <option value="">不关联长期目标</option>
+              {goals.map(g => (
+                <option key={g.id} value={g.id}>
+                  {g.title}（{g.timeframe === 'yearly' ? '年度' : g.timeframe === 'quarterly' ? '季度' : '月度'} · {g.progress}%）
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Play, Check, Trash2, Calendar } from 'lucide-react'
+import { Play, Check, Trash2, Calendar, Target } from 'lucide-react'
 import Modal from './Modal'
-import { updateTodo, deleteTodo, assignTodo, unassignTodo, type TodoV2 } from '../api/client'
+import { updateTodo, deleteTodo, assignTodo, unassignTodo, getGoals, type TodoV2, type Goal } from '../api/client'
 import { useToast } from './Toast'
 
 const PRIORITY_COLORS = ['#ef4444', '#f59e0b', '#F0C040', '#10b981', '#6b7280']
@@ -22,6 +22,8 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
   const [category, setCategory] = useState('开发')
   const [mode, setMode] = useState<'timer' | 'goal' | 'habit'>('timer')
   const [moveDate, setMoveDate] = useState('')
+  const [goals, setGoals] = useState<Goal[]>([])
+  const [goalId, setGoalId] = useState<number | null>(null)
 
   useEffect(() => {
     if (todo) {
@@ -30,6 +32,14 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
       setCategory(todo.category)
       setMode(todo.mode)
       setMoveDate(todo.assigned_date || '')
+      setGoalId(todo.goal_id ?? null)
+    }
+  }, [todo])
+
+  // 拉取活跃目标列表（仅在弹窗打开时拉取一次）
+  useEffect(() => {
+    if (todo) {
+      getGoals('active').then(r => setGoals(r.goals)).catch(() => setGoals([]))
     }
   }, [todo])
 
@@ -40,7 +50,7 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
   const progressPct = todo.target_min > 0 ? Math.min(100, (todo.progress_min / todo.target_min) * 100) : 0
   const offset = circumference - (progressPct / 100) * circumference
 
-  const saveField = async (field: string, value: string | number) => {
+  const saveField = async (field: string, value: string | number | null) => {
     try {
       await updateTodo(todo.id, { [field]: value } as Partial<TodoV2>)
       onUpdate()
@@ -52,6 +62,16 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
   const handlePriority = (p: number) => { setPriority(p); saveField('priority', p) }
   const handleCategory = (v: string) => { setCategory(v); saveField('category', v) }
   const handleMode = (v: 'timer' | 'goal' | 'habit') => { setMode(v); saveField('mode', v) }
+  const handleGoal = (v: number | null) => {
+    setGoalId(v)
+    saveField('goal_id', v as unknown as number)
+    if (v) {
+      const g = goals.find(g => g.id === v)
+      if (g) success(`已关联到目标「${g.title}」`)
+    } else {
+      success('已取消目标关联')
+    }
+  }
 
   const handleComplete = async () => {
     try {
@@ -170,6 +190,23 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
         <select value={mode} onChange={e => handleMode(e.target.value as 'timer' | 'goal' | 'habit')}
           className="bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50">
           {Object.entries(MODE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+      </div>
+
+      {/* goal 关联选择器（P5：长期目标联动） */}
+      <div className="flex items-center gap-2 mb-3">
+        <Target size={12} className="text-cd-text-tertiary shrink-0" />
+        <select
+          value={goalId ?? ''}
+          onChange={e => handleGoal(e.target.value ? Number(e.target.value) : null)}
+          className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50"
+        >
+          <option value="">不关联长期目标</option>
+          {goals.map(g => (
+            <option key={g.id} value={g.id}>
+              {g.title}（{g.timeframe === 'yearly' ? '年度' : g.timeframe === 'quarterly' ? '季度' : '月度'} · {g.progress}%）
+            </option>
+          ))}
         </select>
       </div>
 

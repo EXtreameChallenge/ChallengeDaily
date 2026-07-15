@@ -9,6 +9,7 @@ import { BackendStatusBar } from './components/shared'
 import { getNotifications, startupHealthCheck } from './api/client'
 import { useAppLock, LockScreen } from './components/AppLock'
 import { CommandPalette, useCommandPaletteShortcut } from './components/CommandPalette'
+import { ShortcutHelp, useShortcutHelpShortcut } from './components/ShortcutHelp'
 
 // 懒加载页面组件 — 减少首屏加载体积
 const Overview = lazy(() => import('./pages/Overview'))
@@ -49,6 +50,8 @@ export default function App() {
   const { locked, unlock } = useAppLock()
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false)
   useCommandPaletteShortcut(() => setCmdPaletteOpen(true))
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false)
+  useShortcutHelpShortcut(() => setShortcutHelpOpen(true))
 
   useEffect(() => {
     let isCancelled = false
@@ -260,6 +263,7 @@ export default function App() {
             ) : (
               <HashRouter>
                 <CommandPalette open={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} />
+                <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
                 <Sidebar />
                 <main className="flex-1 overflow-auto bg-cd-bg p-6">
                   <RouteErrorBoundary>

@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 27
+SCHEMA_VERSION = 28
 
 # P-01: 默认数据保留天数（90 天）
 DEFAULT_DATA_RETENTION_DAYS = 90
@@ -778,6 +778,19 @@ def _init_db_impl():
             """)
             logger.info("V27: goals 表创建完成（长期目标管理）")
 
+        # V28: 待办关联长期目标（GoalDay集大成——年目标→周计划→日执行闭环）
+        if current_version < 28:
+            existing_todo_cols = {row[1] for row in conn.execute("PRAGMA table_info(todos)").fetchall()}
+            if 'goal_id' not in existing_todo_cols:
+                conn.execute("ALTER TABLE todos ADD COLUMN goal_id INTEGER DEFAULT NULL")
+            if 'week_start' not in existing_todo_cols:
+                conn.execute("ALTER TABLE todos ADD COLUMN week_start TEXT DEFAULT NULL")
+            if 'assigned_date' not in existing_todo_cols:
+                conn.execute("ALTER TABLE todos ADD COLUMN assigned_date TEXT DEFAULT NULL")
+            # 创建索引加速目标关联查询
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_todos_goal_id ON todos(goal_id)")
+            logger.info("V28: todos 表扩展完成（goal_id + week_start + assigned_date）")
+
         # 更新版本号
         conn.execute(
             "INSERT OR REPLACE INTO schema_version (key, value) VALUES ('version', ?)",
@@ -1453,7 +1466,8 @@ def get_pomodoro_quality_score(date_str=None):
 _ALLOWED_TODO_FIELDS = {"title", "category", "mode", "target_min", "repeat_type", "repeat_days",
                         "due_date", "priority", "status", "completed_at", "task_level",
                         "parent_id", "assigned_date", "week_start", "month_key", "color",
-                        "progress_min", "pomodoro_count", "estimated_pomodoros", "pomodoro_size"}
+                        "progress_min", "pomodoro_count", "estimated_pomodoros", "pomodoro_size",
+                        "goal_id"}
 
 # 番茄钟允许更新的字段白名单（防 SQL 注入：列名不能参数化，必须白名单校验）
 _ALLOWED_POMODORO_FIELDS = {"status", "end_time", "duration_min", "interrupted_count", "task", "category",
@@ -1461,16 +1475,16 @@ _ALLOWED_POMODORO_FIELDS = {"status", "end_time", "duration_min", "interrupted_c
 
 def insert_todo(title, category="开发", mode="timer", target_min=25, repeat_type="none", repeat_days="", due_date=None, priority=2,
                 task_level="day", parent_id=None, assigned_date=None, week_start=None, month_key=None, color=None,
-                estimated_pomodoros=1, pomodoro_size="big"):
+                estimated_pomodoros=1, pomodoro_size="big", goal_id=None):
     _flush_pending_commits()
     with get_conn() as conn:
         max_order = conn.execute("SELECT COALESCE(MAX(sort_order),0) FROM todos").fetchone()[0]
         cursor = conn.execute(
             "INSERT INTO todos (title, category, mode, target_min, repeat_type, repeat_days, due_date, priority, sort_order, "
-            "task_level, parent_id, assigned_date, week_start, month_key, color, estimated_pomodoros, pomodoro_size) "
+            "task_level, parent_id, assigned_date, week_start, month_key, color, estimated_pomodoros, pomodoro_size, goal_id) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (title, category, mode, target_min, repeat_type, repeat_days, due_date, priority, max_order+1,
-             task_level, parent_id, assigned_date, week_start, month_key, color, estimated_pomodoros, pomodoro_size)
+             task_level, parent_id, assigned_date, week_start, month_key, color, estimated_pomodoros, pomodoro_size, goal_id)
         )
         conn.commit()
         return cursor.lastrowid
@@ -1677,6 +1691,31 @@ def delete_goal(goal_id):
         conn.execute("DELETE FROM goals WHERE id=?", (goal_id,))
         conn.commit()
         return True
+
+
+def get_goal_progress(goal_id):
+    """获取目标进度：关联待办总数/已完成数/自动计算进度百分比"""
+    _flush_pending_commits()
+    with get_conn() as conn:
+        total = conn.execute("SELECT COUNT(*) FROM todos WHERE goal_id=?", (goal_id,)).fetchone()[0]
+        completed = conn.execute(
+            "SELECT COUNT(*) FROM todos WHERE goal_id=? AND status='completed'", (goal_id,)
+        ).fetchone()[0]
+    return {
+        "total_todos": total,
+        "completed_todos": completed,
+        "auto_progress": round(completed / total * 100, 1) if total > 0 else 0,
+    }
+
+
+def get_goal_summary():
+    """目标概览：所有活跃目标的进度摘要（用于仪表盘）"""
+    _flush_pending_commits()
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, title, category, timeframe, target_date, progress, color, status FROM goals WHERE status='active' ORDER BY target_date ASC"
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 # ── 成就系统 ──

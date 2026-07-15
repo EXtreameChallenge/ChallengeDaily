@@ -1177,6 +1177,12 @@ export async function getMoodHeatmap(year?: number): Promise<{ data: MoodEntry[]
   const qs = year ? `?year=${year}` : ''
   return request(`/api/goals/mood-heatmap${qs}`) as Promise<{ data: MoodEntry[]; year: number | null }>
 }
+export async function getGoalProgress(id: number): Promise<{ total_todos: number; completed_todos: number; auto_progress: number }> {
+  return request(`/api/goals/${id}/progress`) as Promise<{ total_todos: number; completed_todos: number; auto_progress: number }>
+}
+export async function getGoalSummary(): Promise<{ goals: Array<{ id: number; title: string; category: string; timeframe: string; target_date: string; progress: number; color: string; status: string }> }> {
+  return request('/api/goals/summary') as Promise<{ goals: Array<{ id: number; title: string; category: string; timeframe: string; target_date: string; progress: number; color: string; status: string }> }>
+}
 
 // ── 数据迁移导入 ──
 export interface ImportPreview {
@@ -1267,6 +1273,7 @@ export interface Todo {
   completed_at: string | null
   estimated_pomodoros: number
   pomodoro_size: 'big' | 'small'
+  goal_id?: number | null
 }
 
 export async function getTodos(status?: string): Promise<{ todos: Todo[] }> {
@@ -1274,7 +1281,7 @@ export async function getTodos(status?: string): Promise<{ todos: Todo[] }> {
   return request(`/api/todos${params}`) as Promise<{ todos: Todo[] }>
 }
 
-export async function createTodo(data: { title: string; category?: string; mode?: string; target_min?: number; priority?: number; due_date?: string; task_level?: string; assigned_date?: string; week_start?: string; month_key?: string; parent_id?: number; estimated_pomodoros?: number; pomodoro_size?: string }): Promise<{ status: string; id: number }> {
+export async function createTodo(data: { title: string; category?: string; mode?: string; target_min?: number; priority?: number; due_date?: string; task_level?: string; assigned_date?: string; week_start?: string; month_key?: string; parent_id?: number; estimated_pomodoros?: number; pomodoro_size?: string; goal_id?: number | null }): Promise<{ status: string; id: number }> {
   return request('/api/todos', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; id: number }>
 }
 

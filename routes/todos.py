@@ -63,6 +63,7 @@ def create_todo():
             month_key=data.get('month_key'),
             estimated_pomodoros=_safe_int(data.get('estimated_pomodoros', 1), 1),
             pomodoro_size=data.get('pomodoro_size', 'big'),
+            goal_id=data.get('goal_id'),
         )
     except Exception as e:
         return jsonify({"error": "创建待办失败"}), 500
