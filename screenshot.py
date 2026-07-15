@@ -170,7 +170,8 @@ def take_screenshot(monitor_index: int = 0, app_name: str = "") -> tuple[str, st
         try:
             import io
             buf = io.BytesIO()
-            img.save(buf, "JPEG", quality=quality)
+            # P24: progressive JPEG + optimize 减小文件体积 ~15-20%
+            img.save(buf, "JPEG", quality=quality, progressive=True, optimize=True)
             img_bytes = buf.getvalue()
             buf.close()
             from screenshot_crypto import save_encrypted_jpeg
@@ -179,7 +180,7 @@ def take_screenshot(monitor_index: int = 0, app_name: str = "") -> tuple[str, st
             # 降级为明文保存
             import logging
             logging.getLogger(__name__).warning(f"加密保存失败，降级明文: {e}")
-            img.save(str(filepath), "JPEG", quality=quality)
+            img.save(str(filepath), "JPEG", quality=quality, progressive=True, optimize=True)
 
         return filename, str(filepath), is_duplicate
     finally:

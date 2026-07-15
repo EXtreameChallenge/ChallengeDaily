@@ -104,7 +104,28 @@ function invalidateToken() {
  * 如果调用方在 options.signal 中传入外部 signal（如 AbortController），
  * 则该 signal 触发 abort 时也会同步中断 fetch；同时保留超时机制。
  */
+// P22: GET 请求去重 — 并发相同 GET 共享 Promise，避免重复请求
+const _inflightGets = new Map<string, Promise<unknown>>()
+
 export async function request(endpoint: string, options?: RequestInit, timeoutMs = 10000, _retryCount = 0): Promise<unknown> {
+  // P22: GET 请求去重 — 同一 endpoint 的并发 GET 共享同一个 Promise
+  const isGet = !options?.method || options.method === 'GET'
+  if (isGet && _retryCount === 0) {
+    const existing = _inflightGets.get(endpoint)
+    if (existing) return existing
+    // 创建并存储 promise，执行后清理
+    const p = _requestImpl(endpoint, options, timeoutMs, _retryCount)
+    _inflightGets.set(endpoint, p)
+    try {
+      return await p
+    } finally {
+      _inflightGets.delete(endpoint)
+    }
+  }
+  return _requestImpl(endpoint, options, timeoutMs, _retryCount)
+}
+
+async function _requestImpl(endpoint: string, options?: RequestInit, timeoutMs = 10000, _retryCount = 0): Promise<unknown> {
   // 确保 BASE_URL 已初始化（避免启动初期端口尚未就绪导致请求失败）
   await ensureBaseUrl()
   const token = await getApiToken()

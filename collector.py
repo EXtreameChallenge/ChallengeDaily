@@ -616,6 +616,22 @@ class Collector:
         except Exception as e:
             logger.debug(f"剪贴板监听启动失败（不影响采集）: {e}")
 
+        # P30: 启动周期性内存清理线程（每 5 分钟 gc 一次，防止长时间运行内存膨胀）
+        def _periodic_gc():
+            while self._running:
+                try:
+                    threading.Event().wait(300)  # 5 分钟
+                    if not self._running:
+                        break
+                    import gc
+                    collected = gc.collect()
+                    if collected > 0:
+                        logger.debug(f"P30: gc 回收 {collected} 个对象")
+                except Exception as e:
+                    logger.debug(f"P30: 周期 gc 异常: {e}")
+
+        threading.Thread(target=_periodic_gc, daemon=True, name="periodic-gc").start()
+
     def run(self):
         """持续运行主循环（阻塞）。注意：main.py 未使用此方法，而是直接调用 capture_once + Event.wait。"""
         self.on_start()

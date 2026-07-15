@@ -255,19 +255,28 @@ def main():
 
     # 6. 主循环
     collector.on_start()
-    # P10-1：启动 AI 重试队列
-    try:
-        from offline_ai import start_retry_queue
-        start_retry_queue()
-    except Exception as e:
-        logger.debug(f"AI 重试队列启动失败（不影响主流程）: {e}")
-    # P18-1：启动日历订阅后台刷新
-    try:
-        import calendar_sync
-        calendar_sync.start_background_refresh()
-        logger.info("日历订阅后台刷新已启动")
-    except Exception as e:
-        logger.debug(f"日历后台刷新启动失败（不影响主流程）: {e}")
+    # P21: 延迟非关键启动任务到后台线程，加速主循环启动
+    def _deferred_startup():
+        try:
+            from offline_ai import start_retry_queue
+            start_retry_queue()
+        except Exception as e:
+            logger.debug(f"AI 重试队列启动失败（不影响主流程）: {e}")
+        try:
+            import calendar_sync
+            calendar_sync.start_background_refresh()
+            logger.info("日历订阅后台刷新已启动")
+        except Exception as e:
+            logger.debug(f"日历后台刷新启动失败（不影响主流程）: {e}")
+        # P21: 预热日报缓存（低优先级）
+        try:
+            from context_manager import build_weekly_context
+            build_weekly_context(7)
+            logger.debug("P21: 周上下文预热完成")
+        except Exception as e:
+            logger.debug(f"P21: 周上下文预热失败: {e}")
+
+    threading.Thread(target=_deferred_startup, daemon=True, name="deferred-startup").start()
     stop = threading.Event()
     import server as _server_module  # 避免使用 from ... import 绑定值
     logger.info("ChallengeDaily已启动，按 Ctrl+C 退出")

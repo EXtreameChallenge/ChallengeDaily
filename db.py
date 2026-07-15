@@ -41,8 +41,9 @@ def _get_thread_conn() -> sqlite3.Connection:
     conn.execute("PRAGMA busy_timeout=5000")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA synchronous=NORMAL")
-    conn.execute("PRAGMA cache_size=-2048")
+    conn.execute("PRAGMA cache_size=-4096")  # P29: 4MB cache (from 2MB)
     conn.execute("PRAGMA temp_store=MEMORY")
+    conn.execute("PRAGMA mmap_size=268435456")  # P23: 256MB memory-mapped I/O
     # WAL 模式只需设一次（是数据库级属性，非连接级）
     if not _wal_initialized:
         with _conn_lock:

@@ -38,6 +38,21 @@ def add_cors_headers(response):
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-API-Token"
         response.headers["Access-Control-Max-Age"] = "86400"
+    # P25: 为 GET JSON 响应添加 ETag + Cache-Control，减少重复数据传输
+    if request.method == "GET" and response.status_code == 200:
+        try:
+            import hashlib
+            body = response.get_data()
+            if body and len(body) > 100:
+                etag = hashlib.md5(body).hexdigest()[:16]
+                response.headers["ETag"] = f'"{etag}"'
+                response.headers["Cache-Control"] = "private, max-age=5"
+                # If-None-Match 匹配则返回 304
+                if request.headers.get("If-None-Match", "") == f'"{etag}"':
+                    response.status_code = 304
+                    response.set_data(b"")
+        except Exception:
+            pass
     elif not origin:
         # 非浏览器请求（如 Electron ipcRenderer）：
         # 不返回通配 *，避免反射型 CORS 漏洞；本地桌面应用鉴权依赖 X-API-Token
