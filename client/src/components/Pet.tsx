@@ -137,6 +137,9 @@ export default function Pet() {
           showBubble(alert.message, 6000)
         } else if (status.urge_surfing) {
           showBubble(status.urge_surfing.quote, 8000)
+        } else if (status.smart_break) {
+          // P16-2: 智能休息建议（心流结束后提示）
+          showBubble(status.smart_break.message, 7000)
         }
       } catch {}
     }

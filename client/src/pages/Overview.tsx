@@ -30,6 +30,7 @@ import HeroInfo from '../components/HeroInfo'
 import DistractionHeatmap from '../components/DistractionHeatmap'
 import EmotionalCare from '../components/EmotionalCare'
 import InfoTooltip, { METRIC_EXPLANATIONS } from '../components/InfoTooltip'
+import SmartCoachPanel from '../components/SmartCoachPanel'
 
 function getDisplayAppName(appName: string): string {
   const lower = appName.toLowerCase()
@@ -325,6 +326,11 @@ export default function Overview() {
         {/* P8-2：情感化设计 — 每日一句 + 里程碑庆祝 + 低谷关怀 */}
         <div className="mt-5">
           <EmotionalCare />
+        </div>
+
+        {/* P16：智能教练面板 — 生物钟 + 主动建议 */}
+        <div className="mt-5">
+          <SmartCoachPanel />
         </div>
       </div>
 

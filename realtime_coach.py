@@ -21,6 +21,17 @@ DISTRACTION_LIGHT_THRESHOLD = 15   # 轻度提醒：连续摸鱼 15 分钟
 DISTRACTION_HEAVY_THRESHOLD = 30   # 中度干预：连续摸鱼 30 分钟
 OVERWORK_THRESHOLD = 120           # 过劳保护：连续工作 2 小时
 FLOW_PROTECT_THRESHOLD = 25        # 心流保护：连续同分类 25 分钟时不打断
+SMART_BREAK_FLOW_MIN = 25          # 智能休息：心流 25 分钟后切换 → 建议休息
+SMART_BREAK_WORK_MIN = 50          # 智能休息：连续工作 50 分钟 → 建议短休
+
+# ── 智能休息建议语 ──
+SMART_BREAK_MESSAGES = [
+    "你刚结束了一段深度专注，大脑需要喘口气。站起来伸个懒腰，看看窗外吧！",
+    "刚才的专注很棒！建议休息 5 分钟，喝水、闭眼，让记忆更好地沉淀。",
+    "一段心流结束了，这是自然的休息节奏。别急着开始下一段，给大脑一个间隙。",
+    "你的专注力刚刚经历了一个高峰，现在是补充能量的最佳时机。",
+    "刚完成一段深度工作，建议做几个深呼吸，活动一下肩膀再继续。",
+]
 
 # ── 正念语录（Urge Surfing）──
 MINDFULNESS_QUOTES = [
@@ -147,6 +158,9 @@ def get_coaching_status() -> dict:
         # 刚开始摸鱼（1-2 条记录），检查前一条是否是工作
         urge_surfing = {"quote": random.choice(MINDFULNESS_QUOTES)}
 
+    # P16-2: 智能休息 — 检测心流结束/连续工作后切换，建议休息
+    smart_break = _detect_smart_break(sorted_acts, current_streak_cat, current_streak_count, interval_min)
+
     return {
         "distraction_minutes": distraction_minutes,
         "work_minutes": work_minutes,
@@ -155,7 +169,50 @@ def get_coaching_status() -> dict:
         "in_flow": in_flow,
         "alerts": alerts,
         "urge_surfing": urge_surfing,
+        "smart_break": smart_break,
     }
+
+
+def _detect_smart_break(sorted_acts: list, current_cat: str, current_count: int, interval_min: float) -> dict | None:
+    """P16-2: 检测智能休息时机
+
+    当用户刚从一段深度工作（≥25min 心流或 ≥50min 连续工作）切换到其他分类时，
+    建议休息。只在切换后的前 2-3 条记录内触发（避免重复提醒）。
+
+    返回: {"message": str, "prev_category": str, "prev_minutes": float} | None
+    """
+    if not sorted_acts or current_count > 3:
+        return None
+
+    # 跳过当前 streak，找前一段 streak
+    prev_acts = []
+    for i, act in enumerate(sorted_acts):
+        if act.get("category", "其他") == current_cat:
+            continue
+        # 从这里开始是前一段
+        prev_cat = act.get("category", "其他")
+        prev_acts = [a for a in sorted_acts[i:] if a.get("category", "其他") == prev_cat]
+        break
+
+    if not prev_acts:
+        return None
+
+    prev_cat = prev_acts[0].get("category", "其他")
+    # 前一段是生活类 → 不需要休息建议
+    if prev_cat == "生活":
+        return None
+
+    prev_minutes = round(len(prev_acts) * interval_min, 1)
+
+    # 心流结束（≥25min 同分类）或连续工作结束（≥50min 非生活类）
+    if prev_minutes >= SMART_BREAK_FLOW_MIN:
+        return {
+            "message": random.choice(SMART_BREAK_MESSAGES),
+            "prev_category": prev_cat,
+            "prev_minutes": prev_minutes,
+        }
+
+    return None
 
 
 def trigger_alert_notification(alert: dict) -> None:

@@ -1926,6 +1926,7 @@ export interface CoachStatus {
   in_flow: boolean
   alerts: CoachAlert[]
   urge_surfing: { quote: string } | null
+  smart_break: { message: string; prev_category: string; prev_minutes: number } | null
 }
 
 export async function getCoachStatus(): Promise<CoachStatus> {
@@ -1941,6 +1942,39 @@ export interface CoachDailySummary {
 
 export async function getCoachDailySummary(): Promise<CoachDailySummary> {
   return request('/api/coach/daily-summary') as Promise<CoachDailySummary>
+}
+
+// ── P16-1: 生物钟检测 ──
+export interface Chronotype {
+  type: 'early_bird' | 'night_owl' | 'intermediate'
+  label: string
+  icon: string
+  first_active_hour: number
+  last_active_hour: number
+  golden_hours: string
+  peak_period: string
+  peak_period_short: string
+  greeting: string
+  valid_days: number
+  analysis_days: number
+}
+
+export async function getChronotype(): Promise<Chronotype> {
+  return request('/api/coach/chronotype') as Promise<Chronotype>
+}
+
+// ── P16-3: 主动智能建议 ──
+export interface SmartSuggestion {
+  type: string
+  priority: 'high' | 'medium' | 'low'
+  title: string
+  detail: string
+  action: string
+  icon: string
+}
+
+export async function getSmartSuggestions(): Promise<{ status: string; suggestions: SmartSuggestion[]; count: number }> {
+  return request('/api/coach/suggestions', undefined, 15000) as Promise<{ status: string; suggestions: SmartSuggestion[]; count: number }>
 }
 
 // ── P7-4: 桑基图（时间流动可视化） ──
