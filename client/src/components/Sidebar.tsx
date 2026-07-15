@@ -78,6 +78,7 @@ const NAV_GROUPS = [
       { to: '/study-room', icon: Users, label: '番茄自习室' },
       { to: '/rules-engine', icon: Zap, label: '规则引擎' },
       { to: '/goals', icon: Target, label: '长期目标' },
+      { to: '/timeline-player', icon: Sparkles, label: '时间线回放' },
     ]
   },
 ]

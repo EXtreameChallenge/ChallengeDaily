@@ -40,6 +40,7 @@ const AICoach = lazy(() => import('./pages/AICoach'))
 const StudyRoom = lazy(() => import('./pages/StudyRoom'))
 const RulesEngine = lazy(() => import('./pages/RulesEngine'))
 const Goals = lazy(() => import('./pages/Goals'))
+const TimelinePlayer = lazy(() => import('./pages/TimelinePlayer'))
 
 // 首次启动流程：法律协议 → 新手引导 → 主界面
 type FirstLaunchPhase = 'legal' | 'onboarding' | 'done'
@@ -295,6 +296,7 @@ export default function App() {
                         <Route path="/study-room" element={<StudyRoom />} />
                         <Route path="/rules-engine" element={<RulesEngine />} />
                         <Route path="/goals" element={<Goals />} />
+                        <Route path="/timeline-player" element={<TimelinePlayer />} />
                         <Route path="/export" element={<ExportCenter />} />
                         <Route path="/habits" element={<Habits />} />
                         <Route path="/health" element={<Health />} />

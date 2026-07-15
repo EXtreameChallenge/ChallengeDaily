@@ -799,3 +799,90 @@ def export_activities_detail():
     except Exception as e:
         logger.warning(f"export_activities_detail failed: {type(e).__name__}")
         return jsonify({"error": safe_error(e, "导出活动明细失败")}), 500
+
+
+# P15-3：数据自毁（永久删除所有用户数据，不可恢复）
+# 删除范围：数据库所有业务表 + 截图文件 + 报告文件
+# 保留：settings.json（保留 AI 配置、避免重新登录）、schema_version（保留迁移记录）
+_WIPEABLE_TABLES = [
+    "activities", "app_usage", "app_usage_v3", "app_usage_v9",
+    "app_category_rules", "daily_profiles", "user_profile", "user_corrections",
+    "pomodoro_sessions", "todos", "diaries", "achievements", "countdowns",
+    "chat_history", "habits", "habit_logs", "plan_meta", "profile_analysis_cache",
+    "goals", "ai_retry_queue", "achievement_seasons", "season_achievements",
+    "audit_log", "user_preferences", "reports",
+]
+
+
+@bp.route("/api/exports/wipe", methods=["POST"])
+def wipe_all_data():
+    """永久删除所有用户数据（不可恢复）
+    要求二次确认：请求体需包含 confirm=true 且 confirm_text="DELETE"
+    """
+    ok, err = _auth_check()
+    if not ok:
+        return err
+    data = request.get_json(force=True, silent=True) or {}
+    if not data.get("confirm"):
+        return jsonify({"error": "请确认删除操作"}), 400
+    if data.get("confirm_text") != "DELETE":
+        return jsonify({"error": "确认文本不正确，请输入 DELETE"}), 400
+    try:
+        import shutil
+        from config import SCREENSHOT_DIR, REPORT_DIR
+        from db import get_conn
+        deleted_counts = {}
+        # 1. 清空业务表
+        with get_conn() as conn:
+            for table in _WIPEABLE_TABLES:
+                try:
+                    cur = conn.execute(f"DELETE FROM {table}")
+                    deleted_counts[table] = cur.rowcount
+                except Exception:
+                    # 表可能不存在（旧版本），跳过
+                    deleted_counts[table] = -1
+            conn.commit()
+            # VACUUM 回收磁盘空间
+            try:
+                conn.execute("VACUUM")
+            except Exception:
+                pass
+        # 2. 删除截图文件
+        screenshots_removed = 0
+        try:
+            if SCREENSHOT_DIR.exists():
+                for f in SCREENSHOT_DIR.iterdir():
+                    if f.is_file():
+                        try:
+                            f.unlink()
+                            screenshots_removed += 1
+                        except Exception:
+                            pass
+        except Exception as e:
+            logger.warning(f"删除截图目录失败: {e}")
+        # 3. 删除报告文件
+        reports_removed = 0
+        try:
+            if REPORT_DIR.exists():
+                for f in REPORT_DIR.iterdir():
+                    if f.is_file():
+                        try:
+                            f.unlink()
+                            reports_removed += 1
+                        except Exception:
+                            pass
+        except Exception as e:
+            logger.warning(f"删除报告目录失败: {e}")
+        logger.warning(f"用户触发了数据自毁：DB表={deleted_counts}, 截图={screenshots_removed}, 报告={reports_removed}")
+        return jsonify({
+            "status": "ok",
+            "message": "所有用户数据已永久删除",
+            "deleted": {
+                "db_tables": deleted_counts,
+                "screenshots": screenshots_removed,
+                "reports": reports_removed,
+            },
+        })
+    except Exception as e:
+        logger.error(f"数据自毁失败: {e}", exc_info=True)
+        return jsonify({"error": safe_error(e, "数据删除失败")}), 500

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
-import { BarChart3, TrendingUp, Calendar, Database, Download, Loader2, CheckCircle, FileText, ListTree, Upload, AlertCircle } from 'lucide-react'
-import { getApiToken, getBaseUrl, ensureBaseUrl, importTogglCsv, importRescueTimeCsv } from '../api/client'
+import { BarChart3, TrendingUp, Calendar, Database, Download, Loader2, CheckCircle, FileText, ListTree, Upload, AlertCircle, Trash2, AlertTriangle } from 'lucide-react'
+import { getApiToken, getBaseUrl, ensureBaseUrl, importTogglCsv, importRescueTimeCsv, wipeAllData, type WipeResult } from '../api/client'
+import { useToast } from '../components/Toast'
 
 // ── 下载状态 ──
 type DownloadState = 'idle' | 'loading' | 'success' | 'error'
@@ -434,6 +435,9 @@ export default function ExportCenter() {
       {/* P10-3：数据导入 */}
       <ImportSection />
 
+      {/* P15-3：数据自毁 */}
+      <WipeSection />
+
       {/* 底部提示 */}
       <div className="mt-6 text-xs text-cd-text-tertiary text-center">
         💡 导出文件会自动下载到浏览器默认下载目录，可在设置中查看存储路径
@@ -534,6 +538,145 @@ function ImportSection() {
           <span>{result.message}</span>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── P15-3：数据自毁区块 ──
+function WipeSection() {
+  const toast = useToast()
+  const [step, setStep] = useState<'idle' | 'confirm' | 'wiping' | 'done'>('idle')
+  const [confirmText, setConfirmText] = useState('')
+  const [wipeResult, setWipeResult] = useState<WipeResult | null>(null)
+
+  const handleStart = () => { setStep('confirm'); setConfirmText(''); setWipeResult(null) }
+  const handleCancel = () => { setStep('idle'); setConfirmText('') }
+
+  const handleConfirmWipe = async () => {
+    if (confirmText !== 'DELETE') {
+      toast.error('请输入大写 DELETE 以确认')
+      return
+    }
+    setStep('wiping')
+    try {
+      const res = await wipeAllData(confirmText)
+      setWipeResult(res)
+      setStep('done')
+      toast.success('所有数据已永久删除')
+    } catch (e: any) {
+      toast.error(e?.message || '数据删除失败')
+      setStep('confirm')
+    }
+  }
+
+  if (step === 'idle') {
+    return (
+      <div className="mt-6 bg-red-500/5 border border-red-500/20 rounded-xl p-5">
+        <h2 className="text-lg font-bold text-cd-text flex items-center gap-2 mb-1">
+          <Trash2 size={18} className="text-red-400" /> 数据自毁
+        </h2>
+        <p className="text-xs text-cd-text-tertiary mb-4">
+          永久删除所有用户数据，包括活动记录、待办、番茄钟、日记、成就、截图、报告等。此操作不可恢复。
+        </p>
+        <div className="flex items-start gap-2 p-3 bg-red-500/5 rounded-lg border border-red-500/10 mb-3">
+          <AlertTriangle size={14} className="text-red-400 mt-0.5 shrink-0" />
+          <p className="text-xs text-red-300/80 leading-relaxed">
+            删除前建议先导出数据备份。删除后保留 AI 配置和迁移记录，避免重新登录。
+          </p>
+        </div>
+        <button
+          onClick={handleStart}
+          className="flex items-center gap-1.5 px-4 py-2 bg-red-500/15 text-red-400 rounded-lg border border-red-500/30 hover:bg-red-500/25 transition text-sm font-medium"
+        >
+          <Trash2 size={14} /> 我要永久删除所有数据
+        </button>
+      </div>
+    )
+  }
+
+  if (step === 'confirm') {
+    return (
+      <div className="mt-6 bg-red-500/10 border border-red-500/30 rounded-xl p-5">
+        <h2 className="text-lg font-bold text-red-400 flex items-center gap-2 mb-2">
+          <AlertTriangle size={18} /> 最终确认
+        </h2>
+        <p className="text-sm text-cd-text mb-3">
+          你即将永久删除所有数据，此操作<strong className="text-red-400">不可恢复</strong>。
+        </p>
+        <p className="text-xs text-cd-text-tertiary mb-3">
+          请输入 <code className="px-1.5 py-0.5 bg-red-500/15 text-red-300 rounded font-mono">DELETE</code> 以确认操作：
+        </p>
+        <input
+          type="text"
+          value={confirmText}
+          onChange={e => setConfirmText(e.target.value)}
+          placeholder="DELETE"
+          autoFocus
+          className="w-full bg-cd-bg border border-red-500/30 rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-red-500 mb-4 font-mono"
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={handleConfirmWipe}
+            disabled={confirmText !== 'DELETE'}
+            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Trash2 size={14} /> 确认永久删除
+          </button>
+          <button
+            onClick={handleCancel}
+            className="px-4 py-2 bg-cd-bg-secondary text-cd-text-secondary rounded-lg text-sm hover:text-cd-text border border-cd-border transition"
+          >
+            取消
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (step === 'wiping') {
+    return (
+      <div className="mt-6 bg-red-500/10 border border-red-500/30 rounded-xl p-8">
+        <div className="flex flex-col items-center">
+          <Loader2 size={32} className="text-red-400 animate-spin mb-3" />
+          <p className="text-sm text-cd-text">正在永久删除数据...</p>
+          <p className="text-xs text-cd-text-tertiary mt-1">请勿关闭窗口</p>
+        </div>
+      </div>
+    )
+  }
+
+  // done
+  const screenshots = wipeResult?.deleted?.screenshots || 0
+  const reports = wipeResult?.deleted?.reports || 0
+  const tableCount = Object.values(wipeResult?.deleted?.db_tables || {}).filter(v => v >= 0).length
+  return (
+    <div className="mt-6 bg-green-500/10 border border-green-500/30 rounded-xl p-5">
+      <h2 className="text-lg font-bold text-green-400 flex items-center gap-2 mb-3">
+        <CheckCircle size={18} /> 数据已永久删除
+      </h2>
+      <div className="space-y-2 text-sm text-cd-text">
+        <div className="flex items-center gap-2">
+          <Database size={14} className="text-cd-text-tertiary" />
+          <span>已清空 {tableCount} 张数据库表</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <FileText size={14} className="text-cd-text-tertiary" />
+          <span>已删除 {screenshots} 张截图</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <FileText size={14} className="text-cd-text-tertiary" />
+          <span>已删除 {reports} 份报告文件</span>
+        </div>
+      </div>
+      <p className="text-xs text-cd-text-tertiary mt-4">
+        AI 配置已保留。建议重启应用以使所有更改生效。
+      </p>
+      <button
+        onClick={() => window.location.reload()}
+        className="mt-3 flex items-center gap-1.5 px-4 py-2 bg-cd-green text-white rounded-lg text-sm font-medium hover:opacity-90 transition"
+      >
+        刷新应用
+      </button>
     </div>
   )
 }

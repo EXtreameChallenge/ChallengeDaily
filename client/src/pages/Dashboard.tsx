@@ -13,6 +13,7 @@ import {
 } from '../api/client'
 import { Flame, TrendingUp, Calendar, CalendarDays, CalendarRange, Clock, Loader2, LayoutDashboard, Target } from 'lucide-react'
 import SankeyChart from '../components/SankeyChart'
+import InfoTooltip, { METRIC_EXPLANATIONS } from '../components/InfoTooltip'
 
 /** 简单进度条 */
 function ProgressBar({ value, color = 'var(--cd-green)' }: { value: number; color?: string }) {
@@ -304,7 +305,13 @@ export default function Dashboard() {
         {/* 燃尽图 */}
         <div className="lg:col-span-2 bg-cd-bg-card rounded-xl border border-white/5 p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-cd-text">本周燃尽图</h3>
+            <h3 className="text-sm font-semibold text-cd-text flex items-center gap-1.5">
+              本周燃尽图
+              <InfoTooltip
+                title="燃尽图"
+                text="理想线为本周任务从总数线性降到 0 的参考轨迹。实际线为剩余未完成任务数。实际线低于理想线代表进度超前。"
+              />
+            </h3>
             <span className="text-xs text-cd-text-tertiary">剩余任务数</span>
           </div>
           <ResponsiveContainer width="100%" height={240}>
@@ -331,7 +338,10 @@ export default function Dashboard() {
         {/* Streak + 深度工作趋势 */}
         <div className="bg-cd-bg-card rounded-xl border border-white/5 p-4 flex flex-col">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-cd-text">连续专注</h3>
+            <h3 className="text-sm font-semibold text-cd-text flex items-center gap-1.5">
+              连续专注
+              <InfoTooltip {...METRIC_EXPLANATIONS.streak_days} />
+            </h3>
             <Flame size={16} className="text-orange-400" />
           </div>
           {/* Streak 大数字 */}
@@ -368,7 +378,13 @@ export default function Dashboard() {
       {/* 底部：分类时间分布饼图 */}
       <div className="bg-cd-bg-card rounded-xl border border-white/5 p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-cd-text">本周分类时间分布</h3>
+          <h3 className="text-sm font-semibold text-cd-text flex items-center gap-1.5">
+            本周分类时间分布
+            <InfoTooltip
+              title="分类时间分布"
+              text="本周 7 天所有活动按分类聚合的时长占比。颜色来自分类标签，可在「应用标签」页修改分类映射。"
+            />
+          </h3>
           <span className="text-xs text-cd-text-tertiary">
             共 {categoryData.reduce((s, c) => s + c.value, 0)} 分钟
           </span>

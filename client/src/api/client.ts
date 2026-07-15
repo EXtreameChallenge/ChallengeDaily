@@ -599,6 +599,24 @@ export async function importRescueTimeCsv(csv: string, dryRun = false): Promise<
   }) as Promise<ImportResult>
 }
 
+// P15-3：数据自毁（永久删除所有用户数据）
+export interface WipeResult {
+  status: string
+  message: string
+  deleted: {
+    db_tables: Record<string, number>
+    screenshots: number
+    reports: number
+  }
+}
+
+export async function wipeAllData(confirmText: string): Promise<WipeResult> {
+  return request('/api/exports/wipe', {
+    method: 'POST',
+    body: JSON.stringify({ confirm: true, confirm_text: confirmText }),
+  }) as Promise<WipeResult>
+}
+
 // ── P10-4：赛季成就 ──
 export interface SeasonAchievement {
   key: string

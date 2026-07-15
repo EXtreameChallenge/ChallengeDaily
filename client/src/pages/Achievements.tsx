@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Trophy, Lock, Sparkles, Crown, Calendar, History } from 'lucide-react'
+import { Trophy, Lock, Sparkles, Crown, Calendar, History, Share2, Download, X } from 'lucide-react'
 import { getAchievements, checkAchievements, getQuote, getSeason, getSeasonHistory, type Achievement, type SeasonData, type SeasonHistoryItem } from '../api/client'
 import { useToast } from '../components/Toast'
 
@@ -33,6 +33,9 @@ export default function Achievements() {
   const [season, setSeason] = useState<SeasonData | null>(null)
   const [seasonHistory, setSeasonHistory] = useState<SeasonHistoryItem[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [shareModal, setShareModal] = useState(false)
+  const [shareImg, setShareImg] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
   const toast = useToast()
   const unlockTimerRef = useRef<number | undefined>(undefined)
 
@@ -64,6 +67,138 @@ export default function Achievements() {
 
   useEffect(() => { load() }, [load])
 
+  // P15-2：生成分享卡片（Canvas 绘制，无需外部依赖）
+  const handleShare = async () => {
+    setShareModal(true)
+    setGenerating(true)
+    setShareImg(null)
+    try {
+      // 等待模态框渲染
+      await new Promise(r => setTimeout(r, 50))
+      const canvas = document.createElement('canvas')
+      const W = 1080, H = 1350
+      canvas.width = W
+      canvas.height = H
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Canvas 不可用')
+
+      const unlocked = achievements.filter(a => a.unlocked_at)
+      const unlockedCount = unlocked.length
+      const totalCount = ALL_BADGES.length
+      const completionRate = totalCount > 0 ? Math.round(unlockedCount / totalCount * 100) : 0
+
+      // 背景渐变
+      const bg = ctx.createLinearGradient(0, 0, W, H)
+      bg.addColorStop(0, '#1a1330')
+      bg.addColorStop(0.5, '#2d1b4e')
+      bg.addColorStop(1, '#1a1330')
+      ctx.fillStyle = bg
+      ctx.fillRect(0, 0, W, H)
+
+      // 装饰光晕
+      const glow = ctx.createRadialGradient(W / 2, 380, 50, W / 2, 380, 400)
+      glow.addColorStop(0, 'rgba(240, 160, 48, 0.3)')
+      glow.addColorStop(1, 'rgba(240, 160, 48, 0)')
+      ctx.fillStyle = glow
+      ctx.fillRect(0, 0, W, H)
+
+      // 标题
+      ctx.textAlign = 'center'
+      ctx.fillStyle = '#fbbf24'
+      ctx.font = 'bold 56px "PingFang SC", "Microsoft YaHei", sans-serif'
+      ctx.fillText('🏆 我的成就墙', W / 2, 180)
+
+      ctx.fillStyle = '#a78bfa'
+      ctx.font = '28px "PingFang SC", "Microsoft YaHei", sans-serif'
+      ctx.fillText('ChallengeDaily · 时间见证坚持', W / 2, 230)
+
+      // 主数据圆环
+      const cx = W / 2, cy = 520, r = 180
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)'
+      ctx.lineWidth = 28
+      ctx.beginPath()
+      ctx.arc(cx, cy, r, 0, Math.PI * 2)
+      ctx.stroke()
+
+      ctx.strokeStyle = '#fbbf24'
+      ctx.lineWidth = 28
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + (completionRate / 100) * Math.PI * 2)
+      ctx.stroke()
+
+      ctx.fillStyle = '#fff'
+      ctx.font = 'bold 96px "PingFang SC", "Microsoft YaHei", sans-serif'
+      ctx.fillText(`${completionRate}%`, cx, cy + 20)
+      ctx.fillStyle = '#a78bfa'
+      ctx.font = '26px "PingFang SC", "Microsoft YaHei", sans-serif'
+      ctx.fillText('成就完成率', cx, cy + 60)
+
+      // 统计行
+      ctx.fillStyle = '#fff'
+      ctx.font = 'bold 42px "PingFang SC", "Microsoft YaHei", sans-serif'
+      ctx.fillText(`${unlockedCount} / ${totalCount}`, W / 2, 820)
+      ctx.fillStyle = '#9ca3af'
+      ctx.font = '22px "PingFang SC", "Microsoft YaHei", sans-serif'
+      ctx.fillText('已解锁徽章', W / 2, 860)
+
+      // 已解锁徽章网格（最多展示 12 个）
+      const showBadges = unlocked.slice(0, 12)
+      const cols = 6
+      const rows = Math.ceil(showBadges.length / cols)
+      const badgeSize = 80
+      const gapX = 24
+      const gapY = 24
+      const totalW = cols * badgeSize + (cols - 1) * gapX
+      const startX = (W - totalW) / 2 + badgeSize / 2
+      const startY = 940
+      ctx.font = '48px sans-serif'
+      ctx.textBaseline = 'middle'
+      showBadges.forEach((a, i) => {
+        const col = i % cols
+        const row = Math.floor(i / cols)
+        const x = startX + col * (badgeSize + gapX)
+        const y = startY + row * (badgeSize + gapY)
+        // 背景圆
+        ctx.fillStyle = 'rgba(255,255,255,0.08)'
+        ctx.beginPath()
+        ctx.arc(x, y, badgeSize / 2, 0, Math.PI * 2)
+        ctx.fill()
+        // emoji
+        ctx.fillText(a.icon || '🏆', x, y)
+      })
+      ctx.textBaseline = 'alphabetic'
+
+      // 底部签名
+      ctx.fillStyle = '#6b7280'
+      ctx.font = '22px "PingFang SC", "Microsoft YaHei", sans-serif'
+      ctx.textAlign = 'center'
+      const dateStr = new Date().toISOString().slice(0, 10)
+      ctx.fillText(`${dateStr} · 每一付认真都值得被记录`, W / 2, H - 60)
+
+      // 转为图片
+      const dataUrl = canvas.toDataURL('image/png')
+      setShareImg(dataUrl)
+    } catch (e) {
+      console.error(e)
+      toast.error('卡片生成失败')
+      setShareModal(false)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const handleDownloadShare = () => {
+    if (!shareImg) return
+    const a = document.createElement('a')
+    a.href = shareImg
+    a.download = `challenge-daily-achievements-${new Date().toISOString().slice(0, 10)}.png`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    toast.success('已保存到下载目录')
+  }
+
   const handleCheck = async () => {
     try {
       const { unlocked } = await checkAchievements()
@@ -86,7 +221,15 @@ export default function Achievements() {
         <h1 className="text-2xl font-bold text-cd-text flex items-center gap-2">
           <Trophy className="text-gold" /> 成就墙
         </h1>
-        <span className="text-sm text-cd-text-secondary">{achievements.length}/{ALL_BADGES.length} 已解锁</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-purple-500/15 text-purple-400 rounded-lg border border-purple-500/25 hover:bg-purple-500/25 transition"
+          >
+            <Share2 size={14} /> 生成分享卡片
+          </button>
+          <span className="text-sm text-cd-text-secondary">{achievements.length}/{ALL_BADGES.length} 已解锁</span>
+        </div>
       </div>
 
       {/* 格言 */}
@@ -223,6 +366,77 @@ export default function Achievements() {
           </div>
           <div className="mt-3 text-[10px] text-cd-text-tertiary text-center">
             每月 1 号重置赛季，挑战自己赢取月度专属称号
+          </div>
+        </div>
+      )}
+
+      {/* P15-2：分享卡片模态框 */}
+      {shareModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setShareModal(false)}
+        >
+          <div
+            className="bg-cd-bg-card rounded-2xl border border-cd-border p-6 max-w-md w-full"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-cd-text flex items-center gap-2">
+                <Share2 size={18} className="text-purple-400" /> 成就分享卡片
+              </h3>
+              <button
+                onClick={() => setShareModal(false)}
+                className="text-cd-text-tertiary hover:text-cd-text"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            {generating ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="w-8 h-8 border-3 border-purple-400 border-t-transparent rounded-full animate-spin mb-3" />
+                <p className="text-sm text-cd-text-tertiary">正在生成精美卡片...</p>
+              </div>
+            ) : shareImg ? (
+              <>
+                <img
+                  src={shareImg}
+                  alt="成就分享卡片"
+                  className="w-full rounded-lg border border-white/5"
+                />
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={handleDownloadShare}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-cd-green text-white rounded-lg text-sm font-medium hover:opacity-90 transition"
+                  >
+                    <Download size={14} /> 保存图片
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (navigator.share && shareImg) {
+                        fetch(shareImg)
+                          .then(r => r.blob())
+                          .then(blob => {
+                            const file = new File([blob], 'achievements.png', { type: 'image/png' })
+                            navigator.share({ title: '我的成就墙', files: [file] }).catch(() => {})
+                          })
+                      } else {
+                        handleDownloadShare()
+                      }
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-500/15 text-purple-400 rounded-lg text-sm font-medium border border-purple-500/25 hover:bg-purple-500/25 transition"
+                  >
+                    <Share2 size={14} /> 分享
+                  </button>
+                </div>
+                <p className="mt-3 text-[10px] text-cd-text-tertiary text-center">
+                  长按图片或点击保存按钮下载到本地
+                </p>
+              </>
+            ) : (
+              <div className="text-center py-10 text-cd-text-tertiary text-sm">
+                卡片生成失败，请重试
+              </div>
+            )}
           </div>
         </div>
       )}

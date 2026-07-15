@@ -29,6 +29,7 @@ import { RefreshIndicator } from '../components/shared'
 import HeroInfo from '../components/HeroInfo'
 import DistractionHeatmap from '../components/DistractionHeatmap'
 import EmotionalCare from '../components/EmotionalCare'
+import InfoTooltip, { METRIC_EXPLANATIONS } from '../components/InfoTooltip'
 
 function getDisplayAppName(appName: string): string {
   const lower = appName.toLowerCase()
@@ -286,12 +287,16 @@ export default function Overview() {
         {/* 三个核心指标：大号衬线数字 */}
         <div className="grid grid-cols-3 gap-6 mt-6">
           <div>
-            <p className="text-xs text-cd-text-tertiary uppercase tracking-widest mb-1">专注时长</p>
+            <p className="text-xs text-cd-text-tertiary uppercase tracking-widest mb-1 flex items-center gap-1">
+              专注时长 <InfoTooltip {...METRIC_EXPLANATIONS.focus_min} />
+            </p>
             <p className="text-3xl font-bold text-cd-text font-brand tracking-tight">{timeStr}</p>
             <p className="text-xs text-cd-text-tertiary mt-0.5"><span className="font-brand font-semibold">{captureCount}</span> 次活动捕捉</p>
           </div>
           <div>
-            <p className="text-xs text-cd-text-tertiary uppercase tracking-widest mb-1">深度工作</p>
+            <p className="text-xs text-cd-text-tertiary uppercase tracking-widest mb-1 flex items-center gap-1">
+              深度工作 <InfoTooltip {...METRIC_EXPLANATIONS.deep_work_hours} />
+            </p>
             <p className="text-3xl font-bold text-cd-text font-brand tracking-tight">{focusSessions} <span className="text-lg font-normal text-cd-text-tertiary">次</span></p>
             <p className="text-xs text-cd-text-tertiary mt-0.5">{longestFocus > 0 ? `最长 ${formatDur(longestFocus)}` : '今日暂无'}</p>
           </div>
