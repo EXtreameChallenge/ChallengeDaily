@@ -1920,3 +1920,59 @@ export async function getSankeyData(date?: string): Promise<{ links: SankeyLink[
   const params = date ? `?date=${date}` : ''
   return request(`/api/stats/sankey${params}`) as Promise<{ links: SankeyLink[]; nodes: string[] }>
 }
+
+// ── P11-2：用户个性化偏好 ──
+export interface UserPreferences {
+  nickname: string
+  greeting_enabled: boolean
+  report_style: 'concise' | 'balanced' | 'detailed'
+  encouragement_level: 'subtle' | 'warm' | 'energetic'
+  disclosure_level: 'beginner' | 'intermediate' | 'expert'
+  tooltip_enabled: boolean
+}
+export async function getPreferences(): Promise<UserPreferences> {
+  const res = await request('/api/preferences') as { preferences: UserPreferences }
+  return res.preferences
+}
+export async function updatePreferences(data: Partial<UserPreferences>): Promise<{ status: string; updated: string[] }> {
+  return request('/api/preferences', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }) as Promise<{ status: string; updated: string[] }>
+}
+export async function resetPreferences(): Promise<{ status: string; preferences: UserPreferences }> {
+  return request('/api/preferences/reset', { method: 'POST' }) as Promise<{ status: string; preferences: UserPreferences }>
+}
+
+// ── P11-3：审计日志 ──
+export interface AuditLog {
+  id: number
+  ts: string
+  category: string
+  action: string
+  status: string
+  detail: string | null
+  duration_ms: number | null
+  metadata: string | null
+}
+export interface AuditStats {
+  total: number
+  by_status: Record<string, number>
+  by_category: Record<string, number>
+  recent_24h_failures: number
+}
+export async function getAuditLogs(params?: { category?: string; status?: string; limit?: number; offset?: number }): Promise<{ logs: AuditLog[]; count: number }> {
+  const qs = new URLSearchParams()
+  if (params?.category) qs.set('category', params.category)
+  if (params?.status) qs.set('status', params.status)
+  if (params?.limit) qs.set('limit', String(params.limit))
+  if (params?.offset) qs.set('offset', String(params.offset))
+  const q = qs.toString()
+  return request(`/api/audit/logs${q ? '?' + q : ''}`) as Promise<{ logs: AuditLog[]; count: number }>
+}
+export async function getAuditStats(): Promise<{ stats: AuditStats }> {
+  return request('/api/audit/stats') as Promise<{ stats: AuditStats }>
+}
+export async function cleanupAuditLogs(): Promise<{ status: string; deleted: number }> {
+  return request('/api/audit/cleanup', { method: 'POST' }) as Promise<{ status: string; deleted: number }>
+}

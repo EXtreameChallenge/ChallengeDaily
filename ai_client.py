@@ -214,11 +214,23 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
     if not _cb_check():
         logger.info("Circuit breaker OPEN，跳过 AI 请求")
         fallback_summary = f"{app_name} - {window_title}" if window_title else app_name or "AI服务暂时不可用"
+        try:
+            from audit_logger import log_audit
+            log_audit("ai_vision", "analyze_screenshot", "skipped",
+                      detail="熔断器开启，跳过 AI 请求", metadata={"app_name": app_name})
+        except Exception:
+            pass
         return {"category": "生活", "summary": fallback_summary, "detail": "AI 服务暂时不可用，等待恢复中", "windows": []}
 
     # 速率限制检查
     if not _rate_limit_check("vision"):
         fallback_summary = f"{app_name} - {window_title}" if window_title else app_name or "请求过于频繁"
+        try:
+            from audit_logger import log_audit
+            log_audit("ai_vision", "analyze_screenshot", "skipped",
+                      detail="视觉请求速率超限", metadata={"app_name": app_name})
+        except Exception:
+            pass
         return {"category": "生活", "summary": fallback_summary, "detail": "AI 请求过于频繁，稍后自动重试", "windows": []}
 
     # 预先将图片编码为 base64，避免重试时重复读取文件
@@ -273,6 +285,9 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
 
             raw = response.choices[0].message.content.strip()
 
+            # P11-4：释放 base64 图像字符串内存（大图可能占 1-2MB）
+            del b64_image
+
             # 尝试提取 JSON
             result = _parse_json_response(raw)
             if result:
@@ -291,11 +306,25 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
                     mark_ai_success()
                 except Exception:
                     pass
+                # P11-3：审计日志 — AI 视觉分析成功
+                try:
+                    from audit_logger import log_audit
+                    log_audit("ai_vision", "analyze_screenshot", "success",
+                              detail=f"分类: {result.get('category', '?')}, 摘要: {result.get('summary', '')[:50]}",
+                              metadata={"category": result.get("category"), "attempt": attempt + 1})
+                except Exception:
+                    pass
                 return result
 
             # JSON 解析失败
             logger.warning(f"AI 返回非 JSON 格式: {raw[:100]}")
             _cb_record_failure()
+            try:
+                from audit_logger import log_audit
+                log_audit("ai_vision", "analyze_screenshot", "failure",
+                          detail="AI 返回非 JSON 格式", metadata={"raw_preview": raw[:100]})
+            except Exception:
+                pass
             return {"category": "生活", "summary": "解析失败", "detail": raw[:50]}
 
         except Exception as e:
@@ -307,6 +336,14 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
                 logger.error(_sanitize_log(f"AI 分析最终失败 (已重试 {max_retries} 次): {e}"))
                 _reset_client()
                 _cb_record_failure()
+                # P11-3：审计日志 — AI 最终失败
+                try:
+                    from audit_logger import log_audit
+                    log_audit("ai_vision", "analyze_screenshot", "failure",
+                              detail=_sanitize_log(str(e))[:200],
+                              metadata={"app_name": app_name, "retries": max_retries})
+                except Exception:
+                    pass
                 # P10-1：标记离线状态 + 入队重试
                 try:
                     from offline_ai import mark_ai_failure, enqueue_retry
@@ -604,6 +641,13 @@ def generate_greeting(context: dict) -> str:
             )
             text = response.choices[0].message.content.strip()
             _cb_record_success()
+            # P11-3：审计日志 — 导语生成成功
+            try:
+                from audit_logger import log_audit
+                log_audit("ai_greeting", "generate_greeting", "success",
+                          detail=f"问候语: {greeting_word}", metadata={"length": len(text)})
+            except Exception:
+                pass
             # 如果 AI 仍然乱改问候语，直接回退到带真实数据的草稿
             if text and text.startswith(greeting_word):
                 return text
@@ -617,4 +661,11 @@ def generate_greeting(context: dict) -> str:
                 logger.error(_sanitize_log(f"AI 导语生成最终失败: {e}"))
                 _reset_client()
                 _cb_record_failure()
+                # P11-3：审计日志 — 导语生成最终失败
+                try:
+                    from audit_logger import log_audit
+                    log_audit("ai_greeting", "generate_greeting", "failure",
+                              detail=_sanitize_log(str(e))[:200])
+                except Exception:
+                    pass
                 return draft

@@ -319,6 +319,31 @@ def health_check():
     except Exception as e:
         checks["disk"] = {"status": "unknown", "error": str(e)[:80]}
 
+    # 5. P11-4：进程内存
+    try:
+        from collector import _get_process_rss_mb
+        rss = _get_process_rss_mb()
+        checks["memory"] = {
+            "status": "ok" if rss < 400 else ("warn" if rss < 600 else "critical"),
+            "rss_mb": round(rss, 1),
+        }
+        if rss >= 600:
+            overall = "degraded" if overall == "ok" else overall
+    except Exception as e:
+        checks["memory"] = {"status": "unknown", "error": str(e)[:80]}
+
+    # 6. P11-3：审计日志统计
+    try:
+        from audit_logger import get_audit_stats
+        audit_stats = get_audit_stats()
+        checks["audit"] = {
+            "status": "ok",
+            "total_logs": audit_stats.get("total", 0),
+            "recent_24h_failures": audit_stats.get("recent_24h_failures", 0),
+        }
+    except Exception as e:
+        checks["audit"] = {"status": "unknown", "error": str(e)[:80]}
+
     return jsonify({
         "status": overall,
         "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),

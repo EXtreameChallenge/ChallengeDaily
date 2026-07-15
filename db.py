@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 31
+SCHEMA_VERSION = 32
 
 # P-01: 默认数据保留天数（90 天）
 DEFAULT_DATA_RETENTION_DAYS = 90
@@ -873,6 +873,35 @@ def _init_db_impl():
                 logger.info("V31: AI 重试队列 + 赛季成就表创建完成")
             except Exception as e:
                 logger.warning(f"V31 schema 升级失败: {e}")
+
+        # V32: AI 审计日志 + 用户个性化偏好
+        # P11-3：审计日志（AI 调用审计链）+ P11-2：个性化偏好（报告风格/欢迎语开关）
+        if current_version < 32:
+            try:
+                conn.executescript("""
+                    CREATE TABLE IF NOT EXISTS audit_log (
+                        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                        ts            TEXT NOT NULL,
+                        category      TEXT NOT NULL,
+                        action        TEXT NOT NULL,
+                        status        TEXT NOT NULL,
+                        detail        TEXT,
+                        duration_ms   INTEGER,
+                        metadata      TEXT
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts);
+                    CREATE INDEX IF NOT EXISTS idx_audit_category ON audit_log(category);
+                    CREATE INDEX IF NOT EXISTS idx_audit_status ON audit_log(status);
+
+                    CREATE TABLE IF NOT EXISTS user_preferences (
+                        key    TEXT PRIMARY KEY,
+                        value  TEXT,
+                        updated_at TEXT
+                    );
+                """)
+                logger.info("V32: 审计日志 + 用户偏好表创建完成")
+            except Exception as e:
+                logger.warning(f"V32 schema 升级失败: {e}")
 
         # 更新版本号
         conn.execute(

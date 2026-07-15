@@ -57,6 +57,72 @@ def _should_extract_icon(app_name: str) -> bool:
 _last_gc_time = 0
 _GC_INTERVAL_SEC = 1800  # 30分钟执行一次 GC
 
+# P11-4：内存阈值监控 — 进程 RSS 超过阈值时主动 GC + 清理缓存
+_MEM_WARN_MB = 400    # 警告阈值：400MB
+_MEM_CRITICAL_MB = 600  # 临界阈值：600MB，触发激进清理
+_last_mem_check = 0
+_MEM_CHECK_INTERVAL_SEC = 300  # 5 分钟检查一次内存
+
+
+def _get_process_rss_mb() -> float:
+    """获取当前进程 RSS（常驻内存），单位 MB。失败返回 0。"""
+    try:
+        import psutil
+        return psutil.Process().memory_info().rss / (1024 * 1024)
+    except Exception:
+        # 降级方案：用 resource 模块（仅 Unix 可用，Windows 返回 0）
+        try:
+            import resource
+            return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        except Exception:
+            return 0.0
+
+
+def _aggressive_cleanup() -> None:
+    """激进内存清理：GC + 清理各类缓存"""
+    try:
+        # 1. 多轮 GC（第 2 轮回收循环引用）
+        gc.collect()
+        gc.collect()
+        # 2. 清理 OCR 缓存（若存在）
+        try:
+            import ocr_enhancer
+            if hasattr(ocr_enhancer, '_clear_cache'):
+                ocr_enhancer._clear_cache()
+        except Exception:
+            pass
+        # 3. 清理近期活动上下文缓存
+        # 注：collector 实例的 _recent_context_cache 在 _maybe_mem_check 中清理
+        logger.info("P11-4：执行激进内存清理（GC + 缓存清理）")
+    except Exception as e:
+        logger.debug(f"激进清理失败: {e}")
+
+
+def _maybe_mem_check(collector_instance=None) -> None:
+    """P11-4：定时检查内存占用，超阈值时触发清理"""
+    global _last_mem_check, _last_gc_time
+    now = time.time()
+    if (now - _last_mem_check) < _MEM_CHECK_INTERVAL_SEC:
+        return
+    _last_mem_check = now
+    rss = _get_process_rss_mb()
+    if rss <= 0:
+        return
+    if rss >= _MEM_CRITICAL_MB:
+        logger.warning(f"P11-4：内存临界 ({rss:.0f}MB ≥ {_MEM_CRITICAL_MB}MB)，触发激进清理")
+        _aggressive_cleanup()
+        if collector_instance is not None:
+            try:
+                collector_instance._recent_context_cache = None
+                collector_instance._recent_categories = collector_instance._recent_categories[-3:]
+            except Exception:
+                pass
+        _last_gc_time = now
+    elif rss >= _MEM_WARN_MB:
+        logger.info(f"P11-4：内存警告 ({rss:.0f}MB ≥ {_MEM_WARN_MB}MB)，执行常规 GC")
+        gc.collect()
+        _last_gc_time = now
+
 
 def _maybe_gc():
     """定时执行垃圾回收，控制内存增长"""
@@ -499,6 +565,12 @@ class Collector:
         # 8. 定时垃圾回收，控制长期运行的内存增长
         try:
             _maybe_gc()
+        except Exception:
+            pass
+
+        # 8.5 P11-4：内存阈值监控 — 超阈值时触发激进清理
+        try:
+            _maybe_mem_check(self)
         except Exception:
             pass
 

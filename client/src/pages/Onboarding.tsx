@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { updateSettings, testAiConnection } from '../api/client'
+import { updateSettings, testAiConnection, updatePreferences } from '../api/client'
 import {
   Sparkles,
   Bot,
@@ -12,9 +12,10 @@ import {
   Eye,
   EyeOff,
   Zap,
+  Heart,
 } from 'lucide-react'
 
-const STEPS = ['welcome', 'ai', 'work-hours', 'done'] as const
+const STEPS = ['welcome', 'ai', 'work-hours', 'personalize', 'done'] as const
 type Step = typeof STEPS[number]
 
 interface OnboardingProps {
@@ -41,6 +42,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   // 工作时间
   const [workStart, setWorkStart] = useState(9)
   const [workEnd, setWorkEnd] = useState(18)
+
+  // P11-2：个性化偏好
+  const [nickname, setNickname] = useState('')
+  const [reportStyle, setReportStyle] = useState<'concise' | 'balanced' | 'detailed'>('balanced')
+  const [encouragementLevel, setEncouragementLevel] = useState<'subtle' | 'warm' | 'energetic'>('warm')
 
   const handleTestAi = async () => {
     setAiTesting(true)
@@ -92,7 +98,22 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     } catch (err) {
       console.error('Failed to save onboarding settings:', err)
     }
+    // P11-2：保存个性化偏好（失败不阻断引导完成）
+    try {
+      await updatePreferences({
+        nickname: nickname.trim(),
+        report_style: reportStyle,
+        encouragement_level: encouragementLevel,
+        greeting_enabled: true,
+        tooltip_enabled: true,
+        disclosure_level: 'beginner',
+      })
+    } catch (err) {
+      console.error('Failed to save preferences:', err)
+    }
     localStorage.setItem('cd_onboarding_done', '1')
+    // 记录新手引导完成时间，用于渐进揭示
+    localStorage.setItem('cd_onboarding_done_at', new Date().toISOString())
     onComplete()
   }
 
@@ -160,6 +181,16 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               setWorkStart={setWorkStart}
               workEnd={workEnd}
               setWorkEnd={setWorkEnd}
+            />
+          )}
+          {step === 'personalize' && (
+            <PersonalizeStep
+              nickname={nickname}
+              setNickname={setNickname}
+              reportStyle={reportStyle}
+              setReportStyle={setReportStyle}
+              encouragementLevel={encouragementLevel}
+              setEncouragementLevel={setEncouragementLevel}
             />
           )}
           {step === 'done' && <DoneStep />}
@@ -550,6 +581,102 @@ function DoneStep() {
             <span className="text-xs text-cd-text-secondary">{text}</span>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════
+   Step: Personalize (P11-2 个性化偏好)
+   ═══════════════════════════════════════════ */
+function PersonalizeStep({
+  nickname, setNickname,
+  reportStyle, setReportStyle,
+  encouragementLevel, setEncouragementLevel,
+}: {
+  nickname: string; setNickname: (v: string) => void
+  reportStyle: 'concise' | 'balanced' | 'detailed'; setReportStyle: (v: 'concise' | 'balanced' | 'detailed') => void
+  encouragementLevel: 'subtle' | 'warm' | 'energetic'; setEncouragementLevel: (v: 'subtle' | 'warm' | 'energetic') => void
+}) {
+  const styles = [
+    { value: 'concise', label: '简洁', desc: '只列要点，快速浏览' },
+    { value: 'balanced', label: '均衡', desc: '要点 + 简短分析' },
+    { value: 'detailed', label: '详尽', desc: '完整分析 + 建议' },
+  ] as const
+  const levels = [
+    { value: 'subtle', label: '含蓄', desc: '点到为止，克制提醒' },
+    { value: 'warm', label: '温暖', desc: '像朋友一样鼓励你' },
+    { value: 'energetic', label: '活泼', desc: '元气满满，热情激励' },
+  ] as const
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <Heart size={20} className="text-cd-green" />
+        <h2 className="text-lg font-bold text-cd-text font-display">个性化偏好</h2>
+      </div>
+      <p className="text-xs text-cd-text-tertiary mb-5">
+        让 ChallengeDaily 更懂你。这些设置随时可在设置页面修改。
+      </p>
+
+      {/* 昵称 */}
+      <div className="mb-4">
+        <label className="text-xs text-cd-text-secondary block mb-1">昵称（可选）</label>
+        <input
+          type="text"
+          value={nickname}
+          onChange={(e) => setNickname(e.target.value)}
+          placeholder="如何称呼你？留空则用默认问候"
+          maxLength={30}
+          className="w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green"
+        />
+        <p className="text-[10px] text-cd-text-tertiary mt-1">用于 AI 生成的早安问候与日报称呼</p>
+      </div>
+
+      {/* 报告风格 */}
+      <div className="mb-4">
+        <label className="text-xs text-cd-text-secondary block mb-2">日报风格</label>
+        <div className="grid grid-cols-3 gap-2">
+          {styles.map(s => (
+            <button
+              key={s.value}
+              onClick={() => setReportStyle(s.value)}
+              className={`p-3 rounded-xl border-2 transition-all text-center ${
+                reportStyle === s.value
+                  ? 'border-cd-green bg-cd-green-light'
+                  : 'border-cd-border bg-cd-bg-secondary hover:border-cd-green/30'
+              }`}
+            >
+              <div className={`text-sm font-semibold ${reportStyle === s.value ? 'text-cd-green' : 'text-cd-text'}`}>
+                {s.label}
+              </div>
+              <div className="text-[10px] text-cd-text-tertiary mt-0.5">{s.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 鼓励强度 */}
+      <div>
+        <label className="text-xs text-cd-text-secondary block mb-2">鼓励语气</label>
+        <div className="grid grid-cols-3 gap-2">
+          {levels.map(l => (
+            <button
+              key={l.value}
+              onClick={() => setEncouragementLevel(l.value)}
+              className={`p-3 rounded-xl border-2 transition-all text-center ${
+                encouragementLevel === l.value
+                  ? 'border-cd-green bg-cd-green-light'
+                  : 'border-cd-border bg-cd-bg-secondary hover:border-cd-green/30'
+              }`}
+            >
+              <div className={`text-sm font-semibold ${encouragementLevel === l.value ? 'text-cd-green' : 'text-cd-text'}`}>
+                {l.label}
+              </div>
+              <div className="text-[10px] text-cd-text-tertiary mt-0.5">{l.desc}</div>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
