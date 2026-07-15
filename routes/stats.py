@@ -440,3 +440,60 @@ def distraction_heatmap():
     except Exception as e:
         logger.error(f"分心热点图查询失败: {e}", exc_info=True)
         return jsonify({"error": "查询失败"}), 500
+
+
+@bp.route('/api/stats/sankey')
+def sankey_flow():
+    """P7-4: 桑基图 — 时间在不同分类间的流动
+
+    按时段（上午/下午/晚间/夜间）→ 分类 的流动关系，展示一天的时间分配。
+    返回: {"nodes": ["上午", "开发", ...], "links": [{"source":"上午","target":"开发","value":120}, ...]}
+    """
+    target_date = request.args.get('date', date.today().isoformat())
+    if not validate_date(target_date):
+        return jsonify({"error": "Invalid date format"}), 400
+    try:
+        with get_conn() as conn:
+            rows = conn.execute(
+                "SELECT CAST(strftime('%H', timestamp) AS INTEGER) AS hour, "
+                "       category, COUNT(*) AS cnt "
+                "FROM activities WHERE date(timestamp) = ? GROUP BY hour, category",
+                (target_date,),
+            ).fetchall()
+
+        # 时段定义
+        def get_period(h):
+            if 6 <= h < 12: return "上午"
+            if 12 <= h < 14: return "中午"
+            if 14 <= h < 18: return "下午"
+            if 18 <= h < 22: return "晚间"
+            if h >= 22 or h < 6: return "夜间"
+            return "其他"
+
+        interval_min = config.SCREENSHOT_INTERVAL_SEC / 60
+        # 聚合：时段 → 分类
+        flow = {}
+        for r in rows:
+            period = get_period(r["hour"])
+            cat = r["category"] or "其他"
+            key = (period, cat)
+            flow[key] = flow.get(key, 0) + r["cnt"] * interval_min
+
+        # 构建节点和链接
+        periods_set = set()
+        cats_set = set()
+        links = []
+        for (period, cat), val in flow.items():
+            if val < 1: continue
+            periods_set.add(period)
+            cats_set.add(cat)
+            links.append({"source": period, "target": cat, "value": round(val, 1)})
+
+        # 节点顺序：时段在前，分类在后
+        period_order = ["上午", "中午", "下午", "晚间", "夜间"]
+        nodes = [p for p in period_order if p in periods_set] + sorted(cats_set)
+
+        return jsonify({"nodes": nodes, "links": links})
+    except Exception as e:
+        logger.error(f"桑基图查询失败: {e}", exc_info=True)
+        return jsonify({"error": "查询失败"}), 500

@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getActivities, CATEGORY_COLORS, request, type Activity } from '../api/client'
 import { useAsyncData, ApiErrorDisplay } from '../components/shared'
+import SankeyChart from '../components/SankeyChart'
 import dayjs from 'dayjs'
 
 type HeatRange = 'week' | 'month' | 'year'
@@ -544,6 +545,11 @@ export default function Heatmap() {
           })}
         </div>
       </div>
+
+      {/* P7-4: 桑基图（仅周视图显示当天数据） */}
+      {range === 'week' && (
+        <SankeyChart date={days[0].format('YYYY-MM-DD')} />
+      )}
     </div>
   )
 }

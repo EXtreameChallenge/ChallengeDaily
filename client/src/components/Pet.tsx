@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { getTodayStats } from '../api/client'
+import { getTodayStats, getCoachStatus, type CoachStatus } from '../api/client'
 
 // ─── 宠物形象定义 ──────────────────────────────
 type PetStyle = 'yuexinmao' | 'codex' | 'claude' | 'cat'
@@ -35,6 +35,27 @@ const ENCOURAGE_MESSAGES = [
   '你已经很棒了', '不要放弃哦', '坚持就是胜利',
 ]
 
+// P7-3: 情绪状态定义
+type Mood = 'idle' | 'focused' | 'flowing' | 'distracted' | 'overworked' | 'sleepy'
+
+const MOOD_LABELS: Record<Mood, string> = {
+  idle: '悠闲',
+  focused: '专注',
+  flowing: '心流',
+  distracted: '摸鱼中',
+  overworked: '过劳',
+  sleepy: '困倦',
+}
+
+const MOOD_MESSAGES: Record<Mood, string[]> = {
+  idle: ['在吗？', '今天也要加油哦~', '我在这儿陪着你', '喵~'],
+  focused: ['专注模式开启！', '加油加油！', '今天进展不错！', '效率满满！'],
+  flowing: ['哇，你进入心流了！', '不去打扰你，专注就好~', '这个状态太棒了！', '心流中的你最帅！'],
+  distracted: ['嗯…又在摸鱼了？', '回来工作啦~', '我知道你有更好的选择', '要不要试试番茄钟？'],
+  overworked: ['该休息了！', '连续工作太久啦', '喝杯水吧~', '身体是革命的本钱哦'],
+  sleepy: ['困了吗？', '小憩一下也不错', '记得早点休息~'],
+}
+
 export default function Pet() {
   const [style, setStyle] = useState<PetStyle>(() => {
     const saved = localStorage.getItem('cd_pet_style')
@@ -50,6 +71,9 @@ export default function Pet() {
   const [eyeBlink, setEyeBlink] = useState(false)
   const [tailWag, setTailWag] = useState(0)
   const [distractionAlert, setDistractionAlert] = useState<{ app: string; count: number } | null>(null)
+  const [mood, setMood] = useState<Mood>('idle')
+  const [coachStatus, setCoachStatus] = useState<CoachStatus | null>(null)
+  const [focusMin, setFocusMin] = useState(0)
 
   const config = PET_CONFIGS[style]
 
@@ -64,7 +88,15 @@ export default function Pet() {
     try {
       const stats = await getTodayStats()
       setCurrentActivity(stats.current_activity || null)
+      setFocusMin(Math.round(stats.total_duration_min || 0))
     } catch {}
+  }, [])
+
+  const showBubble = useCallback((text: string, duration = 3000) => {
+    setBubbleText(text)
+    setBubbleVisible(true)
+    if (bubbleTimer.current) window.clearTimeout(bubbleTimer.current)
+    bubbleTimer.current = window.setTimeout(() => setBubbleVisible(false), duration)
   }, [])
 
   useEffect(() => {
@@ -73,6 +105,40 @@ export default function Pet() {
     const id = window.setInterval(refreshActivity, 60000)
     return () => window.clearInterval(id)
   }, [refreshActivity])
+
+  // P7-3: 行为教练状态轮询（30秒）+ 情绪联动
+  useEffect(() => {
+    const pollCoach = async () => {
+      try {
+        const status = await getCoachStatus()
+        setCoachStatus(status)
+        // 根据教练状态计算情绪
+        if (status.alerts.some(a => a.type === 'overwork')) {
+          setMood('overworked')
+        } else if (status.in_flow) {
+          setMood('flowing')
+        } else if (status.distraction_minutes >= 15) {
+          setMood('distracted')
+        } else if (status.work_minutes >= 25) {
+          setMood('focused')
+        } else if (!status.current_category) {
+          setMood('idle')
+        } else {
+          setMood(status.distraction_minutes > 0 ? 'distracted' : 'focused')
+        }
+        // 行为教练告警 → 气泡提示
+        if (status.alerts.length > 0) {
+          const alert = status.alerts[0]
+          showBubble(alert.message, 6000)
+        } else if (status.urge_surfing) {
+          showBubble(status.urge_surfing.quote, 8000)
+        }
+      } catch {}
+    }
+    pollCoach()
+    const id = window.setInterval(pollCoach, 30000)
+    return () => window.clearInterval(id)
+  }, [showBubble])
 
   useEffect(() => {
     const blink = () => {
@@ -96,14 +162,15 @@ export default function Pet() {
 
   useEffect(() => {
     const showIdle = () => {
-      const pool = currentActivity ? WORK_MESSAGES : IDLE_MESSAGES
+      // P7-3: 使用情绪消息池替代固定消息
+      const pool = MOOD_MESSAGES[mood] || (currentActivity ? WORK_MESSAGES : IDLE_MESSAGES)
       const msg = pool[Math.floor(Math.random() * pool.length)]
       showBubble(msg, 4000)
       idleMsgTimer.current = window.setTimeout(showIdle, 30000 + Math.random() * 30000)
     }
     idleMsgTimer.current = window.setTimeout(showIdle, 10000)
     return () => { if (idleMsgTimer.current) window.clearTimeout(idleMsgTimer.current) }
-  }, [currentActivity])
+  }, [currentActivity, mood])
 
   useEffect(() => {
     return () => {
@@ -113,13 +180,6 @@ export default function Pet() {
       if (tailTimer.current) window.clearTimeout(tailTimer.current)
       if (idleMsgTimer.current) window.clearTimeout(idleMsgTimer.current)
     }
-  }, [])
-
-  const showBubble = useCallback((text: string, duration = 3000) => {
-    setBubbleText(text)
-    setBubbleVisible(true)
-    if (bubbleTimer.current) window.clearTimeout(bubbleTimer.current)
-    bubbleTimer.current = window.setTimeout(() => setBubbleVisible(false), duration)
   }, [])
 
   // 监听分心告警（来自 Focus 番茄钟检测）→ 宠物变红 + 气泡提示
@@ -281,6 +341,30 @@ export default function Pet() {
             }} title="切换形象">⚙</button>
         )}
         {renderPet()}
+      </div>
+
+      {/* P7-3: 情绪状态指示器 + 专注时长 */}
+      <div style={{
+        position: 'absolute', bottom: '2px', left: '50%', transform: 'translateX(-50%)',
+        display: 'flex', alignItems: 'center', gap: '4px', padding: '1px 6px',
+        borderRadius: '8px', fontSize: '9px', fontWeight: 500, whiteSpace: 'nowrap',
+        background: mood === 'distracted' ? 'rgba(239,68,68,0.2)' :
+                    mood === 'overworked' ? 'rgba(251,146,60,0.2)' :
+                    mood === 'flowing' ? 'rgba(168,85,247,0.2)' :
+                    mood === 'focused' ? 'rgba(34,197,94,0.2)' :
+                    'rgba(120,120,140,0.15)',
+        color: mood === 'distracted' ? '#ef4444' :
+               mood === 'overworked' ? '#fb923c' :
+               mood === 'flowing' ? '#a855f7' :
+               mood === 'focused' ? '#22c55e' : '#888',
+        border: `1px solid ${mood === 'distracted' ? 'rgba(239,68,68,0.3)' :
+                          mood === 'overworked' ? 'rgba(251,146,60,0.3)' :
+                          mood === 'flowing' ? 'rgba(168,85,247,0.3)' :
+                          mood === 'focused' ? 'rgba(34,197,94,0.3)' : 'rgba(120,120,140,0.2)'}`,
+        pointerEvents: 'none', zIndex: 10,
+      }}>
+        <span>{MOOD_LABELS[mood]}</span>
+        {focusMin > 0 && <span style={{ opacity: 0.6 }}>· {Math.floor(focusMin / 60)}h{focusMin % 60}m</span>}
       </div>
     </div>
   )

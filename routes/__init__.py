@@ -27,6 +27,7 @@ from routes.study_room import bp as study_room_bp
 from routes.rules_engine import bp as rules_engine_bp
 from routes.goals import bp as goals_bp
 from routes.data_import import bp as data_import_bp
+from routes.coach import bp as coach_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -58,4 +59,5 @@ ALL_BLUEPRINTS = [
     rules_engine_bp,
     goals_bp,
     data_import_bp,
+    coach_bp,
 ]

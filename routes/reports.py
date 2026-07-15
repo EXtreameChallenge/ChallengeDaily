@@ -3,9 +3,10 @@ from datetime import date
 import json
 import logging
 
-from report import generate_daily_report, generate_weekly_report, generate_monthly_report, get_report_files
-from db import get_reports
+from report import generate_daily_report, generate_weekly_report, generate_monthly_report, get_report_files, enhance_report_with_ai_analysis
+from db import get_reports, get_daily_summary
 import db
+import config
 from routes.deps import safe_error, validate_date
 
 bp = Blueprint('reports', __name__)
@@ -136,6 +137,13 @@ def report_weekly():
                 f"- 已完成：{goal['done']}\n"
                 f"- 完成率：{goal['completion_rate']}%\n"
             )
+        # P7-2: AI 深度分析
+        from datetime import timedelta as _td
+        week_end = (monday + _td(days=6)).isoformat()
+        summary = get_daily_summary(monday.isoformat(), week_end)
+        interval_min = config.SCREENSHOT_INTERVAL_SEC / 60
+        cat_data = {k: v * interval_min for k, v in summary.get("categories", {}).items()}
+        content = enhance_report_with_ai_analysis(content, "weekly", f"{monday.isoformat()}~{week_end}", cat_data)
         return jsonify({"date": start_date, "content": content, "type": "weekly"})
     except Exception as e:
         return jsonify({"error": safe_error(e, "周报生成失败")}), 500
@@ -149,6 +157,16 @@ def report_monthly():
         return jsonify({"error": f"Invalid month format: {year_month}, expected YYYY-MM"}), 400
     try:
         content = generate_monthly_report(year_month)
+        # P7-2: AI 深度分析
+        import calendar as _cal
+        year, month = map(int, year_month.split("-"))
+        last_day = _cal.monthrange(year, month)[1]
+        month_start = f"{year_month}-01"
+        month_end = f"{year_month}-{last_day:02d}"
+        summary = get_daily_summary(month_start, month_end)
+        interval_min = config.SCREENSHOT_INTERVAL_SEC / 60
+        cat_data = {k: v * interval_min for k, v in summary.get("categories", {}).items()}
+        content = enhance_report_with_ai_analysis(content, "monthly", year_month, cat_data)
         return jsonify({"month": year_month, "content": content, "type": "monthly"})
     except Exception as e:
         return jsonify({"error": safe_error(e, "月报生成失败")}), 500

@@ -1707,3 +1707,48 @@ export function getWeekDates(weekStart: string): string[] {
 export function getMonthKey(d: Date = new Date()): string {
   return _formatLocalMonth(d)
 }
+
+// ── P7-1: AI 行为教练 ──
+export interface CoachAlert {
+  type: 'distraction_light' | 'distraction_heavy' | 'overwork' | 'flow_protect'
+  message: string
+  minutes: number
+  category: string
+}
+
+export interface CoachStatus {
+  distraction_minutes: number
+  work_minutes: number
+  current_category: string
+  flow_minutes: number
+  in_flow: boolean
+  alerts: CoachAlert[]
+  urge_surfing: { quote: string } | null
+}
+
+export async function getCoachStatus(): Promise<CoachStatus> {
+  return request('/api/coach/status', undefined, 8000) as Promise<CoachStatus>
+}
+
+export interface CoachDailySummary {
+  distraction_count: number
+  longest_focus_min: number
+  flow_sessions: number
+  total_distraction_min: number
+}
+
+export async function getCoachDailySummary(): Promise<CoachDailySummary> {
+  return request('/api/coach/daily-summary') as Promise<CoachDailySummary>
+}
+
+// ── P7-4: 桑基图（时间流动可视化） ──
+export interface SankeyLink {
+  source: string
+  target: string
+  value: number
+}
+
+export async function getSankeyData(date?: string): Promise<{ links: SankeyLink[]; nodes: string[] }> {
+  const params = date ? `?date=${date}` : ''
+  return request(`/api/stats/sankey${params}`) as Promise<{ links: SankeyLink[]; nodes: string[] }>
+}
