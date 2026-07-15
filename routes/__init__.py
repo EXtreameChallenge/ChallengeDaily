@@ -37,6 +37,7 @@ from routes.git_routes import bp as git_integration_bp
 from routes.benchmark_routes import bp as benchmark_bp
 from routes.local_model_routes import bp as local_model_bp
 from routes.analytics_routes import bp as analytics_bp
+from routes.ai_intel_routes import bp as ai_intel_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -78,4 +79,5 @@ ALL_BLUEPRINTS = [
     benchmark_bp,
     local_model_bp,
     analytics_bp,
+    ai_intel_bp,
 ]
