@@ -367,7 +367,47 @@ def heatmap_by_range():
                     "focus_min": int(r["focus_sec"] // 60),
                     "level": min(4, int((r["focus_sec"] or 0) // 60 // 120)),
                 } for r in rows]
-            return jsonify({"data": result, "range": rng})
+            # P6-3: 年视图额外返回 GitHub 风格统计（连续天数、活跃天数、总时长）
+            year_stats = None
+            if rng == 'year' and result:
+                active_days = [d for d in result if d["focus_min"] > 0]
+                total_focus_min = sum(d["focus_min"] for d in result)
+                # 计算连续天数：需要遍历全年日期（含无数据日）
+                from datetime import datetime as _dt
+                all_dates = {}
+                for d in result:
+                    all_dates[d["date"]] = d["focus_min"]
+                # 当前连续：从今天往前数（仅当年份是当前年）
+                from datetime import timedelta as _td
+                current_streak = 0
+                if str(date.today().year) == year:
+                    cur = date.today()
+                    while all_dates.get(cur.isoformat(), 0) > 0:
+                        current_streak += 1
+                        cur = cur - _td(days=1)
+                # 最长连续：遍历所有活跃日按日期排序
+                longest_streak = 0
+                if active_days:
+                    sorted_dates = sorted([d["date"] for d in active_days])
+                    streak = 1
+                    for i in range(1, len(sorted_dates)):
+                        prev = _dt.strptime(sorted_dates[i - 1], "%Y-%m-%d").date()
+                        curr = _dt.strptime(sorted_dates[i], "%Y-%m-%d").date()
+                        if (curr - prev).days == 1:
+                            streak += 1
+                        else:
+                            longest_streak = max(longest_streak, streak)
+                            streak = 1
+                    longest_streak = max(longest_streak, streak)
+                year_stats = {
+                    "total_active_days": len(active_days),
+                    "total_focus_min": total_focus_min,
+                    "total_focus_hour": round(total_focus_min / 60, 1),
+                    "avg_daily_min": round(total_focus_min / 365, 1) if total_focus_min else 0,
+                    "current_streak": current_streak,
+                    "longest_streak": longest_streak,
+                }
+            return jsonify({"data": result, "range": rng, "stats": year_stats})
     except Exception as e:
         logger.error(f"热力图查询失败: {e}", exc_info=True)
         return jsonify({"error": "查询失败"}), 500

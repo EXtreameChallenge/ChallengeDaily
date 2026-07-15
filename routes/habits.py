@@ -39,8 +39,25 @@ def create_habit():
     target_count = _safe_int(data.get('target_count', 1), 1)
     if target_count < _MIN_TARGET_COUNT or target_count > _MAX_TARGET_COUNT:
         return jsonify({"error": f"target_count 必须在 {_MIN_TARGET_COUNT}-{_MAX_TARGET_COUNT} 之间"}), 400
-    hid = db.insert_habit(name, target_count, period, data.get('color', '#7B68EE'))
+    hid = db.insert_habit(name, target_count, period, data.get('color', '#7B68EE'), data.get('auto_category'))
     return jsonify({"status": "ok", "id": hid})
+
+
+@bp.route('/<int:hid>', methods=['PUT'])
+def update_habit_route(hid):
+    """P6-2：更新习惯（支持 auto_category）"""
+    data = request.get_json(force=True, silent=True) or {}
+    db.update_habit(hid, **{k: v for k, v in data.items() if k in ('name', 'target_count', 'period', 'color', 'auto_category')})
+    return jsonify({"status": "ok"})
+
+
+@bp.route('/auto-check', methods=['POST'])
+def auto_check_habits_route():
+    """P6-2：根据活动数据自动打卡习惯"""
+    data = request.get_json(force=True, silent=True) or {}
+    target_date = data.get('date')
+    auto_logged = db.auto_check_habits(target_date)
+    return jsonify({"status": "ok", "auto_logged": auto_logged, "count": len(auto_logged)})
 
 
 @bp.route('/<int:hid>/log', methods=['POST'])

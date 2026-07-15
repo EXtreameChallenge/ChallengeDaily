@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 28
+SCHEMA_VERSION = 29
 
 # P-01: 默认数据保留天数（90 天）
 DEFAULT_DATA_RETENTION_DAYS = 90
@@ -790,6 +790,13 @@ def _init_db_impl():
             # 创建索引加速目标关联查询
             conn.execute("CREATE INDEX IF NOT EXISTS idx_todos_goal_id ON todos(goal_id)")
             logger.info("V28: todos 表扩展完成（goal_id + week_start + assigned_date）")
+
+        # V29: habits 表新增 auto_category 字段（P6-2：习惯-采集数据自动联动）
+        if current_version < 29:
+            existing_habit_cols = {row[1] for row in conn.execute("PRAGMA table_info(habits)").fetchall()}
+            if 'auto_category' not in existing_habit_cols:
+                conn.execute("ALTER TABLE habits ADD COLUMN auto_category TEXT DEFAULT NULL")
+            logger.info("V29: habits 表扩展完成（auto_category）")
 
         # 更新版本号
         conn.execute(
@@ -1737,7 +1744,8 @@ def unlock_achievement(code, name, description="", icon="🏆"):
         return True
 
 def check_and_unlock_achievements():
-    """检查并解锁成就"""
+    """检查并解锁成就（P6-4：补全5个缺失成就+3个隐藏彩蛋）"""
+    from datetime import date as _date
     unlocked = []
     # 获取番茄钟统计
     today = get_pomodoro_today_count()
@@ -1746,16 +1754,113 @@ def check_and_unlock_achievements():
     total_count = sum(s["cnt"] for s in stats) if stats else 0
     total_min = sum(s["total_min"] for s in stats) if stats else 0
 
+    # ── 查询今日活动数据（用于成就判定）──
+    today_str = _date.today().isoformat()
+    today_acts = []
+    today_cats = {}
+    earliest_ts = None
+    latest_ts = None
+    try:
+        today_acts = get_activities(today_str, today_str)
+        for a in today_acts:
+            cat = a.get("category", "其他")
+            today_cats[cat] = today_cats.get(cat, 0) + 1
+            ts = a.get("timestamp", "")
+            if ts:
+                if earliest_ts is None or ts < earliest_ts:
+                    earliest_ts = ts
+                if latest_ts is None or ts > latest_ts:
+                    latest_ts = ts
+    except Exception:
+        pass
+
+    # 深度工作时长（分钟）：活动数 × 采样间隔 / 60
+    deep_min = 0
+    try:
+        from config import SCREENSHOT_INTERVAL_SEC
+        deep_min = len(today_acts) * SCREENSHOT_INTERVAL_SEC / 60
+    except Exception:
+        pass
+
+    # 今日待办完成情况
+    today_total_todos = 0
+    today_completed_todos = 0
+    try:
+        with get_conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) as total, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) as done "
+                "FROM todos WHERE assigned_date=? OR (assigned_date IS NULL AND date(created_at)=?)",
+                (today_str, today_str)
+            ).fetchone()
+            today_total_todos = row["total"] if row else 0
+            today_completed_todos = row["done"] if row else 0
+    except Exception:
+        pass
+
+    # 番茄钟效率
+    pomo_efficiency = 0
+    try:
+        if today.get("total", 0) > 0:
+            pomo_efficiency = today["count"] / today["total"]
+    except Exception:
+        pass
+
+    # 最早/最晚活动时间的小时数
+    earliest_hour = int(earliest_ts[11:13]) if earliest_ts and len(earliest_ts) >= 13 else 99
+    latest_hour = int(latest_ts[11:13]) if latest_ts and len(latest_ts) >= 13 else -1
+
+    # 累计活动天数
+    total_active_days = 0
+    try:
+        with get_conn() as conn:
+            row = conn.execute("SELECT COUNT(DISTINCT date(timestamp)) as days FROM activities").fetchone()
+            total_active_days = row["days"] if row else 0
+    except Exception:
+        pass
+
+    # 最长连续同类活动（分钟）
+    max_same_cat_streak_min = 0
+    try:
+        if today_acts:
+            sorted_acts = sorted(today_acts, key=lambda x: x.get("timestamp", ""))
+            current_cat = None
+            current_count = 0
+            for a in sorted_acts:
+                cat = a.get("category", "其他")
+                if cat == current_cat:
+                    current_count += 1
+                else:
+                    current_cat = cat
+                    current_count = 1
+                if current_count > max_same_cat_streak_min:
+                    max_same_cat_streak_min = current_count
+            from config import SCREENSHOT_INTERVAL_SEC as _interval
+            max_same_cat_streak_min = max_same_cat_streak_min * _interval / 60
+    except Exception:
+        pass
+
     checks = [
-        ("first_pomodoro", "初心者", "完成第一个番茄钟", "🌱", today["count"] >= 1),
-        ("pomodoro_100", "百斩", "累计完成100个番茄钟", "💯", total_count >= 100),
-        ("pomodoro_1000", "千时", "累计专注1000小时", "⏰", total_min >= 60000),
-        ("streak_7", "连续7天", "连续7天完成专注", "🔥", streak >= 7),
-        ("streak_30", "坚持不懈", "连续30天完成专注", "💎", streak >= 30),
+        # ── 番茄钟系列（原有5个）──
+        ("first_pomodoro", "初心者", "完成第一个番茄钟", "🌱", False, today["count"] >= 1),
+        ("pomodoro_100", "百斩", "累计完成100个番茄钟", "💯", False, total_count >= 100),
+        ("pomodoro_1000", "千时", "累计专注1000小时", "⏰", False, total_min >= 60000),
+        ("streak_7", "连续7天", "连续7天完成专注", "🔥", False, streak >= 7),
+        ("streak_30", "坚持不懈", "连续30天完成专注", "💎", False, streak >= 30),
+        # ── 补全5个缺失成就 ──
+        ("deep_master", "深度大师", "单日深度工作≥4小时", "🧠", False, deep_min >= 240),
+        ("early_bird", "早起鸟", "6:00前开始专注", "🐦", False, earliest_hour < 6),
+        ("night_owl", "夜猫子", "23:00后仍在专注", "🦉", False, latest_hour >= 23),
+        ("full_clear", "全勤奖", "一天完成所有待办", "✨", False,
+         today_total_todos > 0 and today_completed_todos == today_total_todos),
+        ("efficiency_king", "效率之王", "日专注效率≥80%", "👑", False, pomo_efficiency >= 0.8),
+        # ── 隐藏彩蛋成就（hidden=True）──
+        ("polymath", "多面手", "一天内涉及8个以上分类", "🎭", True, len(today_cats) >= 8),
+        ("zen_master", "禅定", "连续4小时不切换分类", "🧘", True, max_same_cat_streak_min >= 240),
+        ("century_mark", "百日修行", "累计记录100天活动", "🏛️", True, total_active_days >= 100),
     ]
-    for code, name, desc, icon, condition in checks:
+    for code, name, desc, icon, hidden, condition in checks:
         if condition and unlock_achievement(code, name, desc, icon):
-            unlocked.append({"code": code, "name": name, "icon": icon})
+            unlocked.append({"code": code, "name": name, "icon": icon, "hidden": hidden})
     return unlocked
 
 # ── 倒数日 ──
@@ -1801,19 +1906,82 @@ def clear_chat_history():
         return True
 
 # ── 习惯追踪 ──
-def insert_habit(name, target_count=1, period="daily", color="#7B68EE"):
+def insert_habit(name, target_count=1, period="daily", color="#7B68EE", auto_category=None):
     _flush_pending_commits()
     with get_conn() as conn:
         max_order = conn.execute("SELECT COALESCE(MAX(sort_order),0) FROM habits").fetchone()[0]
-        cursor = conn.execute("INSERT INTO habits (name, target_count, period, color, sort_order) VALUES (?,?,?,?,?)", (name, target_count, period, color, max_order+1))
+        cursor = conn.execute("INSERT INTO habits (name, target_count, period, color, sort_order, auto_category) VALUES (?,?,?,?,?,?)", (name, target_count, period, color, max_order+1, auto_category))
         conn.commit()
         return cursor.lastrowid
+
+def update_habit(habit_id, **kwargs):
+    """更新习惯（P6-2：支持 auto_category 等字段）"""
+    _flush_pending_commits()
+    allowed = {'name', 'target_count', 'period', 'color', 'sort_order', 'auto_category'}
+    with get_conn() as conn:
+        sets = []
+        params = []
+        for k, v in kwargs.items():
+            if k not in allowed:
+                continue
+            sets.append(f"{k}=?")
+            params.append(v)
+        if not sets:
+            return False
+        params.append(habit_id)
+        conn.execute(f"UPDATE habits SET {','.join(sets)} WHERE id=?", params)
+        conn.commit()
+        return True
 
 def get_habits():
     _flush_pending_commits()
     with get_conn() as conn:
         rows = conn.execute("SELECT * FROM habits ORDER BY sort_order ASC").fetchall()
         return [dict(r) for r in rows]
+
+def auto_check_habits(target_date=None):
+    """P6-2：根据活动分类时长自动为习惯打卡
+    对于设置了 auto_category 的习惯，查询当日该分类的活动时长（分钟），
+    如果达到 target_count 阈值则自动打卡。
+    """
+    from config import SCREENSHOT_INTERVAL_SEC
+    _flush_pending_commits()
+    if target_date is None:
+        target_date = date.today().isoformat()
+    interval_min = SCREENSHOT_INTERVAL_SEC / 60
+    # 查询当日活动按分类聚合
+    activities = get_activities(target_date, target_date)
+    cat_minutes = {}
+    for a in activities:
+        cat = a.get("category", "其他")
+        cat_minutes[cat] = cat_minutes.get(cat, 0) + interval_min
+    # 查询所有设置了 auto_category 的习惯
+    with get_conn() as conn:
+        habits = conn.execute("SELECT * FROM habits WHERE auto_category IS NOT NULL").fetchall()
+        # 查询当日已打卡的习惯ID集合
+        logged = conn.execute("SELECT habit_id FROM habit_logs WHERE log_date=?", (target_date,)).fetchall()
+        logged_ids = {r["habit_id"] for r in logged}
+    auto_logged = []
+    for h in habits:
+        h = dict(h)
+        auto_cat = h.get("auto_category", "")
+        if not auto_cat:
+            continue
+        # 支持逗号分隔的多个分类
+        cats = [c.strip() for c in auto_cat.split(",") if c.strip()]
+        total_min = sum(cat_minutes.get(c, 0) for c in cats)
+        # 阈值：target_count * 30 分钟（每个单位 30 分钟）
+        threshold_min = h["target_count"] * 30
+        if total_min >= threshold_min and h["id"] not in logged_ids:
+            log_habit(h["id"], target_date, h["target_count"])
+            auto_logged.append({
+                "habit_id": h["id"],
+                "habit_name": h["name"],
+                "auto_category": auto_cat,
+                "minutes": round(total_min, 1),
+                "target_count": h["target_count"],
+            })
+    return auto_logged
 
 def log_habit(habit_id, log_date=None, count=1):
     # UPSERT：依赖 V21 创建的唯一索引 idx_habit_logs_unique(habit_id, log_date)

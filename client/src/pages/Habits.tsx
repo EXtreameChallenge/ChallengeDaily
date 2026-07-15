@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, Flame, Check } from 'lucide-react'
-import { getHabits, logHabit, deleteHabit, getTodayStr, type Habit, type HabitLog } from '../api/client'
+import { Plus, Trash2, Flame, Check, Zap, Link2 } from 'lucide-react'
+import { getHabits, logHabit, deleteHabit, updateHabit, autoCheckHabits, getTodayStr, type Habit, type HabitLog } from '../api/client'
 import { useToast } from '../components/Toast'
 import HabitCreateModal from '../components/HabitCreateModal'
+
+const CATEGORIES = ['开发', '测试', '运维', '数据分析', '产品', '设计', '管理', '文档', '会议', '沟通', '学习', '生活']
 
 export default function Habits() {
   const [habits, setHabits] = useState<Habit[]>([])
   const [logs, setLogs] = useState<HabitLog[]>([])
   const [modalOpen, setModalOpen] = useState(false)
+  const [autoChecking, setAutoChecking] = useState(false)
+  const [editingCat, setEditingCat] = useState<number | null>(null)
   const toast = useToast()
 
   const load = useCallback(async () => {
@@ -28,6 +32,34 @@ export default function Habits() {
       load()
     } catch {
       toast.error('打卡失败')
+    }
+  }
+
+  const handleAutoCheck = async () => {
+    setAutoChecking(true)
+    try {
+      const res = await autoCheckHabits()
+      if (res.count > 0) {
+        toast.success(`自动打卡 ${res.count} 个习惯：${res.auto_logged.map(a => a.habit_name).join('、')}`)
+        load()
+      } else {
+        toast.success('已检查，暂无满足自动打卡条件的习惯')
+      }
+    } catch {
+      toast.error('自动检查失败')
+    } finally {
+      setAutoChecking(false)
+    }
+  }
+
+  const handleSetAutoCategory = async (habitId: number, cat: string) => {
+    try {
+      await updateHabit(habitId, { auto_category: cat || null })
+      toast.success(cat ? `已关联分类「${cat}」` : '已取消自动关联')
+      setEditingCat(null)
+      load()
+    } catch {
+      toast.error('更新失败')
     }
   }
 
@@ -68,10 +100,16 @@ export default function Habits() {
         <h1 className="text-2xl font-bold text-cd-text flex items-center gap-2">
           <Flame className="text-orange-400" /> 习惯追踪
         </h1>
-        <button onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition">
-          <Plus size={18} /> 新建习惯
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleAutoCheck} disabled={autoChecking}
+            className="flex items-center gap-1.5 px-3 py-2 bg-purple-500/15 text-purple-400 rounded-lg border border-purple-500/25 hover:bg-purple-500/25 transition text-sm disabled:opacity-50">
+            <Zap size={16} /> {autoChecking ? '检查中...' : '自动打卡'}
+          </button>
+          <button onClick={() => setModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition">
+            <Plus size={18} /> 新建习惯
+          </button>
+        </div>
       </div>
 
       <HabitCreateModal open={modalOpen} onClose={() => setModalOpen(false)} onCreated={load} />
@@ -95,9 +133,35 @@ export default function Habits() {
                     <div className="flex items-center gap-2">
                       <span className="text-cd-text font-medium">{habit.name}</span>
                       {streak > 0 && <span className="text-xs text-orange-400 flex items-center gap-1"><Flame size={12} />{streak}天</span>}
+                      {habit.auto_category && (
+                        <span className="text-[10px] text-purple-400 flex items-center gap-0.5 bg-purple-500/10 px-1.5 py-0.5 rounded">
+                          <Link2 size={10} />{habit.auto_category}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-cd-text-secondary mt-0.5">每日目标 {habit.target_count} 次 · 今日 {todayCount}/{habit.target_count}</div>
                   </div>
+                  {/* 自动关联分类设置 */}
+                  {editingCat === habit.id ? (
+                    <select
+                      autoFocus
+                      value={habit.auto_category || ''}
+                      onChange={e => handleSetAutoCategory(habit.id, e.target.value)}
+                      onBlur={() => setEditingCat(null)}
+                      className="text-xs bg-cd-bg-input border border-cd-border rounded px-1.5 py-1 text-cd-text focus:outline-none focus:border-cd-accent/50"
+                    >
+                      <option value="">取消关联</option>
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  ) : (
+                    <button
+                      onClick={() => setEditingCat(habit.id)}
+                      title="设置自动关联分类"
+                      className={`text-cd-text-secondary hover:text-purple-400 transition p-1 ${habit.auto_category ? 'text-purple-400' : ''}`}
+                    >
+                      <Link2 size={14} />
+                    </button>
+                  )}
                   <button onClick={() => handleLog(habit.id)} disabled={completed}
                     className={`w-10 h-10 rounded-full flex items-center justify-center transition ${
                       completed ? 'bg-green-500/20 text-green-400' : 'bg-cd-accent/20 text-cd-accent hover:bg-cd-accent/30'

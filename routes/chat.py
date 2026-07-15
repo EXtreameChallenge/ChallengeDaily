@@ -545,19 +545,53 @@ def ai_chat_stream():
     except Exception:
         pass
 
-    # 今日简报（不超过200字）
+    # 今日简报（P6-1：增强上下文感知，注入分类时长+番茄钟+待办+目标）
     today_hint = ""
     try:
         from datetime import date
         today_str = date.today().isoformat()
         activities = db.get_activities(today_str, today_str)
+        parts = []
         if activities:
             cats = {}
             for a in activities:
                 cat = a.get("category", "其他")
                 cats[cat] = cats.get(cat, 0) + 1
-            top_cat = max(cats.items(), key=lambda x: x[1])[0] if cats else "无"
-            today_hint = f"\n今日概览：已记录 {len(activities)} 条活动，主要分类={top_cat}"
+            # Top 3 分类 + 估算时长
+            try:
+                from config import SCREENSHOT_INTERVAL_SEC
+                interval_min = SCREENSHOT_INTERVAL_SEC / 60
+            except Exception:
+                interval_min = 1.0
+            sorted_cats = sorted(cats.items(), key=lambda x: x[1], reverse=True)[:3]
+            cat_str = "、".join(f"{c}({int(cnt * interval_min)}min)" for c, cnt in sorted_cats)
+            parts.append(f"活动{len(activities)}条")
+            parts.append(f"分类: {cat_str}")
+        # 番茄钟
+        try:
+            pomo_today = db.get_pomodoro_today_count()
+            if pomo_today.get("count", 0) > 0:
+                parts.append(f"番茄钟{pomo_today['count']}个")
+        except Exception:
+            pass
+        # 待办完成
+        try:
+            todos = db.get_todos(assigned_date=today_str)
+            total_t = len(todos)
+            done_t = sum(1 for t in todos if t.get("status") == "completed")
+            if total_t > 0:
+                parts.append(f"待办{done_t}/{total_t}")
+        except Exception:
+            pass
+        # 活跃目标
+        try:
+            goals = db.get_goal_summary()
+            if goals:
+                parts.append(f"活跃目标{len(goals)}个")
+        except Exception:
+            pass
+        if parts:
+            today_hint = "\n今日数据：" + "，".join(parts)
     except Exception:
         pass
 

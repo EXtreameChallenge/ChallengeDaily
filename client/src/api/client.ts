@@ -1516,6 +1516,7 @@ export interface Habit {
   period: string
   color: string
   sort_order: number
+  auto_category?: string | null
 }
 
 export interface HabitLog {
@@ -1539,6 +1540,14 @@ export async function logHabit(habitId: number, logDate?: string, count?: number
 
 export async function deleteHabit(id: number): Promise<{ status: string }> {
   return request(`/api/habits/${id}`, { method: 'DELETE' }) as Promise<{ status: string }>
+}
+
+export async function updateHabit(id: number, data: Partial<Habit>): Promise<{ status: string }> {
+  return request(`/api/habits/${id}`, { method: 'PUT', body: JSON.stringify(data) }) as Promise<{ status: string }>
+}
+
+export async function autoCheckHabits(date?: string): Promise<{ status: string; auto_logged: Array<{ habit_id: number; habit_name: string; auto_category: string; minutes: number; target_count: number }>; count: number }> {
+  return request('/api/habits/auto-check', { method: 'POST', body: JSON.stringify({ date }) }) as Promise<{ status: string; auto_logged: Array<{ habit_id: number; habit_name: string; auto_category: string; minutes: number; target_count: number }>; count: number }>
 }
 
 // ── 周计划（月/周/日三级层级 + 拖拽分配 + 番茄数据条） ──
