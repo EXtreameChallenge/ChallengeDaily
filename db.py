@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 26
+SCHEMA_VERSION = 27
 
 # P-01: 默认数据保留天数（90 天）
 DEFAULT_DATA_RETENTION_DAYS = 90
@@ -752,6 +752,31 @@ def _init_db_impl():
             if 'font_style' not in existing_diary_cols:
                 conn.execute("ALTER TABLE diaries ADD COLUMN font_style TEXT DEFAULT ''")
             logger.info("V26: diaries 表扩展完成（media_json + font_style）")
+
+        # V27: 长期目标管理（GoalDay集大成——年度/季度目标 + 关联待办 + 进度追踪）
+        if current_version < 27:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS goals (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title           TEXT NOT NULL,
+                    description     TEXT DEFAULT '',
+                    category        TEXT DEFAULT 'personal',  -- personal/work/health/learning/finance
+                    timeframe       TEXT DEFAULT 'yearly',   -- yearly/quarterly/monthly
+                    start_date      TEXT NOT NULL,
+                    target_date     TEXT NOT NULL,
+                    status          TEXT DEFAULT 'active',   -- active/completed/archived
+                    progress        INTEGER DEFAULT 0,        -- 0-100
+                    key_results     TEXT DEFAULT '[]',        -- JSON: 关键结果列表
+                    linked_todos    TEXT DEFAULT '[]',        -- JSON: 关联待办ID
+                    linked_habits   TEXT DEFAULT '[]',        -- JSON: 关联习惯ID
+                    color           TEXT DEFAULT '#6366f1',
+                    created_at      TEXT DEFAULT (datetime('now','localtime')),
+                    updated_at      TEXT DEFAULT (datetime('now','localtime'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_goals_status ON goals(status);
+                CREATE INDEX IF NOT EXISTS idx_goals_timeframe ON goals(timeframe);
+            """)
+            logger.info("V27: goals 表创建完成（长期目标管理）")
 
         # 更新版本号
         conn.execute(
@@ -1554,6 +1579,105 @@ def get_diary_dates():
     with get_conn() as conn:
         rows = conn.execute("SELECT diary_date FROM diaries ORDER BY diary_date DESC").fetchall()
         return [r["diary_date"] for r in rows]
+
+
+def get_mood_heatmap(year=None):
+    """心情热力图：返回指定年份每天的心情（GoalDay集大成——心情趋势可视化）"""
+    _flush_pending_commits()
+    import datetime as _dt
+    if year is None:
+        year = _dt.date.today().year
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT diary_date, mood FROM diaries WHERE diary_date LIKE ? AND mood != '' ORDER BY diary_date",
+            (f"{year}%",),
+        ).fetchall()
+    return [{"date": r["diary_date"], "mood": r["mood"]} for r in rows]
+
+
+# ── 长期目标管理（GoalDay集大成） ──
+def create_goal(title, description="", category="personal", timeframe="yearly",
+                start_date=None, target_date=None, key_results=None,
+                linked_todos=None, linked_habits=None, color="#6366f1"):
+    _flush_pending_commits()
+    import datetime as _dt
+    import json as _json
+    if start_date is None:
+        start_date = _dt.date.today().isoformat()
+    if target_date is None:
+        # yearly=一年后, quarterly=3月后, monthly=1月后
+        delta = {"yearly": 365, "quarterly": 90, "monthly": 30}.get(timeframe, 365)
+        target_date = (_dt.date.today() + _dt.timedelta(days=delta)).isoformat()
+    with get_conn() as conn:
+        cur = conn.execute(
+            """INSERT INTO goals (title, description, category, timeframe, start_date, target_date,
+               key_results, linked_todos, linked_habits, color)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (title, description, category, timeframe, start_date, target_date,
+             _json.dumps(key_results or [], ensure_ascii=False),
+             _json.dumps(linked_todos or [], ensure_ascii=False),
+             _json.dumps(linked_habits or [], ensure_ascii=False),
+             color),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def get_goals(status=None, timeframe=None):
+    _flush_pending_commits()
+    import json as _json
+    with get_conn() as conn:
+        sql = "SELECT * FROM goals WHERE 1=1"
+        params = []
+        if status:
+            sql += " AND status=?"
+            params.append(status)
+        if timeframe:
+            sql += " AND timeframe=?"
+            params.append(timeframe)
+        sql += " ORDER BY target_date ASC"
+        rows = conn.execute(sql, params).fetchall()
+    results = []
+    for r in rows:
+        d = dict(r)
+        d['key_results'] = _json.loads(d.get('key_results') or '[]')
+        d['linked_todos'] = _json.loads(d.get('linked_todos') or '[]')
+        d['linked_habits'] = _json.loads(d.get('linked_habits') or '[]')
+        results.append(d)
+    return results
+
+
+def update_goal(goal_id, **kwargs):
+    _flush_pending_commits()
+    import json as _json
+    allowed = {'title', 'description', 'category', 'timeframe', 'start_date', 'target_date',
+               'status', 'progress', 'key_results', 'linked_todos', 'linked_habits', 'color'}
+    with get_conn() as conn:
+        sets = []
+        params = []
+        for k, v in kwargs.items():
+            if k not in allowed:
+                continue
+            if k in ('key_results', 'linked_todos', 'linked_habits'):
+                v = _json.dumps(v, ensure_ascii=False)
+            sets.append(f"{k}=?")
+            params.append(v)
+        if not sets:
+            return False
+        sets.append("updated_at=datetime('now','localtime')")
+        params.append(goal_id)
+        conn.execute(f"UPDATE goals SET {','.join(sets)} WHERE id=?", params)
+        conn.commit()
+        return True
+
+
+def delete_goal(goal_id):
+    _flush_pending_commits()
+    with get_conn() as conn:
+        conn.execute("DELETE FROM goals WHERE id=?", (goal_id,))
+        conn.commit()
+        return True
+
 
 # ── 成就系统 ──
 def get_achievements():

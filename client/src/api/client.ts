@@ -1137,6 +1137,47 @@ export async function broadcastStudyRoom(): Promise<{ status: string; broadcaste
   return request('/api/study-room/broadcast', { method: 'POST' }) as Promise<{ status: string; broadcasted: number; subnet: string }>
 }
 
+// ── 长期目标管理（GoalDay集大成） ──
+export interface Goal {
+  id: number
+  title: string
+  description: string
+  category: 'personal' | 'work' | 'health' | 'learning' | 'finance'
+  timeframe: 'yearly' | 'quarterly' | 'monthly'
+  start_date: string
+  target_date: string
+  status: 'active' | 'completed' | 'archived'
+  progress: number
+  key_results: Array<{ text: string; done: boolean }>
+  linked_todos: number[]
+  linked_habits: number[]
+  color: string
+  created_at: string
+  updated_at: string
+}
+export interface MoodEntry { date: string; mood: string }
+
+export async function getGoals(status?: string, timeframe?: string): Promise<{ goals: Goal[] }> {
+  const params = new URLSearchParams()
+  if (status) params.set('status', status)
+  if (timeframe) params.set('timeframe', timeframe)
+  const qs = params.toString()
+  return request(`/api/goals${qs ? '?' + qs : ''}`) as Promise<{ goals: Goal[] }>
+}
+export async function createGoal(data: Partial<Goal>): Promise<{ status: string; id: number }> {
+  return request('/api/goals', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string; id: number }>
+}
+export async function updateGoal(id: number, data: Partial<Goal>): Promise<{ status: string }> {
+  return request(`/api/goals/${id}`, { method: 'PUT', body: JSON.stringify(data) }) as Promise<{ status: string }>
+}
+export async function deleteGoal(id: number): Promise<{ status: string }> {
+  return request(`/api/goals/${id}`, { method: 'DELETE' }) as Promise<{ status: string }>
+}
+export async function getMoodHeatmap(year?: number): Promise<{ data: MoodEntry[]; year: number | null }> {
+  const qs = year ? `?year=${year}` : ''
+  return request(`/api/goals/mood-heatmap${qs}`) as Promise<{ data: MoodEntry[]; year: number | null }>
+}
+
 // ── 规则引擎 ──
 export interface Rule {
   id: number; name: string; description: string;

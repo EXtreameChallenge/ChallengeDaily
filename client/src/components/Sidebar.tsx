@@ -29,6 +29,7 @@ import {
   Download,
   TrendingUp,
   Zap,
+  Target,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { getStatus, pauseCollector, resumeCollector, getTodayStats, type CollectorStatus, type TodayStats } from '../api/client'
@@ -74,6 +75,7 @@ const NAV_GROUPS = [
       { to: '/achievements', icon: Trophy, label: '成就墙' },
       { to: '/study-room', icon: Users, label: '番茄自习室' },
       { to: '/rules-engine', icon: Zap, label: '规则引擎' },
+      { to: '/goals', icon: Target, label: '长期目标' },
     ]
   },
 ]
