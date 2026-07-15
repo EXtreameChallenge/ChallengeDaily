@@ -32,6 +32,10 @@ from routes.insight import bp as insight_bp
 from routes.imports import bp as imports_bp
 from routes.preferences import bp as preferences_bp
 from routes.audit import bp as audit_bp
+from routes.calendar_routes import bp as calendar_bp
+from routes.git_routes import bp as git_integration_bp
+from routes.benchmark_routes import bp as benchmark_bp
+from routes.local_model_routes import bp as local_model_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -68,4 +72,8 @@ ALL_BLUEPRINTS = [
     imports_bp,
     preferences_bp,
     audit_bp,
+    calendar_bp,
+    git_integration_bp,
+    benchmark_bp,
+    local_model_bp,
 ]

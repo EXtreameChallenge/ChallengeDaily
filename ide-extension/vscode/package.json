@@ -1,0 +1,82 @@
+{
+  "name": "challengedaily-tracker",
+  "displayName": "ChallengeDaily Tracker",
+  "description": "在 VS Code 中实时查看 ChallengeDaily 今日专注时长、当前分类与番茄钟状态",
+  "version": "0.1.0",
+  "publisher": "challengedaily",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Other", "Productivity"],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "challengedaily.showStatus",
+        "title": "ChallengeDaily: 显示今日状态"
+      },
+      {
+        "command": "challengedaily.startPomodoro",
+        "title": "ChallengeDaily: 启动番茄钟"
+      },
+      {
+        "command": "challengedaily.openDashboard",
+        "title": "ChallengeDaily: 打开主界面"
+      },
+      {
+        "command": "challengedaily.setToken",
+        "title": "ChallengeDaily: 配置 API Token"
+      }
+    ],
+    "configuration": {
+      "title": "ChallengeDaily",
+      "properties": {
+        "challengedaily.apiUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:58888",
+          "description": "ChallengeDaily 后端 API 地址"
+        },
+        "challengedaily.apiToken": {
+          "type": "string",
+          "default": "",
+          "description": "API Token（在 ChallengeDaily 设置页面查看）"
+        },
+        "challengedaily.statusBarAlignment": {
+          "type": "string",
+          "enum": ["left", "right"],
+          "default": "right",
+          "description": "状态栏对齐方式"
+        },
+        "challengedaily.refreshIntervalSec": {
+          "type": "number",
+          "default": 30,
+          "minimum": 10,
+          "maximum": 600,
+          "description": "状态栏刷新间隔（秒）"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "challengedaily.startPomodoro",
+        "key": "ctrl+shift+p",
+        "mac": "cmd+shift+p"
+      }
+    ]
+  },
+  "scripts": {
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "^18.0.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/challengedaily/challengedaily"
+  }
+}

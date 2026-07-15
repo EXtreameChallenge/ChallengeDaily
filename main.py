@@ -255,6 +255,13 @@ def main():
         start_retry_queue()
     except Exception as e:
         logger.debug(f"AI 重试队列启动失败（不影响主流程）: {e}")
+    # P18-1：启动日历订阅后台刷新
+    try:
+        import calendar_sync
+        calendar_sync.start_background_refresh()
+        logger.info("日历订阅后台刷新已启动")
+    except Exception as e:
+        logger.debug(f"日历后台刷新启动失败（不影响主流程）: {e}")
     stop = threading.Event()
     import server as _server_module  # 避免使用 from ... import 绑定值
     logger.info("ChallengeDaily已启动，按 Ctrl+C 退出")

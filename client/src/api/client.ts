@@ -2120,3 +2120,288 @@ export interface HabitStats {
 export async function getHabitStats(habitId: number, days = 30): Promise<{ status: string; stats: HabitStats }> {
   return request(`/api/habits/${habitId}/stats?days=${days}`) as Promise<{ status: string; stats: HabitStats }>
 }
+
+// ─── P18-1: 日历集成 ──────────────────────────────
+
+export interface CalendarSubscription {
+  id: string
+  name: string
+  url: string
+  color: string
+  enabled: boolean
+  last_sync: string | null
+  last_error: string | null
+}
+
+export interface CalendarEvent {
+  summary: string
+  start: string
+  end: string
+  start_timestamp: number
+  end_timestamp: number
+  location?: string
+  description?: string
+  calendar_id: string
+  calendar_name: string
+  calendar_color: string
+}
+
+export async function listCalendarSubscriptions(): Promise<{ subscriptions: CalendarSubscription[] }> {
+  return request('/api/calendar/subscriptions') as Promise<{ subscriptions: CalendarSubscription[] }>
+}
+
+export async function addCalendarSubscription(data: { name: string; url: string; color?: string }): Promise<{ subscription: CalendarSubscription }> {
+  return request('/api/calendar/subscriptions', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }) as Promise<{ subscription: CalendarSubscription }>
+}
+
+export async function updateCalendarSubscription(subId: string, data: Partial<CalendarSubscription>): Promise<{ subscription: CalendarSubscription }> {
+  return request(`/api/calendar/subscriptions/${subId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }) as Promise<{ subscription: CalendarSubscription }>
+}
+
+export async function removeCalendarSubscription(subId: string): Promise<{ ok: boolean }> {
+  return request(`/api/calendar/subscriptions/${subId}`, { method: 'DELETE' }) as Promise<{ ok: boolean }>
+}
+
+export async function refreshCalendarAll(): Promise<{ refreshed: number; failed: number; total: number }> {
+  return request('/api/calendar/refresh', { method: 'POST' }) as Promise<{ refreshed: number; failed: number; total: number }>
+}
+
+export async function getCalendarTodayEvents(): Promise<{ events: CalendarEvent[] }> {
+  return request('/api/calendar/today') as Promise<{ events: CalendarEvent[] }>
+}
+
+export async function getCalendarUpcomingEvents(hours = 24): Promise<{ events: CalendarEvent[] }> {
+  return request(`/api/calendar/upcoming?hours=${hours}`) as Promise<{ events: CalendarEvent[] }>
+}
+
+export async function getCalendarCurrentMeeting(): Promise<{ meeting: CalendarEvent | null; in_meeting: boolean }> {
+  return request('/api/calendar/current-meeting') as Promise<{ meeting: CalendarEvent | null; in_meeting: boolean }>
+}
+
+// ─── P18-2: Git 集成 ───────────────────────────────
+
+export interface GitRepository {
+  path: string
+  name: string
+  enabled: boolean
+  added_at?: string
+  exists: boolean
+  has_git: boolean
+  status: 'ok' | 'missing' | 'not_a_repo'
+}
+
+export interface GitCodeReport {
+  date: string
+  repositories: Array<{
+    name: string
+    path: string
+    commit_count: number
+    files_changed: number
+    insertions: number
+    deletions: number
+    subjects: string[]
+    by_extension: Record<string, { files: number; insertions: number; deletions: number }>
+    error?: string
+  }>
+  total_commits: number
+  total_files_changed: number
+  total_insertions: number
+  total_deletions: number
+  summary: string
+}
+
+export async function listGitRepositories(): Promise<{ repositories: GitRepository[] }> {
+  return request('/api/git/repositories') as Promise<{ repositories: GitRepository[] }>
+}
+
+export async function addGitRepository(data: { path: string; name?: string; enabled?: boolean }): Promise<{ repository: GitRepository }> {
+  return request('/api/git/repositories', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }) as Promise<{ repository: GitRepository }>
+}
+
+export async function removeGitRepository(path: string): Promise<{ ok: boolean }> {
+  return request('/api/git/repositories', {
+    method: 'DELETE',
+    body: JSON.stringify({ path }),
+  }) as Promise<{ ok: boolean }>
+}
+
+export async function getGitCodeReport(date?: string): Promise<GitCodeReport> {
+  const q = date ? `?date=${encodeURIComponent(date)}` : ''
+  return request(`/api/git/code-report${q}`) as Promise<GitCodeReport>
+}
+
+export async function getGitWeeklyReport(endDate?: string): Promise<{
+  total_commits: number
+  active_days: number
+  by_date: Record<string, number>
+  by_type: Record<string, number>
+  authors: Record<string, number>
+  start_date: string
+  end_date: string
+  repositories_count: number
+}> {
+  const q = endDate ? `?end_date=${encodeURIComponent(endDate)}` : ''
+  return request(`/api/git/weekly-report${q}`) as Promise<any>
+}
+
+// ─── P18-3: 匿名群组对比 ───────────────────────────
+
+export interface BenchmarkMetric {
+  key: string
+  label: string
+  unit: string
+  user_value: number
+  benchmark_p50: number
+  benchmark_p75: number
+  percentile: number
+  higher_better: boolean
+  verdict: string
+}
+
+export interface BenchmarkResult {
+  occupation: string
+  occupation_label: string
+  metrics: BenchmarkMetric[]
+  overall_percentile: number
+  overall_summary: string
+  days: number
+  user_metrics: {
+    daily_focus_minutes: number
+    deep_work_ratio: number
+    meeting_ratio: number
+    distraction_ratio: number
+    streak_days: number
+  }
+}
+
+export interface BenchmarkProfile {
+  occupation: string
+  anonymous_id: string
+  group_code: string
+  created_at: string
+  updated_at?: string
+}
+
+export interface GroupLeaderboardEntry {
+  anonymous_id: string
+  name: string
+  daily_focus_minutes: number
+  deep_work_ratio: number
+  streak_days: number
+  score: number
+  updated_at: string
+}
+
+export async function listBenchmarkOccupations(): Promise<{ occupations: Array<{ key: string; label: string }> }> {
+  return request('/api/benchmark/occupations') as Promise<{ occupations: Array<{ key: string; label: string }> }>
+}
+
+export async function getBenchmarkProfile(): Promise<BenchmarkProfile> {
+  return request('/api/benchmark/profile') as Promise<BenchmarkProfile>
+}
+
+export async function updateBenchmarkProfile(data: { occupation?: string; group_code?: string }): Promise<BenchmarkProfile> {
+  return request('/api/benchmark/profile', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }) as Promise<BenchmarkProfile>
+}
+
+export async function compareBenchmark(days = 7): Promise<BenchmarkResult> {
+  return request(`/api/benchmark/compare?days=${days}`) as Promise<BenchmarkResult>
+}
+
+export async function listBenchmarkGroups(): Promise<{ groups: any[] }> {
+  return request('/api/benchmark/groups') as Promise<{ groups: any[] }>
+}
+
+export async function createBenchmarkGroup(name: string): Promise<{ group: any }> {
+  return request('/api/benchmark/groups', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  }) as Promise<{ group: any }>
+}
+
+export async function joinBenchmarkGroup(code: string, name?: string): Promise<{ group: any }> {
+  return request(`/api/benchmark/groups/${code}/join`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  }) as Promise<{ group: any }>
+}
+
+export async function leaveBenchmarkGroup(code: string): Promise<{ ok: boolean }> {
+  return request(`/api/benchmark/groups/${code}/leave`, { method: 'POST' }) as Promise<{ ok: boolean }>
+}
+
+export async function getBenchmarkGroupLeaderboard(code: string): Promise<{
+  code: string
+  name: string
+  members_count: number
+  leaderboard: GroupLeaderboardEntry[]
+}> {
+  return request(`/api/benchmark/groups/${code}/leaderboard`) as Promise<any>
+}
+
+export async function exportBenchmarkMetrics(): Promise<any> {
+  return request('/api/benchmark/export') as Promise<any>
+}
+
+// ─── P18-4: 本地小模型降级 ─────────────────────────
+
+export interface LocalModelConfig {
+  enabled: boolean
+  base_url: string
+  vision_model: string
+  text_model: string
+  fallback_to_rules: boolean
+  auto_fallback: boolean
+  timeout_sec: number
+}
+
+export interface LocalModelStatus {
+  config: LocalModelConfig
+  health: {
+    available: boolean
+    base_url: string
+    models?: string[]
+    model_count?: number
+    error?: string
+    cached?: boolean
+  }
+}
+
+export async function getLocalModelStatus(): Promise<LocalModelStatus> {
+  return request('/api/local-model/status') as Promise<LocalModelStatus>
+}
+
+export async function getLocalModelConfig(): Promise<LocalModelConfig> {
+  return request('/api/local-model/config') as Promise<LocalModelConfig>
+}
+
+export async function updateLocalModelConfig(data: Partial<LocalModelConfig>): Promise<LocalModelConfig> {
+  return request('/api/local-model/config', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }) as Promise<LocalModelConfig>
+}
+
+export async function listLocalModels(): Promise<{ models: Array<{ name: string; size_mb: number; modified_at: string }> }> {
+  return request('/api/local-model/models') as Promise<{ models: Array<{ name: string; size_mb: number; modified_at: string }> }>
+}
+
+export async function testLocalModel(type: 'text' | 'vision' = 'text'): Promise<{ ok: boolean; type: string; result: any }> {
+  return request('/api/local-model/test', {
+    method: 'POST',
+    body: JSON.stringify({ type }),
+  }) as Promise<{ ok: boolean; type: string; result: any }>
+}
+
