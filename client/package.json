@@ -11,7 +11,11 @@
     "preview": "vite preview",
     "start": "electron .",
     "test": "jest",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings 0",
+    "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\""
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.20",
@@ -43,9 +47,15 @@
     "concurrently": "^8.2.2",
     "electron": "^31.3.1",
     "electron-builder": "^24.13.3",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.35.0",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "postcss": "^8.4.40",
+    "prettier": "^3.3.3",
     "tailwindcss": "^3.4.7",
     "typescript": "^5.5.4",
     "vite": "^5.3.5",

@@ -115,6 +115,14 @@ def generate_daily_profile(target_date: str) -> dict | None:
         result = _parse_json_safe(raw)
         if result and "daily_summary" in result:
             _cb_record_success()
+            # P20-7: 审计日志覆盖
+            try:
+                from audit_logger import log_audit
+                log_audit("ai_text", "generate_daily_profile", "success",
+                          detail=f"日期={target_date}, 摘要={result.get('daily_summary', '')[:50]}",
+                          metadata={"target_date": target_date})
+            except Exception:
+                pass
             result["hourly_digest"] = hourly_digest
             return result
     except Exception as e:
@@ -207,12 +215,17 @@ def build_weekly_context(days: int = 7) -> str:
     _WEEKLY_CONTEXT_MAX_CHARS = 6000  # 约 2000 token 上限
 
     profiles = []
-    for i in range(days - 1, -1, -1):
-        d = (date.today() - timedelta(days=i)).isoformat()
-        with get_conn() as conn:
-            row = conn.execute("SELECT * FROM daily_profiles WHERE date = ?", (d,)).fetchone()
-        if row:
-            profiles.append(dict(row))
+    # P20-4: 修复 N+1 查询 — 单次 IN 查询替代 N 次循环查询
+    date_list = [(date.today() - timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
+    with get_conn() as conn:
+        placeholders = ",".join(["?"] * len(date_list))
+        rows = conn.execute(
+            f"SELECT * FROM daily_profiles WHERE date IN ({placeholders}) ORDER BY date ASC",
+            date_list,
+        ).fetchall()
+    # 按 date_list 顺序对齐（daily_profiles 中可能缺失某些日期）
+    rows_by_date = {r["date"]: dict(r) for r in rows}
+    profiles = [rows_by_date[d] for d in date_list if d in rows_by_date]
 
     if not profiles:
         return _build_fallback_context(days)

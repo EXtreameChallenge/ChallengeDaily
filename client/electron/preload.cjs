@@ -1,5 +1,22 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
+// P20-8: 统一 IPC 监听器管理 — 每个注册的 listener 都返回反注册函数
+// 防止组件卸载后 ipcRenderer 仍持有回调引用导致内存泄漏与重复触发
+function _makeManagedListener(channel) {
+  return (cb) => {
+    const handler = (_e, data) => cb(data)
+    ipcRenderer.on(channel, handler)
+    // 返回反注册函数，前端 useEffect cleanup 中调用
+    return () => {
+      try {
+        ipcRenderer.removeListener(channel, handler)
+      } catch (_) {
+        /* ignore */
+      }
+    }
+  }
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   // 窗口控制
   minimize: () => ipcRenderer.send('window-minimize'),
@@ -24,14 +41,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
-  onUpdateAvailable: (cb) => ipcRenderer.on('update-available', (_e, data) => cb(data)),
-  onUpdateProgress: (cb) => ipcRenderer.on('update-progress', (_e, data) => cb(data)),
-  onUpdateDownloaded: (cb) => ipcRenderer.on('update-downloaded', () => cb()),
-  onBackendCrash: (cb) => ipcRenderer.on('backend-crash', (_e, data) => cb(data)),
+  onUpdateAvailable: _makeManagedListener('update-available'),
+  onUpdateProgress: _makeManagedListener('update-progress'),
+  onUpdateDownloaded: _makeManagedListener('update-downloaded'),
+  onBackendCrash: _makeManagedListener('backend-crash'),
 
   // 监听来自主进程的消息
-  onCollectorAction: (callback) => ipcRenderer.on('collector-action', (_event, data) => callback(data)),
-  onGenerateReport: (callback) => ipcRenderer.on('generate-report', (_event, data) => callback(data)),
+  onCollectorAction: _makeManagedListener('collector-action'),
+  onGenerateReport: _makeManagedListener('generate-report'),
 
   // 桌面通知
   showNotification: ({ title, body }) => ipcRenderer.send('show-notification', { title, body }),
@@ -42,17 +59,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 番茄钟悬浮窗
   pomodoroWidgetUpdate: (data) => ipcRenderer.send('pomodoro-widget-update', data),
   pomodoroWidgetHide: () => ipcRenderer.send('pomodoro-widget-hide'),
-  onPomodoroTick: (cb) => ipcRenderer.on('pomodoro-tick', (_e, data) => cb(data)),
+  onPomodoroTick: _makeManagedListener('pomodoro-tick'),
 
   // 分心告警：主窗口 → 主进程 → 宠物窗口
   sendDistractionAlert: (data) => ipcRenderer.send('distraction-alert', data),
-  onDistractionAlert: (cb) => ipcRenderer.on('distraction-alert', (_e, data) => cb(data)),
+  onDistractionAlert: _makeManagedListener('distraction-alert'),
 
   // 主进程导航指令（悬浮窗点击跳转等）
-  onNavigateTo: (cb) => ipcRenderer.on('navigate-to', (_e, path) => cb(path)),
+  onNavigateTo: _makeManagedListener('navigate-to'),
 
   // P13-4：专注模式切换（全局快捷键 Ctrl+Shift+F 触发）
-  onToggleFocusMode: (cb) => ipcRenderer.on('toggle-focus-mode', () => cb()),
+  onToggleFocusMode: _makeManagedListener('toggle-focus-mode'),
 
   // 开机自启动
   getAutoStart: () => ipcRenderer.invoke('get-auto-start'),

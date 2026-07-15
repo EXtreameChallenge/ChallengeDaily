@@ -224,6 +224,69 @@ def _insert_imported_activities(rows: list[dict]) -> int:
     return inserted
 
 
+def _parse_rize_csv(text: str) -> list[dict]:
+    """P20-6: 解析 Rize CSV 导出格式
+
+    Rize CSV 列：Date, Time, Activity, Category, Duration (minutes), Productivity
+    """
+    rows = []
+    reader = csv.DictReader(io.StringIO(text))
+    for r in reader:
+        try:
+            activity = r.get("Activity") or r.get("Name") or ""
+            category = r.get("Category") or "其他"
+            date_str = r.get("Date") or r.get("date") or ""
+            time_str = r.get("Time") or r.get("Start Time") or "12:00"
+            dur_min = 0.0
+            try:
+                dur_str = r.get("Duration (minutes)") or r.get("Duration") or "0"
+                dur_min = float(dur_str)
+            except Exception:
+                dur_min = 0.0
+            if not date_str or not activity:
+                continue
+            dur_sec = int(dur_min * 60)
+            timestamp = f"{date_str} {time_str}".strip()
+            rows.append({
+                "timestamp": timestamp,
+                "app_name": activity,
+                "window_title": activity,
+                "category": _rescuetime_category_to_local(category),
+                "duration_sec": dur_sec,
+                "summary": f"Rize: {activity} ({category})",
+                "interval_sec": dur_sec if dur_sec > 0 else 60,
+            })
+        except Exception as e:
+            logger.debug(f"Rize 行解析失败: {e}")
+    return rows
+
+
+@bp.route('/rize', methods=['POST'])
+@check_token
+def import_rize():
+    """P20-6: 导入 Rize CSV 数据"""
+    data = request.get_json(silent=True) or {}
+    csv_text = data.get("csv", "")
+    dry_run = bool(data.get("dry_run", False))
+    if not csv_text.strip():
+        return jsonify({"error": "CSV 内容为空"}), 400
+    try:
+        rows = _parse_rize_csv(csv_text)
+        if dry_run:
+            return jsonify({"status": "ok", "parsed": len(rows), "sample": rows[:3], "dry_run": True})
+        if not rows:
+            return jsonify({"error": "解析后无可导入数据，请检查 CSV 格式"}), 400
+        inserted = _insert_imported_activities(rows)
+        return jsonify({
+            "status": "ok", "source": "rize",
+            "parsed": len(rows), "inserted": inserted,
+            "message": f"成功导入 {inserted} 条 Rize 记录",
+        })
+    except Exception as e:
+        logger.error(f"Rize 导入失败: {e}", exc_info=True)
+        return jsonify({"error": safe_error(e, "Rize 导入失败")}), 500
+
+
 @bp.route('/formats', methods=['GET'])
 def supported_formats():
     """列出支持的导入格式"""
@@ -242,6 +305,13 @@ def supported_formats():
                 "description": "RescueTime 导出的活动 CSV",
                 "required_columns": ["Activity", "Category", "Duration sec"],
                 "endpoint": "/api/imports/rescuetime",
+            },
+            {
+                "id": "rize",
+                "name": "Rize CSV",
+                "description": "Rize 导出的活动 CSV（Duration minutes）",
+                "required_columns": ["Date", "Activity", "Category", "Duration (minutes)"],
+                "endpoint": "/api/imports/rize",
             },
         ]
     })

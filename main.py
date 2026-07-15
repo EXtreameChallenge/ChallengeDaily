@@ -237,6 +237,12 @@ def main():
         if _shutdown_done:
             return
         _shutdown_done = True
+        # P20-2：卸载窗口切换钩子
+        try:
+            import win_event_hook
+            win_event_hook.uninstall()
+        except Exception:
+            pass
         collector.stop()
         try:
             generate_daily_report()
@@ -266,8 +272,34 @@ def main():
     import server as _server_module  # 避免使用 from ... import 绑定值
     logger.info("ChallengeDaily已启动，按 Ctrl+C 退出")
 
+    # P20-2：窗口切换事件驱动采样 — 在主循环线程内安装钩子，并在每个周期 pump 消息
+    # 窗口切换时（5s 节流）立即触发一次 capture_once，避免错过快速切窗口场景
+    _win_event_installed = False
+    try:
+        import win_event_hook
+        def _on_window_switch():
+            try:
+                if not _server_module._collector_paused:
+                    logger.debug("窗口切换事件触发即时采集")
+                    collector.capture_once()
+            except Exception as e:
+                logger.debug(f"窗口切换即时采集异常: {e}")
+        # 必须在主循环线程内安装
+        if win_event_hook.install(_on_window_switch):
+            _win_event_installed = True
+            logger.info("P20-2: 窗口切换事件驱动采样已启用")
+    except Exception as e:
+        logger.debug(f"窗口切换事件钩子安装失败（不影响主流程）: {e}")
+
     try:
         while not stop.is_set():
+            # P20-2：抽取 Win32 消息以触发窗口切换回调（已在主循环线程内）
+            if _win_event_installed:
+                try:
+                    win_event_hook.pump()
+                except Exception:
+                    pass
+
             in_work_hours = True  # 默认值，防止 try 块内异常导致 NameError
             try:
                 settings = _get_cached_settings()

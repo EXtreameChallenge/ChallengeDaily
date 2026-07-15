@@ -106,6 +106,12 @@ _LOG_FORMAT = "%H%x1f%an%x1f%ae%x1f%ad%x1f%cn%x1f%cd%x1f%s%x1f%b%x1e"
 
 def _run_git(repo_path: str, args: list[str], timeout: int = 10) -> str:
     """在仓库目录下执行 git 命令，返回 stdout（带超时和异常隔离）"""
+    # P20-3：通过熔断器保护 git 子进程调用（连续失败 5 次后冷却 60s）
+    from circuit_breaker import get_git_breaker, _is_infra_error
+    cb = get_git_breaker()
+    if not cb.allow():
+        raise RuntimeError(f"git 子系统熔断中，跳过 git {' '.join(args)}")
+
     try:
         # 安全限制：仅允许特定子命令
         if not args or args[0] not in ("log", "status", "rev-parse", "diff", "show"):
@@ -123,12 +129,20 @@ def _run_git(repo_path: str, args: list[str], timeout: int = 10) -> str:
         )
         if result.returncode != 0:
             raise RuntimeError(f"git {' '.join(args)} 失败: {result.stderr[:200]}")
+        cb.record_success()
         return result.stdout
     except FileNotFoundError:
+        cb.record_failure()  # git 缺失属于基础设施问题
         raise RuntimeError("未找到 git 命令，请确认已安装 Git")
     except subprocess.TimeoutExpired:
+        cb.record_failure()  # 超时属于基础设施问题
         raise RuntimeError(f"git 命令超时（{timeout}s）")
+    except ValueError:
+        # 业务异常（不允许的子命令）不记录熔断失败
+        raise
     except Exception as e:
+        if _is_infra_error(e):
+            cb.record_failure()
         raise RuntimeError(f"git 命令执行失败: {e}")
 
 

@@ -80,8 +80,34 @@ def get_coaching_status() -> dict:
         "urge_surfing": {"quote": str} | None,  # 正念冲浪语录（如果需要）
     }
     """
+    # P20-8: 超时保护 — 如果 db 查询超过 3 秒，返回空状态而非阻塞前端轮询
+    import time as _time
+    _t0 = _time.monotonic()
     today_str = date.today().isoformat()
-    activities = db.get_activities(today_str, today_str)
+    try:
+        activities = db.get_activities(today_str, today_str)
+    except Exception as e:
+        logger.warning(f"get_coaching_status db 查询失败: {e}")
+        return {
+            "distraction_minutes": 0,
+            "work_minutes": 0,
+            "current_category": "",
+            "flow_minutes": 0,
+            "alerts": [],
+            "urge_surfing": None,
+            "_error": "db_unavailable",
+        }
+    if _time.monotonic() - _t0 > 3.0:
+        logger.warning("get_coaching_status db 查询超 3s，返回降级状态")
+        return {
+            "distraction_minutes": 0,
+            "work_minutes": 0,
+            "current_category": "",
+            "flow_minutes": 0,
+            "alerts": [],
+            "urge_surfing": None,
+            "_degraded": True,
+        }
     interval_min = SCREENSHOT_INTERVAL_SEC / 60
 
     if not activities:

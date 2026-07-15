@@ -39,6 +39,27 @@ WS_EX_TOOLWINDOW = 0x00000080
 WS_EX_NOACTIVATE = 0x08000000
 SM_CXSCREEN = 0
 SM_CYSCREEN = 1
+# P20-2: 多显示器支持 — SM_CXVIRTUALSCREEN/SM_CYVIRTUALSCREEN 返回虚拟桌面（所有显示器合集）的尺寸
+SM_CXVIRTUALSCREEN = 78
+SM_CYVIRTUALSCREEN = 79
+
+
+def get_virtual_desktop_size() -> tuple[int, int]:
+    """
+    P20-2: 获取虚拟桌面（所有显示器合集）的宽高。
+    单显示器时与 SM_CXSCREEN/SM_CYSCREEN 相同；
+    多显示器时返回所有显示器组成的虚拟桌面尺寸，用于 area_ratio 正确计算。
+    返回 (width, height)。失败时回退到主显示器尺寸。
+    """
+    try:
+        w = GetSystemMetrics(SM_CXVIRTUALSCREEN)
+        h = GetSystemMetrics(SM_CYVIRTUALSCREEN)
+        if w > 0 and h > 0:
+            return (w, h)
+    except Exception as e:
+        logger.debug(f"get_virtual_desktop_size failed: {e}")
+    # 回退到主显示器
+    return (GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN))
 
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
@@ -293,8 +314,8 @@ def get_visible_windows(min_width: int = 120, min_height: int = 80,
     """
     try:
         foreground_hwnd = GetForegroundWindow()
-        screen_w = GetSystemMetrics(SM_CXSCREEN)
-        screen_h = GetSystemMetrics(SM_CYSCREEN)
+        # P20-2: 多显示器支持 — 使用虚拟桌面尺寸计算 area_ratio，避免副显示器窗口被误判占比 > 1
+        screen_w, screen_h = get_virtual_desktop_size()
         screen_area = screen_w * screen_h if screen_w > 0 and screen_h > 0 else 1
         windows = []
         z_order = 0

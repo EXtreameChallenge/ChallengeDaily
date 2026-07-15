@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 32
+SCHEMA_VERSION = 33
 
 # P-01: 默认数据保留天数（90 天）
 DEFAULT_DATA_RETENTION_DAYS = 90
@@ -902,6 +902,32 @@ def _init_db_impl():
                 logger.info("V32: 审计日志 + 用户偏好表创建完成")
             except Exception as e:
                 logger.warning(f"V32 schema 升级失败: {e}")
+
+        # V33: P20-4 — 索引冗余清理 + 复合索引优化
+        # 1. 新增复合索引：activities(timestamp, category) — 日报高频按时间+分类聚合
+        # 2. 新增复合索引：activities(category, timestamp) — 按分类查询历史趋势
+        # 3. 移除冗余索引 idx_activities_cat（已被 idx_activities_cat_ts 覆盖左前缀）
+        #    （SQLite 不支持 DROP INDEX IF EXISTS，需先检查是否存在）
+        # 4. 新增 habits(last_logged_date) 索引 — recommend_habits 高频查询
+        if current_version < 33:
+            try:
+                # 复合索引：按时间过滤后按分类聚合（日报统计主路径）
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_activities_ts_cat ON activities(timestamp, category)")
+                # 复合索引：按分类查询历史趋势（深度分析、基准对比）
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_activities_cat_ts ON activities(category, timestamp)")
+                # 习惯推荐路径：按最后打卡日期排序
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_habits_last_logged ON habits(last_logged_date DESC)")
+                # 移除冗余索引（被 idx_activities_cat_ts 覆盖）
+                try:
+                    cur = conn.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_activities_cat'")
+                    if cur.fetchone():
+                        conn.execute("DROP INDEX idx_activities_cat")
+                        logger.info("V33: 已移除冗余索引 idx_activities_cat（被 idx_activities_cat_ts 覆盖）")
+                except Exception as drop_err:
+                    logger.debug(f"V33: 移除 idx_activities_cat 失败（可忽略）: {drop_err}")
+                logger.info("V33: 索引优化完成（新增 3 个复合索引，移除 1 个冗余索引）")
+            except Exception as e:
+                logger.warning(f"V33 schema 升级失败: {e}")
 
         # 更新版本号
         conn.execute(

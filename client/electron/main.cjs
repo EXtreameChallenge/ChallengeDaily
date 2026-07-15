@@ -429,6 +429,36 @@ function stopBackend() {
   }
 }
 
+// ─── P20-1: 统一 CSP 工具函数 ──────────────────────────────────────
+// 为子窗口（宠物/番茄钟悬浮窗）的 session 应用基础 CSP，避免主窗口已加固而子窗口裸奔的安全漏洞
+// 主窗口仍使用其更严格的 onHeadersReceived CSP（含 connect-src 白名单），此函数仅作为子窗口的下限保护
+function applyCSPToSession(targetSession) {
+  if (!targetSession) return
+  const csp = [
+    "default-src 'self'",
+    isDev ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self' http://127.0.0.1:58888 http://localhost:5173 http://localhost:58888",
+    "media-src 'none'",
+    "object-src 'none'",
+    "frame-src 'none'",
+  ].join('; ') + ';'
+  try {
+    targetSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [csp],
+        },
+      })
+    })
+  } catch (err) {
+    console.warn('[Main] applyCSPToSession failed:', err)
+  }
+}
+
 // ─── 主窗口 ──────────────────────────────────────
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -457,10 +487,8 @@ function createMainWindow() {
   })
 
   // Content Security Policy：限制资源加载来源，防止 XSS 等注入攻击
-  // 生产环境移除 script-src 'unsafe-inline'，仅开发模式（Vite HMR）保留
-  const _cspScriptSrc = isDev
-    ? "script-src 'self' 'unsafe-inline'; "
-    : "script-src 'self'; "
+  // P20-1: 应用统一 CSP 到主窗口（含子窗口）
+  applyCSPToSession(mainWindow.webContents.session)
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     // 每次响应生成一次性 nonce，供未来 style-src 收紧使用
     const _styleNonce = crypto.randomBytes(16).toString('base64')
@@ -570,6 +598,9 @@ function createPetWindow() {
   // Windows 透明窗口需要禁用视觉背景效果
   petWindow.setBackgroundColor('#00000000')
 
+  // P20-1: 为宠物窗口应用基础 CSP（与主窗口策略一致，避免子窗口裸奔）
+  applyCSPToSession(petWindow.webContents.session)
+
   if (isDev) {
     petWindow.loadURL('http://localhost:5173/pet.html')
   } else {
@@ -638,6 +669,9 @@ function createPomodoroWidget() {
 
   pomodoroWidget.setAlwaysOnTop(true, 'floating')
   pomodoroWidget.setBackgroundColor('#00000000')
+
+  // P20-1: 为番茄钟悬浮窗应用基础 CSP
+  applyCSPToSession(pomodoroWidget.webContents.session)
 
   if (isDev) {
     pomodoroWidget.loadURL('http://localhost:5173/pomodoro-widget.html')

@@ -355,3 +355,63 @@ def toggle_webhook(wh_id):
             _save_webhooks(webhooks)
             return jsonify({"status": "ok", "enabled": w["enabled"]})
     return jsonify({"error": "Webhook 不存在"}), 404
+
+
+# ── P20-6: Webhook 模板库 ──
+
+WEBHOOK_TEMPLATES = [
+    {
+        "id": "tpl_feishu_report",
+        "name": "飞书 — 每日日报推送",
+        "type": "feishu",
+        "description": "日报生成后自动推送到飞书群机器人，使用交互式卡片格式",
+        "events": ["report.generated"],
+        "url_placeholder": "https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxx",
+    },
+    {
+        "id": "tpl_dingtalk_report",
+        "name": "钉钉 — 日报推送",
+        "type": "dingtalk",
+        "description": "日报推送到钉钉群机器人，使用 ActionCard 格式",
+        "events": ["report.generated"],
+        "url_placeholder": "https://oapi.dingtalk.com/robot/send?access_token=xxxxxx",
+    },
+    {
+        "id": "tpl_wecom_report",
+        "name": "企业微信 — 日报推送",
+        "type": "wecom",
+        "description": "日报推送到企业微信群机器人，使用 Markdown 格式",
+        "events": ["report.generated"],
+        "url_placeholder": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxxxx",
+    },
+    {
+        "id": "tpl_generic_focus_alert",
+        "name": "通用 — 分心告警 Webhook",
+        "type": "generic",
+        "description": "连续摸鱼超阈值时推送到自定义 HTTP 端点（JSON 格式）",
+        "events": ["coach.distraction"],
+        "url_placeholder": "https://your-server.com/webhook",
+    },
+    {
+        "id": "tpl_generic_achievement",
+        "name": "通用 — 成就解锁通知",
+        "type": "generic",
+        "description": "解锁新成就时推送到自定义 HTTP 端点",
+        "events": ["achievement.unlocked"],
+        "url_placeholder": "https://your-server.com/webhook",
+    },
+    {
+        "id": "tpl_feishu_morning",
+        "name": "飞书 — AI 晨间洞察",
+        "type": "feishu",
+        "description": "AI 晨间洞察生成后推送到飞书",
+        "events": ["insight.morning"],
+        "url_placeholder": "https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxx",
+    },
+]
+
+
+@bp.route("/api/webhooks/templates", methods=["GET"])
+def list_webhook_templates():
+    """P20-6: 列出可用 Webhook 模板"""
+    return jsonify({"templates": WEBHOOK_TEMPLATES})

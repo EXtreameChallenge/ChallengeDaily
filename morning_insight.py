@@ -199,6 +199,14 @@ def _ai_enhance_insights(yesterday: str, summary: dict, activities: list, rule_i
         if json_match:
             ai_insights = json.loads(json_match.group())
             if isinstance(ai_insights, list) and ai_insights:
+                # P20-7: 审计日志覆盖
+                try:
+                    from audit_logger import log_audit
+                    log_audit("ai_insight", "morning_insight", "success",
+                              detail=f"生成 {len(ai_insights[:3])} 条洞察",
+                              metadata={"yesterday": yesterday})
+                except Exception:
+                    pass
                 # 用 AI 文案替换规则文案，保留 type
                 result = []
                 for i, ai in enumerate(ai_insights[:3]):

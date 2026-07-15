@@ -85,6 +85,47 @@ if not _raw_api_key:
         pass
 AI_API_KEY = _raw_api_key
 
+# ── P20-3: AI 调用参数集中化 ──────────────────────────────────
+# 设计依据：原先 14+ 处 AI 调用各自硬编码 max_tokens/temperature，调优困难。
+# 统一到 AI_PARAMS 后可一键调整成本/质量权衡，并为后续 A/B 测试打基础。
+# 取值参考：
+#   - vision_classify: 低温度 0.2 保证分类稳定，500 tokens 足够 JSON 响应
+#   - text_report: 中温度 0.78 让日报有温度，6000 tokens 覆盖全天叙事
+#   - chat: 中温度 0.7 平衡创意与可控，2000 tokens 单轮对话
+#   - insight: 中高温度 0.7 让洞察有变化，400 tokens 简短有力
+#   - weekly_report: 中温度 0.5 保持周报严谨，1500 tokens 覆盖周叙事
+#   - json_extract: 低温度 0.4 保证 JSON 结构稳定，1500 tokens
+AI_PARAMS = {
+    "vision_classify": {"max_tokens": 500, "temperature": 0.2},
+    "vision_classify_lite": {"max_tokens": 220, "temperature": 0.3},  # 概要分类，更省 token
+    "context_extract": {"max_tokens": 600, "temperature": 0.2},         # 上下文抽取，需稳定
+    "text_report": {"max_tokens": 6000, "temperature": 0.78},           # 日报生成，叙事性
+    "weekly_report": {"max_tokens": 1500, "temperature": 0.5},          # 周报，简洁
+    "report_summary": {"max_tokens": 500, "temperature": 0.4},          # 报告精简
+    "chat": {"max_tokens": 2000, "temperature": 0.7},                   # 对话
+    "chat_json": {"max_tokens": 1500, "temperature": 0.85},             # 对话式 JSON
+    "insight": {"max_tokens": 400, "temperature": 0.7},                 # 洞察推送
+    "agent": {"max_tokens": 800, "temperature": 0.7},                   # Agent 决策
+    "agent_lite": {"max_tokens": 10, "temperature": 1.0},               # Agent 极简决策
+    "week_plan": {"max_tokens": 1000, "temperature": 0.7},              # 周计划
+    "local_vision": {"max_tokens": 500, "temperature": 0.3},            # 本地 Ollama 视觉
+    "local_text": {"max_tokens": 1500, "temperature": 0.6},             # 本地 Ollama 文本
+}
+
+
+def get_ai_params(preset: str) -> dict:
+    """
+    获取指定 preset 的 AI 调用参数（max_tokens + temperature）。
+    preset 必须是 AI_PARAMS 中的键。
+    返回的 dict 是副本，调用方可安全修改。
+    """
+    preset_params = AI_PARAMS.get(preset)
+    if preset_params is None:
+        # 未知 preset 回退到最通用的 chat 参数，并记录警告
+        logging.getLogger(__name__).warning(f"未知 AI 参数 preset: {preset}，回退到 chat")
+        preset_params = AI_PARAMS["chat"]
+    return dict(preset_params)
+
 # ── 数据保留天数 ──
 RETENTION_DAYS = int(os.getenv("RETENTION_DAYS", "7"))
 

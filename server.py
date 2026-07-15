@@ -344,6 +344,20 @@ def health_check():
     except Exception as e:
         checks["audit"] = {"status": "unknown", "error": str(e)[:80]}
 
+    # 7. P20-3：通用熔断器状态
+    try:
+        from circuit_breaker import all_breakers_status, CircuitOpenError
+        cb_status = all_breakers_status()
+        any_open = any(s["state"] == "open" for s in cb_status.values())
+        checks["circuit_breakers"] = {
+            "status": "down" if any_open else "ok",
+            "breakers": cb_status,
+        }
+        if any_open:
+            overall = "degraded" if overall == "ok" else overall
+    except Exception as e:
+        checks["circuit_breakers"] = {"status": "unknown", "error": str(e)[:80]}
+
     return jsonify({
         "status": overall,
         "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),

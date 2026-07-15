@@ -250,14 +250,29 @@ def refresh_subscription(sub_id: str) -> bool:
         if host.lower() in ("localhost", "127.0.0.1", "::1") or host.startswith("192.168.") or host.startswith("10."):
             raise ValueError(f"禁止访问内网地址: {host}")
 
+        # P20-3：通过熔断器保护网络请求（连续失败 3 次后冷却 5 分钟）
+        from circuit_breaker import get_calendar_breaker, CircuitOpenError
+        cb = get_calendar_breaker()
+        if not cb.allow():
+            logger.warning(f"日历订阅熔断中，跳过 {sub_id} 刷新")
+            return False
+
         req = urllib.request.Request(url, headers={"User-Agent": "ChallengeDaily/3.2"})
-        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT_SEC) as resp:
-            # 限制最大下载 5MB，避免恶意超大文件
-            content = resp.read(5 * 1024 * 1024)
-            try:
-                text = content.decode("utf-8")
-            except UnicodeDecodeError:
-                text = content.decode("latin-1", errors="replace")
+        try:
+            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT_SEC) as resp:
+                # 限制最大下载 5MB，避免恶意超大文件
+                content = resp.read(5 * 1024 * 1024)
+                try:
+                    text = content.decode("utf-8")
+                except UnicodeDecodeError:
+                    text = content.decode("latin-1", errors="replace")
+        except Exception as net_err:
+            # 网络/超时类异常记录熔断失败
+            from circuit_breaker import _is_infra_error
+            if _is_infra_error(net_err):
+                cb.record_failure()
+            raise
+        cb.record_success()
 
         events = _parse_ics(text, sub_id)
 

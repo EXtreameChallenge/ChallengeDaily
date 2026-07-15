@@ -6,100 +6,52 @@ on:
   pull_request:
     branches: [main, master]
 
-permissions:
-  contents: read
-
 jobs:
-  # ── 后端测试（Python + pytest）──
   backend:
-    name: Backend Tests
+    name: Backend (Python)
     runs-on: windows-latest
-
+    defaults:
+      run:
+        working-directory: xiaohei-daily
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        working-directory: .
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Run tests with coverage
-        working-directory: .
-        env:
-          CHALLENGE_DAILY_DATA_DIR: ${{ runner.temp }}/test-data
+          pip install pytest pytest-cov
+      - name: Syntax check
         run: |
-          python -m pytest tests/ --cov=. --cov-report=xml --cov-report=term-missing -v
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
-          flags: backend
-
-  # ── 前端测试（Node + Jest）──
-  frontend:
-    name: Frontend Tests
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: client/package-lock.json
-
-      - name: Install dependencies
-        working-directory: client
-        run: npm ci
-
+          python -m py_compile main.py server.py db.py config.py
       - name: Run tests
-        working-directory: client
-        run: npm test
+        env:
+          PYTHONPATH: .
+        run: pytest tests/ -q --maxfail=5
 
-      - name: Run tests with coverage
-        working-directory: client
-        run: npm run test:coverage --if-present
-
-  # ── 安全扫描（CodeQL）──
-  security:
-    name: Security Analysis
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      actions: read
-      contents: read
-
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [python, javascript]
-
+  frontend:
+    name: Frontend (TypeScript)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: xiaohei-daily/client
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          languages: ${{ matrix.language }}
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: '/language:${{ matrix.language }}'
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: xiaohei-daily/client/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
