@@ -12,16 +12,18 @@ import {
   deleteCustomTemplate,
   request,
   submitReportToChannels,
+  scoreReportQuality,
   type TodayStats,
   type PomodoroSummary,
   type DailyCredibility,
   type CustomTemplate,
+  type ReportQualityResult,
 } from '../api/client'
 import { useTimeout, useAsyncData } from '../components/shared'
 import { useToast } from '../components/Toast'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { FileText, Calendar, Sparkles, Copy, Check, Download, Save, Trash2, BookOpen, Send } from 'lucide-react'
+import { FileText, Calendar, Sparkles, Copy, Check, Download, Save, Trash2, BookOpen, Send, Gauge } from 'lucide-react'
 import dayjs from 'dayjs'
 
 type ReportType = 'daily' | 'weekly' | 'monthly'
@@ -55,6 +57,8 @@ export default function Report() {
   const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([])
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [templateName, setTemplateName] = useState('')
+  const [qualityResult, setQualityResult] = useState<ReportQualityResult | null>(null)
+  const [scoring, setScoring] = useState(false)
 
   // 周报模式时拉取目标对比
   useEffect(() => {
@@ -161,6 +165,18 @@ export default function Report() {
       }
     } catch { toast.error('提交失败') }
     setSubmitting(false)
+  }
+
+  // 日报质量4维评分
+  const handleScore = async () => {
+    if (!content) { toast.error('请先生成日报'); return }
+    setScoring(true)
+    try {
+      const result = await scoreReportQuality(content)
+      setQualityResult(result)
+      toast.success(`质量评分完成：${result.total}分 (${result.grade}级)`)
+    } catch { toast.error('评分失败') }
+    setScoring(false)
   }
 
   const handleDownload = () => {
@@ -329,6 +345,15 @@ export default function Report() {
                 {submitting ? '提交中...' : '一键提交'}
               </button>
               <button
+                onClick={handleScore}
+                disabled={!content || scoring}
+                className="flex items-center gap-1 px-3 py-1 rounded-md text-xs bg-cd-purple/20 hover:bg-cd-purple/30 text-cd-purple transition-colors border border-cd-purple/30 disabled:opacity-40"
+                title="日报质量4维评分"
+              >
+                <Gauge size={12} />
+                {scoring ? '评分中...' : '质量评分'}
+              </button>
+              <button
                 onClick={() => setShowSaveModal(true)}
                 disabled={!content}
                 className="flex items-center gap-1 px-3 py-1 rounded-md text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border disabled:opacity-40"
@@ -373,6 +398,61 @@ export default function Report() {
                 embed: () => null,
               }}
             >{content}</ReactMarkdown>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 日报质量4维评分面板 ────────────── */}
+      {qualityResult && (
+        <div className="card p-5 mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-cd-text flex items-center gap-2">
+              <Gauge size={16} className="text-cd-purple" /> 日报质量评分
+            </h3>
+            <div className="flex items-center gap-3">
+              <span className="text-3xl font-bold text-cd-text">{qualityResult.total}</span>
+              <span className={`text-2xl font-bold px-3 py-1 rounded-lg ${
+                qualityResult.grade === 'S' ? 'text-yellow-400 bg-yellow-400/10' :
+                qualityResult.grade === 'A' ? 'text-green-400 bg-green-400/10' :
+                qualityResult.grade === 'B' ? 'text-blue-400 bg-blue-400/10' :
+                qualityResult.grade === 'C' ? 'text-orange-400 bg-orange-400/10' :
+                'text-red-400 bg-red-400/10'
+              }`}>{qualityResult.grade}</span>
+            </div>
+          </div>
+
+          {/* 4维评分条 */}
+          <div className="space-y-3 mb-4">
+            {[
+              { key: 'completeness', label: '完整度', weight: '30%', dim: qualityResult.dimensions.completeness },
+              { key: 'data_backed', label: '数据支撑', weight: '25%', dim: qualityResult.dimensions.data_backed },
+              { key: 'actionability', label: '行动性', weight: '25%', dim: qualityResult.dimensions.actionability },
+              { key: 'readability', label: '可读性', weight: '20%', dim: qualityResult.dimensions.readability },
+            ].map(({ key, label, weight, dim }) => (
+              <div key={key}>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-cd-text-secondary">{label} <span className="text-cd-text-tertiary">({weight})</span></span>
+                  <span className="text-cd-text font-medium">{dim.score}<span className="text-cd-text-tertiary">/100</span></span>
+                </div>
+                <div className="h-2 bg-cd-bg-secondary rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      dim.score >= 70 ? 'bg-green-400' :
+                      dim.score >= 50 ? 'bg-blue-400' :
+                      dim.score >= 30 ? 'bg-orange-400' :
+                      'bg-red-400'
+                    }`}
+                    style={{ width: `${dim.score}%` }}
+                  />
+                </div>
+                <div className="text-[10px] text-cd-text-tertiary mt-0.5">{dim.suggestion}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* 综合建议 */}
+          <div className="text-xs text-cd-text-secondary bg-cd-bg-secondary rounded-lg p-3 border border-cd-border">
+            {qualityResult.overall_suggestion}
           </div>
         </div>
       )}

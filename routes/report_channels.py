@@ -5,6 +5,7 @@ import json
 import logging
 from datetime import datetime
 from report_channels import get_channel, submit_to_all_channels, CHANNEL_CLASSES
+from report_quality import score_report_quality
 
 logger = logging.getLogger(__name__)
 
@@ -76,3 +77,12 @@ def submit_report():
         "success": success_count,
         "results": results,
     })
+
+
+@bp.route('/quality', methods=['POST'])
+def report_quality_score():
+    """日报质量4维评分：完整度/数据支撑/行动性/可读性"""
+    data = request.get_json(force=True, silent=True) or {}
+    text = data.get('text', '')
+    result = score_report_quality(text)
+    return jsonify(result)

@@ -1099,6 +1099,28 @@ export async function submitReportToChannels(report_text: string, report_date?: 
   return request('/api/report-channels/submit', { method: 'POST', body: JSON.stringify({ report_text, report_date }) }) as Promise<{ status: string; total: number; success: number; results: Array<{ channel: string; success: boolean; message: string }> }>
 }
 
+// ── 日报质量4维评分 ──
+export interface ReportQualityDimension {
+  score: number
+  detail: Record<string, number | boolean>
+  suggestion: string
+}
+export interface ReportQualityResult {
+  total: number
+  grade: string
+  dimensions: {
+    completeness: ReportQualityDimension
+    data_backed: ReportQualityDimension
+    actionability: ReportQualityDimension
+    readability: ReportQualityDimension
+  }
+  weights: Record<string, number>
+  overall_suggestion: string
+}
+export async function scoreReportQuality(text: string): Promise<ReportQualityResult> {
+  return request('/api/report-channels/quality', { method: 'POST', body: JSON.stringify({ text }) }) as Promise<ReportQualityResult>
+}
+
 // ── 番茄自习室 ──
 export interface StudyRoomMember {
   id: string; name: string; status: string; task: string;
