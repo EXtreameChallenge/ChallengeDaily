@@ -3,6 +3,7 @@ import { getStatus, getSettings, updateSettings, testAiConnection, downloadExpor
 import { ToggleSwitch, useTimeout, useAsyncData, ApiErrorDisplay } from '../components/shared'
 import { useToast } from '../components/Toast'
 import { useTheme, ACCENT_PRESETS, FONT_PRESETS, RADIUS_PRESETS, SHADOW_PRESETS, OPACITY_PRESETS, SKIN_PRESETS } from '../components/ThemeContext'
+import { AppLockSettings } from '../components/AppLock'
 import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon, Cat, Rocket, Search } from 'lucide-react'
 import dayjs from 'dayjs'
 
@@ -958,6 +959,9 @@ export default function Settings() {
           <Shield size={16} className="text-cd-green" />
           <h2 className="text-sm font-semibold text-cd-text">隐私保护</h2>
         </div>
+
+        {/* 应用级隐私锁 */}
+        <AppLockSettings />
 
         <div className="text-xs text-cd-text-tertiary space-y-1">
           <p>• 截图在 AI 分析完成后会自动删除，不会保存到磁盘</p>

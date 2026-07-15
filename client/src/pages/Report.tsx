@@ -11,6 +11,7 @@ import {
   saveCustomTemplate,
   deleteCustomTemplate,
   request,
+  submitReportToChannels,
   type TodayStats,
   type PomodoroSummary,
   type DailyCredibility,
@@ -20,7 +21,7 @@ import { useTimeout, useAsyncData } from '../components/shared'
 import { useToast } from '../components/Toast'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { FileText, Calendar, Sparkles, Copy, Check, Download, Save, Trash2, BookOpen } from 'lucide-react'
+import { FileText, Calendar, Sparkles, Copy, Check, Download, Save, Trash2, BookOpen, Send } from 'lucide-react'
 import dayjs from 'dayjs'
 
 type ReportType = 'daily' | 'weekly' | 'monthly'
@@ -48,6 +49,7 @@ export default function Report() {
   const [generatedContent, setGeneratedContent] = useState<string>('')
   const [generating, setGenerating] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format('YYYY-MM'))
   const [weeklyGoal, setWeeklyGoal] = useState<{ total: number; done: number; completion_rate: number } | null>(null)
   const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([])
@@ -142,6 +144,23 @@ export default function Report() {
     navigator.clipboard.writeText(content)
     setCopied(true)
     toast.success('已复制到剪贴板')
+  }
+
+  // 一键提交日报到飞书/钉钉/邮件等通道
+  const handleSubmit = async () => {
+    if (!content) { toast.error('请先生成日报'); return }
+    setSubmitting(true)
+    try {
+      const result = await submitReportToChannels(content)
+      if (result.success > 0) {
+        toast.success(`已提交到 ${result.success}/${result.total} 个通道`)
+      } else if (result.total === 0) {
+        toast.error('未配置提交通道，请在设置中配置')
+      } else {
+        toast.error('提交失败，请检查通道配置')
+      }
+    } catch { toast.error('提交失败') }
+    setSubmitting(false)
   }
 
   const handleDownload = () => {
@@ -299,6 +318,15 @@ export default function Report() {
               >
                 {copied ? <Check size={12} /> : <Copy size={12} />}
                 {copied ? '已复制' : '复制'}
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={!content || submitting}
+                className="flex items-center gap-1 px-3 py-1 rounded-md text-xs bg-cd-accent/20 hover:bg-cd-accent/30 text-cd-accent transition-colors border border-cd-accent/30 disabled:opacity-40"
+                title="一键提交到飞书/钉钉/邮件"
+              >
+                <Send size={12} />
+                {submitting ? '提交中...' : '一键提交'}
               </button>
               <button
                 onClick={() => setShowSaveModal(true)}

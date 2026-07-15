@@ -7,6 +7,7 @@ import { ToastProvider } from './components/Toast'
 import { ThemeProvider } from './components/ThemeContext'
 import { BackendStatusBar } from './components/shared'
 import { getNotifications, startupHealthCheck } from './api/client'
+import { useAppLock, LockScreen } from './components/AppLock'
 
 // 懒加载页面组件 — 减少首屏加载体积
 const Overview = lazy(() => import('./pages/Overview'))
@@ -41,6 +42,7 @@ export default function App() {
   const [backendReady, setBackendReady] = useState(false)
   const [checking, setChecking] = useState(true)
   const [firstLaunchPhase, setFirstLaunchPhase] = useState<FirstLaunchPhase>('done')
+  const { locked, unlock } = useAppLock()
 
   useEffect(() => {
     let isCancelled = false
@@ -194,6 +196,8 @@ export default function App() {
     <ThemeProvider>
       <ToastProvider>
         <ErrorBoundary>
+          {/* 应用级隐私锁：启动锁 + 闲置锁 */}
+          {locked && <LockScreen onUnlock={unlock} />}
           <div className="flex flex-col h-screen bg-cd-bg">
             <TitleBar />
           <BackendStatusBar />

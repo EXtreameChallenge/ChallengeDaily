@@ -1,6 +1,6 @@
-﻿﻿import { useState, useEffect, useCallback, useRef } from 'react'
-import { ChevronLeft, ChevronRight, Save, Calendar, Sparkles } from 'lucide-react'
-import { getDiary, saveDiary, getDiaries, getTodayStr, formatLocalDate, type Diary as DiaryType } from '../api/client'
+﻿import { useState, useEffect, useCallback, useRef } from 'react'
+import { ChevronLeft, ChevronRight, Save, Calendar, Sparkles, Image as ImageIcon, Mic, Link2, X } from 'lucide-react'
+import { getDiary, saveDiary, getDiaries, getTodayStr, formatLocalDate, type Diary as DiaryType, type DiaryMedia } from '../api/client'
 import { useToast } from '../components/Toast'
 
 const MOODS = [
@@ -29,7 +29,15 @@ export default function Diary() {
   const [tags, setTags] = useState('')
   const [highlights, setHighlights] = useState('')
   const [gratitude, setGratitude] = useState('')
+  const [media, setMedia] = useState<DiaryMedia[]>([])
+  const [linkInput, setLinkInput] = useState('')
+  const [showLinkInput, setShowLinkInput] = useState(false)
+  const [recording, setRecording] = useState(false)
   const [saving, setSaving] = useState(false)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordChunksRef = useRef<Blob[]>([])
+  const recordStartRef = useRef<number>(0)
   const [savedFlash, setSavedFlash] = useState(false)
   const [diaryDates, setDiaryDates] = useState<string[]>([])
   const toast = useToast()
@@ -46,6 +54,7 @@ export default function Diary() {
       setTags(d?.tags || '')
       setHighlights(d?.highlights || '')
       setGratitude(d?.gratitude || '')
+      try { setMedia(d?.media_json ? JSON.parse(d.media_json) : []) } catch { setMedia([]) }
     } catch { toast.error('加载日记失败') }
   }, [currentDate, toast])
 
@@ -69,6 +78,7 @@ export default function Diary() {
     try {
       await saveDiary({
         diary_date: currentDate, mood, weather, content, tags, highlights, gratitude,
+        media_json: JSON.stringify(media),
       })
       setSavedFlash(true)
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
@@ -88,6 +98,49 @@ export default function Diary() {
     const d = new Date(currentDate)
     d.setDate(d.getDate() + 1)
     if (d <= new Date()) setCurrentDate(formatLocalDate(d))
+  }
+
+  // 图片上传：转 base64 存储（本地日记，不上云）
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+    Array.from(files).forEach(file => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        setMedia(prev => [...prev, { type: 'image', url: reader.result as string, title: file.name }])
+      }
+      reader.readAsDataURL(file)
+    })
+    e.target.value = ''
+  }
+
+  // 录音
+  const handleRecordToggle = async () => {
+    if (recording) {
+      mediaRecorderRef.current?.stop()
+      setRecording(false)
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        const recorder = new MediaRecorder(stream)
+        recordChunksRef.current = []
+        recorder.ondataavailable = e => { if (e.data.size > 0) recordChunksRef.current.push(e.data) }
+        recorder.onstop = () => {
+          const blob = new Blob(recordChunksRef.current, { type: 'audio/webm' })
+          const reader = new FileReader()
+          reader.onload = () => {
+            const duration = Math.round((Date.now() - recordStartRef.current) / 1000)
+            setMedia(prev => [...prev, { type: 'audio', url: reader.result as string, duration }])
+          }
+          reader.readAsDataURL(blob)
+          stream.getTracks().forEach(t => t.stop())
+        }
+        recorder.start()
+        mediaRecorderRef.current = recorder
+        recordStartRef.current = Date.now()
+        setRecording(true)
+      } catch { toast.error('无法访问麦克风') }
+    }
   }
 
   const hasDiary = diaryDates.includes(currentDate)
@@ -126,7 +179,69 @@ export default function Diary() {
 
       {/* 日记内容 */}
       <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5 mb-4">
-        <div className="text-sm text-cd-text-secondary mb-2">日记 · 一日一页</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm text-cd-text-secondary">日记 · 一日一页</div>
+          {/* 多媒体工具栏 */}
+          <div className="flex gap-1">
+            <button onClick={() => imageInputRef.current?.click()} title="插入图片"
+              className="p-1.5 rounded-lg text-cd-text-tertiary hover:text-cd-accent hover:bg-white/5 transition">
+              <ImageIcon size={15} />
+            </button>
+            <button onClick={handleRecordToggle} title="录音"
+              className={`p-1.5 rounded-lg transition ${recording ? 'text-red-400 bg-red-400/10' : 'text-cd-text-tertiary hover:text-cd-accent hover:bg-white/5'}`}>
+              <Mic size={15} />
+            </button>
+            <button onClick={() => setShowLinkInput(!showLinkInput)} title="插入链接"
+              className="p-1.5 rounded-lg text-cd-text-tertiary hover:text-cd-accent hover:bg-white/5 transition">
+              <Link2 size={15} />
+            </button>
+          </div>
+          <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden"
+            onChange={handleImageUpload} />
+        </div>
+
+        {/* 链接输入框 */}
+        {showLinkInput && (
+          <div className="flex gap-2 mb-2">
+            <input type="url" value={linkInput} onChange={e => setLinkInput(e.target.value)}
+              placeholder="粘贴链接 URL..."
+              className="flex-1 bg-cd-bg-input border border-white/5 rounded-lg px-3 py-1.5 text-xs text-cd-text" />
+            <button onClick={() => { if (linkInput.trim()) { setMedia([...media, { type: 'link', url: linkInput.trim() }]); setLinkInput(''); setShowLinkInput(false) } }}
+              className="px-3 py-1.5 bg-cd-accent/20 text-cd-accent rounded-lg text-xs border border-cd-accent/30">
+              添加
+            </button>
+          </div>
+        )}
+
+        {/* 媒体预览区 */}
+        {media.length > 0 && (
+          <div className="flex gap-2 flex-wrap mb-2">
+            {media.map((m, i) => (
+              <div key={i} className="relative group">
+                {m.type === 'image' && (
+                  <img src={m.url} alt={m.title || ''} className="w-20 h-20 object-cover rounded-lg border border-white/10" />
+                )}
+                {m.type === 'audio' && (
+                  <div className="w-20 h-20 flex flex-col items-center justify-center bg-cd-bg-input rounded-lg border border-white/10">
+                    <Mic size={20} className="text-cd-accent mb-1" />
+                    <span className="text-[10px] text-cd-text-tertiary">{m.duration || 0}s</span>
+                  </div>
+                )}
+                {m.type === 'link' && (
+                  <div className="w-20 h-20 flex flex-col items-center justify-center bg-cd-bg-input rounded-lg border border-white/10 p-1">
+                    <Link2 size={18} className="text-cd-accent mb-1" />
+                    <span className="text-[9px] text-cd-text-tertiary truncate w-full text-center">{m.title || new URL(m.url).hostname}</span>
+                  </div>
+                )}
+                <button onClick={() => setMedia(media.filter((_, idx) => idx !== i))}
+                  className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <textarea value={content} onChange={e => setContent(e.target.value)}
           placeholder="写下今天的故事..."
           className="w-full bg-cd-bg-input border border-white/5 rounded-lg p-3 text-cd-text placeholder:text-cd-text-secondary min-h-[200px] resize-y focus:outline-none focus:border-cd-accent/40 text-base leading-[1.8]" />
