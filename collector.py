@@ -319,7 +319,13 @@ class Collector:
         # 1. 截图（获取前台窗口所在显示器）
         try:
             mon_idx = get_active_monitor_index()
-            filename, filepath, is_duplicate = take_screenshot(monitor_index=mon_idx)
+            # P17-3: 先获取前台应用名用于截图质量分级
+            try:
+                from app_tracker import get_foreground_app
+                _fg_app = get_foreground_app().get("app_name", "")
+            except Exception:
+                _fg_app = ""
+            filename, filepath, is_duplicate = take_screenshot(monitor_index=mon_idx, app_name=_fg_app)
             logger.info(f"截图完成: {filename}{' (画面重复)' if is_duplicate else ''}")
         except Exception as e:
             logger.error(f"截图失败: {e}")

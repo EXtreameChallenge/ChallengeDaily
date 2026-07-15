@@ -119,12 +119,15 @@ def get_active_monitor_index() -> int:
         return 0
 
 
-def take_screenshot(monitor_index: int = 0) -> tuple[str, str, bool]:
+def take_screenshot(monitor_index: int = 0, app_name: str = "") -> tuple[str, str, bool]:
     """
     截取屏幕，保存到 data/screenshots/，返回 (文件名, 绝对路径, 是否画面重复)。
     monitor_index:
       - 0 = 全部显示器的合集（虚拟桌面）
       - 1, 2, ... = 第1、2个显示器
+    app_name: P17-3 前台应用名，用于截图质量分级
+    P17-1: 保存时自动加密（如果 cryptography 可用）
+    P17-3: 截图质量分级 — IDE/编辑器高质量，浏览器中等质量
     """
     sct = _get_mss()
     monitors = _get_monitors()
@@ -144,13 +147,17 @@ def take_screenshot(monitor_index: int = 0) -> tuple[str, str, bool]:
         # 画面去重检测
         is_duplicate = is_screen_duplicate(img)
 
+        # P17-3: 截图质量分级 — IDE/编辑器用高质量保留代码细节
+        quality = _get_screenshot_quality(app_name)
+        max_width = _get_screenshot_max_width(app_name)
+
         # 等比缩放（使用 BILINEAR 替代 LANCZOS，截图缩放质量差异可忽略，
         # 但 CPU 开销显著降低）
         w, h = img.size
-        if w > SCREENSHOT_MAX_WIDTH:
-            ratio = SCREENSHOT_MAX_WIDTH / w
+        if w > max_width:
+            ratio = max_width / w
             new_h = int(h * ratio)
-            resized = img.resize((SCREENSHOT_MAX_WIDTH, new_h), Image.BILINEAR)
+            resized = img.resize((max_width, new_h), Image.BILINEAR)
             img.close()  # 关闭原图
             img = resized
 
@@ -159,17 +166,84 @@ def take_screenshot(monitor_index: int = 0) -> tuple[str, str, bool]:
         filename = f"screenshot_{ts}.jpg"
         filepath = SCREENSHOT_DIR / filename
 
-        # 保存 JPEG
-        img.save(str(filepath), "JPEG", quality=SCREENSHOT_QUALITY)
+        # P17-1: 加密保存（JPEG 字节先序列化到内存，加密后落盘）
+        try:
+            import io
+            buf = io.BytesIO()
+            img.save(buf, "JPEG", quality=quality)
+            img_bytes = buf.getvalue()
+            buf.close()
+            from screenshot_crypto import save_encrypted_jpeg
+            save_encrypted_jpeg(img_bytes, str(filepath))
+        except Exception as e:
+            # 降级为明文保存
+            import logging
+            logging.getLogger(__name__).warning(f"加密保存失败，降级明文: {e}")
+            img.save(str(filepath), "JPEG", quality=quality)
+
         return filename, str(filepath), is_duplicate
     finally:
         img.close()  # 确保 Image 被释放
 
 
+# ── P17-3: 截图质量分级 ──
+
+# IDE/编辑器类应用：高质量保留代码细节
+_HIGH_QUALITY_APPS = {
+    'code.exe', 'cursor.exe', 'trae.exe', 'trae solo cn.exe', 'trae-solo-cn.exe',
+    'devenv.exe', 'idea64.exe', 'pycharm64.exe', 'webstorm64.exe', 'goland64.exe',
+    'clion64.exe', 'rider64.exe', 'studio64.exe', 'datagrip64.exe',
+    'sublime_text.exe', 'atom.exe', 'notepad++.exe', 'vim.exe', 'gvim.exe',
+}
+
+# 浏览器类应用：中等质量即可
+_MEDIUM_QUALITY_APPS = {
+    'chrome.exe', 'msedge.exe', 'firefox.exe', 'opera.exe', 'brave.exe',
+    'vivaldi.exe', 'arc.exe', 'safari.exe',
+}
+
+
+def _get_screenshot_quality(app_name: str) -> int:
+    """P17-3: 根据应用类型返回截图质量"""
+    if not app_name:
+        return SCREENSHOT_QUALITY
+    lower = app_name.lower()
+    if lower in _HIGH_QUALITY_APPS:
+        return min(95, SCREENSHOT_QUALITY + 20)  # IDE: 高质量
+    if lower in _MEDIUM_QUALITY_APPS:
+        return max(50, SCREENSHOT_QUALITY - 10)  # 浏览器: 中等
+    return SCREENSHOT_QUALITY
+
+
+def _get_screenshot_max_width(app_name: str) -> int:
+    """P17-3: 根据应用类型返回最大宽度"""
+    if not app_name:
+        return SCREENSHOT_MAX_WIDTH
+    lower = app_name.lower()
+    if lower in _HIGH_QUALITY_APPS:
+        # IDE 保留更大尺寸以看清代码
+        return min(2560, SCREENSHOT_MAX_WIDTH + 640)
+    return SCREENSHOT_MAX_WIDTH
+
+
 def encode_image_to_base64(image_path: str) -> str:
-    """将截图转为 base64 字符串，供 AI Vision API 使用"""
-    with open(image_path, "rb") as f:
-        return base64.b64encode(f.read()).decode("utf-8")
+    """将截图转为 base64 字符串，供 AI Vision API 使用
+    P17-1: 自动解密加密文件
+    """
+    from screenshot_crypto import load_and_decrypt, is_encrypted_file
+    try:
+        if is_encrypted_file(image_path):
+            # 加密文件：解密后转 base64
+            img_bytes = load_and_decrypt(image_path)
+            return base64.b64encode(img_bytes).decode("utf-8")
+        else:
+            # 明文文件：直接读取
+            with open(image_path, "rb") as f:
+                return base64.b64encode(f.read()).decode("utf-8")
+    except Exception:
+        # 兜底：直接读取
+        with open(image_path, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
 
 
 def cleanup_screenshots(days: int):

@@ -18,6 +18,8 @@ export default function Settings() {
     shadowIndex, setShadowIndex,
     opacityIndex, setOpacityIndex,
     skinIndex, setSkinIndex,
+    customAccent, setCustomAccent,
+    fontScale, setFontScale,
   } = useTheme()
   const [aiEnabled, setAiEnabled] = useState(false)
   const [apiKey, setApiKey] = useState('')
@@ -493,7 +495,27 @@ export default function Settings() {
             </div>
             <p className="text-[10px] text-cd-text-tertiary mt-1.5">
               当前：{ACCENT_PRESETS[accentIndex].name}
+              {customAccent && <span className="text-cd-green"> · 自定义色已启用</span>}
             </p>
+            {/* P17-2: 自定义主色 */}
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                type="color"
+                value={customAccent || (effectiveTheme === 'dark' ? ACCENT_PRESETS[accentIndex].dark : ACCENT_PRESETS[accentIndex].light)}
+                onChange={(e) => setCustomAccent(e.target.value)}
+                className="w-7 h-7 rounded cursor-pointer border border-cd-border bg-transparent"
+                title="自定义主色"
+              />
+              <span className="text-[11px] text-cd-text-tertiary">自定义主色</span>
+              {customAccent && (
+                <button
+                  onClick={() => setCustomAccent(null)}
+                  className="text-[11px] text-cd-red hover:underline"
+                >
+                  重置
+                </button>
+              )}
+            </div>
           </div>
 
           {/* 字体 */}
@@ -517,6 +539,20 @@ export default function Settings() {
                   {f.name}
                 </button>
               ))}
+            </div>
+            {/* P17-2: 字号缩放 */}
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-[11px] text-cd-text-tertiary w-10">字号</span>
+              <input
+                type="range"
+                min={0.85}
+                max={1.25}
+                step={0.05}
+                value={fontScale}
+                onChange={(e) => setFontScale(parseFloat(e.target.value))}
+                className="flex-1 max-w-[160px] accent-cd-green"
+              />
+              <span className="text-[11px] text-cd-text-secondary w-10 text-right">{Math.round(fontScale * 100)}%</span>
             </div>
           </div>
 

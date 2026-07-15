@@ -70,6 +70,12 @@ interface ThemeCtx {
   setOpacityIndex: (i: number) => void
   skinIndex: number
   setSkinIndex: (i: number) => void
+  // P17-2: 自定义主色（覆盖预设）
+  customAccent: string | null
+  setCustomAccent: (c: string | null) => void
+  // P17-2: 字号缩放（0.85 ~ 1.25）
+  fontScale: number
+  setFontScale: (n: number) => void
 }
 
 const ThemeContext = createContext<ThemeCtx>({
@@ -81,6 +87,8 @@ const ThemeContext = createContext<ThemeCtx>({
   shadowIndex: 1, setShadowIndex: () => {},
   opacityIndex: 0, setOpacityIndex: () => {},
   skinIndex: 0, setSkinIndex: () => {},
+  customAccent: null, setCustomAccent: () => {},
+  fontScale: 1, setFontScale: () => {},
 })
 
 export function useTheme() {
@@ -139,6 +147,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const n = parseInt(saved || '0', 10)
     return n >= 0 && n < SKIN_PRESETS.length ? n : 0
   })
+  // P17-2: 自定义主色 + 字号缩放
+  const [customAccent, setCustomAccentState] = useState<string | null>(() => {
+    return localStorage.getItem('cd_custom_accent') || null
+  })
+  const [fontScale, setFontScaleState] = useState<number>(() => {
+    const saved = parseFloat(localStorage.getItem('cd_font_scale') || '1')
+    return isNaN(saved) ? 1 : Math.max(0.85, Math.min(1.25, saved))
+  })
 
   // 同步主题和 CSS 变量
   useEffect(() => {
@@ -155,19 +171,41 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const preset = ACCENT_PRESETS[accentIndex]
     const root = document.documentElement
-    root.style.setProperty('--cd-green', effectiveTheme === 'dark' ? preset.dark : preset.light)
+    // P17-2: 自定义主色优先于预设
+    const accentLight = customAccent || preset.light
+    const accentDark = customAccent || preset.dark
+    root.style.setProperty('--cd-green', effectiveTheme === 'dark' ? accentDark : accentLight)
     root.style.setProperty('--cd-green-light', effectiveTheme === 'dark' ? preset.darkBg : preset.lightBg)
     // dark mode 变体
     if (effectiveTheme === 'dark') {
-      root.style.setProperty('--cd-green-dark', preset.dark)
+      root.style.setProperty('--cd-green-dark', accentDark)
     } else {
-      root.style.setProperty('--cd-green-dark', preset.light)
+      root.style.setProperty('--cd-green-dark', accentLight)
     }
     // purple 同步用于某些装饰元素
-    root.style.setProperty('--cd-purple', effectiveTheme === 'dark' ? preset.dark : preset.light)
+    root.style.setProperty('--cd-purple', effectiveTheme === 'dark' ? accentDark : accentLight)
     root.style.setProperty('--cd-purple-light', effectiveTheme === 'dark' ? preset.darkBg : preset.lightBg)
     localStorage.setItem('cd_accent', String(accentIndex))
-  }, [accentIndex, effectiveTheme])
+  }, [accentIndex, effectiveTheme, customAccent])
+
+  // P17-2: 同步字号缩放
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.setProperty('--cd-font-scale', String(fontScale))
+    root.style.fontSize = `${100 * fontScale}%`
+    localStorage.setItem('cd_font_scale', String(fontScale))
+  }, [fontScale])
+
+  // P17-2: 自定义主色 setter（带持久化）
+  const setCustomAccent = useCallback((c: string | null) => {
+    setCustomAccentState(c)
+    if (c) localStorage.setItem('cd_custom_accent', c)
+    else localStorage.removeItem('cd_custom_accent')
+  }, [])
+  const setFontScale = useCallback((n: number) => {
+    const clamped = Math.max(0.85, Math.min(1.25, n))
+    setFontScaleState(clamped)
+  }, [])
 
   // 同步字体
   useEffect(() => {
@@ -241,6 +279,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       shadowIndex, setShadowIndex,
       opacityIndex, setOpacityIndex,
       skinIndex, setSkinIndex,
+      customAccent, setCustomAccent,
+      fontScale, setFontScale,
     }}>
       {children}
     </ThemeContext.Provider>
