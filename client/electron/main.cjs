@@ -229,6 +229,7 @@ async function _doStartBackend() {
     let pythonExe = 'python'
     let mainScript
     let backendDir
+    const { execFileSync } = require('child_process')
 
     // 优先判断是否存在打包后的 backend 资源；否则按源码/开发模式处理
     const packagedMain = path.join(process.resourcesPath, 'backend', 'main.py')
@@ -237,26 +238,50 @@ async function _doStartBackend() {
       mainScript = packagedMain
       backendDir = path.dirname(mainScript)
       // 优先使用系统标准 Python 安装（避免 PATH 中被第三方 venv 覆盖）
-      const standardPython = 'C:\\Users\\Challenge\\AppData\\Local\\Programs\\Python\\Python311\\python.exe'
       const embeddedPython = path.join(process.resourcesPath, 'python', 'python.exe')
-      if (fs.existsSync(standardPython)) {
-        pythonExe = standardPython
-      } else if (fs.existsSync(embeddedPython)) {
+      for (const ver of ['Python311', 'Python312', 'Python310']) {
+        const sp = path.join(app.getPath('home'), 'AppData', 'Local', 'Programs', 'Python', ver, 'python.exe')
+        if (fs.existsSync(sp)) {
+          try {
+            execFileSync(sp, ['-c', 'import mss, flask, waitress'], { stdio: 'ignore', windowsHide: true, timeout: 5000 })
+            pythonExe = sp
+            break
+          } catch (_) {}
+        }
+      }
+      if (pythonExe === 'python' && fs.existsSync(embeddedPython)) {
         pythonExe = embeddedPython
       }
     } else {
       // 开发模式 或 start.vbs/start.bat 从源码启动
       mainScript = path.join(__dirname, '..', '..', 'main.py')
       backendDir = path.join(__dirname, '..', '..')
-      // 通用 Python 查找：依次尝试 python / python3 / py launcher
-      // 不依赖任何第三方应用专用的运行时路径
-      const { execFileSync } = require('child_process')
-      for (const candidate of ['python', 'python3', 'py']) {
-        try {
-          execFileSync(candidate, ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 5000 })
-          pythonExe = candidate
-          break
-        } catch (_) {}
+      // 通用 Python 查找：优先检查标准系统 Python 安装路径，避免 PATH 被第三方 venv（如 hermes-agent）污染
+      // 然后再回退到 PATH 中的 python / python3 / py launcher
+      const standardPythonPaths = [
+        path.join(app.getPath('home'), 'AppData', 'Local', 'Programs', 'Python', 'Python311', 'python.exe'),
+        path.join(app.getPath('home'), 'AppData', 'Local', 'Programs', 'Python', 'Python312', 'python.exe'),
+        path.join(app.getPath('home'), 'AppData', 'Local', 'Programs', 'Python', 'Python310', 'python.exe'),
+      ]
+      let found = false
+      for (const sp of standardPythonPaths) {
+        if (fs.existsSync(sp)) {
+          try {
+            execFileSync(sp, ['-c', 'import mss, flask, waitress'], { stdio: 'ignore', windowsHide: true, timeout: 5000 })
+            pythonExe = sp
+            found = true
+            break
+          } catch (_) {}
+        }
+      }
+      if (!found) {
+        for (const candidate of ['python', 'python3', 'py']) {
+          try {
+            execFileSync(candidate, ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 5000 })
+            pythonExe = candidate
+            break
+          } catch (_) {}
+        }
       }
     }
 
@@ -853,6 +878,55 @@ function setupIPC() {
     app.setLoginItemSettings({ openAtLogin: !!enabled, path: app.getPath('exe') })
     console.log('[IPC] auto-start set to:', !!enabled)
     return true
+  })
+
+  // Windows Hello 生物识别（应用级隐私锁可选能力）
+  // 通过 PowerShell 调用 Windows.Security.Credentials.UserConsentVerifier
+  // 系统不支持或用户取消时返回 success:false，调用方回退到密码解锁
+  ipcMain.handle('windows-hello', async (event, reason) => {
+    if (!isFromMainWindow(event.sender)) {
+      return { success: false, error: 'denied' }
+    }
+    if (process.platform !== 'win32') {
+      return { success: false, error: 'unsupported-platform' }
+    }
+    return new Promise((resolve) => {
+      const os = require('os')
+      const fs = require('fs')
+      const tmpScript = path.join(os.tmpdir(), 'cd_wh_' + crypto.randomBytes(8).toString('hex') + '.ps1')
+      const prompt = (reason || '解锁应用').replace(/'/g, "''")
+      const scriptContent =
+        "Add-Type -AssemblyName System.Runtime.WindowsRuntime\n" +
+        "[Windows.Security.Credentials.UI.UserConsentVerifier, Windows.Security.Credentials.UI, ContentType = WindowsRuntime] | Out-Null\n" +
+        "[Windows.Security.Credentials.UI.UserConsentVerificationResult, Windows.Security.Credentials.UI, ContentType = WindowsRuntime] | Out-Null\n" +
+        "$asTask = $null\n" +
+        "foreach ($m in [System.WindowsRuntimeSystemExtensions].GetMethods()) {\n" +
+        "  if ($m.Name -ne 'AsTask') { continue }\n" +
+        "  $ps = $m.GetParameters()\n" +
+        "  if ($ps.Count -ne 1) { continue }\n" +
+        "  $pt = $ps[0].ParameterType\n" +
+        "  if ($pt.IsGenericType -and $pt.GetGenericTypeDefinition().Name -like 'IAsyncOperation*') { $asTask = $m; break }\n" +
+        "}\n" +
+        "if (-not $asTask) { Write-Output 'NO_ASYC'; exit }\n" +
+        "$op = [Windows.Security.Credentials.UI.UserConsentVerifier]::RequestVerificationAsync('" + prompt + "')\n" +
+        "$task = $asTask.MakeGenericMethod([Windows.Security.Credentials.UI.UserConsentVerificationResult]).Invoke($null, @($op))\n" +
+        "[void]$task.Wait(30000)\n" +
+        "if (-not $task.IsCompleted) { Write-Output 'TIMEOUT'; exit }\n" +
+        "Write-Output $task.Result.ToString()\n"
+      try { fs.writeFileSync(tmpScript, scriptContent, 'utf8') } catch (e) { return resolve({ success: false, error: 'script-write-failed' }) }
+      const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -File "${tmpScript}"`
+      exec(cmd, { timeout: 35000, windowsHide: true }, (err, stdout, stderr) => {
+        try { fs.unlinkSync(tmpScript) } catch {}
+        if (err) {
+          console.error('[WindowsHello] failed:', err.message)
+          return resolve({ success: false, error: 'powershell-failed' })
+        }
+        const out = (stdout || '').trim()
+        // Verified = 0, DeviceDisabled = 1, NotConfiguredForUser = 2, DisabledByPolicy = 3, DeviceNotPresent = 4, Canceled = 5
+        if (out === 'Verified') resolve({ success: true })
+        else resolve({ success: false, error: out || 'unknown' })
+      })
+    })
   })
 
   // Windows 系统定位（通过 WinRT Geolocator API，精度 ~30-500m WiFi 定位）

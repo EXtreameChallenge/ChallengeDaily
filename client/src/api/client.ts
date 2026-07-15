@@ -1099,6 +1099,43 @@ export async function submitReportToChannels(report_text: string, report_date?: 
   return request('/api/report-channels/submit', { method: 'POST', body: JSON.stringify({ report_text, report_date }) }) as Promise<{ status: string; total: number; success: number; results: Array<{ channel: string; success: boolean; message: string }> }>
 }
 
+// ── 番茄自习室 ──
+export interface StudyRoomMember {
+  id: string; name: string; status: string; task: string;
+  started_at: string | null; today_min: number; today_count: number;
+  ip: string; is_self: boolean; last_heartbeat: number;
+}
+export async function getStudyRoomStatus(): Promise<{ members: StudyRoomMember[]; leaderboard: StudyRoomMember[]; online_count: number; focusing_count: number }> {
+  return request('/api/study-room/status') as Promise<{ members: StudyRoomMember[]; leaderboard: StudyRoomMember[]; online_count: number; focusing_count: number }>
+}
+export async function updateStudyRoomStatus(status: string, task: string = '', started_at: string | null = null): Promise<{ status: string }> {
+  return request('/api/study-room/update', { method: 'POST', body: JSON.stringify({ status, task, started_at }) }) as Promise<{ status: string }>
+}
+export async function broadcastStudyRoom(): Promise<{ status: string; broadcasted: number; subnet: string }> {
+  return request('/api/study-room/broadcast', { method: 'POST' }) as Promise<{ status: string; broadcasted: number; subnet: string }>
+}
+
+// ── 规则引擎 ──
+export interface Rule {
+  id: number; name: string; description: string;
+  trigger_type: string; trigger_params: string;
+  action_type: string; action_params: string;
+  enabled: number; created_at: string; last_fired_at: string | null;
+}
+export interface RuleEvalResult {
+  rule_id: number; rule_name: string; action: string;
+  params: Record<string, unknown>; message: string; triggered_at: string;
+}
+export async function getRules(): Promise<{ rules: Rule[]; triggers: Record<string, string>; actions: Record<string, string> }> {
+  return request('/api/rules/list') as Promise<{ rules: Rule[]; triggers: Record<string, string>; actions: Record<string, string> }>
+}
+export async function toggleRule(id: number, enabled: boolean): Promise<{ status: string }> {
+  return request('/api/rules/toggle', { method: 'POST', body: JSON.stringify({ id, enabled }) }) as Promise<{ status: string }>
+}
+export async function evaluateRules(): Promise<{ triggered: RuleEvalResult[]; count: number }> {
+  return request('/api/rules/evaluate') as Promise<{ triggered: RuleEvalResult[]; count: number }>
+}
+
 export async function getPomodoroSessions(date?: string): Promise<{ sessions: PomodoroSession[] }> {
   const params = date ? `?date=${date}` : ''
   return request(`/api/pomodoro/sessions${params}`) as Promise<{ sessions: PomodoroSession[] }>
@@ -1106,6 +1143,16 @@ export async function getPomodoroSessions(date?: string): Promise<{ sessions: Po
 
 export async function getPomodoroStats(range?: string): Promise<{ stats: Array<{ d: string; cnt: number; total_min: number }>; today: { count: number; total_min: number }; streak: number }> {
   return request(`/api/pomodoro/stats?range=${range || 'week'}`) as Promise<{ stats: Array<{ d: string; cnt: number; total_min: number }>; today: { count: number; total_min: number }; streak: number }>
+}
+
+export interface PomodoroQuality {
+  score: number; grade: string; total_min: number;
+  completed: number; total: number; purity: number;
+  completion: number; distraction_count: number;
+}
+export async function getPomodoroQuality(date?: string): Promise<PomodoroQuality> {
+  const q = date ? `?date=${date}` : ''
+  return request(`/api/pomodoro/quality${q}`) as Promise<PomodoroQuality>
 }
 
 // 番茄运行期间分心检测（前端定时调用，由后端查询前台应用分类）

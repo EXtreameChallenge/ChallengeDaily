@@ -31,6 +31,7 @@ interface Window {
     onNavigateTo: (cb: (path: string) => void) => void
     getAutoStart: () => Promise<boolean>
     setAutoStart: (enabled: boolean) => Promise<boolean>
+    windowsHello?: (reason?: string) => Promise<{ success: boolean; error?: string }>
   }
   _petVisible?: boolean
 }

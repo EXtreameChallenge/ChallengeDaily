@@ -1374,6 +1374,56 @@ def get_pomodoro_today_count():
         ).fetchone()
         return {"count": row["cnt"], "total_min": row["total_min"]}
 
+
+def get_pomodoro_quality_score(date_str=None):
+    """专注质量评分：破解番茄TODO"为凑时长而专注"陷阱
+
+    质量分 = 时长基准分 × 纯度系数 × 完成度系数
+    - 时长基准分: min(total_min/120, 1) * 60  (120分钟满分60)
+    - 纯度系数: 1 - interrupted_count/total_sessions * 0.5  (分心最多扣50%)
+    - 完成度系数: completed_sessions/total_sessions
+    """
+    _flush_pending_commits()
+    with get_conn() as conn:
+        if date_str is None:
+            date_str = date.today().isoformat()
+        row = conn.execute(
+            "SELECT COUNT(*) as total, "
+            "SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) as completed, "
+            "COALESCE(SUM(CASE WHEN status='completed' THEN duration_min ELSE 0 END), 0) as total_min, "
+            "COALESCE(SUM(interrupted_count), 0) as total_interrupted "
+            "FROM pomodoro_sessions "
+            "WHERE date(start_time)=? OR date(end_time)=?",
+            (date_str, date_str)
+        ).fetchone()
+        total = row["total"] or 0
+        completed = row["completed"] or 0
+        total_min = row["total_min"] or 0
+        total_interrupted = row["total_interrupted"] or 0
+
+        if total == 0:
+            return {"score": 0, "grade": "—", "total_min": 0, "completed": 0,
+                    "total": 0, "purity": 0, "completion": 0, "distraction_count": 0}
+
+        # 时长基准分（120分钟满分60分）
+        time_score = min(total_min / 120, 1) * 60
+        # 纯度系数：每个分心番茄扣分，最低0.5
+        avg_interrupted = total_interrupted / total
+        purity = max(1 - avg_interrupted * 0.15, 0.5)
+        # 完成度系数
+        completion = completed / total
+
+        score = round(time_score * purity * completion, 1)
+        grade = "S" if score >= 80 else "A" if score >= 60 else "B" if score >= 40 else "C" if score >= 20 else "D"
+
+        return {
+            "score": score, "grade": grade, "total_min": total_min,
+            "completed": completed, "total": total,
+            "purity": round(purity * 100), "completion": round(completion * 100),
+            "distraction_count": total_interrupted,
+        }
+
+
 # ── 待办清单 ──
 _ALLOWED_TODO_FIELDS = {"title", "category", "mode", "target_min", "repeat_type", "repeat_days",
                         "due_date", "priority", "status", "completed_at", "task_level",

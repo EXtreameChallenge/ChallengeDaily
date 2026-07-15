@@ -1,6 +1,5 @@
 """日报多渠道自动提交 API"""
 from flask import Blueprint, request, jsonify
-from routes.deps import check_token
 import db
 import json
 import logging
@@ -13,7 +12,6 @@ bp = Blueprint('report_channels', __name__, url_prefix='/api/report-channels')
 
 
 @bp.route('/config', methods=['GET'])
-@check_token
 def get_config():
     """获取所有提交通道配置"""
     with db.get_conn() as conn:
@@ -23,7 +21,6 @@ def get_config():
 
 
 @bp.route('/config', methods=['POST'])
-@check_token
 def save_config():
     """保存提交通道配置"""
     data = request.get_json(force=True, silent=True) or {}
@@ -38,7 +35,6 @@ def save_config():
 
 
 @bp.route('/test', methods=['POST'])
-@check_token
 def test_channel():
     """测试单个通道连接"""
     data = request.get_json(force=True, silent=True) or {}
@@ -55,7 +51,6 @@ def test_channel():
 
 
 @bp.route('/submit', methods=['POST'])
-@check_token
 def submit_report():
     """提交日报到所有已配置通道"""
     data = request.get_json(force=True, silent=True) or {}

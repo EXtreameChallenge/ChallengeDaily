@@ -143,6 +143,13 @@ def pomodoro_today():
     return jsonify(db.get_pomodoro_today_count())
 
 
+@bp.route('/quality', methods=['GET'])
+def pomodoro_quality():
+    """今日专注质量评分（时长×纯度×完成度）"""
+    date_str = request.args.get('date')
+    return jsonify(db.get_pomodoro_quality_score(date_str))
+
+
 @bp.route('/config', methods=['GET'])
 def pomodoro_config():
     """获取番茄钟配置（大小番茄的工作/休息时长）"""

@@ -34,6 +34,8 @@ const WeekPlan = lazy(() => import('./pages/WeekPlan'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const ExportCenter = lazy(() => import('./pages/ExportCenter'))
 const AICoach = lazy(() => import('./pages/AICoach'))
+const StudyRoom = lazy(() => import('./pages/StudyRoom'))
+const RulesEngine = lazy(() => import('./pages/RulesEngine'))
 
 // 首次启动流程：法律协议 → 新手引导 → 主界面
 type FirstLaunchPhase = 'legal' | 'onboarding' | 'done'
@@ -278,6 +280,8 @@ export default function App() {
                         <Route path="/ai-chat" element={<AIChat />} />
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/ai-coach" element={<AICoach />} />
+                        <Route path="/study-room" element={<StudyRoom />} />
+                        <Route path="/rules-engine" element={<RulesEngine />} />
                         <Route path="/export" element={<ExportCenter />} />
                         <Route path="/habits" element={<Habits />} />
                         <Route path="/health" element={<Health />} />

@@ -54,4 +54,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 开机自启动
   getAutoStart: () => ipcRenderer.invoke('get-auto-start'),
   setAutoStart: (enabled) => ipcRenderer.invoke('set-auto-start', enabled),
+
+  // Windows Hello 生物识别（应用级隐私锁）
+  // 返回 { success: boolean, error?: string }；不可用时返回 success:false
+  windowsHello: (reason) => ipcRenderer.invoke('windows-hello', reason),
 })

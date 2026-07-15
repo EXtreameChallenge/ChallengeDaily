@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Play, Square, SkipForward, Brain, X } from 'lucide-react'
-import { startPomodoro, stopPomodoro, getPomodoroStats, getTodayTodos, checkPomodoroDistraction, formatLocalTimestamp, type TodoV2, POMODORO_SIZES, LONG_BREAK_INTERVAL } from '../api/client'
+import { startPomodoro, stopPomodoro, getPomodoroStats, getPomodoroQuality, getTodayTodos, checkPomodoroDistraction, formatLocalTimestamp, type TodoV2, POMODORO_SIZES, LONG_BREAK_INTERVAL } from '../api/client'
 import WhiteNoise from '../components/WhiteNoise'
 
 type Phase = 'idle' | 'working' | 'short_break' | 'long_break'
@@ -68,6 +68,7 @@ export default function Focus() {
   const [sessionId, setSessionId] = useState<number | null>(() => _ps?.sessionId ?? null)
   const [interruptedCount, setInterruptedCount] = useState(() => _ps?.interruptedCount ?? 0)
   const [todayCount, setTodayCount] = useState(0)
+  const [quality, setQuality] = useState<{ score: number; grade: string; purity: number; completion: number; distraction_count: number }>({ score: 0, grade: '—', purity: 0, completion: 0, distraction_count: 0 })
   const [todayMin, setTodayMin] = useState(0)
   const [streak, setStreak] = useState(0)
   const [weekStats, setWeekStats] = useState<Array<{ d: string; cnt: number; total_min: number }>>([])
@@ -101,6 +102,8 @@ export default function Focus() {
       setTodayMin(data.today.total_min)
       setStreak(data.streak)
       setWeekStats(data.stats)
+      const q = await getPomodoroQuality()
+      setQuality(q)
     } catch {}
   }, [])
 
@@ -673,7 +676,7 @@ export default function Focus() {
       </div>
 
       {/* 今日统计 */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-3 gap-4 mb-4">
         <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
           <div className="text-2xl font-bold text-cd-accent">{todayCount}</div>
           <div className="text-sm text-cd-text-secondary mt-1">今日番茄</div>
@@ -687,6 +690,38 @@ export default function Focus() {
           <div className="text-sm text-cd-text-secondary mt-1">连续天数</div>
         </div>
       </div>
+
+      {/* 专注质量评分 — 破解番茄TODO时长陷阱 */}
+      {quality.score > 0 && (
+        <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5 mb-8">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm text-cd-text-secondary">专注质量评分 · 重质量轻时长</h3>
+            <span className={`text-2xl font-bold ${
+              quality.grade === 'S' ? 'text-purple-400' :
+              quality.grade === 'A' ? 'text-cd-accent' :
+              quality.grade === 'B' ? 'text-blue-400' : 'text-cd-text-tertiary'
+            }`}>{quality.grade}</span>
+          </div>
+          <div className="grid grid-cols-4 gap-2 text-center">
+            <div>
+              <div className="text-lg font-bold text-cd-text">{quality.score}</div>
+              <div className="text-[10px] text-cd-text-tertiary">质量分</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-green-400">{quality.purity}%</div>
+              <div className="text-[10px] text-cd-text-tertiary">纯度</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-cd-accent">{quality.completion}%</div>
+              <div className="text-[10px] text-cd-text-tertiary">完成率</div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-orange-400">{quality.distraction_count}</div>
+              <div className="text-[10px] text-cd-text-tertiary">分心次数</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 本周趋势 */}
       {weekStats.length > 0 && (

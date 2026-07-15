@@ -23,6 +23,8 @@ from routes.week_plan import bp as week_plan_bp
 from routes.auth_routes import auth_bp
 from routes.privacy_routes import privacy_bp
 from routes.report_channels import bp as report_channels_bp
+from routes.study_room import bp as study_room_bp
+from routes.rules_engine import bp as rules_engine_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -50,4 +52,6 @@ ALL_BLUEPRINTS = [
     auth_bp,
     privacy_bp,
     report_channels_bp,
+    study_room_bp,
+    rules_engine_bp,
 ]
