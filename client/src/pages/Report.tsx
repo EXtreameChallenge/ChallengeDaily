@@ -196,7 +196,7 @@ export default function Report() {
   const [obsidianExporting, setObsidianExporting] = useState(false)
   const handleExportObsidian = async () => {
     if (!content) {
-      toast.warn('请先生成报告')
+      toast.warning('请先生成报告')
       return
     }
     setObsidianExporting(true)

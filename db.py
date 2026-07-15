@@ -2012,10 +2012,66 @@ def check_and_unlock_achievements():
         ("polymath", "多面手", "一天内涉及8个以上分类", "🎭", True, len(today_cats) >= 8),
         ("zen_master", "禅定", "连续4小时不切换分类", "🧘", True, max_same_cat_streak_min >= 240),
         ("century_mark", "百日修行", "累计记录100天活动", "🏛️", True, total_active_days >= 100),
+        # P13-3：新增 3 个隐藏彩蛋成就
+        ("night_owl_7", "夜猫子修行", "连续7天23点后仍在专注", "🌙", True, False),  # 需多日聚合，下方特殊判定
+        ("habit_master", "习惯养成大师", "连续30天打卡任意习惯", "⭐", True, False),  # 需习惯数据，下方特殊判定
+        ("ai_explorer", "AI 探索者", "累计与 AI 对话 100 次", "🤖", True, False),  # 需对话数据，下方特殊判定
     ]
     for code, name, desc, icon, hidden, condition in checks:
         if condition and unlock_achievement(code, name, desc, icon):
             unlocked.append({"code": code, "name": name, "icon": icon, "hidden": hidden})
+
+    # P13-3：特殊判定的隐藏成就（需多日聚合数据）
+    try:
+        # 夜猫子修行：连续7天23点后仍在专注
+        with get_conn() as conn:
+            night_owl_rows = conn.execute(
+                "SELECT DISTINCT date(timestamp) AS d FROM activities "
+                "WHERE strftime('%H', timestamp) >= '23' "
+                "AND date(timestamp) >= date('now', '-14 days') "
+                "ORDER BY d DESC LIMIT 10"
+            ).fetchall()
+            if len(night_owl_rows) >= 7:
+                # 检查是否连续7天
+                night_dates = {r["d"] for r in night_owl_rows}
+                consec = 0
+                cur_date = _date.today()
+                from datetime import timedelta as _td
+                while cur_date.isoformat() in night_dates:
+                    consec += 1
+                    cur_date -= _td(days=1)
+                if consec >= 7 and unlock_achievement("night_owl_7", "夜猫子修行", "连续7天23点后仍在专注", "🌙"):
+                    unlocked.append({"code": "night_owl_7", "name": "夜猫子修行", "icon": "🌙", "hidden": True})
+
+        # 习惯养成大师：连续30天打卡任意习惯
+        with get_conn() as conn:
+            habit_streak_rows = conn.execute(
+                "SELECT log_date, COUNT(DISTINCT habit_id) AS cnt FROM habit_logs "
+                "WHERE log_date >= date('now', '-35 days') "
+                "GROUP BY log_date ORDER BY log_date DESC"
+            ).fetchall()
+            if len(habit_streak_rows) >= 30:
+                habit_dates = {r["log_date"] for r in habit_streak_rows}
+                consec = 0
+                cur_date = _date.today()
+                from datetime import timedelta as _td2
+                while cur_date.isoformat() in habit_dates:
+                    consec += 1
+                    cur_date -= _td2(days=1)
+                if consec >= 30 and unlock_achievement("habit_master", "习惯养成大师", "连续30天打卡任意习惯", "⭐"):
+                    unlocked.append({"code": "habit_master", "name": "习惯养成大师", "icon": "⭐", "hidden": True})
+
+        # AI 探索者：累计与 AI 对话 100 次
+        with get_conn() as conn:
+            ai_count_row = conn.execute(
+                "SELECT COUNT(*) AS c FROM chat_history WHERE role='user'"
+            ).fetchone()
+            if ai_count_row and ai_count_row["c"] >= 100:
+                if unlock_achievement("ai_explorer", "AI 探索者", "累计与 AI 对话 100 次", "🤖"):
+                    unlocked.append({"code": "ai_explorer", "name": "AI 探索者", "icon": "🤖", "hidden": True})
+    except Exception:
+        pass
+
     return unlocked
 
 # ── 倒数日 ──
@@ -2163,6 +2219,55 @@ def get_habit_logs(habit_id=None, days=30):
         else:
             rows = conn.execute("SELECT * FROM habit_logs WHERE log_date >= ? ORDER BY log_date DESC", (cutoff,)).fetchall()
         return [dict(r) for r in rows]
+
+
+def get_habit_stats(habit_id: int, days: int = 30) -> dict:
+    """P13-2：获取单个习惯的统计数据
+    返回: { habit_id, streak_days, completion_rate, total_logs, recent_trend }
+    recent_trend: 近 N 天每日打卡情况 [{date, logged, count}]
+    """
+    _flush_pending_commits()
+    today = date.today()
+    cutoff = (today - timedelta(days=int(days) - 1)).isoformat()
+    with get_conn() as conn:
+        # 获取近 N 天所有打卡记录
+        rows = conn.execute(
+            "SELECT log_date, count FROM habit_logs WHERE habit_id=? AND log_date >= ? ORDER BY log_date ASC",
+            (habit_id, cutoff),
+        ).fetchall()
+        # 获取习惯信息
+        habit_row = conn.execute("SELECT * FROM habits WHERE id=?", (habit_id,)).fetchone()
+    if not habit_row:
+        return {"habit_id": habit_id, "streak_days": 0, "completion_rate": 0,
+                "total_logs": 0, "recent_trend": []}
+    habit = dict(habit_row)
+    period = habit.get("period", "daily")
+    # 构造每日打卡字典
+    log_map = {r["log_date"]: r["count"] for r in rows}
+    # 计算连续打卡天数（从今天向前数）
+    streak = 0
+    cur = today
+    while cur.isoformat() in log_map:
+        streak += 1
+        cur -= timedelta(days=1)
+    # 计算完成率（近 N 天中打卡天数占比）
+    total_days = int(days)
+    logged_days = len(log_map)
+    completion_rate = round(logged_days / total_days * 100, 1) if total_days > 0 else 0
+    # 构造趋势数据
+    trend = []
+    for i in range(total_days):
+        d = (today - timedelta(days=total_days - 1 - i)).isoformat()
+        trend.append({"date": d, "logged": d in log_map, "count": log_map.get(d, 0)})
+    return {
+        "habit_id": habit_id,
+        "streak_days": streak,
+        "completion_rate": completion_rate,
+        "total_logs": logged_days,
+        "period": period,
+        "target_count": habit.get("target_count", 1),
+        "recent_trend": trend,
+    }
 
 def delete_habit(habit_id):
     _flush_pending_commits()

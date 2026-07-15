@@ -1,32 +1,39 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Trophy, Lock, Sparkles, Crown, Calendar } from 'lucide-react'
-import { getAchievements, checkAchievements, getQuote, getSeason, type Achievement, type SeasonData } from '../api/client'
+import { Trophy, Lock, Sparkles, Crown, Calendar, History } from 'lucide-react'
+import { getAchievements, checkAchievements, getQuote, getSeason, getSeasonHistory, type Achievement, type SeasonData, type SeasonHistoryItem } from '../api/client'
 import { useToast } from '../components/Toast'
 
 const ALL_BADGES = [
-  { code: 'first_pomodoro', name: '初心者', desc: '完成第一个番茄钟', icon: '🌱', hidden: false },
-  { code: 'pomodoro_100', name: '百斩', desc: '累计完成100个番茄钟', icon: '💯', hidden: false },
-  { code: 'pomodoro_1000', name: '千时', desc: '累计专注1000小时', icon: '⏰', hidden: false },
-  { code: 'streak_7', name: '连续7天', desc: '连续7天完成专注', icon: '🔥', hidden: false },
-  { code: 'streak_30', name: '坚持不懈', desc: '连续30天完成专注', icon: '💎', hidden: false },
-  { code: 'deep_master', name: '深度大师', desc: '单日深度工作≥4小时', icon: '🧠', hidden: false },
-  { code: 'early_bird', name: '早起鸟', desc: '6:00前开始专注', icon: '🐦', hidden: false },
-  { code: 'night_owl', name: '夜猫子', desc: '23:00后仍在专注', icon: '🦉', hidden: false },
-  { code: 'full_clear', name: '全勤奖', desc: '一天完成所有待办', icon: '✨', hidden: false },
-  { code: 'efficiency_king', name: '效率之王', desc: '日专注效率≥80%', icon: '👑', hidden: false },
+  { code: 'first_pomodoro', name: '初心者', desc: '完成第一个番茄钟', icon: '🌱', hidden: false, group: '专注' },
+  { code: 'pomodoro_100', name: '百斩', desc: '累计完成100个番茄钟', icon: '💯', hidden: false, group: '专注' },
+  { code: 'pomodoro_1000', name: '千时', desc: '累计专注1000小时', icon: '⏰', hidden: false, group: '专注' },
+  { code: 'streak_7', name: '连续7天', desc: '连续7天完成专注', icon: '🔥', hidden: false, group: '专注' },
+  { code: 'streak_30', name: '坚持不懈', desc: '连续30天完成专注', icon: '💎', hidden: false, group: '专注' },
+  { code: 'deep_master', name: '深度大师', desc: '单日深度工作≥4小时', icon: '🧠', hidden: false, group: '深度' },
+  { code: 'early_bird', name: '早起鸟', desc: '6:00前开始专注', icon: '🐦', hidden: false, group: '深度' },
+  { code: 'night_owl', name: '夜猫子', desc: '23:00后仍在专注', icon: '🦉', hidden: false, group: '深度' },
+  { code: 'full_clear', name: '全勤奖', desc: '一天完成所有待办', icon: '✨', hidden: false, group: '效率' },
+  { code: 'efficiency_king', name: '效率之王', desc: '日专注效率≥80%', icon: '👑', hidden: false, group: '效率' },
   // P6-4：隐藏彩蛋成就（未解锁时显示为 ???）
-  { code: 'polymath', name: '多面手', desc: '一天内涉及8个以上分类', icon: '🎭', hidden: true },
-  { code: 'zen_master', name: '禅定', desc: '连续4小时不切换分类', icon: '🧘', hidden: true },
-  { code: 'century_mark', name: '百日修行', desc: '累计记录100天活动', icon: '🏛️', hidden: true },
+  { code: 'polymath', name: '多面手', desc: '一天内涉及8个以上分类', icon: '🎭', hidden: true, group: '彩蛋' },
+  { code: 'zen_master', name: '禅定', desc: '连续4小时不切换分类', icon: '🧘', hidden: true, group: '彩蛋' },
+  { code: 'century_mark', name: '百日修行', desc: '累计记录100天活动', icon: '🏛️', hidden: true, group: '彩蛋' },
+  // P13-3：新增 3 个隐藏彩蛋成就
+  { code: 'night_owl_7', name: '夜猫子修行', desc: '连续7天23点后仍在专注', icon: '🌙', hidden: true, group: '彩蛋' },
+  { code: 'habit_master', name: '习惯养成大师', desc: '连续30天打卡任意习惯', icon: '⭐', hidden: true, group: '彩蛋' },
+  { code: 'ai_explorer', name: 'AI 探索者', desc: '累计与 AI 对话 100 次', icon: '🤖', hidden: true, group: '彩蛋' },
 ]
+
+const BADGE_GROUPS = ['专注', '深度', '效率', '彩蛋']
 
 export default function Achievements() {
   const [achievements, setAchievements] = useState<Achievement[]>([])
   const [quote, setQuote] = useState('')
   const [newlyUnlocked, setNewlyUnlocked] = useState<string[]>([])
   const [season, setSeason] = useState<SeasonData | null>(null)
+  const [seasonHistory, setSeasonHistory] = useState<SeasonHistoryItem[]>([])
+  const [showHistory, setShowHistory] = useState(false)
   const toast = useToast()
-  // 用于在组件卸载时清理 newlyUnlocked 的 setTimeout
   const unlockTimerRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
@@ -45,6 +52,15 @@ export default function Achievements() {
       if (sRes) setSeason(sRes)
     } catch { toast.error('加载成就数据失败') }
   }, [toast])
+
+  // P13-3：加载赛季历史
+  const loadHistory = useCallback(async () => {
+    try {
+      const res = await getSeasonHistory(6)
+      setSeasonHistory(res.history || [])
+    } catch { /* 静默失败 */ }
+  }, [])
+  useEffect(() => { loadHistory() }, [loadHistory])
 
   useEffect(() => { load() }, [load])
 
@@ -90,24 +106,36 @@ export default function Achievements() {
         </div>
       )}
 
-      {/* 徽章网格 */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {ALL_BADGES.map(badge => {
-          const unlocked = unlockedCodes.has(badge.code)
-          const isHidden = badge.hidden && !unlocked
-          return (
-            <div key={badge.code} className={`rounded-xl p-4 border text-center transition ${
-              unlocked ? 'bg-cd-bg-card border-gold/20' : isHidden ? 'bg-cd-bg-card border-white/5 opacity-30' : 'bg-cd-bg-card border-white/5 opacity-40'
-            }`}>
-              <div className="text-4xl mb-2">{unlocked ? badge.icon : isHidden ? '❓' : '🔒'}</div>
-              <div className={`text-sm font-medium ${unlocked ? 'text-cd-text' : 'text-cd-text-secondary'}`}>
-                {isHidden ? '???' : badge.name}
-              </div>
-              <div className="text-xs text-cd-text-secondary mt-1">{isHidden ? '隐藏成就，等待解锁' : badge.desc}</div>
+      {/* 徽章网格 — P13-3：按分组展示 */}
+      {BADGE_GROUPS.map(group => {
+        const groupBadges = ALL_BADGES.filter(b => b.group === group)
+        const groupUnlocked = groupBadges.filter(b => unlockedCodes.has(b.code)).length
+        return (
+          <div key={group} className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-cd-text-secondary">{group}类</h2>
+              <span className="text-xs text-cd-text-tertiary">{groupUnlocked}/{groupBadges.length}</span>
             </div>
-          )
-        })}
-      </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {groupBadges.map(badge => {
+                const unlocked = unlockedCodes.has(badge.code)
+                const isHidden = badge.hidden && !unlocked
+                return (
+                  <div key={badge.code} className={`rounded-xl p-4 border text-center transition ${
+                    unlocked ? 'bg-cd-bg-card border-gold/20' : isHidden ? 'bg-cd-bg-card border-white/5 opacity-30' : 'bg-cd-bg-card border-white/5 opacity-40'
+                  }`}>
+                    <div className="text-4xl mb-2">{unlocked ? badge.icon : isHidden ? '❓' : '🔒'}</div>
+                    <div className={`text-sm font-medium ${unlocked ? 'text-cd-text' : 'text-cd-text-secondary'}`}>
+                      {isHidden ? '???' : badge.name}
+                    </div>
+                    <div className="text-xs text-cd-text-secondary mt-1">{isHidden ? '隐藏成就，等待解锁' : badge.desc}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
 
       {/* P10-4：本月赛季成就 */}
       {season && (
@@ -120,10 +148,38 @@ export default function Achievements() {
                 {season.start_date} ~ {season.end_date}
               </span>
             </h2>
-            <span className="text-sm text-cd-text-secondary">
-              {season.unlocked_count}/{season.total_count} 已解锁
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-cd-text-secondary">
+                {season.unlocked_count}/{season.total_count} 已解锁
+              </span>
+              {/* P13-3：赛季历史切换按钮 */}
+              {seasonHistory.length > 0 && (
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="flex items-center gap-1 text-xs text-cd-purple hover:text-cd-purple/80 transition"
+                >
+                  <History size={12} />
+                  {showHistory ? '收起历史' : '查看历史'}
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* P13-3：赛季历史展示 */}
+          {showHistory && seasonHistory.length > 0 && (
+            <div className="mb-4 bg-cd-bg-input/50 rounded-lg p-3 border border-white/5">
+              <div className="text-xs text-cd-text-tertiary mb-2">近 {seasonHistory.length} 个月赛季回顾</div>
+              <div className="flex flex-wrap gap-2">
+                {seasonHistory.map(h => (
+                  <div key={h.season_key} className="rounded-md px-3 py-1.5 bg-cd-bg-secondary border border-white/5 text-xs">
+                    <span className="text-cd-text-secondary">{h.season_key}</span>
+                    <span className="text-cd-text-tertiary mx-1">·</span>
+                    <span className="text-gold">{h.unlocked_count}/{h.total_count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {season.achievements.map(a => (

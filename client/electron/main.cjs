@@ -1054,6 +1054,19 @@ function registerShortcuts() {
     }
   })
 
+  // P13-4：Ctrl+Shift+Q — 快速打开番茄钟
+  globalShortcut.register('CommandOrControl+Shift+Q', () => {
+    sendToRenderer('navigate-to', 'focus')
+    mainWindow?.show()
+    mainWindow?.focus()
+  })
+
+  // P13-4：Ctrl+Shift+F — 切换专注模式（通知前端）
+  globalShortcut.register('CommandOrControl+Shift+F', () => {
+    sendToRenderer('toggle-focus-mode')
+    mainWindow?.show()
+  })
+
   console.log('[Main] Global shortcuts registered')
 
   // F12 to toggle DevTools (manual, not auto-open) — 仅开发环境允许

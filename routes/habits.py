@@ -73,3 +73,19 @@ def log_habit_route(hid):
 def delete_habit_route(hid):
     db.delete_habit(hid)
     return jsonify({"status": "ok"})
+
+
+# P13-2：习惯统计接口
+@bp.route('/<int:hid>/stats')
+def habit_stats(hid):
+    """返回单个习惯的统计数据（连续天数/完成率/近 N 天趋势）"""
+    from routes.deps import check_token
+    if not check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    days = _safe_int(request.args.get('days', 30), 30)
+    days = max(1, min(days, 365))
+    try:
+        stats = db.get_habit_stats(hid, days)
+        return jsonify({"status": "ok", "stats": stats})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

@@ -29,6 +29,7 @@ interface Window {
     sendDistractionAlert: (data: { app: string; count: number }) => void
     onDistractionAlert: (cb: (data: { app: string; count: number }) => void) => void
     onNavigateTo: (cb: (path: string) => void) => void
+    onToggleFocusMode?: (cb: () => void) => void
     getAutoStart: () => Promise<boolean>
     setAutoStart: (enabled: boolean) => Promise<boolean>
     windowsHello?: (reason?: string) => Promise<{ success: boolean; error?: string }>

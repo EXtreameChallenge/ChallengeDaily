@@ -595,6 +595,53 @@ def ai_chat_stream():
     except Exception:
         pass
 
+    # P13-1：增强上下文感知 — 注入近 7 天趋势 + 连续打卡 + 宠物情绪
+    extra_hint = ""
+    try:
+        extra_parts = []
+        # 连续打卡天数
+        try:
+            from pet_mood import _streak_days
+            streak = _streak_days()
+            if streak > 0:
+                extra_parts.append(f"连续打卡{streak}天")
+        except Exception:
+            pass
+        # 近 7 天效率趋势（深度洞察摘要）
+        try:
+            from deep_analysis import generate_deep_insights
+            insights = generate_deep_insights()
+            trends = insights.get("trends", [])
+            if trends:
+                # 只取最显著的 2 条趋势
+                top_trends = [t for t in trends if t.get("significant")][:2]
+                if not top_trends:
+                    top_trends = trends[:2]
+                trend_strs = [f"{t['category']}{t['direction']}{abs(t['delta'])}%" for t in top_trends]
+                extra_parts.append("近周趋势：" + "、".join(trend_strs))
+            # 高效时段
+            patterns = insights.get("patterns", {})
+            if patterns.get("peak_hours"):
+                peak = "、".join(f"{h}:00" for h in patterns["peak_hours"][:2])
+                extra_parts.append(f"高效时段{peak}")
+        except Exception:
+            pass
+        # 当前宠物情绪（让 AI 知道用户当前状态）
+        try:
+            from pet_mood import compute_pet_mood
+            mood_data = compute_pet_mood()
+            mood_labels = {"idle": "悠闲", "focused": "专注", "flowing": "心流",
+                          "distracted": "摸鱼", "overworked": "过劳", "sleepy": "困倦",
+                          "milestone": "里程碑达成"}
+            mood_label = mood_labels.get(mood_data["mood"], mood_data["mood"])
+            extra_parts.append(f"当前状态:{mood_label}")
+        except Exception:
+            pass
+        if extra_parts:
+            extra_hint = "\n用户近况：" + "，".join(extra_parts)
+    except Exception:
+        pass
+
     # 获取历史对话
     history = db.get_chat_history(limit=20)
     # 排除刚插入的用户消息（它是最后一条）
@@ -606,7 +653,7 @@ def ai_chat_stream():
             content = h['content']
             chat_messages.append({"role": role, "content": content})
 
-    system_content = SYSTEM_PROMPT_BASE + SYSTEM_PROMPT_SAFETY + context_hint + today_hint
+    system_content = SYSTEM_PROMPT_BASE + SYSTEM_PROMPT_SAFETY + context_hint + today_hint + extra_hint
 
     messages = [{"role": "system", "content": system_content}] + chat_messages + [{"role": "user", "content": user_message}]
 

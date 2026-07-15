@@ -2038,3 +2038,17 @@ export interface PetMoodData {
 export async function getPetMood(): Promise<PetMoodData> {
   return request('/api/pet/mood') as Promise<PetMoodData>
 }
+
+// ── P13-2：习惯统计 ──
+export interface HabitStats {
+  habit_id: number
+  streak_days: number
+  completion_rate: number
+  total_logs: number
+  period: string
+  target_count: number
+  recent_trend: Array<{ date: string; logged: boolean; count: number }>
+}
+export async function getHabitStats(habitId: number, days = 30): Promise<{ status: string; stats: HabitStats }> {
+  return request(`/api/habits/${habitId}/stats?days=${days}`) as Promise<{ status: string; stats: HabitStats }>
+}

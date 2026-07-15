@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense, type ReactNode } from 'react'
-import { HashRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { HashRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import TitleBar from './components/TitleBar'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -265,6 +265,7 @@ export default function App() {
               <HashRouter>
                 <CommandPalette open={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} />
                 <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
+                <ElectronNavigationBridge />
                 <Sidebar />
                 <main className="flex-1 overflow-auto bg-cd-bg p-6">
                   <RouteErrorBoundary>
@@ -318,6 +319,39 @@ function PageSpinner() {
       <div className="w-6 h-6 border-3 border-cd-green border-t-transparent rounded-full animate-spin" />
     </div>
   )
+}
+
+/** P13-4：监听来自 Electron 主进程的导航/快捷键事件 */
+function ElectronNavigationBridge() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (!window.electronAPI) return
+    // 监听全局快捷键导航（Ctrl+Shift+Q → 番茄钟 等）
+    const onNav = (path: string) => {
+      const pathMap: Record<string, string> = {
+        focus: '/focus',
+        report: '/report',
+        overview: '/',
+        habits: '/habits',
+        achievements: '/achievements',
+      }
+      const target = pathMap[path] || path
+      navigate(target)
+    }
+    // 使用通用事件监听（onNavigateTo 已在 preload 声明）
+    if (window.electronAPI?.onNavigateTo) {
+      window.electronAPI.onNavigateTo(onNav)
+    }
+    // 专注模式切换（Ctrl+Shift+F）
+    if (window.electronAPI?.onToggleFocusMode) {
+      window.electronAPI.onToggleFocusMode(() => {
+        // 通知 Focus 页面切换专注模式（通过自定义事件）
+        window.dispatchEvent(new CustomEvent('toggle-focus-mode'))
+      })
+    }
+    return () => { /* IPC 监听器随组件卸载自动清理 */ }
+  }, [navigate])
+  return null
 }
 
 /** 绑定到当前路由的 ErrorBoundary：路由切换时自动清除错误状态 */
