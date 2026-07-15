@@ -39,6 +39,7 @@ from routes.local_model_routes import bp as local_model_bp
 from routes.analytics_routes import bp as analytics_bp
 from routes.ai_intel_routes import bp as ai_intel_bp
 from routes.devops_routes import bp as devops_bp
+from routes.platform_routes import bp as platform_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -82,4 +83,5 @@ ALL_BLUEPRINTS = [
     analytics_bp,
     ai_intel_bp,
     devops_bp,
+    platform_bp,
 ]
