@@ -10,7 +10,7 @@ import dayjs from 'dayjs'
 export default function Settings() {
   const toast = useToast()
   const {
-    theme, toggleTheme,
+    theme, effectiveTheme, setThemeExplicit,
     accentIndex, setAccentIndex,
     fontIndex, setFontIndex,
     sidebarTranslucent, setSidebarTranslucent,
@@ -349,12 +349,12 @@ export default function Settings() {
             <div className="grid grid-cols-2 gap-3">
               {SKIN_PRESETS.map((skin, i) => {
                 const isHanmo = skin.value === 'hanmo'
-                const pBg = theme === 'dark' ? (isHanmo ? '#1A1714' : '#121212') : (isHanmo ? '#F7F3ED' : '#FFFFFF')
-                const pCard = theme === 'dark' ? (isHanmo ? '#221E19' : '#1E1E1E') : (isHanmo ? '#FBF8F2' : '#FFFFFF')
-                const pSidebar = theme === 'dark' ? (isHanmo ? '#1E1A16' : '#181818') : (isHanmo ? '#F2EDE2' : '#FAFAFA')
-                const pBorder = theme === 'dark' ? (isHanmo ? '#3A332B' : '#333333') : (isHanmo ? '#D9CFB8' : '#E0E0E0')
-                const pText = theme === 'dark' ? (isHanmo ? '#F5F0E8' : '#FFFFFF') : (isHanmo ? '#2C2620' : '#1A1A1A')
-                const pTextTert = theme === 'dark' ? (isHanmo ? '#7A6F5F' : '#666666') : (isHanmo ? '#9A8B7A' : '#999999')
+                const pBg = effectiveTheme === 'dark' ? (isHanmo ? '#1A1714' : '#121212') : (isHanmo ? '#F7F3ED' : '#FFFFFF')
+                const pCard = effectiveTheme === 'dark' ? (isHanmo ? '#221E19' : '#1E1E1E') : (isHanmo ? '#FBF8F2' : '#FFFFFF')
+                const pSidebar = effectiveTheme === 'dark' ? (isHanmo ? '#1E1A16' : '#181818') : (isHanmo ? '#F2EDE2' : '#FAFAFA')
+                const pBorder = effectiveTheme === 'dark' ? (isHanmo ? '#3A332B' : '#333333') : (isHanmo ? '#D9CFB8' : '#E0E0E0')
+                const pText = effectiveTheme === 'dark' ? (isHanmo ? '#F5F0E8' : '#FFFFFF') : (isHanmo ? '#2C2620' : '#1A1A1A')
+                const pTextTert = effectiveTheme === 'dark' ? (isHanmo ? '#7A6F5F' : '#666666') : (isHanmo ? '#9A8B7A' : '#999999')
                 return (
                   <button
                     key={i}
@@ -409,13 +409,31 @@ export default function Settings() {
             </p>
           </div>
 
-          {/* 深色模式 */}
+          {/* 深色模式 — P14-1：三态选择（亮色/深色/跟随系统） */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Moon size={14} className="text-cd-text-tertiary" />
-              <span className="text-sm text-cd-text">深色模式</span>
+              <span className="text-sm text-cd-text">主题模式</span>
             </div>
-            <ToggleSwitch checked={theme === 'dark'} onChange={toggleTheme} />
+            <div className="flex items-center gap-1 bg-cd-bg-input rounded-lg p-0.5 border border-cd-border">
+              {([
+                { key: 'light', label: '亮色' },
+                { key: 'dark', label: '深色' },
+                { key: 'auto', label: '跟随系统' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setThemeExplicit(opt.key)}
+                  className={`px-2.5 py-1 text-xs rounded-md transition ${
+                    theme === opt.key
+                      ? 'bg-cd-green text-white shadow-sm'
+                      : 'text-cd-text-secondary hover:text-cd-text'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* 桌面宠物 */}
@@ -459,10 +477,10 @@ export default function Settings() {
                       : 'hover:scale-105'
                   }`}
                   style={{
-                    backgroundColor: theme === 'dark' ? preset.dark : preset.light,
-                    ringColor: theme === 'dark' ? preset.dark : preset.light,
+                    backgroundColor: effectiveTheme === 'dark' ? preset.dark : preset.light,
+                    ringColor: effectiveTheme === 'dark' ? preset.dark : preset.light,
                     // @ts-ignore ring-offset-color not in CSSProperties
-                    '--tw-ring-color': theme === 'dark' ? preset.dark : preset.light,
+                    '--tw-ring-color': effectiveTheme === 'dark' ? preset.dark : preset.light,
                   } as React.CSSProperties}
                   title={preset.name}
                 >

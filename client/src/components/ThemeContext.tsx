@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 
-type Theme = 'light' | 'dark'
+type Theme = 'light' | 'dark' | 'auto'
+type EffectiveTheme = 'light' | 'dark'
 
 // 预设主题色
 export const ACCENT_PRESETS = [
@@ -52,7 +53,9 @@ export const SKIN_PRESETS = [
 
 interface ThemeCtx {
   theme: Theme
+  effectiveTheme: EffectiveTheme
   toggleTheme: () => void
+  setThemeExplicit: (t: Theme) => void
   accentIndex: number
   setAccentIndex: (i: number) => void
   fontIndex: number
@@ -70,7 +73,7 @@ interface ThemeCtx {
 }
 
 const ThemeContext = createContext<ThemeCtx>({
-  theme: 'light', toggleTheme: () => {},
+  theme: 'light', effectiveTheme: 'light', toggleTheme: () => {}, setThemeExplicit: () => {},
   accentIndex: 0, setAccentIndex: () => {},
   fontIndex: 0, setFontIndex: () => {},
   sidebarTranslucent: false, setSidebarTranslucent: () => {},
@@ -87,9 +90,22 @@ export function useTheme() {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem('cd_theme')
-    if (saved === 'dark' || saved === 'light') return saved
+    if (saved === 'dark' || saved === 'light' || saved === 'auto') return saved
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   })
+  // P14-1：跟踪系统深色偏好，用于 'auto' 模式实时跟随
+  const [systemDark, setSystemDark] = useState<boolean>(() =>
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  )
+  // P14-1：监听系统主题变化，auto 模式下自动切换
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = (e: MediaQueryListEvent) => setSystemDark(e.matches)
+    mql.addEventListener('change', handler)
+    return () => mql.removeEventListener('change', handler)
+  }, [])
+  // 解析后的有效主题：auto → 根据系统偏好；light/dark → 原值
+  const effectiveTheme: EffectiveTheme = theme === 'auto' ? (systemDark ? 'dark' : 'light') : theme
   const [accentIndex, setAccentIndex] = useState(() => {
     const saved = localStorage.getItem('cd_accent')
     const n = parseInt(saved || '0', 10)
@@ -127,31 +143,31 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // 同步主题和 CSS 变量
   useEffect(() => {
     const root = document.documentElement
-    if (theme === 'dark') {
+    if (effectiveTheme === 'dark') {
       root.classList.add('dark')
     } else {
       root.classList.remove('dark')
     }
     localStorage.setItem('cd_theme', theme)
-  }, [theme])
+  }, [theme, effectiveTheme])
 
   // 同步主题色
   useEffect(() => {
     const preset = ACCENT_PRESETS[accentIndex]
     const root = document.documentElement
-    root.style.setProperty('--cd-green', theme === 'dark' ? preset.dark : preset.light)
-    root.style.setProperty('--cd-green-light', theme === 'dark' ? preset.darkBg : preset.lightBg)
+    root.style.setProperty('--cd-green', effectiveTheme === 'dark' ? preset.dark : preset.light)
+    root.style.setProperty('--cd-green-light', effectiveTheme === 'dark' ? preset.darkBg : preset.lightBg)
     // dark mode 变体
-    if (theme === 'dark') {
+    if (effectiveTheme === 'dark') {
       root.style.setProperty('--cd-green-dark', preset.dark)
     } else {
       root.style.setProperty('--cd-green-dark', preset.light)
     }
     // purple 同步用于某些装饰元素
-    root.style.setProperty('--cd-purple', theme === 'dark' ? preset.dark : preset.light)
-    root.style.setProperty('--cd-purple-light', theme === 'dark' ? preset.darkBg : preset.lightBg)
+    root.style.setProperty('--cd-purple', effectiveTheme === 'dark' ? preset.dark : preset.light)
+    root.style.setProperty('--cd-purple-light', effectiveTheme === 'dark' ? preset.darkBg : preset.lightBg)
     localStorage.setItem('cd_accent', String(accentIndex))
-  }, [accentIndex, theme])
+  }, [accentIndex, effectiveTheme])
 
   // 同步字体
   useEffect(() => {
@@ -187,7 +203,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const opacity = OPACITY_PRESETS[opacityIndex].value
     if (sidebarTranslucent) {
       const isHanmo = SKIN_PRESETS[skinIndex].value === 'hanmo'
-      if (theme === 'dark') {
+      if (effectiveTheme === 'dark') {
         root.style.setProperty('--cd-sidebar-bg', isHanmo ? `rgba(30,26,22,${opacity})` : `rgba(24,24,24,${opacity})`)
       } else {
         root.style.setProperty('--cd-sidebar-bg', isHanmo ? `rgba(247,243,237,${opacity})` : `rgba(250,250,250,${opacity})`)
@@ -198,7 +214,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       root.style.removeProperty('--cd-sidebar-blur')
     }
     localStorage.setItem('cd_sidebar_translucent', sidebarTranslucent ? '1' : '0')
-  }, [sidebarTranslucent, theme, opacityIndex, skinIndex])
+  }, [sidebarTranslucent, effectiveTheme, opacityIndex, skinIndex])
 
   // 同步皮肤（经典 / 翰墨）
   useEffect(() => {
@@ -211,11 +227,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('cd_skin', String(skinIndex))
   }, [skinIndex])
 
-  const toggleTheme = useCallback(() => setTheme(prev => prev === 'light' ? 'dark' : 'light'), [])
+  // P14-1：三态循环 light → dark → auto → light
+  const toggleTheme = useCallback(() => setTheme(prev => prev === 'light' ? 'dark' : prev === 'dark' ? 'auto' : 'light'), [])
+  const setThemeExplicit = useCallback((t: Theme) => setTheme(t), [])
 
   return (
     <ThemeContext.Provider value={{
-      theme, toggleTheme,
+      theme, effectiveTheme, toggleTheme, setThemeExplicit,
       accentIndex, setAccentIndex,
       fontIndex, setFontIndex,
       sidebarTranslucent, setSidebarTranslucent,

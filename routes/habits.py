@@ -89,3 +89,19 @@ def habit_stats(hid):
         return jsonify({"status": "ok", "stats": stats})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# P14-2：智能习惯推荐
+@bp.route('/recommend')
+def recommend_habits():
+    """基于近 30 天行为数据推荐习惯"""
+    from routes.deps import check_token
+    if not check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    limit = _safe_int(request.args.get('limit', 5), 5)
+    limit = max(1, min(limit, 20))
+    try:
+        suggestions = db.recommend_habits(limit)
+        return jsonify({"status": "ok", "suggestions": suggestions})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

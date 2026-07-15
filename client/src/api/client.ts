@@ -1718,6 +1718,22 @@ export async function autoCheckHabits(date?: string): Promise<{ status: string; 
   return request('/api/habits/auto-check', { method: 'POST', body: JSON.stringify({ date }) }) as Promise<{ status: string; auto_logged: Array<{ habit_id: number; habit_name: string; auto_category: string; minutes: number; target_count: number }>; count: number }>
 }
 
+// P14-2：智能习惯推荐
+export interface HabitSuggestion {
+  name: string
+  target_count: number
+  period: string
+  auto_category: string | null
+  reason: string
+  source: 'behavior' | 'classic'
+  score: number
+}
+
+export async function getHabitRecommendations(limit?: number): Promise<{ status: string; suggestions: HabitSuggestion[] }> {
+  const qs = limit ? `?limit=${limit}` : ''
+  return request(`/api/habits/recommend${qs}`) as Promise<{ status: string; suggestions: HabitSuggestion[] }>
+}
+
 // ── 周计划（月/周/日三级层级 + 拖拽分配 + 番茄数据条） ──
 
 export type TaskLevel = 'month' | 'week' | 'day'

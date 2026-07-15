@@ -2277,6 +2277,82 @@ def delete_habit(habit_id):
         conn.commit()
         return True
 
+# P14-2：基于行为数据智能推荐习惯
+# 推荐策略：
+#   1. 数据驱动：统计近 30 天活动分类频次，对尚未建立习惯的高频分类推荐打卡
+#   2. 经典补充：当用户习惯较少时，补充饮水/运动/阅读等通用健康习惯
+#   3. 去重：排除已存在同名习惯或已关联同一 auto_category 的习惯
+def recommend_habits(limit: int = 5) -> list:
+    _flush_pending_commits()
+    today = date.today()
+    cutoff = (today - timedelta(days=30)).isoformat()
+    # 1. 聚合近 30 天活动分类频次
+    with get_conn() as conn:
+        cat_rows = conn.execute(
+            "SELECT category, COUNT(*) as cnt FROM activities "
+            "WHERE timestamp >= ? AND timestamp <= ? AND category IS NOT NULL AND category != '' "
+            "GROUP BY category ORDER BY cnt DESC",
+            (f"{cutoff} 00:00:00", f"{today.isoformat()} 23:59:59"),
+        ).fetchall()
+        habits_rows = conn.execute("SELECT name, auto_category FROM habits").fetchall()
+    existing_names = {r["name"] for r in habits_rows}
+    existing_autos = {r["auto_category"] for r in habits_rows if r["auto_category"]}
+
+    suggestions = []
+    # 数据驱动推荐：高频分类 → 建议打卡
+    for r in cat_rows:
+        cat = r["category"]
+        cnt = r["cnt"]
+        if cnt < 5:  # 频次过低不推荐
+            continue
+        # 去重：已有关联该分类的习惯
+        if cat in existing_autos:
+            continue
+        avg_per_day = round(cnt / 30, 1)
+        target = max(1, min(5, round(avg_per_day)))
+        # 避免与已有习惯同名
+        suggest_name = f"每日{cat}"
+        if suggest_name in existing_names:
+            suggest_name = f"{cat}打卡"
+        if suggest_name in existing_names:
+            continue
+        suggestions.append({
+            "name": suggest_name,
+            "target_count": target,
+            "period": "daily",
+            "auto_category": cat,
+            "reason": f"近 30 天你在「{cat}」上记录了 {cnt} 次活动，平均每日 {avg_per_day} 次",
+            "source": "behavior",
+            "score": cnt,
+        })
+
+    # 2. 经典补充：习惯总数不足 3 个时，推荐通用健康习惯
+    if len(habits_rows) < 3:
+        classics = [
+            {"name": "每日饮水", "target_count": 8, "auto_category": None, "reason": "保持充足饮水有助于专注与精力，建议每日 8 杯"},
+            {"name": "每日运动", "target_count": 1, "auto_category": None, "reason": "适度运动提升专注力与情绪，建议每日至少 1 次"},
+            {"name": "每日阅读", "target_count": 1, "auto_category": "学习", "reason": "每日阅读累积知识，长期复利显著"},
+        ]
+        for c in classics:
+            if c["name"] in existing_names:
+                continue
+            if c["auto_category"] and c["auto_category"] in existing_autos:
+                continue
+            suggestions.append({
+                "name": c["name"],
+                "target_count": c["target_count"],
+                "period": "daily",
+                "auto_category": c["auto_category"],
+                "reason": c["reason"],
+                "source": "classic",
+                "score": 0,
+            })
+
+    # 排序：数据驱动优先（按 score 降序），经典补充在后；截断到 limit
+    suggestions.sort(key=lambda x: (x["source"] == "behavior", x["score"]), reverse=True)
+    return suggestions[:limit]
+
+
 # ── 格言 ──
 QUOTES = [
     "种一棵树最好的时间是十年前，其次是现在。",

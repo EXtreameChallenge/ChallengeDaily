@@ -12,6 +12,7 @@ import {
   type TodoV2, type WeekPlanStats, type MonthPlanStats,
 } from '../api/client'
 import { Flame, TrendingUp, Calendar, CalendarDays, CalendarRange, Clock, Loader2, LayoutDashboard, Target } from 'lucide-react'
+import SankeyChart from '../components/SankeyChart'
 
 /** 简单进度条 */
 function ProgressBar({ value, color = 'var(--cd-green)' }: { value: number; color?: string }) {
@@ -423,6 +424,9 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* P14-3：今日时间流动桑基图（时段 → 分类，组件自带卡片样式） */}
+      <SankeyChart date={todayStr} />
 
       {/* P5-5：长期目标进度穿透卡片 */}
       <div className="bg-cd-bg-card rounded-xl border border-white/5 p-4">
