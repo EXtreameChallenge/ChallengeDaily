@@ -41,6 +41,7 @@ from routes.ai_intel_routes import bp as ai_intel_bp
 from routes.devops_routes import bp as devops_bp
 from routes.platform_routes import bp as platform_bp
 from routes.delight_routes import bp as delight_bp
+from routes.resilience_routes import bp as resilience_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -86,4 +87,5 @@ ALL_BLUEPRINTS = [
     devops_bp,
     platform_bp,
     delight_bp,
+    resilience_bp,
 ]
