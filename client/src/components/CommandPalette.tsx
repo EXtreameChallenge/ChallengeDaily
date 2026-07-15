@@ -4,7 +4,7 @@ import {
   Search, Home, Calendar, CheckSquare, Timer, FileText, BookOpen,
   Flame, Trophy, Target, Users, Zap, Bot, Sparkles, Brain, Clock,
   Grid3X3, AppWindow, History, Download, Activity, Settings as SettingsIcon,
-  CornerDownLeft, ArrowUp, ArrowDown
+  CalendarRange, CornerDownLeft, ArrowUp, ArrowDown
 } from 'lucide-react'
 
 interface Command {
@@ -51,6 +51,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       nav('/history', '历史报告', History, '历史日报', ['history']),
       nav('/timeline', '工作时间线', Clock, '时间线', ['timeline']),
       nav('/heatmap', '时段热力图', Grid3X3, '热力图', ['heatmap']),
+      nav('/calendar', '日历视图', CalendarRange, '月度日历', ['calendar', '日历']),
       nav('/apps', '应用记录', AppWindow, '应用使用', ['app']),
       nav('/dashboard', '进度仪表盘', Activity, '数据看板', ['dashboard']),
       nav('/ai-chat', 'AI 对话', Bot, 'AI助手', ['ai', 'chat']),

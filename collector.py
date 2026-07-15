@@ -531,6 +531,13 @@ class Collector:
         except Exception as e:
             logger.error(f"清理过期数据失败: {e}")
 
+        # P9-1：启动剪贴板监听线程（失败安全）
+        try:
+            from clipboard_monitor import get_clipboard_monitor
+            get_clipboard_monitor().start()
+        except Exception as e:
+            logger.debug(f"剪贴板监听启动失败（不影响采集）: {e}")
+
     def run(self):
         """持续运行主循环（阻塞）。注意：main.py 未使用此方法，而是直接调用 capture_once + Event.wait。"""
         self.on_start()
@@ -561,4 +568,10 @@ class Collector:
                 upsert_app_usage_multi(last_windows, seg_start, now)
             except Exception as e:
                 logger.error(f"保存最后 app_usage 失败: {e}")
+        # P9-1：停止剪贴板监听
+        try:
+            from clipboard_monitor import get_clipboard_monitor
+            get_clipboard_monitor().stop()
+        except Exception:
+            pass
         logger.info("采集器已停止")

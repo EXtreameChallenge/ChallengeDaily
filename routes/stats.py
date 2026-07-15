@@ -497,3 +497,106 @@ def sankey_flow():
     except Exception as e:
         logger.error(f"桑基图查询失败: {e}", exc_info=True)
         return jsonify({"error": "查询失败"}), 500
+
+
+@bp.route('/api/stats/calendar')
+def calendar_view():
+    """P9-4：日历视图 — 月度每日分类热力
+
+    query:
+      month: YYYY-MM（默认当月）
+    返回：{
+      "month": "2026-07",
+      "days": [
+        {"date":"2026-07-01","total_min":120,"dominant_cat":"开发","cats":{"开发":90,"学习":30},"level":2},
+        ...
+      ],
+      "category_totals": {"开发": 1200, "学习": 300, ...},
+      "legend": [{"cat":"开发","color":"..."}, ...]
+    }
+    level 分档：0/<60/<120/<240/<360 分钟 -> 0/1/2/3/4
+    """
+    from collections import defaultdict
+    month_str = request.args.get('month', '').strip()
+    if not month_str:
+        month_str = date.today().strftime('%Y-%m')
+    # 校验 YYYY-MM
+    try:
+        y, m = month_str.split('-')
+        year_i, month_i = int(y), int(m)
+        if not (2020 <= year_i <= 2099 and 1 <= month_i <= 12):
+            raise ValueError
+    except ValueError:
+        return jsonify({"error": "月份格式应为 YYYY-MM"}), 400
+    try:
+        with get_conn() as conn:
+            rows = conn.execute(
+                "SELECT date(timestamp) AS d, category, "
+                "       COALESCE(SUM(interval_sec), 0) AS sec "
+                "FROM activities "
+                "WHERE strftime('%Y-%m', timestamp) = ? "
+                "GROUP BY date(timestamp), category "
+                "ORDER BY d, sec DESC",
+                (month_str,),
+            ).fetchall()
+        if not rows:
+            return jsonify({"month": month_str, "days": [], "category_totals": {}, "legend": []})
+
+        # 按天聚合
+        day_map: dict[str, dict] = {}
+        cat_totals: dict[str, int] = defaultdict(int)
+        for r in rows:
+            d = r["d"]
+            cat = r["category"] or "其他"
+            sec = int(r["sec"] or 0)
+            min_v = sec // 60
+            if d not in day_map:
+                day_map[d] = {"date": d, "total_min": 0, "cats": {}}
+            day_map[d]["cats"][cat] = day_map[d]["cats"].get(cat, 0) + min_v
+            day_map[d]["total_min"] += min_v
+            cat_totals[cat] += min_v
+
+        days = []
+        for d, info in sorted(day_map.items()):
+            total = info["total_min"]
+            # 主导分类（耗时最多的）
+            dominant = max(info["cats"].items(), key=lambda x: x[1])[0] if info["cats"] else None
+            level = min(4, total // 60) if total < 360 else 4
+            # 更细的分档：<60=1, <120=2, <240=3, <360=4, >=360=4
+            if total == 0:
+                level = 0
+            elif total < 60:
+                level = 1
+            elif total < 120:
+                level = 2
+            elif total < 240:
+                level = 3
+            else:
+                level = 4
+            days.append({
+                "date": d,
+                "total_min": total,
+                "dominant_cat": dominant,
+                "cats": info["cats"],
+                "level": level,
+            })
+
+        # 图例：按总耗时排序的分类（最多 8 个）
+        sorted_cats = sorted(cat_totals.items(), key=lambda x: -x[1])[:8]
+        # 分类配色（与 CATEGORIES 对齐，兜底灰色）
+        cat_colors = {
+            "开发": "#7B68EE", "学习": "#22c55e", "生活": "#f59e0b",
+            "娱乐": "#ec4899", "社交": "#06b6d4", "休息": "#a855f7",
+            "其他": "#6b7280", "运动": "#ef4444", "阅读": "#3b82f6",
+        }
+        legend = [{"cat": c, "color": cat_colors.get(c, "#6b7280")} for c, _ in sorted_cats]
+
+        return jsonify({
+            "month": month_str,
+            "days": days,
+            "category_totals": dict(cat_totals),
+            "legend": legend,
+        })
+    except Exception as e:
+        logger.error(f"日历视图查询失败: {e}", exc_info=True)
+        return jsonify({"error": "查询失败"}), 500

@@ -159,6 +159,238 @@ def pomodoro_config():
     })
 
 
+# ── P9-3：番茄钟增强 ──────────────────────────────────
+
+@bp.route('/smart-duration', methods=['GET'])
+def smart_duration():
+    """P9-3：智能番茄时长建议
+
+    基于最近 14 天历史数据，分析用户在哪个时长下完成率最高、中断率最低，
+    推荐最适合自己的番茄时长。
+
+    GET /api/pomodoro/smart-duration
+    返回：{recommended_min, reason, analysis}
+    """
+    try:
+        from datetime import date as _date, timedelta as _td
+        today = _date.today()
+        start_14 = (today - _td(days=14)).isoformat()
+        with db.get_conn() as conn:
+            # 按时长分组统计完成率与中断率
+            rows = conn.execute(
+                "SELECT duration_min, "
+                "       COUNT(*) as total, "
+                "       SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) as completed, "
+                "       SUM(CASE WHEN status='interrupted' THEN 1 ELSE 0 END) as interrupted, "
+                "       COALESCE(SUM(interrupted_count), 0) as total_distractions "
+                "FROM pomodoro_sessions "
+                "WHERE date(start_time) >= ? AND duration_min > 0 "
+                "GROUP BY duration_min ORDER BY total DESC",
+                (start_14,),
+            ).fetchall()
+        if not rows:
+            return jsonify({
+                "recommended_min": 25,
+                "reason": "暂无历史数据，使用标准 25 分钟作为起点",
+                "analysis": [],
+            })
+        analysis = []
+        best_score = -1
+        best_min = 25
+        best_reason = ""
+        for r in rows:
+            total = r["total"] or 0
+            completed = r["completed"] or 0
+            interrupted = r["interrupted"] or 0
+            distractions = r["total_distractions"] or 0
+            completion_rate = completed / total if total else 0
+            interrupt_rate = interrupted / total if total else 0
+            avg_distractions = distractions / total if total else 0
+            # 评分：完成率权重 0.6，中断率权重 0.3，分心次数权重 0.1
+            score = completion_rate * 0.6 + (1 - interrupt_rate) * 0.3 + (1 - min(avg_distractions / 3, 1)) * 0.1
+            analysis.append({
+                "duration_min": r["duration_min"],
+                "total": total,
+                "completed": completed,
+                "interrupted": interrupted,
+                "completion_rate": round(completion_rate, 2),
+                "interrupt_rate": round(interrupt_rate, 2),
+                "avg_distractions": round(avg_distractions, 2),
+                "score": round(score, 3),
+            })
+            if score > best_score and total >= 2:  # 至少 2 次才采纳
+                best_score = score
+                best_min = r["duration_min"]
+                if completion_rate >= 0.8 and interrupt_rate <= 0.2:
+                    best_reason = f"在 {best_min} 分钟时长下完成率 {completion_rate * 100:.0f}%，中断率仅 {interrupt_rate * 100:.0f}%，是你的黄金时长"
+                elif completion_rate >= 0.6:
+                    best_reason = f"在 {best_min} 分钟时长下完成率 {completion_rate * 100:.0f}%，表现最稳定"
+                else:
+                    best_reason = f"建议尝试 {best_min} 分钟，当前所有时长完成率都不高，可能需要调整工作环境"
+        return jsonify({
+            "recommended_min": best_min,
+            "reason": best_reason or "基于历史数据推荐",
+            "analysis": analysis,
+        })
+    except Exception as e:
+        logger.error(f"smart_duration 失败: {e}", exc_info=True)
+        return jsonify({"error": "智能时长分析失败"}), 500
+
+
+@bp.route('/report', methods=['GET'])
+def pomodoro_report():
+    """P9-3：番茄钟报告
+
+    分析最近 N 天的番茄钟质量，找出最佳时段、最常见中断原因、质量趋势。
+
+    GET /api/pomodoro/report?days=7
+    """
+    try:
+        days = int(request.args.get('days', '7'))
+        days = max(1, min(days, 90))
+        from datetime import date as _date, timedelta as _td
+        today = _date.today()
+        start = (today - _td(days=days - 1)).isoformat()
+
+        with db.get_conn() as conn:
+            rows = conn.execute(
+                "SELECT id, start_time, end_time, duration_min, task, category, "
+                "       status, interrupted_count, source, todo_id "
+                "FROM pomodoro_sessions "
+                "WHERE date(start_time) >= ? "
+                "ORDER BY start_time ASC",
+                (start,),
+            ).fetchall()
+        if not rows:
+            return jsonify({
+                "range_days": days,
+                "total_sessions": 0,
+                "message": "该时段内暂无番茄钟记录",
+            })
+
+        sessions = [dict(r) for r in rows]
+        total = len(sessions)
+        completed = [s for s in sessions if s.get("status") == "completed"]
+        interrupted = [s for s in sessions if s.get("status") == "interrupted"]
+        total_min = sum(s.get("duration_min", 0) for s in completed)
+        total_distractions = sum(s.get("interrupted_count", 0) for s in sessions)
+
+        # 按时段分析质量
+        period_stats: dict[str, dict] = {}
+        for s in sessions:
+            try:
+                hour = int(s["start_time"][11:13])
+            except (ValueError, IndexError):
+                continue
+            if 6 <= hour < 12:
+                period = "上午"
+            elif 12 <= hour < 18:
+                period = "下午"
+            elif 18 <= hour < 22:
+                period = "晚间"
+            else:
+                period = "夜间"
+            if period not in period_stats:
+                period_stats[period] = {"total": 0, "completed": 0, "min": 0, "distractions": 0}
+            period_stats[period]["total"] += 1
+            if s.get("status") == "completed":
+                period_stats[period]["completed"] += 1
+                period_stats[period]["min"] += s.get("duration_min", 0)
+            period_stats[period]["distractions"] += s.get("interrupted_count", 0)
+
+        # 找出最佳时段（完成率最高且样本 >=2）
+        best_period = None
+        best_period_score = -1
+        for p, st in period_stats.items():
+            if st["total"] < 2:
+                continue
+            rate = st["completed"] / st["total"]
+            if rate > best_period_score:
+                best_period_score = rate
+                best_period = p
+
+        # 按分类统计
+        cat_stats: dict[str, int] = {}
+        for s in completed:
+            cat = s.get("category", "未知")
+            cat_stats[cat] = cat_stats.get(cat, 0) + 1
+
+        # 按天统计趋势
+        daily_trend: list[dict] = []
+        day_map: dict[str, dict] = {}
+        for s in sessions:
+            try:
+                d = s["start_time"][:10]
+            except (ValueError, IndexError):
+                continue
+            if d not in day_map:
+                day_map[d] = {"date": d, "total": 0, "completed": 0, "min": 0}
+            day_map[d]["total"] += 1
+            if s.get("status") == "completed":
+                day_map[d]["completed"] += 1
+                day_map[d]["min"] += s.get("duration_min", 0)
+        daily_trend = sorted(day_map.values(), key=lambda x: x["date"])
+
+        # 关联任务统计
+        task_sessions = [s for s in sessions if s.get("todo_id")]
+        unique_tasks = len(set(s["todo_id"] for s in task_sessions))
+
+        return jsonify({
+            "range_days": days,
+            "total_sessions": total,
+            "completed_sessions": len(completed),
+            "interrupted_sessions": len(interrupted),
+            "completion_rate": round(len(completed) / total, 2) if total else 0,
+            "total_focus_min": total_min,
+            "total_focus_hour": round(total_min / 60, 1),
+            "avg_distractions_per_session": round(total_distractions / total, 2) if total else 0,
+            "best_period": best_period,
+            "best_period_completion_rate": round(best_period_score, 2) if best_period_score >= 0 else None,
+            "period_stats": {k: v for k, v in period_stats.items()},
+            "category_stats": cat_stats,
+            "daily_trend": daily_trend,
+            "linked_task_count": unique_tasks,
+            "linked_task_ratio": round(len(task_sessions) / total, 2) if total else 0,
+            "suggestions": _generate_pomodoro_suggestions(
+                len(completed), total, total_distractions, best_period, unique_tasks, total
+            ),
+        })
+    except Exception as e:
+        logger.error(f"pomodoro_report 失败: {e}", exc_info=True)
+        return jsonify({"error": "番茄报告生成失败"}), 500
+
+
+def _generate_pomodoro_suggestions(completed: int, total: int, distractions: int,
+                                    best_period: str | None, linked_tasks: int, total_sessions: int) -> list:
+    """生成番茄钟改进建议（规则引擎）"""
+    suggestions = []
+    if total == 0:
+        return suggestions
+    completion_rate = completed / total
+    avg_distractions = distractions / total
+
+    if completion_rate < 0.5:
+        suggestions.append("完成率偏低，试试缩短番茄时长（如 20 分钟），或检查工作环境是否有干扰源")
+    elif completion_rate >= 0.8:
+        suggestions.append("完成率很高，专注力状态很好，可以尝试挑战更长的番茄时长")
+
+    if avg_distractions > 2:
+        suggestions.append(f"平均每个番茄被打断 {avg_distractions:.1f} 次，建议开启学霸模式或通知免打扰")
+
+    if best_period:
+        suggestions.append(f"你在{best_period}的完成率最高，建议把重要任务安排在这个时段")
+
+    if linked_tasks == 0 and total_sessions >= 5:
+        suggestions.append("大部分番茄钟未关联具体任务，建议开始时选择一个待办，让专注更有方向")
+    elif linked_tasks / total_sessions < 0.3 and total_sessions >= 5:
+        suggestions.append("只有少数番茄钟关联了任务，试着提升任务关联率，让每一段专注都有产出")
+
+    if not suggestions:
+        suggestions.append("番茄钟使用情况良好，继续保持~")
+
+    return suggestions[:3]
+
+
 @bp.route('/distraction-check', methods=['POST'])
 def distraction_check():
     """番茄运行期间检测分心（前端定时调用）

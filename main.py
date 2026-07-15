@@ -221,6 +221,14 @@ def main():
                         except Exception as e:
                             logger.error(f"自动备份失败: {e}")
 
+                    # P9-2：晨报洞察推送（7-11 点每小时整点检查一次，去重在 morning_insight 内处理）
+                    if now_minutes == 0 and 7 <= datetime.now().hour < 11:
+                        try:
+                            from morning_insight import push_morning_insights_if_due
+                            push_morning_insights_if_due()
+                        except Exception as e:
+                            logger.debug(f"晨报洞察推送异常: {e}")
+
             except Exception as e:
                 logger.error(f"采集循环异常: {e}")
 

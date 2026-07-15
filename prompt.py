@@ -236,6 +236,16 @@ def build_user_prompt(app_name: str, window_title: str, recent_context: str = ""
     custom = _get_custom_instructions()
     if custom:
         parts.append(f"<user_instructions>{_sanitize_user_input(custom, 500)}</user_instructions>")
+
+    # P9-1：注入剪贴板辅助上下文（URL/文本关键词）
+    try:
+        from clipboard_monitor import get_clipboard_context
+        clip_ctx = get_clipboard_context(max_items=3)
+        if clip_ctx:
+            parts.append(clip_ctx)
+    except Exception:
+        pass  # 剪贴板模块加载失败不影响核心功能
+
     parts.append("请按 JSON 格式输出分析结果，必须包含 windows 数组并描述每个窗口的实际内容。")
     parts.append("detail 字段必须 120-180 字，必须基于截图中实际可见的文本、代码、界面元素来描述。")
     parts.append("如果当前屏幕上有 IDE/编辑器窗口，重点描述其右侧主编辑区当前打开的文件和正在修改的代码，不要只描述左侧任务列表。")

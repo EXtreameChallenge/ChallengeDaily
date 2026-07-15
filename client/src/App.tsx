@@ -16,6 +16,7 @@ const Overview = lazy(() => import('./pages/Overview'))
 const Timeline = lazy(() => import('./pages/Timeline'))
 const Report = lazy(() => import('./pages/Report'))
 const Heatmap = lazy(() => import('./pages/Heatmap'))
+const CalendarView = lazy(() => import('./pages/CalendarView'))
 const AppRecords = lazy(() => import('./pages/AppRecords'))
 const HistoryReports = lazy(() => import('./pages/HistoryReports'))
 const Settings = lazy(() => import('./pages/Settings'))
@@ -277,6 +278,7 @@ export default function App() {
                         <Route path="/todos" element={<Todos />} />
                         <Route path="/diary" element={<Diary />} />
                         <Route path="/heatmap" element={<Heatmap />} />
+                        <Route path="/calendar" element={<CalendarView />} />
                         <Route path="/apps" element={<AppRecords />} />
                         <Route path="/app-tags" element={<AppTags />} />
                         <Route path="/history" element={<HistoryReports />} />

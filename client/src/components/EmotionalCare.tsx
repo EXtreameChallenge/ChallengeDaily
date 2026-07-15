@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Sparkles, Heart, PartyPopper, Coffee, Quote } from 'lucide-react'
-import { getQuote, getTodayStats, getTrendStats } from '../api/client'
+import { Sparkles, Heart, PartyPopper, Coffee, Quote, Sunrise } from 'lucide-react'
+import { getQuote, getTodayStats, getTrendStats, getMorningInsights, type MorningInsight } from '../api/client'
 
 /**
  * P8-2：情感化设计组件
@@ -71,16 +71,18 @@ export default function EmotionalCare() {
   const [streakDays, setStreakDays] = useState(0)
   const [totalActiveDays, setTotalActiveDays] = useState(0)
   const [showCelebration, setShowCelebration] = useState(false)
+  const [morningInsights, setMorningInsights] = useState<MorningInsight[]>([])
   const prevMilestoneKey = useRef<string>('')
 
   useEffect(() => {
     let cancelled = false
     const fetchAll = async () => {
       try {
-        const [q, stats, trend] = await Promise.all([
+        const [q, stats, trend, insights] = await Promise.all([
           getQuote().catch(() => ({ quote: '' })),
           getTodayStats().catch(() => null),
           getTrendStats(30).catch(() => ({ trend: [] as any[] })),
+          getMorningInsights().catch(() => ({ insights: [] as MorningInsight[] })),
         ])
         if (cancelled) return
         setQuote((q as any)?.quote || '')
@@ -98,6 +100,8 @@ export default function EmotionalCare() {
         setStreakDays(streak)
         const activeDays = trendArr.filter((d: any) => (d?.duration_min || 0) > 0).length
         setTotalActiveDays(activeDays)
+        // P9-2：晨报洞察
+        setMorningInsights((insights as any)?.insights || [])
       } catch {}
     }
     fetchAll()
@@ -126,10 +130,48 @@ export default function EmotionalCare() {
   const hour = new Date().getHours()
   const lowpointMsg = useMemo(() => pickLowpoint(todayMin, hour), [todayMin, hour])
 
-  if (!quote && !milestone && !lowpointMsg) return null
+  if (!quote && !milestone && !lowpointMsg && morningInsights.length === 0) return null
 
   return (
     <div className="space-y-2">
+      {/* P9-2：晨报洞察 */}
+      {morningInsights.length > 0 && (
+        <div className="space-y-1.5">
+          {morningInsights.map((ins, i) => {
+            const colorMap: Record<string, string> = {
+              positive: 'rgba(34,197,94,0.12)',
+              suggestion: 'rgba(59,130,246,0.12)',
+              warning: 'rgba(251,146,60,0.12)',
+              care: 'rgba(236,72,153,0.12)',
+              fun: 'rgba(168,85,247,0.12)',
+            }
+            const borderMap: Record<string, string> = {
+              positive: 'rgba(34,197,94,0.3)',
+              suggestion: 'rgba(59,130,246,0.3)',
+              warning: 'rgba(251,146,60,0.3)',
+              care: 'rgba(236,72,153,0.3)',
+              fun: 'rgba(168,85,247,0.3)',
+            }
+            return (
+              <div
+                key={i}
+                className="flex items-start gap-2 px-4 py-2.5 rounded-xl border"
+                style={{
+                  background: colorMap[ins.type] || colorMap.suggestion,
+                  borderColor: borderMap[ins.type] || borderMap.suggestion,
+                }}
+              >
+                <Sunrise size={14} className="text-amber-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-cd-text">{ins.title}</p>
+                  <p className="text-xs text-cd-text-secondary mt-0.5 leading-relaxed">{ins.body}</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* 每日一句 */}
       {quote && (
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-purple-400/20 bg-gradient-to-r from-purple-500/8 via-pink-500/5 to-amber-500/8">

@@ -1279,6 +1279,67 @@ export async function checkPomodoroDistraction(sessionId: number): Promise<{ is_
   }) as Promise<{ is_distraction: boolean; category: string; app_name: string; distraction_count: number }>
 }
 
+// ── P9-3：番茄钟增强 ──
+export interface SmartDurationResult {
+  recommended_min: number
+  reason: string
+  analysis: Array<{
+    duration_min: number
+    total: number
+    completed: number
+    interrupted: number
+    completion_rate: number
+    interrupt_rate: number
+    avg_distractions: number
+    score: number
+  }>
+}
+export async function getSmartDuration(): Promise<SmartDurationResult> {
+  return request('/api/pomodoro/smart-duration') as Promise<SmartDurationResult>
+}
+
+export interface PomodoroReport {
+  range_days: number
+  total_sessions: number
+  completed_sessions?: number
+  interrupted_sessions?: number
+  completion_rate?: number
+  total_focus_min?: number
+  total_focus_hour?: number
+  avg_distractions_per_session?: number
+  best_period?: string | null
+  best_period_completion_rate?: number | null
+  period_stats?: Record<string, { total: number; completed: number; min: number; distractions: number }>
+  category_stats?: Record<string, number>
+  daily_trend?: Array<{ date: string; total: number; completed: number; min: number }>
+  linked_task_count?: number
+  linked_task_ratio?: number
+  suggestions?: string[]
+  message?: string
+}
+export async function getPomodoroReport(days = 7): Promise<PomodoroReport> {
+  return request(`/api/pomodoro/report?days=${days}`) as Promise<PomodoroReport>
+}
+
+// ── P9-4：日历视图 ──
+export interface CalendarDay {
+  date: string
+  total_min: number
+  dominant_cat: string | null
+  cats: Record<string, number>
+  level: 0 | 1 | 2 | 3 | 4
+}
+export interface CalendarViewData {
+  month: string
+  days: CalendarDay[]
+  category_totals: Record<string, number>
+  legend: Array<{ cat: string; color: string }>
+}
+export async function getCalendarView(month?: string): Promise<CalendarViewData> {
+  const m = month ? `?month=${month}` : ''
+  return request(`/api/stats/calendar${m}`) as Promise<CalendarViewData>
+}
+
 // ── 待办清单 ──
 export interface Todo {
   id: number
@@ -1386,6 +1447,18 @@ export interface ReportSearchResult {
 export async function searchReports(q: string, limit = 20): Promise<{ results: ReportSearchResult[]; query: string; count: number }> {
   const params = new URLSearchParams({ q, limit: String(limit) })
   return request(`/api/report/search?${params.toString()}`) as Promise<{ results: ReportSearchResult[]; query: string; count: number }>
+}
+
+// ── P9-2: AI 主动洞察推送 ──
+export interface MorningInsight {
+  type: 'positive' | 'suggestion' | 'warning' | 'care' | 'fun'
+  title: string
+  body: string
+}
+
+export async function getMorningInsights(force = false): Promise<{ date: string; insights: MorningInsight[]; count: number }> {
+  const params = force ? '?force=1' : ''
+  return request(`/api/insight/morning${params}`) as Promise<{ date: string; insights: MorningInsight[]; count: number }>
 }
 
 // ── 倒数日 ──

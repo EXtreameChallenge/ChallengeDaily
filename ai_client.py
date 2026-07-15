@@ -230,6 +230,15 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
 
     user_text = build_user_prompt(app_name, window_title, recent_context, visible_windows)
 
+    # P9-1：注入 OCR 增强上下文（PaddleOCR 文字 + 图像特征）
+    try:
+        from ocr_enhancer import extract_text_from_image
+        ocr_ctx = extract_text_from_image(image_path)
+        if ocr_ctx:
+            user_text = user_text + "\n" + ocr_ctx
+    except Exception:
+        pass  # OCR 模块加载失败不影响核心功能
+
     max_retries = 3
     for attempt in range(max_retries):
         # 重试前检查熔断器，避免在熔断状态下继续浪费请求

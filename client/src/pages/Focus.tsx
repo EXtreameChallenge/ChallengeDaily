@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Play, Square, SkipForward, Brain, X } from 'lucide-react'
-import { startPomodoro, stopPomodoro, getPomodoroStats, getPomodoroQuality, getTodayTodos, checkPomodoroDistraction, formatLocalTimestamp, type TodoV2, POMODORO_SIZES, LONG_BREAK_INTERVAL } from '../api/client'
+import { Play, Square, SkipForward, Brain, X, Sparkles, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react'
+import { startPomodoro, stopPomodoro, getPomodoroStats, getPomodoroQuality, getTodayTodos, checkPomodoroDistraction, formatLocalTimestamp, getSmartDuration, getPomodoroReport, type TodoV2, POMODORO_SIZES, LONG_BREAK_INTERVAL, type SmartDurationResult, type PomodoroReport } from '../api/client'
 import WhiteNoise from '../components/WhiteNoise'
 
 type Phase = 'idle' | 'working' | 'short_break' | 'long_break'
@@ -84,6 +84,11 @@ export default function Focus() {
   const [distractionCount, setDistractionCount] = useState(0)
   const [distractionAlert, setDistractionAlert] = useState<{ app: string; count: number } | null>(null)
   const [resumePrompt, setResumePrompt] = useState<{ remaining: number; phase: Phase } | null>(null)
+  const [smartDuration, setSmartDuration] = useState<SmartDurationResult | null>(null)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reportData, setReportData] = useState<PomodoroReport | null>(null)
+  const [reportDays, setReportDays] = useState(7)
+  const [reportLoading, setReportLoading] = useState(false)
   const [searchParams] = useSearchParams()
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const autoSelectedRef = useRef(false)
@@ -108,6 +113,35 @@ export default function Focus() {
   }, [])
 
   useEffect(() => { loadStats() }, [loadStats])
+
+  // P9-3：加载智能时长建议（仅 idle 时加载一次）
+  useEffect(() => {
+    if (phase !== 'idle') return
+    getSmartDuration().then(setSmartDuration).catch(() => {})
+  }, [phase])
+
+  // P9-3：加载番茄报告
+  const loadReport = useCallback(async (days: number) => {
+    setReportLoading(true)
+    try {
+      const data = await getPomodoroReport(days)
+      setReportData(data)
+    } catch { setReportData(null) }
+    finally { setReportLoading(false) }
+  }, [])
+
+  useEffect(() => {
+    if (reportOpen) loadReport(reportDays)
+  }, [reportOpen, reportDays, loadReport])
+
+  // 根据智能建议自动切换番茄大小
+  const applySmartDuration = () => {
+    if (!smartDuration) return
+    const rec = smartDuration.recommended_min
+    // 25 -> big, 20 -> small, 其他保持当前
+    if (rec <= 20) setPomodoroSize('small')
+    else setPomodoroSize('big')
+  }
 
   // 恢复持久化状态
   useEffect(() => {
@@ -502,7 +536,13 @@ export default function Focus() {
 
   return (
     <div className="min-h-screen p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-cd-text mb-6">专注模式</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-cd-text">专注模式</h1>
+        <button onClick={() => setReportOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-cd-bg-card border border-white/5 rounded-lg text-cd-text-secondary hover:text-cd-text hover:bg-white/5 transition">
+          <BarChart3 size={16} /> 番茄报告
+        </button>
+      </div>
 
       {/* 番茄钟主体 */}
       <div className="flex flex-col items-center mb-8">
@@ -602,6 +642,26 @@ export default function Focus() {
                 )
               })}
             </div>
+            {/* P9-3：智能时长建议 */}
+            {smartDuration && smartDuration.analysis.length > 0 && (
+              <div className="flex items-start gap-2 bg-purple-500/10 border border-purple-400/20 rounded-lg px-3 py-2 text-xs">
+                <Sparkles size={14} className="text-purple-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 text-cd-text-secondary">
+                  <div className="text-cd-text font-medium">智能建议：{smartDuration.recommended_min} 分钟</div>
+                  <div className="mt-0.5">{smartDuration.reason}</div>
+                </div>
+                {(() => {
+                  const rec = smartDuration.recommended_min
+                  const matches = (rec <= 20 && pomodoroSize === 'small') || (rec > 20 && pomodoroSize === 'big')
+                  return !matches ? (
+                    <button onClick={applySmartDuration}
+                      className="text-purple-400 hover:text-purple-300 text-[10px] underline whitespace-nowrap">
+                      采用
+                    </button>
+                  ) : null
+                })()}
+              </div>
+            )}
             {/* 预估番茄数 */}
             <div className="flex items-center gap-3">
               <span className="text-sm text-cd-text-secondary">预估番茄</span>
@@ -775,6 +835,148 @@ export default function Focus() {
                 className="px-4 py-2 text-sm text-cd-text-tertiary hover:text-cd-text">放弃记录</button>
               <button onClick={() => setResumePrompt(null)}
                 className="px-4 py-2 text-sm bg-cd-green text-white rounded hover:opacity-90">继续专注</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* P9-3：番茄报告弹窗 */}
+      {reportOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setReportOpen(false)}>
+          <div className="bg-cd-bg-card border border-white/10 rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-white/5 sticky top-0 bg-cd-bg-card z-10">
+              <h2 className="text-lg font-bold text-cd-text flex items-center gap-2">
+                <BarChart3 size={20} className="text-cd-accent" /> 番茄钟报告
+              </h2>
+              <button onClick={() => setReportOpen(false)} className="text-cd-text-tertiary hover:text-cd-text p-1">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {/* 时间范围切换 */}
+              <div className="flex gap-2">
+                {[7, 14, 30].map(d => (
+                  <button key={d} onClick={() => setReportDays(d)}
+                    className={`px-3 py-1 text-xs rounded-lg border transition ${
+                      reportDays === d
+                        ? 'bg-cd-accent/20 text-cd-accent border-cd-accent/30'
+                        : 'bg-cd-bg-input text-cd-text-secondary border-white/5'
+                    }`}>
+                    近 {d} 天
+                  </button>
+                ))}
+              </div>
+
+              {reportLoading ? (
+                <div className="text-center py-10 text-cd-text-secondary text-sm">加载中…</div>
+              ) : !reportData ? (
+                <div className="text-center py-10 text-cd-text-secondary text-sm">加载失败</div>
+              ) : reportData.total_sessions === 0 ? (
+                <div className="text-center py-10 text-cd-text-secondary text-sm">
+                  {reportData.message || '该时段内暂无番茄钟记录'}
+                </div>
+              ) : (
+                <>
+                  {/* 总览数据 */}
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="bg-cd-bg-input rounded-lg p-3 text-center">
+                      <div className="text-xl font-bold text-cd-text">{reportData.total_sessions}</div>
+                      <div className="text-[10px] text-cd-text-tertiary mt-0.5">总番茄</div>
+                    </div>
+                    <div className="bg-cd-bg-input rounded-lg p-3 text-center">
+                      <div className="text-xl font-bold text-green-400">{reportData.completed_sessions}</div>
+                      <div className="text-[10px] text-cd-text-tertiary mt-0.5">已完成</div>
+                    </div>
+                    <div className="bg-cd-bg-input rounded-lg p-3 text-center">
+                      <div className="text-xl font-bold text-cd-accent">{Math.round((reportData.completion_rate || 0) * 100)}%</div>
+                      <div className="text-[10px] text-cd-text-tertiary mt-0.5">完成率</div>
+                    </div>
+                    <div className="bg-cd-bg-input rounded-lg p-3 text-center">
+                      <div className="text-xl font-bold text-gold">{reportData.total_focus_hour}</div>
+                      <div className="text-[10px] text-cd-text-tertiary mt-0.5">专注小时</div>
+                    </div>
+                  </div>
+
+                  {/* 最佳时段 */}
+                  {reportData.best_period && (
+                    <div className="bg-purple-500/10 border border-purple-400/20 rounded-lg p-3 text-sm">
+                      <span className="text-purple-400 font-medium">★ 最佳时段：</span>
+                      <span className="text-cd-text-secondary ml-1">
+                        {reportData.best_period}（完成率 {Math.round((reportData.best_period_completion_rate || 0) * 100)}%）
+                      </span>
+                    </div>
+                  )}
+
+                  {/* 时段分析 */}
+                  {reportData.period_stats && Object.keys(reportData.period_stats).length > 0 && (
+                    <div>
+                      <h3 className="text-sm text-cd-text-secondary mb-2">时段分布</h3>
+                      <div className="grid grid-cols-4 gap-2">
+                        {['上午', '下午', '晚间', '夜间'].map(p => {
+                          const ps = reportData.period_stats?.[p]
+                          if (!ps || ps.total === 0) return null
+                          const rate = Math.round((ps.completed / ps.total) * 100)
+                          return (
+                            <div key={p} className="bg-cd-bg-input rounded-lg p-2 text-center">
+                              <div className="text-xs text-cd-text font-medium">{p}</div>
+                              <div className="text-lg font-bold text-cd-text mt-1">{ps.total}</div>
+                              <div className="text-[10px] text-green-400">{rate}%</div>
+                              <div className="text-[10px] text-cd-text-tertiary">{ps.min}min</div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 每日趋势 */}
+                  {reportData.daily_trend && reportData.daily_trend.length > 0 && (
+                    <div>
+                      <h3 className="text-sm text-cd-text-secondary mb-2">每日趋势</h3>
+                      <div className="flex gap-1 items-end h-24 bg-cd-bg-input rounded-lg p-2">
+                        {reportData.daily_trend.map((d, i) => {
+                          const max = Math.max(...reportData.daily_trend!.map(x => x.min), 60)
+                          const h = (d.min / max) * 100
+                          return (
+                            <div key={i} className="flex-1 flex flex-col items-center justify-end" title={`${d.date}: ${d.min}min`}>
+                              <div className="w-full bg-cd-accent/30 rounded-t hover:bg-cd-accent/50 transition"
+                                style={{ height: `${Math.max(h, 2)}%`, minHeight: '2px' }} />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 任务关联 */}
+                  {reportData.total_sessions && reportData.total_sessions > 0 && (
+                    <div className="bg-cd-bg-input rounded-lg p-3 text-sm flex items-center justify-between">
+                      <span className="text-cd-text-secondary">任务关联率</span>
+                      <span className="text-cd-text font-medium">
+                        {Math.round((reportData.linked_task_ratio || 0) * 100)}%
+                        <span className="text-cd-text-tertiary text-xs ml-2">
+                          ({reportData.linked_task_count} 个不同任务)
+                        </span>
+                      </span>
+                    </div>
+                  )}
+
+                  {/* 改进建议 */}
+                  {reportData.suggestions && reportData.suggestions.length > 0 && (
+                    <div>
+                      <h3 className="text-sm text-cd-text-secondary mb-2">改进建议</h3>
+                      <div className="space-y-1.5">
+                        {reportData.suggestions.map((s, i) => (
+                          <div key={i} className="flex items-start gap-2 bg-cd-bg-input rounded-lg p-2.5 text-xs text-cd-text-secondary">
+                            <span className="text-cd-accent mt-0.5">→</span>
+                            <span>{s}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
