@@ -4,8 +4,11 @@ import { ToggleSwitch, useTimeout, useAsyncData, ApiErrorDisplay } from '../comp
 import { useToast } from '../components/Toast'
 import { useTheme, ACCENT_PRESETS, FONT_PRESETS, RADIUS_PRESETS, SHADOW_PRESETS, OPACITY_PRESETS, SKIN_PRESETS } from '../components/ThemeContext'
 import { AppLockSettings } from '../components/AppLock'
-import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon, Cat, Rocket, Search } from 'lucide-react'
+import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon, Cat, Rocket, Search, Calendar, GitBranch, Cpu } from 'lucide-react'
 import dayjs from 'dayjs'
+import CalendarSubscriptionManager from '../components/CalendarSubscriptionManager'
+import GitRepoManager from '../components/GitRepoManager'
+import LocalModelConfigPanel from '../components/LocalModelConfig'
 
 export default function Settings() {
   const toast = useToast()
@@ -63,7 +66,7 @@ export default function Settings() {
     setSearchQuery(query)
     if (!query.trim()) { setHighlightedSection(''); return }
     // 简单匹配：遍历设置分区标题
-    const sections = ['外观', '采集', 'AI', '日报', '数据', '备份', '导入', '隐私', '关于']
+    const sections = ['外观', '采集', 'AI', '日报', '数据', '日历', 'Git', '备份', '导入', '隐私', '关于']
     const match = sections.find(s => s.toLowerCase().includes(query.toLowerCase()))
     if (match) {
       setHighlightedSection(match)
@@ -325,7 +328,7 @@ export default function Settings() {
           type="text"
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
-          placeholder="搜索设置项...（外观/采集/AI/日报/数据/备份/导入/隐私/关于）"
+          placeholder="搜索设置项...（外观/采集/AI/日报/数据/日历/Git/备份/导入/隐私/关于）"
           className="w-full px-3 py-2 pl-9 bg-cd-bg-secondary border border-cd-border rounded-lg text-sm text-cd-text focus:outline-none focus:ring-1 focus:ring-cd-green"
         />
         <Search className="absolute left-3 top-2.5 w-4 h-4 text-cd-text-tertiary" />
@@ -859,6 +862,15 @@ export default function Settings() {
                   </div>
                 )}
               </div>
+
+              {/* P19-4：本地小模型降级配置 */}
+              <div className="pt-3 border-t border-cd-border">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Cpu size={12} className="text-cd-text-tertiary" />
+                  <span className="text-xs font-semibold text-cd-text-secondary">本地小模型降级（Ollama）</span>
+                </div>
+                <LocalModelConfigPanel />
+              </div>
             </>
           )}
         </div>
@@ -945,6 +957,36 @@ export default function Settings() {
         <div className="text-xs text-cd-text-tertiary">
           导出为 CSV 格式，可用 Excel 打开。BOM 编码确保中文兼容。
         </div>
+      </section>
+
+      {/* ─── 外部日历集成（P19-1） ──────────────────────────── */}
+      <section
+        id="settings-section-日历"
+        className={`card space-y-4 ${highlightedSection === '日历' ? 'ring-2 ring-cd-green' : ''}`}
+      >
+        <div className="flex items-center gap-2">
+          <Calendar size={16} className="text-cd-green" />
+          <h2 className="text-sm font-semibold text-cd-text">外部日历集成</h2>
+        </div>
+        <div className="text-xs text-cd-text-tertiary">
+          订阅 ICS 日历源（Google Calendar / Outlook / 飞书等），自动识别会议时段，避免在会议期间触发专注提醒。
+        </div>
+        <CalendarSubscriptionManager />
+      </section>
+
+      {/* ─── Git 仓库集成（P19-2） ──────────────────────────── */}
+      <section
+        id="settings-section-Git"
+        className={`card space-y-4 ${highlightedSection === 'Git' ? 'ring-2 ring-cd-green' : ''}`}
+      >
+        <div className="flex items-center gap-2">
+          <GitBranch size={16} className="text-cd-green" />
+          <h2 className="text-sm font-semibold text-cd-text">Git 仓库集成</h2>
+        </div>
+        <div className="text-xs text-cd-text-tertiary">
+          添加本地 git 仓库路径，日报将自动聚合提交记录与代码增删行数，生成开发者专属代码产出统计。
+        </div>
+        <GitRepoManager />
       </section>
 
       {/* ─── 数据备份与恢复 ────────────────────── */}

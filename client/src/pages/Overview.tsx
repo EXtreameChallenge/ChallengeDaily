@@ -22,7 +22,7 @@ import {
 } from '../api/client'
 import {
   Clock, Monitor, Zap, TrendingUp, Camera, Focus, CalendarDays,
-  Activity as ActivityIcon, Play, ArrowRight,
+  Activity as ActivityIcon, Play, ArrowRight, Trophy,
 } from 'lucide-react'
 import dayjs from 'dayjs'
 import { RefreshIndicator } from '../components/shared'
@@ -31,6 +31,7 @@ import DistractionHeatmap from '../components/DistractionHeatmap'
 import EmotionalCare from '../components/EmotionalCare'
 import InfoTooltip, { METRIC_EXPLANATIONS } from '../components/InfoTooltip'
 import SmartCoachPanel from '../components/SmartCoachPanel'
+import BenchmarkPanel from '../components/BenchmarkPanel'
 
 function getDisplayAppName(appName: string): string {
   const lower = appName.toLowerCase()
@@ -331,6 +332,16 @@ export default function Overview() {
         {/* P16：智能教练面板 — 生物钟 + 主动建议 */}
         <div className="mt-5">
           <SmartCoachPanel />
+        </div>
+
+        {/* P19-3：行业基准对比 — 同业百分位 + 群组排行 */}
+        <div className="mt-5 bg-cd-card border border-cd-border rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Trophy size={14} className="text-cd-green" />
+            <h3 className="text-sm font-semibold text-cd-text">行业基准对比</h3>
+            <span className="text-xs text-cd-text-tertiary ml-1">看看你在同业中的位置</span>
+          </div>
+          <BenchmarkPanel />
         </div>
       </div>
 
