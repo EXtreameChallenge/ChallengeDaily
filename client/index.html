@@ -3,10 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- P39: X-Content-Type-Options 防止 MIME 嗅探 -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <!-- P39: X-Frame-Options 防止点击劫持 -->
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <!-- P39: Referrer-Policy 控制引荐来源泄露 -->
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    <!-- P39: Permissions-Policy 限制浏览器 API 访问 -->
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=()" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: http: https:; connect-src 'self' http://127.0.0.1:58888 http://localhost:58888 http://localhost:5173 https://wttr.in https://api.open-meteo.com https://geocoding-api.open-meteo.com https://api.bigdatacloud.net https://qifu-api.baidubce.com https://pv.sohu.com https://int.dpool.sina.com.cn https://nominatim.openstreetmap.org https://ipapi.co https://ipinfo.io https://ip-api.com https://open.bigmodel.cn; media-src 'none'; object-src 'none'; frame-src 'none';" />
+    <!-- P38: CSP 增强 — 添加 base-uri 和 form-action 限制 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: http: https:; connect-src 'self' http://127.0.0.1:58888 http://localhost:58888 http://localhost:5173 https://wttr.in https://api.open-meteo.com https://geocoding-api.open-meteo.com https://api.bigdatacloud.net https://qifu-api.baidubce.com https://pv.sohu.com https://int.dpool.sina.com.cn https://nominatim.openstreetmap.org https://ipapi.co https://ipinfo.io https://ip-api.com https://open.bigmodel.cn; media-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self';" />
     <title>ChallengeDaily</title>
   </head>
   <body>

@@ -793,6 +793,34 @@ const isFromMainWindow = (sender) => {
 }
 
 function setupIPC() {
+  // P37: IPC 通道白名单 — 仅允许已注册的通道名
+  const ALLOWED_IPC_CHANNELS = new Set([
+    'window-minimize', 'window-maximize', 'window-close', 'window-show',
+    'pet-toggle', 'pet-get-visible', 'pet-window-drag', 'pet-activity-update',
+    'pomodoro-widget-update', 'pomodoro-widget-hide',
+    'distraction-alert', 'show-notification',
+    'get-backend-port', 'get-api-token',
+    'check-for-updates', 'download-update', 'install-update', 'get-app-version',
+    'get-auto-start', 'set-auto-start',
+    'get-windows-location', 'windows-hello',
+  ])
+  const _origOn = ipcMain.on.bind(ipcMain)
+  const _origHandle = ipcMain.handle.bind(ipcMain)
+  ipcMain.on = (channel, listener) => {
+    if (!ALLOWED_IPC_CHANNELS.has(channel)) {
+      console.warn(`[P37] 拒绝注册未授权 IPC 通道: ${channel}`)
+      return
+    }
+    _origOn(channel, listener)
+  }
+  ipcMain.handle = (channel, listener) => {
+    if (!ALLOWED_IPC_CHANNELS.has(channel)) {
+      console.warn(`[P37] 拒绝注册未授权 IPC handle: ${channel}`)
+      return
+    }
+    _origHandle(channel, listener)
+  }
+
   // 窗口控制
   ipcMain.on('window-minimize', () => mainWindow?.minimize())
   ipcMain.on('window-maximize', () => {

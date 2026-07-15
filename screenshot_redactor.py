@@ -8,6 +8,11 @@ logger = logging.getLogger(__name__)
 _SENSITIVE_WINDOW_KEYWORDS = [
     '密码', 'password', '登录', 'login', '银行', 'bank', '支付', 'payment',
     '微信', 'wechat', 'qq', '支付宝', 'alipay', 'wallet',
+    # P33: 扩展敏感关键词
+    '验证码', 'verification', 'otp', 'token', 'secret',
+    '私人', 'private', '机密', 'confidential',
+    '病历', 'medical', '健康记录',
+    '社保', 'passport', '护照', '身份证',
 ]
 
 # 隐私应用名单（用户可在 Settings 配置，存 settings 表）
