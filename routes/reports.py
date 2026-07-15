@@ -8,6 +8,10 @@ from db import get_reports, get_daily_summary, search_reports
 import db
 import config
 from routes.deps import safe_error, validate_date
+from routes import deps
+from deep_analysis import generate_deep_insights, format_deep_insights_as_markdown
+from obsidian_export import export_report_as_obsidian, export_report_as_obsidian_dataview
+from emotional_design import build_care_message, build_milestone_celebration
 
 bp = Blueprint('reports', __name__)
 logger = logging.getLogger(__name__)
@@ -164,6 +168,8 @@ def generate_report():
 
 @bp.route("/api/report/weekly")
 def report_weekly():
+    if not deps.check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
     start_date = request.args.get("date", date.today().isoformat())
     if not validate_date(start_date):
         return jsonify({"error": f"Invalid date format: {start_date}"}), 400
@@ -188,6 +194,22 @@ def report_weekly():
         interval_min = config.SCREENSHOT_INTERVAL_SEC / 60
         cat_data = {k: v * interval_min for k, v in summary.get("categories", {}).items()}
         content = enhance_report_with_ai_analysis(content, "weekly", f"{monday.isoformat()}~{week_end}", cat_data)
+        # P12-1: 追加深度洞察（趋势/模式/基准，纯规则，不消耗 AI）
+        try:
+            insights = generate_deep_insights()
+            content += format_deep_insights_as_markdown(insights)
+        except Exception as de:
+            logger.warning(f"深度洞察生成失败(非致命): {de}")
+        # P12-3: 情感化设计 — 关怀语/里程碑庆祝
+        try:
+            care = build_care_message(report_type="weekly")
+            if care:
+                content += care
+            milestone = build_milestone_celebration()
+            if milestone:
+                content += milestone
+        except Exception as ee:
+            logger.warning(f"情感化文案生成失败(非致命): {ee}")
         return jsonify({"date": start_date, "content": content, "type": "weekly"})
     except Exception as e:
         return jsonify({"error": safe_error(e, "周报生成失败")}), 500
@@ -195,6 +217,8 @@ def report_weekly():
 
 @bp.route("/api/report/monthly")
 def report_monthly():
+    if not deps.check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
     import re
     year_month = request.args.get("month", date.today().strftime("%Y-%m"))
     if not re.match(r"^\d{4}-\d{2}$", year_month):
@@ -211,6 +235,22 @@ def report_monthly():
         interval_min = config.SCREENSHOT_INTERVAL_SEC / 60
         cat_data = {k: v * interval_min for k, v in summary.get("categories", {}).items()}
         content = enhance_report_with_ai_analysis(content, "monthly", year_month, cat_data)
+        # P12-1: 追加深度洞察（月报同样适用）
+        try:
+            insights = generate_deep_insights()
+            content += format_deep_insights_as_markdown(insights)
+        except Exception as de:
+            logger.warning(f"深度洞察生成失败(非致命): {de}")
+        # P12-3: 情感化设计
+        try:
+            care = build_care_message(report_type="monthly")
+            if care:
+                content += care
+            milestone = build_milestone_celebration()
+            if milestone:
+                content += milestone
+        except Exception as ee:
+            logger.warning(f"情感化文案生成失败(非致命): {ee}")
         return jsonify({"month": year_month, "content": content, "type": "monthly"})
     except Exception as e:
         return jsonify({"error": safe_error(e, "月报生成失败")}), 500
@@ -218,12 +258,80 @@ def report_monthly():
 
 @bp.route("/api/report/date/<string:d>")
 def report_by_date(d):
+    if not deps.check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
     if not validate_date(d):
         return jsonify({"error": f"Invalid date format: {d}"}), 400
     reports = get_reports(d, d)
     if reports:
         return jsonify({"date": d, "content": reports[0]["content"], "template": "standard"})
     return jsonify({"date": d, "content": "", "template": "standard"})
+
+
+# ── P12-1：深度洞察独立端点（供前端可视化页直接消费） ──
+
+@bp.route("/api/report/deep-insights")
+def report_deep_insights():
+    """返回结构化深度洞察 JSON（趋势/模式/基准）"""
+    if not deps.check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        insights = generate_deep_insights()
+        return jsonify({"status": "ok", "insights": insights})
+    except Exception as e:
+        return jsonify({"error": safe_error(e, "深度洞察生成失败")}), 500
+
+
+# ── P12-2：Obsidian 导出端点 ──
+
+@bp.route("/api/report/export/obsidian")
+def report_export_obsidian():
+    """导出报告为 Obsidian 格式（含 Dataview 双向链接）
+    参数: date=YYYY-MM-DD (默认今天), mode=standard|dataview (默认 dataview)
+    """
+    if not deps.check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    target_date = request.args.get("date", date.today().isoformat())
+    mode = request.args.get("mode", "dataview")
+    if not validate_date(target_date):
+        return jsonify({"error": f"Invalid date format: {target_date}"}), 400
+    if mode not in ("standard", "dataview"):
+        mode = "dataview"
+    try:
+        reports = get_reports(target_date, target_date)
+        original = reports[0]["content"] if reports else ""
+        if not original:
+            return jsonify({"error": "当日报告不存在"}), 404
+        if mode == "dataview":
+            exported = export_report_as_obsidian_dataview(original, target_date)
+        else:
+            exported = export_report_as_obsidian(original, target_date)
+        return jsonify({
+            "status": "ok",
+            "date": target_date,
+            "mode": mode,
+            "content": exported,
+            "filename": f"ChallengeDaily-{target_date}.md",
+        })
+    except Exception as e:
+        return jsonify({"error": safe_error(e, "Obsidian 导出失败")}), 500
+
+
+# ── P12-4：桌面宠物情绪化数据端点 ──
+
+@bp.route("/api/pet/mood")
+def pet_mood():
+    """基于今日数据返回宠物情绪数据
+    返回: { mood, focus_min, focus_sessions, distraction_count, message, streak_days }
+    """
+    if not deps.check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        from pet_mood import compute_pet_mood
+        result = compute_pet_mood()
+        return jsonify({"status": "ok", **result})
+    except Exception as e:
+        return jsonify({"error": safe_error(e, "宠物情绪计算失败")}), 500
 
 
 def _get_pomodoro_section(target_date):

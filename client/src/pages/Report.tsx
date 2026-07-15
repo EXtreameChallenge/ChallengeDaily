@@ -13,6 +13,7 @@ import {
   request,
   submitReportToChannels,
   scoreReportQuality,
+  exportReportAsObsidian,
   type TodayStats,
   type PomodoroSummary,
   type DailyCredibility,
@@ -23,7 +24,7 @@ import { useTimeout, useAsyncData } from '../components/shared'
 import { useToast } from '../components/Toast'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { FileText, Calendar, Sparkles, Copy, Check, Download, Save, Trash2, BookOpen, Send, Gauge } from 'lucide-react'
+import { FileText, Calendar, Sparkles, Copy, Check, Download, Save, Trash2, BookOpen, Send, Gauge, BookMarked } from 'lucide-react'
 import dayjs from 'dayjs'
 
 type ReportType = 'daily' | 'weekly' | 'monthly'
@@ -191,6 +192,32 @@ export default function Report() {
     URL.revokeObjectURL(url)
   }
 
+  // P12-2: 导出为 Obsidian Dataview 双向链接格式
+  const [obsidianExporting, setObsidianExporting] = useState(false)
+  const handleExportObsidian = async () => {
+    if (!content) {
+      toast.warn('请先生成报告')
+      return
+    }
+    setObsidianExporting(true)
+    try {
+      const today = dayjs().format('YYYY-MM-DD')
+      const result = await exportReportAsObsidian(today, 'dataview')
+      const blob = new Blob([result.content], { type: 'text/markdown;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = result.filename
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('已导出 Obsidian Dataview 格式')
+    } catch (e) {
+      toast.error('Obsidian 导出失败')
+    } finally {
+      setObsidianExporting(false)
+    }
+  }
+
   // ── 自定义模板：加载/保存/删除 ──
   const loadCustomTemplates = useCallback(async () => {
     try {
@@ -327,6 +354,15 @@ export default function Report() {
               >
                 <Download size={12} />
                 下载
+              </button>
+              <button
+                onClick={handleExportObsidian}
+                disabled={obsidianExporting || !content}
+                className="flex items-center gap-1 px-3 py-1 rounded-md text-xs bg-cd-purple/15 hover:bg-cd-purple/25 text-cd-purple transition-colors border border-cd-purple/30 disabled:opacity-40"
+                title="导出为 Obsidian Dataview 双向链接格式"
+              >
+                <BookMarked size={12} />
+                {obsidianExporting ? '导出中...' : 'Obsidian'}
               </button>
               <button
                 onClick={handleCopy}

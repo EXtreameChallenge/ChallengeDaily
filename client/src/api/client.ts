@@ -1976,3 +1976,65 @@ export async function getAuditStats(): Promise<{ stats: AuditStats }> {
 export async function cleanupAuditLogs(): Promise<{ status: string; deleted: number }> {
   return request('/api/audit/cleanup', { method: 'POST' }) as Promise<{ status: string; deleted: number }>
 }
+
+// ── P12-1：周报/月报深度洞察 ──
+export interface DeepInsights {
+  weekly_stats: Array<{
+    week_start: string
+    week_end: string
+    total_min: number
+    categories: Record<string, number>
+    percentages: Record<string, number>
+  }>
+  trends: Array<{
+    category: string
+    current_pct: number
+    previous_pct: number
+    delta: number
+    direction: string
+    significant: boolean
+  }>
+  patterns: {
+    peak_hours: string[]
+    low_hours: string[]
+    best_category: string | null
+    avg_hour_min?: number
+  }
+  benchmark: Array<{
+    metric: string
+    user_value: number
+    benchmark: number
+    unit: string
+    status: 'above' | 'below'
+    diff: number
+  }>
+  benchmarks_definition: Record<string, number>
+}
+export async function getDeepInsights(): Promise<{ status: string; insights: DeepInsights }> {
+  return request('/api/report/deep-insights') as Promise<{ status: string; insights: DeepInsights }>
+}
+
+// ── P12-2：Obsidian 导出 ──
+export async function exportReportAsObsidian(
+  date: string,
+  mode: 'standard' | 'dataview' = 'dataview'
+): Promise<{ status: string; date: string; mode: string; content: string; filename: string }> {
+  return request(`/api/report/export/obsidian?date=${encodeURIComponent(date)}&mode=${mode}`) as Promise<{
+    status: string; date: string; mode: string; content: string; filename: string
+  }>
+}
+
+// ── P12-4：宠物情绪化 ──
+export type PetMood = 'idle' | 'focused' | 'flowing' | 'distracted' | 'overworked' | 'sleepy' | 'milestone'
+export interface PetMoodData {
+  status: string
+  mood: PetMood
+  focus_min: number
+  focus_sessions: number
+  distraction_count: number
+  streak_days: number
+  message: string
+}
+export async function getPetMood(): Promise<PetMoodData> {
+  return request('/api/pet/mood') as Promise<PetMoodData>
+}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { getTodayStats, getCoachStatus, type CoachStatus } from '../api/client'
+import { getTodayStats, getCoachStatus, getPetMood, type CoachStatus, type PetMood } from '../api/client'
 
 // ─── 宠物形象定义 ──────────────────────────────
 type PetStyle = 'yuexinmao' | 'codex' | 'claude' | 'cat'
@@ -35,8 +35,8 @@ const ENCOURAGE_MESSAGES = [
   '你已经很棒了', '不要放弃哦', '坚持就是胜利',
 ]
 
-// P7-3: 情绪状态定义
-type Mood = 'idle' | 'focused' | 'flowing' | 'distracted' | 'overworked' | 'sleepy'
+// P7-3: 情绪状态定义（P12-4: 新增 milestone 庆祝情绪）
+type Mood = 'idle' | 'focused' | 'flowing' | 'distracted' | 'overworked' | 'sleepy' | 'milestone'
 
 const MOOD_LABELS: Record<Mood, string> = {
   idle: '悠闲',
@@ -45,6 +45,7 @@ const MOOD_LABELS: Record<Mood, string> = {
   distracted: '摸鱼中',
   overworked: '过劳',
   sleepy: '困倦',
+  milestone: '🎉 庆祝',
 }
 
 const MOOD_MESSAGES: Record<Mood, string[]> = {
@@ -54,6 +55,7 @@ const MOOD_MESSAGES: Record<Mood, string[]> = {
   distracted: ['嗯…又在摸鱼了？', '回来工作啦~', '我知道你有更好的选择', '要不要试试番茄钟？'],
   overworked: ['该休息了！', '连续工作太久啦', '喝杯水吧~', '身体是革命的本钱哦'],
   sleepy: ['困了吗？', '小憩一下也不错', '记得早点休息~'],
+  milestone: ['哇！达成里程碑啦！', '恭喜你，太厉害啦~', '这份坚持，值得庆祝！', '为你骄傲~'],
 }
 
 export default function Pet() {
@@ -74,6 +76,9 @@ export default function Pet() {
   const [mood, setMood] = useState<Mood>('idle')
   const [coachStatus, setCoachStatus] = useState<CoachStatus | null>(null)
   const [focusMin, setFocusMin] = useState(0)
+  // P12-4: 宠物情绪化数据（来自后端 /api/pet/mood）
+  const [streakDays, setStreakDays] = useState(0)
+  const [celebrate, setCelebrate] = useState(false)
 
   const config = PET_CONFIGS[style]
 
@@ -138,6 +143,31 @@ export default function Pet() {
     pollCoach()
     const id = window.setInterval(pollCoach, 30000)
     return () => window.clearInterval(id)
+  }, [showBubble])
+
+  // P12-4: 宠物情绪化 — 轮询 /api/pet/mood（60秒，里程碑优先级最高）
+  useEffect(() => {
+    let cancelled = false
+    const pollPetMood = async () => {
+      try {
+        const data = await getPetMood()
+        if (cancelled) return
+        setStreakDays(data.streak_days)
+        // 里程碑情绪优先级最高，覆盖教练状态计算的 mood
+        if (data.mood === 'milestone') {
+          setMood('milestone')
+          setCelebrate(true)
+          showBubble(data.message, 8000)
+          window.setTimeout(() => setCelebrate(false), 6000)
+        } else if (data.streak_days > 0 && data.focus_min === 0) {
+          // 数据空窗期但历史有打卡 → 悠闲情绪
+          setMood('idle')
+        }
+      } catch {}
+    }
+    pollPetMood()
+    const id = window.setInterval(pollPetMood, 60000)
+    return () => { cancelled = true; window.clearInterval(id) }
   }, [showBubble])
 
   useEffect(() => {
@@ -343,7 +373,7 @@ export default function Pet() {
         {renderPet()}
       </div>
 
-      {/* P7-3: 情绪状态指示器 + 专注时长 */}
+      {/* P7-3: 情绪状态指示器 + 专注时长 + 连续打卡（P12-4） */}
       <div style={{
         position: 'absolute', bottom: '2px', left: '50%', transform: 'translateX(-50%)',
         display: 'flex', alignItems: 'center', gap: '4px', padding: '1px 6px',
@@ -352,20 +382,42 @@ export default function Pet() {
                     mood === 'overworked' ? 'rgba(251,146,60,0.2)' :
                     mood === 'flowing' ? 'rgba(168,85,247,0.2)' :
                     mood === 'focused' ? 'rgba(34,197,94,0.2)' :
+                    mood === 'milestone' ? 'rgba(250,204,21,0.25)' :
                     'rgba(120,120,140,0.15)',
         color: mood === 'distracted' ? '#ef4444' :
                mood === 'overworked' ? '#fb923c' :
                mood === 'flowing' ? '#a855f7' :
-               mood === 'focused' ? '#22c55e' : '#888',
+               mood === 'focused' ? '#22c55e' :
+               mood === 'milestone' ? '#facc15' : '#888',
         border: `1px solid ${mood === 'distracted' ? 'rgba(239,68,68,0.3)' :
                           mood === 'overworked' ? 'rgba(251,146,60,0.3)' :
                           mood === 'flowing' ? 'rgba(168,85,247,0.3)' :
-                          mood === 'focused' ? 'rgba(34,197,94,0.3)' : 'rgba(120,120,140,0.2)'}`,
+                          mood === 'focused' ? 'rgba(34,197,94,0.3)' :
+                          mood === 'milestone' ? 'rgba(250,204,21,0.4)' : 'rgba(120,120,140,0.2)'}`,
         pointerEvents: 'none', zIndex: 10,
       }}>
         <span>{MOOD_LABELS[mood]}</span>
         {focusMin > 0 && <span style={{ opacity: 0.6 }}>· {Math.floor(focusMin / 60)}h{focusMin % 60}m</span>}
+        {streakDays > 0 && <span style={{ opacity: 0.6 }}>· 🔥{streakDays}d</span>}
       </div>
+
+      {/* P12-4: 里程碑庆祝动画（彩屑飘落） */}
+      {celebrate && (
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 50 }}>
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} style={{
+              position: 'absolute',
+              left: `${(i * 8.33) % 100}%`,
+              top: '-10px',
+              width: '6px', height: '6px',
+              background: ['#fbbf24', '#f87171', '#34d399', '#60a5fa', '#a78bfa', '#f472b6'][i % 6],
+              borderRadius: '50%',
+              animation: `pet-confetti ${2 + (i % 3) * 0.5}s ease-in ${i * 0.1}s forwards`,
+            }} />
+          ))}
+          <style>{`@keyframes pet-confetti { 0% { transform: translateY(0) rotate(0); opacity: 1 } 100% { transform: translateY(200px) rotate(720deg); opacity: 0 } }`}</style>
+        </div>
+      )}
     </div>
   )
 }
