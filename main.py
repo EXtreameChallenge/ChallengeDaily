@@ -224,8 +224,17 @@ def main():
             except Exception as e:
                 logger.error(f"采集循环异常: {e}")
 
-            # 自适应休眠：非工作时间 5 分钟醒一次，工作时间正常间隔
-            sleep_sec = config.SCREENSHOT_INTERVAL_SEC if in_work_hours else 300
+            # 自适应休眠：非工作时间 5 分钟醒一次，工作时间使用 P8-3 自适应间隔
+            if in_work_hours:
+                # P8-3：尝试从采集器获取自适应间隔，回退到默认间隔
+                adaptive = None
+                try:
+                    adaptive = collector.get_adaptive_interval()
+                except Exception:
+                    adaptive = None
+                sleep_sec = adaptive if (adaptive and adaptive > 0) else config.SCREENSHOT_INTERVAL_SEC
+            else:
+                sleep_sec = 300
             stop.wait(timeout=sleep_sec)
 
     except KeyboardInterrupt:

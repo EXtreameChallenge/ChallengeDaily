@@ -47,6 +47,16 @@ for d in [DATA_DIR, SCREENSHOT_DIR, REPORT_DIR]:
 # ── 截图间隔（秒）──
 SCREENSHOT_INTERVAL_SEC = int(os.getenv("SCREENSHOT_INTERVAL_SEC", "60"))
 
+# ── P8-3：自适应采样 ──
+# 启用后采集器会根据近期分类变化频率动态调整下次采样间隔：
+#   - 分类频繁切换 → 缩短到下限（捕捉细节）
+#   - 分类长时间稳定 → 拉长到上限（节省资源）
+# 仅在工作时间生效，非工作时间仍维持 5 分钟一次
+ADAPTIVE_SAMPLING_ENABLED = os.getenv("ADAPTIVE_SAMPLING_ENABLED", "1") == "1"
+ADAPTIVE_SAMPLING_MIN_SEC = int(os.getenv("ADAPTIVE_SAMPLING_MIN_SEC", "30"))   # 下限
+ADAPTIVE_SAMPLING_MAX_SEC = int(os.getenv("ADAPTIVE_SAMPLING_MAX_SEC", "120"))  # 上限
+ADAPTIVE_SAMPLING_WINDOW = int(os.getenv("ADAPTIVE_SAMPLING_WINDOW", "6"))      # 观察窗口大小（最近N次采样）
+
 # ── 截图压缩质量（1-100）──
 SCREENSHOT_QUALITY = int(os.getenv("SCREENSHOT_QUALITY", "70"))
 

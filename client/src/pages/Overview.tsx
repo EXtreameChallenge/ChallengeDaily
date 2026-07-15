@@ -28,6 +28,7 @@ import dayjs from 'dayjs'
 import { RefreshIndicator } from '../components/shared'
 import HeroInfo from '../components/HeroInfo'
 import DistractionHeatmap from '../components/DistractionHeatmap'
+import EmotionalCare from '../components/EmotionalCare'
 
 function getDisplayAppName(appName: string): string {
   const lower = appName.toLowerCase()
@@ -314,6 +315,11 @@ export default function Overview() {
           <a href="#/focus" className="text-sm text-cd-green hover:underline flex items-center gap-1">
             <Focus size={14} /> 开始专注
           </a>
+        </div>
+
+        {/* P8-2：情感化设计 — 每日一句 + 里程碑庆祝 + 低谷关怀 */}
+        <div className="mt-5">
+          <EmotionalCare />
         </div>
       </div>
 

@@ -689,3 +689,113 @@ def export_all_data():
     except Exception as e:
         logger.warning(f"export_all_data failed: {type(e).__name__}")
         return jsonify({"error": safe_error(e, "导出全量数据失败")}), 500
+
+
+# ── P8-4：CSV/Excel 原始数据导出增强 ──────────────────────────────────
+
+@bp.route('/api/exports/reports', methods=['GET'])
+def export_reports():
+    """P8-4：导出全部历史报告（CSV / JSON）
+
+    GET /api/exports/reports?format=csv|json&start=YYYY-MM-DD&end=YYYY-MM-DD
+    - CSV：报告日期、创建时间、内容（含换行）、字符数
+    - JSON：完整 reports 列表
+    """
+    ok, err = _auth_check()
+    if not ok:
+        return err
+    fmt = request.args.get("format", "csv")
+    if fmt not in ("csv", "json"):
+        return jsonify({"error": "format 仅支持 csv / json"}), 400
+    today = date.today()
+    start_date = request.args.get("start", (today - timedelta(days=89)).isoformat())
+    end_date = request.args.get("end", today.isoformat())
+    err_msg = _validate_range(start_date, end_date)
+    if err_msg:
+        return jsonify({"error": err_msg}), 400
+    try:
+        reports = db.get_reports(start_date, end_date)
+        if fmt == "json":
+            payload = {
+                "exported_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "range": {"start": start_date, "end": end_date},
+                "count": len(reports),
+                "reports": reports,
+            }
+            content = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+            return Response(
+                content.encode("utf-8"),
+                mimetype="application/json",
+                headers={"Content-Disposition": f'attachment; filename="reports_{start_date}_{end_date}.json"'},
+            )
+        # CSV
+        output = io.StringIO()
+        output.write('\ufeff')
+        writer = csv.writer(output)
+        writer.writerow(["报告日期", "创建时间", "字符数", "内容"])
+        for r in reports:
+            writer.writerow([
+                _csv_escape(r.get("report_date", "")),
+                _csv_escape(r.get("created_at", "")),
+                _csv_escape(len(r.get("content", "") or "")),
+                _csv_escape(r.get("content", "")),
+            ])
+        content = output.getvalue()
+        output.close()
+        return Response(
+            content.encode("utf-8-sig"),
+            mimetype="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="reports_{start_date}_{end_date}.csv"'},
+        )
+    except Exception as e:
+        logger.warning(f"export_reports failed: {type(e).__name__}")
+        return jsonify({"error": safe_error(e, "导出报告失败")}), 500
+
+
+@bp.route('/api/exports/activities-detail', methods=['GET'])
+def export_activities_detail():
+    """P8-4：活动明细聚合导出（多日期范围，CSV）
+
+    GET /api/exports/activities-detail?start=YYYY-MM-DD&end=YYYY-MM-DD
+    导出范围内所有活动记录，按时间排序，含分类、应用、窗口标题、摘要、时长、AI 详情。
+    支持最长 90 天范围，避免内存爆炸。
+    """
+    ok, err = _auth_check()
+    if not ok:
+        return err
+    today = date.today()
+    start_date = request.args.get("start", (today - timedelta(days=6)).isoformat())
+    end_date = request.args.get("end", today.isoformat())
+    err_msg = _validate_range(start_date, end_date)
+    if err_msg:
+        return jsonify({"error": err_msg}), 400
+    try:
+        activities = db.get_activities(start_date, end_date)
+        output = io.StringIO()
+        output.write('\ufeff')
+        writer = csv.writer(output)
+        writer.writerow([
+            "时间", "应用", "窗口标题", "分类", "摘要",
+            "时长(秒)", "AI 详情", "可见窗口(JSON)",
+        ])
+        for a in activities:
+            writer.writerow([
+                _csv_escape(a.get("timestamp", "")),
+                _csv_escape(a.get("app_name", "")),
+                _csv_escape(a.get("window_title", "")),
+                _csv_escape(a.get("category", "")),
+                _csv_escape(a.get("summary", "")),
+                _csv_escape(a.get("interval_sec", 60)),
+                _csv_escape(a.get("ai_detail", "")),
+                _csv_escape(a.get("windows", "[]")),
+            ])
+        content = output.getvalue()
+        output.close()
+        return Response(
+            content.encode("utf-8-sig"),
+            mimetype="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="activities_detail_{start_date}_{end_date}.csv"'},
+        )
+    except Exception as e:
+        logger.warning(f"export_activities_detail failed: {type(e).__name__}")
+        return jsonify({"error": safe_error(e, "导出活动明细失败")}), 500

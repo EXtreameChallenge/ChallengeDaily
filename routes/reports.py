@@ -4,7 +4,7 @@ import json
 import logging
 
 from report import generate_daily_report, generate_weekly_report, generate_monthly_report, get_report_files, enhance_report_with_ai_analysis
-from db import get_reports, get_daily_summary
+from db import get_reports, get_daily_summary, search_reports
 import db
 import config
 from routes.deps import safe_error, validate_date
@@ -93,6 +93,36 @@ def report_list():
         "db_reports": db_reports,
         "file_reports": file_reports,
     })
+
+
+@bp.route("/api/report/search")
+def report_search():
+    """P8-1：报告全文检索。
+
+    GET /api/report/search?q=关键词&limit=20
+    返回 [{id, report_date, content, created_at, snippet}]
+    snippet 中匹配关键词用【】包裹高亮
+    """
+    q = request.args.get("q", "").strip()
+    try:
+        limit = int(request.args.get("limit", "20"))
+    except ValueError:
+        limit = 20
+    # 限制 limit 范围，防止恶意拉取
+    limit = max(1, min(limit, 100))
+    if not q:
+        return jsonify({"results": [], "query": "", "count": 0})
+    if len(q) > 100:
+        return jsonify({"error": "关键词过长（最多 100 字符）"}), 400
+    try:
+        results = search_reports(q, limit=limit)
+        return jsonify({
+            "results": results,
+            "query": q,
+            "count": len(results),
+        })
+    except Exception as e:
+        return jsonify({"error": safe_error(e, "检索失败")}), 500
 
 
 @bp.route("/api/report/pomodoro-summary")

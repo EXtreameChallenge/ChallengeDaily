@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 29
+SCHEMA_VERSION = 30
 
 # P-01: 默认数据保留天数（90 天）
 DEFAULT_DATA_RETENTION_DAYS = 90
@@ -798,6 +798,45 @@ def _init_db_impl():
                 conn.execute("ALTER TABLE habits ADD COLUMN auto_category TEXT DEFAULT NULL")
             logger.info("V29: habits 表扩展完成（auto_category）")
 
+        # V30: 报告全文检索（FTS5 外部内容表 + 触发器自动同步）
+        # P8-1：实现报告内容秒级全文检索，支持 snippet 高亮与 MATCH 排序
+        if current_version < 30:
+            try:
+                conn.executescript("""
+                    CREATE VIRTUAL TABLE IF NOT EXISTS reports_fts USING fts5(
+                        report_date,
+                        content,
+                        content='reports',
+                        content_rowid='id',
+                        tokenize='unicode61'
+                    );
+
+                    CREATE TRIGGER IF NOT EXISTS reports_fts_ai AFTER INSERT ON reports BEGIN
+                        INSERT INTO reports_fts(rowid, report_date, content)
+                        VALUES (new.id, new.report_date, new.content);
+                    END;
+
+                    CREATE TRIGGER IF NOT EXISTS reports_fts_ad AFTER DELETE ON reports BEGIN
+                        INSERT INTO reports_fts(reports_fts, rowid, report_date, content)
+                        VALUES ('delete', old.id, old.report_date, old.content);
+                    END;
+
+                    CREATE TRIGGER IF NOT EXISTS reports_fts_au AFTER UPDATE ON reports BEGIN
+                        INSERT INTO reports_fts(reports_fts, rowid, report_date, content)
+                        VALUES ('delete', old.id, old.report_date, old.content);
+                        INSERT INTO reports_fts(rowid, report_date, content)
+                        VALUES (new.id, new.report_date, new.content);
+                    END;
+                """)
+                # 回填已有数据
+                conn.execute(
+                    "INSERT OR IGNORE INTO reports_fts(rowid, report_date, content) "
+                    "SELECT id, report_date, content FROM reports"
+                )
+                logger.info("V30: reports_fts 全文检索索引创建完成（含触发器与回填）")
+            except Exception as e:
+                logger.warning(f"V30 FTS5 创建失败（可能 SQLite 未启用 FTS5）: {e}")
+
         # 更新版本号
         conn.execute(
             "INSERT OR REPLACE INTO schema_version (key, value) VALUES ('version', ?)",
@@ -1079,6 +1118,56 @@ def get_reports(start_date: str, end_date: str):
             (start_date, end_date),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def search_reports(query: str, limit: int = 20) -> list:
+    """P8-1：FTS5 全文检索报告内容。
+
+    Args:
+        query: 检索关键词（自动加引号避免 FTS5 特殊语法注入）
+        limit: 最多返回条数
+
+    Returns:
+        [{id, report_date, content, created_at, snippet}] 每条带高亮摘要
+        若 FTS5 不可用或查询异常，回退到 LIKE 模糊匹配
+    """
+    if not query or not query.strip():
+        return []
+    q = query.strip()
+    # 转义双引号并用引号包裹，规避 FTS5 语法注入
+    safe_q = '"' + q.replace('"', '""') + '"'
+    try:
+        with get_conn() as conn:
+            # 先尝试 FTS5（外部内容表）
+            try:
+                rows = conn.execute(
+                    "SELECT r.id, r.report_date, r.content, r.created_at, "
+                    "       snippet(reports_fts, 1, '【', '】', '...', 24) AS snippet "
+                    "FROM reports_fts f JOIN reports r ON r.id = f.rowid "
+                    "WHERE reports_fts MATCH ? "
+                    "ORDER BY r.report_date DESC LIMIT ?",
+                    (safe_q, limit),
+                ).fetchall()
+                if rows:
+                    return [dict(r) for r in rows]
+                # FTS5 查询成功但无结果，确认是真空结果而非回退
+                # 这里若 FTS5 启用则直接返回空
+                return []
+            except Exception:
+                # FTS5 未启用，回退到 LIKE
+                logger.warning("FTS5 不可用，回退到 LIKE 模糊匹配")
+                like = f"%{q}%"
+                rows = conn.execute(
+                    "SELECT id, report_date, content, created_at, "
+                    "       substr(content, 1, 200) AS snippet "
+                    "FROM reports WHERE content LIKE ? "
+                    "ORDER BY report_date DESC LIMIT ?",
+                    (like, limit),
+                ).fetchall()
+                return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"search_reports 失败: {e}", exc_info=True)
+        return []
 
 
 def cleanup_old_data(days: int):

@@ -150,6 +150,54 @@ class Collector:
         # 上一次非闲置采集的时间戳（字符串 "YYYY-MM-DD HH:MM:SS"），
         # 闲置时段 flush 时用它作为 end_time，避免把闲置时长算入应用使用时长
         self._last_active_time: str | None = None
+        # P8-3：自适应采样 — 最近 N 次采集的分类记录，用于动态调整下次采样间隔
+        self._recent_categories: list[str] = []
+        self._adaptive_next_interval: int | None = None  # 缓存下次建议间隔（秒）
+
+    def _record_category_for_adaptive(self, category: str) -> None:
+        """P8-3：记录本次采集分类到滑动窗口"""
+        if not getattr(config, "ADAPTIVE_SAMPLING_ENABLED", False):
+            return
+        self._recent_categories.append(category or "")
+        window = getattr(config, "ADAPTIVE_SAMPLING_WINDOW", 6)
+        if len(self._recent_categories) > window:
+            self._recent_categories = self._recent_categories[-window:]
+
+    def get_adaptive_interval(self) -> int | None:
+        """P8-3：根据近期分类变化频率计算下次采样间隔（秒）。
+
+        - 变化率高 → 返回下限（更频繁采样，捕捉细节）
+        - 变化率低 → 返回上限（更稀疏采样，节省资源）
+        - 关闭时返回 None，由调用方使用默认 SCREENSHOT_INTERVAL_SEC
+        """
+        if not getattr(config, "ADAPTIVE_SAMPLING_ENABLED", False):
+            return None
+        if self._adaptive_next_interval is not None:
+            return self._adaptive_next_interval
+        cats = self._recent_categories
+        if len(cats) < 2:
+            return config.SCREENSHOT_INTERVAL_SEC
+        # 计算变化次数（相邻不同视为切换）
+        changes = sum(1 for i in range(1, len(cats)) if cats[i] != cats[i - 1])
+        change_rate = changes / (len(cats) - 1)
+        lo = getattr(config, "ADAPTIVE_SAMPLING_MIN_SEC", 30)
+        hi = getattr(config, "ADAPTIVE_SAMPLING_MAX_SEC", 120)
+        base = config.SCREENSHOT_INTERVAL_SEC
+        # 变化率 1.0 → 取下限 lo；变化率 0.0 → 取上限 hi；线性插值
+        if change_rate >= 1.0:
+            self._adaptive_next_interval = max(lo, base // 2)
+        elif change_rate <= 0.0:
+            self._adaptive_next_interval = min(hi, int(base * 1.5))
+        else:
+            # 线性插值：rate=0 → hi，rate=1 → lo
+            interval = int(lo + (hi - lo) * (1 - change_rate))
+            # 限制在 [lo, hi] 且不小于 10s 安全下限
+            self._adaptive_next_interval = max(10, min(max(lo, 10), interval))
+        return self._adaptive_next_interval
+
+    def _reset_adaptive_interval(self) -> None:
+        """每次采集完成后清空缓存，下次 get_adaptive_interval 重新计算"""
+        self._adaptive_next_interval = None
 
     def _flush_segment(self, end_time: str):
         """结算当前时间段：按 area_ratio 把 duration 分摊给所有可见窗口后写入 app_usage。
@@ -451,6 +499,13 @@ class Collector:
         # 8. 定时垃圾回收，控制长期运行的内存增长
         try:
             _maybe_gc()
+        except Exception:
+            pass
+
+        # 9. P8-3：记录分类到滑动窗口并刷新自适应间隔缓存
+        try:
+            self._record_category_for_adaptive(category)
+            self._reset_adaptive_interval()
         except Exception:
             pass
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BarChart3, TrendingUp, Calendar, Database, Download, Loader2, CheckCircle } from 'lucide-react'
+import { BarChart3, TrendingUp, Calendar, Database, Download, Loader2, CheckCircle, FileText, ListTree } from 'lucide-react'
 import { getApiToken, getBaseUrl, ensureBaseUrl } from '../api/client'
 
 // ── 下载状态 ──
@@ -134,6 +134,18 @@ export default function ExportCenter() {
 
   // 全部数据
   const [allStates, setAllStates] = useState<Record<string, DownloadState>>({})
+
+  // P8-4：报告导出 + 活动明细聚合导出
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const monthAgoStr = (() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 29)
+    return d.toISOString().slice(0, 10)
+  })()
+  const [reportsRange, setReportsRange] = useState({ start: monthAgoStr, end: todayStr })
+  const [reportsStates, setReportsStates] = useState<Record<string, DownloadState>>({})
+  const [activitiesRange, setActivitiesRange] = useState({ start: monthAgoStr, end: todayStr })
+  const [activitiesStates, setActivitiesStates] = useState<Record<string, DownloadState>>({})
 
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -327,6 +339,91 @@ export default function ExportCenter() {
                 state={allStates.csv || 'idle'}
                 onClick={() =>
                   handleDownload('/api/exports/all-data', {}, 'all', setAllStates, 'csv')
+                }
+              />
+            </div>
+          </div>
+        </ExportCard>
+
+        {/* 📄 P8-4：历史报告导出 */}
+        <ExportCard
+          icon={FileText}
+          title="历史报告导出"
+          description="导出指定日期范围内的所有日报内容，支持 CSV 与 JSON 两种格式"
+          accentColor="#10b981"
+        >
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-cd-text-tertiary">起止日期</span>
+              <input
+                type="date"
+                value={reportsRange.start}
+                onChange={(e) => setReportsRange(prev => ({ ...prev, start: e.target.value }))}
+                className="bg-cd-bg border border-cd-border rounded px-2 py-1 text-xs text-cd-text"
+              />
+              <span className="text-cd-text-tertiary">→</span>
+              <input
+                type="date"
+                value={reportsRange.end}
+                onChange={(e) => setReportsRange(prev => ({ ...prev, end: e.target.value }))}
+                className="bg-cd-bg border border-cd-border rounded px-2 py-1 text-xs text-cd-text"
+              />
+            </div>
+            <div className="text-xs text-cd-text-tertiary bg-cd-bg rounded-lg px-3 py-2.5 border border-cd-border">
+              📝 包含：报告日期 / 创建时间 / 字符数 / 完整内容（最长 90 天）
+            </div>
+            <div className="flex gap-2">
+              <FormatButton
+                format="csv"
+                state={reportsStates.csv || 'idle'}
+                onClick={() =>
+                  handleDownload('/api/exports/reports', { start: reportsRange.start, end: reportsRange.end }, 'reports', setReportsStates, 'csv')
+                }
+              />
+              <FormatButton
+                format="json"
+                state={reportsStates.json || 'idle'}
+                onClick={() =>
+                  handleDownload('/api/exports/reports', { start: reportsRange.start, end: reportsRange.end }, 'reports', setReportsStates, 'json')
+                }
+              />
+            </div>
+          </div>
+        </ExportCard>
+
+        {/* 🌳 P8-4：活动明细聚合导出 */}
+        <ExportCard
+          icon={ListTree}
+          title="活动明细聚合导出"
+          description="导出指定日期范围内所有活动记录，含分类、应用、窗口标题、AI 详情，CSV 格式"
+          accentColor="#3b82f6"
+        >
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-cd-text-tertiary">起止日期</span>
+              <input
+                type="date"
+                value={activitiesRange.start}
+                onChange={(e) => setActivitiesRange(prev => ({ ...prev, start: e.target.value }))}
+                className="bg-cd-bg border border-cd-border rounded px-2 py-1 text-xs text-cd-text"
+              />
+              <span className="text-cd-text-tertiary">→</span>
+              <input
+                type="date"
+                value={activitiesRange.end}
+                onChange={(e) => setActivitiesRange(prev => ({ ...prev, end: e.target.value }))}
+                className="bg-cd-bg border border-cd-border rounded px-2 py-1 text-xs text-cd-text"
+              />
+            </div>
+            <div className="text-xs text-cd-text-tertiary bg-cd-bg rounded-lg px-3 py-2.5 border border-cd-border">
+              🔍 包含：时间 / 应用 / 窗口标题 / 分类 / 摘要 / 时长 / AI 详情 / 可见窗口（最长 90 天）
+            </div>
+            <div className="flex gap-2">
+              <FormatButton
+                format="csv"
+                state={activitiesStates.csv || 'idle'}
+                onClick={() =>
+                  handleDownload('/api/exports/activities-detail', { start: activitiesRange.start, end: activitiesRange.end }, 'activities', setActivitiesStates, 'csv')
                 }
               />
             </div>

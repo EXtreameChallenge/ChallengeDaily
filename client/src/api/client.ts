@@ -552,6 +552,30 @@ export async function downloadExportAppUsage(start: string, end: string): Promis
   _triggerDownload(blob, `app_usage_${start}_${end}.csv`)
 }
 
+// ── P8-4：CSV/Excel 原始数据导出增强 ──
+
+/** 导出历史报告（CSV / JSON） */
+export async function downloadExportReports(start: string, end: string, format: 'csv' | 'json' = 'csv'): Promise<void> {
+  const token = await getApiToken()
+  const res = await fetch(`${BASE_URL}/api/exports/reports?format=${format}&start=${start}&end=${end}`, {
+    headers: token ? { 'X-API-Token': token } : {},
+  })
+  if (!res.ok) throw new Error(`导出失败: HTTP ${res.status}`)
+  const blob = await res.blob()
+  _triggerDownload(blob, `reports_${start}_${end}.${format}`)
+}
+
+/** 导出活动明细聚合 CSV（多日期范围） */
+export async function downloadExportActivitiesDetail(start: string, end: string): Promise<void> {
+  const token = await getApiToken()
+  const res = await fetch(`${BASE_URL}/api/exports/activities-detail?start=${start}&end=${end}`, {
+    headers: token ? { 'X-API-Token': token } : {},
+  })
+  if (!res.ok) throw new Error(`导出失败: HTTP ${res.status}`)
+  const blob = await res.blob()
+  _triggerDownload(blob, `activities_detail_${start}_${end}.csv`)
+}
+
 /** 创建备份（安全下载：使用 header 传 token） */
 export async function downloadBackup(): Promise<void> {
   const token = await getApiToken()
@@ -1348,6 +1372,20 @@ export async function checkAchievements(): Promise<{ unlocked: Array<{ code: str
 
 export async function getQuote(): Promise<{ quote: string }> {
   return request('/api/achievements/quote') as Promise<{ quote: string }>
+}
+
+// ── P8-1: 报告全文检索 ──
+export interface ReportSearchResult {
+  id: number
+  report_date: string
+  content: string
+  created_at: string
+  snippet: string
+}
+
+export async function searchReports(q: string, limit = 20): Promise<{ results: ReportSearchResult[]; query: string; count: number }> {
+  const params = new URLSearchParams({ q, limit: String(limit) })
+  return request(`/api/report/search?${params.toString()}`) as Promise<{ results: ReportSearchResult[]; query: string; count: number }>
 }
 
 // ── 倒数日 ──
