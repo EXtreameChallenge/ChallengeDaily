@@ -58,6 +58,7 @@ from routes.collaboration_routes import bp as collaboration_bp
 from routes.version_control_routes import bp as version_control_bp
 from routes.offline_routes import bp as offline_bp
 from routes.realtime_routes import bp as realtime_bp
+from routes.migration_i18n_routes import bp as migration_i18n_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -120,4 +121,5 @@ ALL_BLUEPRINTS = [
     version_control_bp,
     offline_bp,
     realtime_bp,
+    migration_i18n_bp,
 ]
