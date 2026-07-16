@@ -43,6 +43,7 @@ from routes.platform_routes import bp as platform_bp
 from routes.delight_routes import bp as delight_bp
 from routes.resilience_routes import bp as resilience_bp
 from routes.advanced_data_routes import bp as advanced_data_bp
+from routes.security_routes2 import bp as security_bp2
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -90,4 +91,5 @@ ALL_BLUEPRINTS = [
     delight_bp,
     resilience_bp,
     advanced_data_bp,
+    security_bp2,
 ]
