@@ -68,6 +68,7 @@ from routes.flags_adv_routes import bp as flags_adv_bp
 from routes.chaos_cap_routes import bp as chaos_cap_bp
 from routes.cost_compliance_routes import bp as cost_compliance_bp
 from routes.privacy_dq_routes import bp as privacy_dq_bp
+from routes.mlops_routes import bp as mlops_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -140,4 +141,5 @@ ALL_BLUEPRINTS = [
     chaos_cap_bp,
     cost_compliance_bp,
     privacy_dq_bp,
+    mlops_bp,
 ]
