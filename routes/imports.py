@@ -143,12 +143,13 @@ def _rescuetime_category_to_local(rt_cat: str) -> str:
 
 
 @bp.route('/toggl', methods=['POST'])
-@check_token
 def import_toggl():
     """导入 Toggl CSV 数据
 
     Body: {"csv": "...CSV 文本...", "dry_run": false}
     """
+    if not check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     csv_text = data.get("csv", "")
     dry_run = bool(data.get("dry_run", False))
@@ -172,9 +173,10 @@ def import_toggl():
 
 
 @bp.route('/rescuetime', methods=['POST'])
-@check_token
 def import_rescuetime():
     """导入 RescueTime CSV 数据"""
+    if not check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     csv_text = data.get("csv", "")
     dry_run = bool(data.get("dry_run", False))
@@ -262,9 +264,10 @@ def _parse_rize_csv(text: str) -> list[dict]:
 
 
 @bp.route('/rize', methods=['POST'])
-@check_token
 def import_rize():
     """P20-6: 导入 Rize CSV 数据"""
+    if not check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
     data = request.get_json(silent=True) or {}
     csv_text = data.get("csv", "")
     dry_run = bool(data.get("dry_run", False))

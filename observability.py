@@ -348,3 +348,52 @@ class SLOManager:
 
 
 _slo_mgr = SLOManager()
+
+
+# ─── 模块级便捷函数（供 server.py 调用） ──────────────────────────
+import uuid as _uuid
+
+_trace_local = threading.local()
+
+
+def generate_trace_id() -> str:
+    """生成唯一 trace ID"""
+    return _uuid.uuid4().hex
+
+
+def set_trace_id(trace_id: str) -> None:
+    """设置当前线程的 trace ID"""
+    _trace_local.trace_id = trace_id
+
+
+def get_trace_id() -> str:
+    """获取当前线程的 trace ID"""
+    return getattr(_trace_local, "trace_id", "")
+
+
+def record_request(endpoint: str, duration: float, error: bool = False) -> None:
+    """记录请求指标"""
+    _metrics.inc_counter("requests_total", tags={"endpoint": endpoint, "error": str(error)})
+    _metrics.observe_histogram("request_duration_seconds", duration, tags={"endpoint": endpoint})
+
+
+def get_metrics() -> dict:
+    """获取所有指标"""
+    return _metrics.export()
+
+
+def setup_structured_logging(json_output: bool = False) -> None:
+    """设置结构化日志"""
+    from routes.deps import install_log_redaction
+    install_log_redaction()
+    if json_output:
+        formatter = logging.Formatter('{"time":"%(asctime)s","level":"%(levelname)s","name":"%(name)s","msg":"%(message)s"}')
+    else:
+        formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    root = logging.getLogger()
+    if not any(getattr(h, '_structured', False) for h in root.handlers):
+        handler._structured = True
+        root.addHandler(handler)
+
