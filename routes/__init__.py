@@ -73,6 +73,7 @@ from routes.infra_edge_routes import bp as infra_edge_bp
 from routes.network_dr_routes import bp as network_dr_bp
 from routes.flow_control_routes import bp as flow_control_bp
 from routes.db_advanced_routes import bp as db_advanced_bp
+from routes.cache_advanced_routes import bp as cache_advanced_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -150,4 +151,5 @@ ALL_BLUEPRINTS = [
     network_dr_bp,
     flow_control_bp,
     db_advanced_bp,
+    cache_advanced_bp,
 ]
