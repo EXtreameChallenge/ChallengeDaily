@@ -489,6 +489,8 @@ function createMainWindow() {
   // Content Security Policy：限制资源加载来源，防止 XSS 等注入攻击
   // P20-1: 应用统一 CSP 到主窗口（含子窗口）
   applyCSPToSession(mainWindow.webContents.session)
+  // script-src：开发模式允许 'unsafe-inline'（Vite HMR 需要），生产模式仅 'self'
+  const _cspScriptSrc = isDev ? "script-src 'self' 'unsafe-inline'; " : "script-src 'self'; "
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     // 每次响应生成一次性 nonce，供未来 style-src 收紧使用
     const _styleNonce = crypto.randomBytes(16).toString('base64')
@@ -547,6 +549,11 @@ function createMainWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
   }
+
+  // 页面加载失败诊断：记录 did-fail-load 事件，避免黑屏无日志
+  mainWindow.webContents.on('did-fail-load', (_e, errorCode, errorDescription, validatedURL) => {
+    console.error('[Main] did-fail-load:', errorCode, errorDescription, validatedURL)
+  })
 
   // 限制导航：仅允许本地开发服务器或 file:// 资源
   mainWindow.webContents.on('will-navigate', (e, url) => {
