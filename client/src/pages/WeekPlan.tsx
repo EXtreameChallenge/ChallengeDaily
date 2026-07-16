@@ -429,18 +429,42 @@ export default function WeekPlan() {
     if (checked.length === 0) { error('请至少选择一个任务'); return }
     const weekDates = getWeekDates(weekStart)
     let created = 0
-    for (const t of checked) {
-      try {
-        const dayIdx = (t.day || 1) - 1
-        const assignedDate = dayIdx >= 0 && dayIdx < 5 ? weekDates[dayIdx] : ''
-        await createTodo({
-          title: t.title, category: t.category || '开发', target_min: Number(t.target_min) || 25,
-          task_level: 'day', assigned_date: assignedDate || undefined, week_start: weekStart,
-        })
-        created++
-      } catch { /* 单条失败继续 */ }
+    try {
+      // 1. 先创建父任务（周级），形成真实父子关系（修复原本创建平级 day 任务的 bug）
+      const totalMin = checked.reduce((s, t) => s + (Number(t.target_min) || 25), 0)
+      const parent = await createTodo({
+        title: splitGoalTitle.trim(), category: checked[0]?.category || '开发',
+        target_min: totalMin, task_level: 'week', week_start: weekStart,
+      })
+      // 2. 创建子任务时设置 parent_id，task_level='day'
+      for (const t of checked) {
+        try {
+          const dayIdx = (t.day || 1) - 1
+          const assignedDate = dayIdx >= 0 && dayIdx < 5 ? weekDates[dayIdx] : ''
+          await createTodo({
+            title: t.title, category: t.category || '开发', target_min: Number(t.target_min) || 25,
+            task_level: 'day', assigned_date: assignedDate || undefined, week_start: weekStart,
+            parent_id: parent.id,
+          })
+          created++
+        } catch { /* 单条失败继续 */ }
+      }
+      success(`已创建 1 个父任务 + ${created} 个子任务`)
+    } catch (e) {
+      // 父任务创建失败则回退为原逻辑（平级创建）
+      for (const t of checked) {
+        try {
+          const dayIdx = (t.day || 1) - 1
+          const assignedDate = dayIdx >= 0 && dayIdx < 5 ? weekDates[dayIdx] : ''
+          await createTodo({
+            title: t.title, category: t.category || '开发', target_min: Number(t.target_min) || 25,
+            task_level: 'day', assigned_date: assignedDate || undefined, week_start: weekStart,
+          })
+          created++
+        } catch { /* 单条失败继续 */ }
+      }
+      success(`已创建 ${created} 个任务（父子关系未建立）`)
     }
-    success(`已创建 ${created} 个任务`)
     setSplitDraft(null); setSplitGoalTitle(''); setSplitGoalDesc('')
     if (viewMode === 'month') loadMonth(monthKey); else loadWeek(weekStart)
   }

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Plus, Check, Trash2, Clock, Target, Repeat, ListChecks, Play, Calendar, Flame } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Plus, Check, Trash2, Clock, Target, Repeat, ListChecks, Play, Calendar, Flame, ChevronRight, GitBranch } from 'lucide-react'
 import { getTodos, updateTodo, deleteTodo, getTodayTodos, CATEGORY_COLORS, type TodoV2, formatLocalDate } from '../api/client'
 import { useToast } from '../components/Toast'
 import TaskCreateModal from '../components/TaskCreateModal'
@@ -49,6 +49,7 @@ export default function Todos() {
   const [todayTodos, setTodayTodos] = useState<TodoV2[]>([])
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all')
   const [showCreate, setShowCreate] = useState(false)
+  const [expandedParents, setExpandedParents] = useState<Set<number>>(new Set())
   const toast = useToast()
 
   const load = useCallback(async () => {
@@ -77,11 +78,13 @@ export default function Todos() {
   }
 
   const handleDelete = async (todo: TodoV2) => {
-    // 删除级联提示 — 有关联番茄记录时警告
     const pomCount = todo.pomodoro_count || 0
     const hasProgress = (todo.progress_min || 0) > 0
+    const hasChildren = todos.some(t => t.parent_id === todo.id)
     let msg = '确定删除该待办？'
-    if (pomCount > 0 && hasProgress) {
+    if (hasChildren) {
+      msg = `该待办包含子任务，删除后子任务的关联将被清除（子任务本身保留）。确定删除？`
+    } else if (pomCount > 0 && hasProgress) {
       msg = `该待办已有 ${pomCount} 个番茄记录（${todo.progress_min}分钟进度），删除后关联数据将一并清除。确定删除？`
     } else if (pomCount > 0) {
       msg = `该待办已有 ${pomCount} 个番茄记录，删除后关联数据将一并清除。确定删除？`
@@ -101,47 +104,103 @@ export default function Todos() {
     window.location.hash = `#/focus?todo_id=${todo.id}`
   }
 
-  // 按分配状态分组
-  const todayStr = formatLocalDate(new Date())
-  const todayPending = todayTodos.filter(t => t.status !== 'completed')
-  const todayCompleted = todayTodos.filter(t => t.status === 'completed')
-  const unassigned = todos.filter(t => !t.assigned_date && t.status !== 'completed')
-  const otherPending = todos.filter(t => t.assigned_date && t.assigned_date !== todayStr && t.status !== 'completed')
+  const toggleExpand = (id: number) => {
+    setExpandedParents(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
-  const renderTodoCard = (todo: TodoV2, showFocus = false) => {
+  // 按 parent_id 建立子任务映射（Notion 式树形组织）
+  const childrenMap = useMemo(() => {
+    const map = new Map<number, TodoV2[]>()
+    for (const t of todos) {
+      if (t.parent_id) {
+        const arr = map.get(t.parent_id) || []
+        arr.push(t)
+        map.set(t.parent_id, arr)
+      }
+    }
+    return map
+  }, [todos])
+
+  // 过滤掉作为子任务出现在其他组的任务（避免重复显示）
+  const excludeChildren = (list: TodoV2[]) => list.filter(t => !t.parent_id)
+
+  const todayStr = formatLocalDate(new Date())
+  const todayPending = excludeChildren(todayTodos.filter(t => t.status !== 'completed'))
+  const todayCompleted = excludeChildren(todayTodos.filter(t => t.status === 'completed'))
+  const unassigned = excludeChildren(todos.filter(t => !t.assigned_date && t.status !== 'completed'))
+  const otherPending = excludeChildren(todos.filter(t => t.assigned_date && t.assigned_date !== todayStr && t.status !== 'completed'))
+
+  const renderTodoCard = (todo: TodoV2, showFocus = false, isChild = false) => {
     const Icon = MODE_ICONS[todo.mode] || Clock
     const progress = todo.target_min > 0 ? Math.min(100, (todo.progress_min / todo.target_min) * 100) : 0
     const estPom = todo.estimated_pomodoros || Math.ceil(todo.target_min / 25) || 1
     const completedPom = todo.pomodoro_count || 0
     const catColor = getCategoryColor(todo)
     const isCompleted = todo.status === 'completed'
+    const children = childrenMap.get(todo.id) || []
+    const hasChildren = children.length > 0
+    const isExpanded = expandedParents.has(todo.id)
 
     return (
       <div
         key={todo.id}
-        className={`relative bg-cd-bg-card rounded-xl border border-white/5 overflow-hidden transition hover:border-white/10 ${isCompleted ? 'opacity-60' : ''}`}
-        style={{ borderLeft: `3px solid ${catColor}` }}
+        className={`relative bg-cd-bg-card rounded-xl border border-white/5 overflow-hidden transition hover:border-white/10 ${isCompleted ? 'opacity-60' : ''} ${isChild ? 'ml-6 border-l-2' : ''}`}
+        style={{ borderLeft: isChild ? `2px solid ${catColor}40` : `3px solid ${catColor}` }}
       >
         {/* 卡片头部：标题 + 操作按钮 */}
         <div className="flex items-start gap-2 p-3.5 pb-2">
-          <button
-            onClick={() => handleToggle(todo)}
-            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition ${
-              isCompleted
-                ? 'bg-green-500/20 border-green-500/40 text-green-400'
-                : 'border-white/20 hover:border-cd-accent/40'
-            }`}
-          >
-            {isCompleted && <Check size={12} />}
-          </button>
+          {/* 父任务展开/折叠按钮（Notion toggle 风格） */}
+          {hasChildren ? (
+            <button
+              onClick={() => toggleExpand(todo.id)}
+              className="w-5 h-5 rounded flex items-center justify-center shrink-0 mt-0.5 text-cd-text-tertiary hover:text-cd-text hover:bg-white/5 transition"
+              title={isExpanded ? '收起子任务' : '展开子任务'}
+            >
+              <ChevronRight size={14} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+            </button>
+          ) : (
+            <button
+              onClick={() => handleToggle(todo)}
+              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition ${
+                isCompleted
+                  ? 'bg-green-500/20 border-green-500/40 text-green-400'
+                  : 'border-white/20 hover:border-cd-accent/40'
+              }`}
+            >
+              {isCompleted && <Check size={12} />}
+            </button>
+          )}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <Icon size={13} className="text-cd-text-secondary shrink-0" />
               <span className={`text-sm font-medium leading-tight ${isCompleted ? 'line-through text-cd-text-secondary' : 'text-cd-text'}`}>
                 {todo.title}
               </span>
+              {hasChildren && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 flex items-center gap-0.5 shrink-0" title="包含子任务">
+                  <GitBranch size={9} /> {children.length}
+                </span>
+              )}
             </div>
           </div>
+          {hasChildren && (
+            <button
+              onClick={() => handleToggle(todo)}
+              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition ${
+                isCompleted
+                  ? 'bg-green-500/20 border-green-500/40 text-green-400'
+                  : 'border-white/20 hover:border-cd-accent/40'
+              }`}
+              title="标记完成"
+            >
+              {isCompleted && <Check size={12} />}
+            </button>
+          )}
           <button
             onClick={() => handleDelete(todo)}
             className="text-cd-text-tertiary hover:text-red-400 transition shrink-0 p-1"
@@ -155,7 +214,6 @@ export default function Todos() {
         <div className="flex items-center gap-3 px-3.5 pb-2">
           <ProgressRing progress={progress} size={44} />
           <div className="flex-1 min-w-0 space-y-1">
-            {/* 番茄可视化 */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs leading-none flex items-center flex-wrap gap-0.5">
                 {Array.from({ length: Math.min(estPom, 10) }, (_, i) => (
@@ -165,12 +223,11 @@ export default function Todos() {
               </span>
               <span className="text-[10px] text-cd-text-secondary tabular-nums">{completedPom}/{estPom}</span>
             </div>
-            {/* 时长标签 */}
             <div className="flex items-center gap-1.5 text-[11px] text-cd-text-secondary tabular-nums">
               <Clock size={11} />
               <span>{todo.progress_min}/{todo.target_min} min</span>
+              {hasChildren && <span className="text-purple-400 text-[10px]">· 聚合自 {children.length} 个子任务</span>}
             </div>
-            {/* 状态标签 */}
             <div>
               <span
                 className={`inline-block text-[10px] px-1.5 py-0.5 rounded font-medium ${
@@ -218,6 +275,66 @@ export default function Todos() {
             </button>
           )}
         </div>
+
+        {/* 子任务列表（Notion 式缩进 + 树形连接线） */}
+        {hasChildren && isExpanded && (
+          <div className="px-3.5 pb-3 pt-1 space-y-2 bg-black/5">
+            <div className="text-[10px] text-cd-text-tertiary flex items-center gap-1 mb-1">
+              <GitBranch size={10} /> 子任务（{children.length}）
+            </div>
+            {children.map(child => {
+              const childProgress = child.target_min > 0 ? Math.min(100, (child.progress_min / child.target_min) * 100) : 0
+              const childCompleted = child.status === 'completed'
+              const childCatColor = getCategoryColor(child)
+              return (
+                <div
+                  key={child.id}
+                  className="flex items-center gap-2 p-2 rounded-lg bg-cd-bg-input/50 border border-white/5"
+                  style={{ borderLeft: `2px solid ${childCatColor}` }}
+                >
+                  <button
+                    onClick={() => handleToggle(child)}
+                    className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition ${
+                      childCompleted
+                        ? 'bg-green-500/20 border-green-500/40 text-green-400'
+                        : 'border-white/20 hover:border-cd-accent/40'
+                    }`}
+                  >
+                    {childCompleted && <Check size={9} />}
+                  </button>
+                  <span className={`text-xs flex-1 truncate ${childCompleted ? 'line-through opacity-50' : 'text-cd-text'}`}>
+                    {child.title}
+                  </span>
+                  <span className="text-[10px] text-cd-text-tertiary tabular-nums shrink-0">
+                    {child.progress_min}/{child.target_min}m
+                  </span>
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                    style={{ background: childCatColor + '20', color: childCatColor }}
+                  >
+                    {child.category}
+                  </span>
+                  {!childCompleted && showFocus && (
+                    <button
+                      onClick={() => startFocus(child)}
+                      className="text-cd-accent hover:text-cd-accent/80 shrink-0 p-0.5"
+                      title="开始专注"
+                    >
+                      <Play size={11} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDelete(child)}
+                    className="text-cd-text-tertiary hover:text-red-400 transition shrink-0 p-0.5"
+                    title="删除"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     )
   }
@@ -248,10 +365,9 @@ export default function Todos() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-cd-text">待办清单</h1>
-          <p className="text-xs text-cd-text-tertiary mt-1">快速管理任务 · 点击卡片可启动番茄专注</p>
+          <p className="text-xs text-cd-text-tertiary mt-1">快速管理任务 · 父任务可展开查看子任务 · 点击卡片可启动番茄专注</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* 过滤器 */}
           <div className="flex items-center gap-1 bg-cd-bg-card rounded-lg border border-white/5 p-0.5">
             {(['all', 'pending', 'completed'] as const).map(f => (
               <button

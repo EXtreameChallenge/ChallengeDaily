@@ -53,53 +53,31 @@ type NavParent = {
   children?: NavChild[]
 }
 
+// ─── 工作流导向导航（参考 GOALDAY/Notion/飞书）─────────────────
+// 设计原则：按「计划 → 执行 → 统计 → 成长」自然工作流组织
+// 用户心智路径：先规划（计划组）→ 再做事（执行组）→ 看结果（统计组）→ 持续优化（成长组）
 const NAV_GROUPS: { label: string; items: NavParent[] }[] = [
   {
-    label: '今日',
-    items: [
-      {
-        to: '/',
-        icon: LayoutDashboard,
-        label: '今日总览',
-        desc: '工作时长、活动摘要、AI 洞察',
-      },
-    ],
-  },
-  {
-    label: '工作',
+    // 计划组：目标拆解与时间安排（参考 GOALDAY 计划管理 + Notion 数据库视图）
+    label: '计划',
     items: [
       {
         to: '/week-plan',
         icon: CalendarDays,
-        label: '周计划',
-        desc: '规划一周任务与分配',
+        label: '计划排期',
+        desc: '年/月/周/日四视图，任务拆解与拖拽分配',
       },
       {
-        to: '/todos',
-        icon: CheckSquare,
-        label: '待办清单',
-        desc: '管理今日待办事项',
+        to: '/goals',
+        icon: Target,
+        label: '长期目标',
+        desc: '年度目标管理与进度追踪',
       },
       {
-        to: '/focus',
-        icon: Timer,
-        label: '专注番茄',
-        desc: '番茄钟与专注计时',
-        children: [
-          { to: '/focus', icon: Timer, label: '专注番茄' },
-          { to: '/study-room', icon: Users, label: '番茄自习室' },
-        ],
-      },
-      {
-        to: '/report',
-        icon: FileText,
-        label: '报告中心',
-        desc: '生成与查看工作日报',
-        children: [
-          { to: '/report', icon: FileText, label: '生成报告' },
-          { to: '/history', icon: History, label: '历史报告' },
-          { to: '/export', icon: Download, label: '数据导出' },
-        ],
+        to: '/countdowns',
+        icon: Calendar,
+        label: '倒数日',
+        desc: '重要节点倒计时',
       },
       {
         to: '/inspiration',
@@ -110,8 +88,54 @@ const NAV_GROUPS: { label: string; items: NavParent[] }[] = [
     ],
   },
   {
-    label: '洞察',
+    // 执行组：今日做事（参考番茄土豆 待办+番茄强关联）
+    label: '执行',
     items: [
+      {
+        to: '/',
+        icon: LayoutDashboard,
+        label: '今日总览',
+        desc: '工作时长、活动摘要、AI 洞察',
+      },
+      {
+        to: '/todos',
+        icon: CheckSquare,
+        label: '待办清单',
+        desc: '今日待办与子任务树形管理',
+      },
+      {
+        to: '/focus',
+        icon: Timer,
+        label: '专注番茄',
+        desc: '番茄钟与待办联动计时',
+        children: [
+          { to: '/focus', icon: Timer, label: '专注番茄' },
+          { to: '/study-room', icon: Users, label: '番茄自习室' },
+        ],
+      },
+    ],
+  },
+  {
+    // 统计组：数据洞察与日报（参考小黑日报助手自动生成 + 番茄土豆数据分析）
+    label: '统计',
+    items: [
+      {
+        to: '/report',
+        icon: FileText,
+        label: '报告中心',
+        desc: '自动日报/周报/月报生成',
+        children: [
+          { to: '/report', icon: FileText, label: '生成报告' },
+          { to: '/history', icon: History, label: '历史报告' },
+          { to: '/export', icon: Download, label: '数据导出' },
+        ],
+      },
+      {
+        to: '/daily-cards',
+        icon: Sparkles,
+        label: '每日卡片',
+        desc: '当日完成数据自动汇总回顾',
+      },
       {
         to: '/dashboard',
         icon: BarChart3,
@@ -126,15 +150,23 @@ const NAV_GROUPS: { label: string; items: NavParent[] }[] = [
           { to: '/timeline-player', icon: Sparkles, label: '时间线回放' },
         ],
       },
+    ],
+  },
+  {
+    // 成长组：习惯养成与自我提升
+    label: '成长',
+    items: [
       {
-        to: '/ai-chat',
-        icon: Bot,
-        label: 'AI 助手',
-        desc: '对话式 AI 与智能教练',
-        children: [
-          { to: '/ai-chat', icon: Bot, label: 'AI 对话' },
-          { to: '/ai-coach', icon: Sparkles, label: 'AI 教练' },
-        ],
+        to: '/habits',
+        icon: Flame,
+        label: '习惯追踪',
+        desc: '每日习惯打卡与连续天数',
+      },
+      {
+        to: '/achievements',
+        icon: Trophy,
+        label: '成就墙',
+        desc: '里程碑成就解锁记录',
       },
       {
         to: '/profile',
@@ -144,19 +176,16 @@ const NAV_GROUPS: { label: string; items: NavParent[] }[] = [
         children: [
           { to: '/profile', icon: Brain, label: '深度画像' },
           { to: '/diary', icon: BookOpen, label: '每日日记' },
-          { to: '/daily-cards', icon: Sparkles, label: '每日卡片' },
         ],
       },
       {
-        to: '/achievements',
-        icon: Trophy,
-        label: '成长激励',
-        desc: '成就、习惯、目标与倒数日',
+        to: '/ai-chat',
+        icon: Bot,
+        label: 'AI 助手',
+        desc: '对话式 AI 与智能教练',
         children: [
-          { to: '/achievements', icon: Trophy, label: '成就墙' },
-          { to: '/habits', icon: Flame, label: '习惯追踪' },
-          { to: '/goals', icon: Target, label: '长期目标' },
-          { to: '/countdowns', icon: Calendar, label: '倒数日' },
+          { to: '/ai-chat', icon: Bot, label: 'AI 对话' },
+          { to: '/ai-coach', icon: Sparkles, label: 'AI 教练' },
         ],
       },
     ],

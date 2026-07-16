@@ -1738,12 +1738,30 @@ def update_todo_progress(todo_id, minutes):
             (minutes, todo_id)
         )
         # 然后检查是否需要自动完成
-        row = conn.execute("SELECT progress_min, target_min, mode FROM todos WHERE id=?", (todo_id,)).fetchone()
+        row = conn.execute("SELECT progress_min, target_min, mode, parent_id FROM todos WHERE id=?", (todo_id,)).fetchone()
         if row and row["mode"] == "goal" and row["progress_min"] >= row["target_min"]:
             conn.execute(
                 "UPDATE todos SET status='completed', completed_at=datetime('now','localtime') WHERE id=?",
                 (todo_id,)
             )
+        # 子任务进度聚合到父任务：父 progress_min = SUM(子任务 progress_min)
+        if row and row["parent_id"]:
+            parent_id = row["parent_id"]
+            agg = conn.execute(
+                "SELECT COALESCE(SUM(progress_min), 0) as total FROM todos WHERE parent_id=?",
+                (parent_id,)
+            ).fetchone()
+            conn.execute(
+                "UPDATE todos SET progress_min=?, updated_at=datetime('now','localtime') WHERE id=?",
+                (agg["total"], parent_id)
+            )
+            # 父任务自动完成检查
+            parent_row = conn.execute("SELECT progress_min, target_min, mode FROM todos WHERE id=?", (parent_id,)).fetchone()
+            if parent_row and parent_row["mode"] == "goal" and parent_row["progress_min"] >= parent_row["target_min"]:
+                conn.execute(
+                    "UPDATE todos SET status='completed', completed_at=datetime('now','localtime') WHERE id=?",
+                    (parent_id,)
+                )
         conn.commit()
         return True
 
