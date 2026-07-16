@@ -4,6 +4,7 @@ P921-P960: 消息队列+事件驱动+流处理+订阅发布+消费者组+死信+
 from __future__ import annotations
 
 import hashlib
+import logging
 import threading
 import time
 import uuid
@@ -13,7 +14,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Optional
 
-logger = __import__("logging").getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # ═════════ P921-P930: 消息队列(增强) ═════════

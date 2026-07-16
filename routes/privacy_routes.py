@@ -7,6 +7,19 @@ import db
 logger = logging.getLogger(__name__)
 privacy_bp = Blueprint('privacy', __name__, url_prefix='/api/privacy')
 
+# 白名单校验：仅允许操作已知的业务表
+_ALLOWED_TABLES = frozenset([
+    'activities', 'app_usage', 'screenshots', 'reports',
+    'todos', 'habits', 'habit_logs', 'diaries', 'week_plans',
+    'countdowns', 'pomodoro_sessions', 'notifications',
+    'app_tags', 'deep_insight_cache', 'ai_chat_history'
+])
+
+
+def _validate_table_name(table: str) -> bool:
+    """校验表名是否在白名单内，防止 SQL 注入"""
+    return table in _ALLOWED_TABLES
+
 
 @privacy_bp.route('/data', methods=['DELETE'])
 def delete_all_user_data():
@@ -21,6 +34,9 @@ def delete_all_user_data():
         with db.get_conn() as conn:
             conn.execute("BEGIN IMMEDIATE")
             for table in tables_to_clear:
+                if not _validate_table_name(table):
+                    logger.warning(f"跳过非法表名: {table}")
+                    continue
                 try:
                     conn.execute(f"DELETE FROM {table}")
                 except Exception as e:
@@ -42,6 +58,8 @@ def export_all_user_data():
         tables = ['activities', 'app_usage', 'reports', 'todos', 'habits', 'diaries']
         with db.get_conn() as conn:
             for table in tables:
+                if not _validate_table_name(table):
+                    continue
                 try:
                     rows = conn.execute(f"SELECT * FROM {table}").fetchall()
                     cols = [d[0] for d in conn.execute(f"SELECT * FROM {table} LIMIT 0").description]

@@ -3,6 +3,7 @@ P801-P840: 流量控制+限流+熔断+降级+背压+重试+超时+隔舱+漏桶+
 """
 from __future__ import annotations
 
+import logging
 import hashlib
 import threading
 import time
@@ -12,7 +13,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Optional
 
-logger = __import__("logging").getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # ═════════ P801-P810: 限流器 ═════════

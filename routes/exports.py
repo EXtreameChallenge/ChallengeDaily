@@ -814,6 +814,15 @@ _WIPEABLE_TABLES = [
 ]
 
 
+# 白名单校验：仅允许 DELETE 操作已知的业务表
+_WIPEABLE_TABLE_SET = frozenset(_WIPEABLE_TABLES)
+
+
+def _validate_wipeable_table(table: str) -> bool:
+    """校验表名是否在白名单内，防止 SQL 注入"""
+    return table in _WIPEABLE_TABLE_SET
+
+
 @bp.route("/api/exports/wipe", methods=["POST"])
 def wipe_all_data():
     """永久删除所有用户数据（不可恢复）
@@ -835,6 +844,8 @@ def wipe_all_data():
         # 1. 清空业务表
         with get_conn() as conn:
             for table in _WIPEABLE_TABLES:
+                if not _validate_wipeable_table(table):
+                    continue
                 try:
                     cur = conn.execute(f"DELETE FROM {table}")
                     deleted_counts[table] = cur.rowcount

@@ -59,8 +59,21 @@ def _get_machine_id() -> str:
             return socket.gethostname()
     except Exception as e:
         logger.warning(f"获取机器ID失败: {e}")
-        # 回退到固定值（安全性降低，但保证可用）
-        return "challenge-daily-default-machine-id"
+    # 安全回退：生成随机 ID 并持久化到文件，保证每台机器不同
+    fallback_path = _get_backend_data_dir() / "machine_fallback_id.bin"
+    if fallback_path.exists():
+        try:
+            return fallback_path.read_text(encoding="utf-8").strip()
+        except Exception:
+            pass
+    fallback_id = os.urandom(32).hex()
+    try:
+        fallback_path.parent.mkdir(parents=True, exist_ok=True)
+        fallback_path.write_text(fallback_id, encoding="utf-8")
+        logger.info(f"已生成并保存随机机器ID回退值")
+    except Exception as save_err:
+        logger.warning(f"保存随机机器ID失败: {save_err}")
+    return fallback_id
 
 
 def _get_or_create_salt() -> bytes:

@@ -7,6 +7,8 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
+import os
 import re
 import secrets
 import threading
@@ -16,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Callable, Optional
 
-logger = __import__("logging").getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # ═════════ P961-P970: 加密 + 签名 + JWT ═════════
@@ -24,25 +26,111 @@ logger = __import__("logging").getLogger(__name__)
 class CryptoSuite:
     """加密套件(对称/非对称/哈希/HMAC)"""
 
-    # 对称加密(简化版XOR流，实际生产应使用AES)
+    # 对称加密: AES-256-CBC（替换不安全的XOR）
+    @staticmethod
+    def aes_encrypt(plaintext: str, key: str) -> dict:
+        """AES-256-CBC 加密，key 通过 PBKDF2 派生为 32 字节"""
+        if not key:
+            return {"status": "error", "error": "密钥不能为空"}
+        try:
+            from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+            from cryptography.hazmat.primitives import padding as sym_padding
+            from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+            from cryptography.hazmat.primitives import hashes
+
+            # 从用户密钥派生 32 字节 AES 密钥 + 16 字节盐
+            salt = os.urandom(16)
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=salt,
+                iterations=100_000,
+            )
+            aes_key = kdf.derive(key.encode("utf-8"))
+
+            iv = os.urandom(16)
+            padder = sym_padding.PKCS7(128).padder()
+            padded = padder.update(plaintext.encode("utf-8")) + padder.finalize()
+            cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
+            encryptor = cipher.encryptor()
+            ciphertext = encryptor.update(padded) + encryptor.finalize()
+
+            # 输出: base64(salt + iv + ciphertext)
+            combined = salt + iv + ciphertext
+            return {
+                "status": "ok",
+                "ciphertext": base64.b64encode(combined).decode("ascii"),
+                "algorithm": "AES-256-CBC",
+            }
+        except ImportError:
+            return {"status": "error", "error": "cryptography 库未安装"}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    @staticmethod
+    def aes_decrypt(ciphertext_b64: str, key: str) -> dict:
+        """AES-256-CBC 解密"""
+        if not key:
+            return {"status": "error", "error": "密钥不能为空"}
+        try:
+            from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+            from cryptography.hazmat.primitives import padding as sym_padding
+            from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+            from cryptography.hazmat.primitives import hashes
+
+            combined = base64.b64decode(ciphertext_b64)
+            salt = combined[:16]
+            iv = combined[16:32]
+            ciphertext = combined[32:]
+
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=salt,
+                iterations=100_000,
+            )
+            aes_key = kdf.derive(key.encode("utf-8"))
+
+            cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
+            decryptor = cipher.decryptor()
+            padded = decryptor.update(ciphertext) + decryptor.finalize()
+
+            unpadder = sym_padding.PKCS7(128).unpadder()
+            plaintext = unpadder.update(padded) + unpadder.finalize()
+
+            return {
+                "status": "ok",
+                "plaintext": plaintext.decode("utf-8"),
+                "algorithm": "AES-256-CBC",
+            }
+        except ImportError:
+            return {"status": "error", "error": "cryptography 库未安装"}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
+    # ── 旧 XOR 方法保留但标记为不安全，仅供向后兼容 ──
     @staticmethod
     def xor_encrypt(plaintext: str, key: str) -> dict:
+        """[已弃用] XOR 加密不安全，请使用 aes_encrypt"""
+        logger.warning("xor_encrypt 已弃用，建议使用 aes_encrypt")
         if not key:
             return {"status": "error", "error": "密钥不能为空"}
         key_bytes = key.encode("utf-8")
         text_bytes = plaintext.encode("utf-8")
         cipher = bytes(b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(text_bytes))
         return {"status": "ok", "ciphertext": base64.b64encode(cipher).hex(),
-                "algorithm": "XOR"}
+                "algorithm": "XOR-DEPRECATED"}
 
     @staticmethod
     def xor_decrypt(cipher_hex: str, key: str) -> dict:
+        """[已弃用] XOR 解密不安全，请使用 aes_decrypt"""
+        logger.warning("xor_decrypt 已弃用，建议使用 aes_decrypt")
         try:
             cipher = bytes.fromhex(cipher_hex)
             key_bytes = key.encode("utf-8")
             plain = bytes(b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(cipher))
             return {"status": "ok", "plaintext": plain.decode("utf-8", errors="replace"),
-                    "algorithm": "XOR"}
+                    "algorithm": "XOR-DEPRECATED"}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
@@ -74,7 +162,10 @@ class CryptoSuite:
 class JWTManager:
     """JWT管理器"""
 
-    def __init__(self, secret: str = "default_secret_change_me"):
+    def __init__(self, secret: str = ""):
+        if not secret:
+            # 从环境变量或密钥轮换管理器获取，无则生成随机密钥
+            secret = os.environ.get("CHALLENGE_DAILY_JWT_SECRET", "") or secrets.token_urlsafe(48)
         self.secret = secret
         self._revoked: set = set()
         self._lock = threading.Lock()

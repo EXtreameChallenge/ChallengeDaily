@@ -4,6 +4,7 @@ P1081-P1120: 终极优化+代码质量+技术债务+文档生成+API契约+依�
 from __future__ import annotations
 
 import ast
+import logging
 import os
 import re
 import threading
@@ -13,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Callable, Optional
 
-logger = __import__("logging").getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # ═════════ P1081-P1090: 代码质量分析 ═════════

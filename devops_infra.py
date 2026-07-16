@@ -17,7 +17,12 @@ import json
 import os
 import sys
 import platform
-import psutil
+
+try:
+    import psutil
+except ImportError:
+    psutil = None  # type: ignore
+
 from datetime import datetime, timedelta
 from collections import defaultdict, deque
 from typing import Any, Callable, Optional
@@ -40,29 +45,38 @@ def health_check_full() -> dict:
         checks.append({"name": "database", "status": "error", "detail": str(e)[:100]})
 
     # 2. 内存
-    try:
-        mem = psutil.virtual_memory()
-        status = "ok" if mem.percent < 85 else ("warn" if mem.percent < 95 else "error")
-        checks.append({"name": "memory", "status": status, "detail": f"{mem.percent}% used"})
-    except Exception:
-        checks.append({"name": "memory", "status": "unknown", "detail": "psutil unavailable"})
+    if psutil is None:
+        checks.append({"name": "memory", "status": "unknown", "detail": "psutil not installed"})
+    else:
+        try:
+            mem = psutil.virtual_memory()
+            status = "ok" if mem.percent < 85 else ("warn" if mem.percent < 95 else "error")
+            checks.append({"name": "memory", "status": status, "detail": f"{mem.percent}% used"})
+        except Exception:
+            checks.append({"name": "memory", "status": "unknown", "detail": "psutil unavailable"})
 
     # 3. 磁盘
-    try:
-        disk = psutil.disk_usage(os.getcwd())
-        free_gb = disk.free / (1024 ** 3)
-        status = "ok" if free_gb > 1 else ("warn" if free_gb > 0.2 else "error")
-        checks.append({"name": "disk", "status": status, "detail": f"{free_gb:.1f}GB free"})
-    except Exception:
-        checks.append({"name": "disk", "status": "unknown"})
+    if psutil is None:
+        checks.append({"name": "disk", "status": "unknown", "detail": "psutil not installed"})
+    else:
+        try:
+            disk = psutil.disk_usage(os.getcwd())
+            free_gb = disk.free / (1024 ** 3)
+            status = "ok" if free_gb > 1 else ("warn" if free_gb > 0.2 else "error")
+            checks.append({"name": "disk", "status": status, "detail": f"{free_gb:.1f}GB free"})
+        except Exception:
+            checks.append({"name": "disk", "status": "unknown"})
 
     # 4. CPU
-    try:
-        cpu = psutil.cpu_percent(interval=0.5)
-        status = "ok" if cpu < 80 else ("warn" if cpu < 95 else "error")
-        checks.append({"name": "cpu", "status": status, "detail": f"{cpu}%"})
-    except Exception:
-        checks.append({"name": "cpu", "status": "unknown"})
+    if psutil is None:
+        checks.append({"name": "cpu", "status": "unknown", "detail": "psutil not installed"})
+    else:
+        try:
+            cpu = psutil.cpu_percent(interval=0.5)
+            status = "ok" if cpu < 80 else ("warn" if cpu < 95 else "error")
+            checks.append({"name": "cpu", "status": status, "detail": f"{cpu}%"})
+        except Exception:
+            checks.append({"name": "cpu", "status": "unknown"})
 
     # 5. 截图目录
     try:
@@ -224,6 +238,8 @@ _RESOURCE_LOCK = threading.Lock()
 
 def sample_resources() -> dict:
     """采样当前资源使用"""
+    if psutil is None:
+        return {"error": "psutil not installed"}
     try:
         mem = psutil.virtual_memory()
         disk = psutil.disk_usage(os.getcwd())
@@ -289,6 +305,8 @@ def graceful_shutdown(timeout: float = 10.0) -> dict:
 # ─── P87: 进程管理 ──────────────────────────
 def list_processes(filter_name: str = "") -> list:
     """列出相关进程"""
+    if psutil is None:
+        return [{"error": "psutil not installed"}]
     try:
         result = []
         for p in psutil.process_iter(["pid", "name", "cpu_percent", "memory_info"]):

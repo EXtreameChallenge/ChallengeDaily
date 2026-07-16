@@ -4,6 +4,7 @@ P1041-P1080: 部署+CI/CD+发布管理+蓝绿/金丝雀+回滚+镜像+制品+流
 from __future__ import annotations
 
 import hashlib
+import logging
 import secrets
 import threading
 import time
@@ -13,7 +14,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Optional
 
-logger = __import__("logging").getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class DeploymentStatus(Enum):

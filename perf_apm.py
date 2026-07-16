@@ -4,6 +4,7 @@ P1001-P1040: 性能监控+APM+诊断+火焰图+内存分析+GC监控+CPU profili
 from __future__ import annotations
 
 import gc
+import logging
 import os
 import sys
 import threading
@@ -14,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Callable, Optional
 
-logger = __import__("logging").getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # ═════════ P1001-P1010: APM性能监控 ═════════

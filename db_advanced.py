@@ -3,6 +3,7 @@ P841-P880: 数据库高级+索引顾问+查询优化+读写分离+分库分表+�
 """
 from __future__ import annotations
 
+import logging
 import re
 import threading
 import time
@@ -11,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-logger = __import__("logging").getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # ═════════ P841-P850: 索引顾问 ═════════

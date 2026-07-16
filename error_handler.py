@@ -24,7 +24,7 @@ _SENSITIVE_ERROR_KEYWORDS = [
 def safe_error_message(err: Exception, fallback: str = "操作失败，请稍后重试") -> str:
     """P55: 生成安全的错误消息（脱敏敏感信息）"""
     err_str = str(err)
-    err_lower = err_lower = err_str.lower()
+    err_lower = err_str.lower()
     for kw in _SENSITIVE_ERROR_KEYWORDS:
         if kw in err_lower:
             return fallback

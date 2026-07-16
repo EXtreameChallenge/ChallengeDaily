@@ -26,13 +26,13 @@ def _arg(name: str, default=None):
 @bp.route("/crypto/encrypt", methods=["POST"])
 def crypto_encrypt():
     data = _json_body()
-    return jsonify(_crypto.xor_encrypt(data.get("plaintext", ""), data.get("key", "")))
+    return jsonify(_crypto.aes_encrypt(data.get("plaintext", ""), data.get("key", "")))
 
 
 @bp.route("/crypto/decrypt", methods=["POST"])
 def crypto_decrypt():
     data = _json_body()
-    return jsonify(_crypto.xor_decrypt(data.get("ciphertext", ""), data.get("key", "")))
+    return jsonify(_crypto.aes_decrypt(data.get("ciphertext", ""), data.get("key", "")))
 
 
 @bp.route("/crypto/hash", methods=["POST"])

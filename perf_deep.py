@@ -336,6 +336,7 @@ class AsyncTaskQueue:
 
 # ─── P168: 热路径优化 ──────────────────────────
 _HOT_PATHS: dict[str, dict] = defaultdict(lambda: {"calls": 0, "total_time": 0})
+_hot_path_lock = threading.Lock()
 
 
 def hot_path(name: str):
@@ -347,7 +348,7 @@ def hot_path(name: str):
                 return func(*args, **kwargs)
             finally:
                 elapsed = time.perf_counter() - start
-                with threading.Lock():
+                with _hot_path_lock:
                     stat = _HOT_PATHS[name]
                     stat["calls"] += 1
                     stat["total_time"] += elapsed
@@ -356,7 +357,7 @@ def hot_path(name: str):
 
 
 def get_hot_path_stats() -> dict:
-    with threading.Lock():
+    with _hot_path_lock:
         return {
             name: {
                 "calls": s["calls"],
