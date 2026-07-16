@@ -50,6 +50,8 @@ from routes.perf_routes import bp as perf_bp
 from routes.integration_routes import bp as integration_bp
 from routes.viz_routes import bp as viz_bp
 from routes.observability_routes import bp as observability_bp
+from routes.workflow_routes import bp as workflow_bp
+from routes.cross_platform_routes import bp as cross_platform_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -104,4 +106,6 @@ ALL_BLUEPRINTS = [
     integration_bp,
     viz_bp,
     observability_bp,
+    workflow_bp,
+    cross_platform_bp,
 ]
