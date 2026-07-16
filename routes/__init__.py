@@ -78,6 +78,7 @@ from routes.mq_stream_routes import bp as mq_stream_bp
 from routes.security_advanced_routes import bp as security_advanced_bp
 from routes.perf_apm_routes import bp as perf_apm_bp
 from routes.deployment_routes import bp as deployment_bp
+from routes.quality_docs_routes import bp as quality_docs_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -160,4 +161,5 @@ ALL_BLUEPRINTS = [
     security_advanced_bp,
     perf_apm_bp,
     deployment_bp,
+    quality_docs_bp,
 ]
