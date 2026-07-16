@@ -60,6 +60,7 @@ from routes.offline_routes import bp as offline_bp
 from routes.realtime_routes import bp as realtime_bp
 from routes.migration_i18n_routes import bp as migration_i18n_bp
 from routes.accessibility_routes import bp as accessibility_bp
+from routes.ml_basic_routes import bp as ml_basic_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -124,4 +125,5 @@ ALL_BLUEPRINTS = [
     realtime_bp,
     migration_i18n_bp,
     accessibility_bp,
+    ml_basic_bp,
 ]
