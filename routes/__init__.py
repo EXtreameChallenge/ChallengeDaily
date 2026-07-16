@@ -70,6 +70,7 @@ from routes.cost_compliance_routes import bp as cost_compliance_bp
 from routes.privacy_dq_routes import bp as privacy_dq_bp
 from routes.mlops_routes import bp as mlops_bp
 from routes.infra_edge_routes import bp as infra_edge_bp
+from routes.network_dr_routes import bp as network_dr_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -144,4 +145,5 @@ ALL_BLUEPRINTS = [
     privacy_dq_bp,
     mlops_bp,
     infra_edge_bp,
+    network_dr_bp,
 ]
