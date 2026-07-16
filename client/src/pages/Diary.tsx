@@ -1,6 +1,6 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react'
-import { ChevronLeft, ChevronRight, Save, Calendar, Sparkles, Image as ImageIcon, Mic, Link2, X } from 'lucide-react'
-import { getDiary, saveDiary, getDiaries, getTodayStr, formatLocalDate, type Diary as DiaryType, type DiaryMedia } from '../api/client'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { ChevronLeft, ChevronRight, Save, Calendar, Sparkles, Image as ImageIcon, Mic, Link2, X, CheckCircle, Flame, Timer, BarChart3, Trophy, ChevronDown, FileText } from 'lucide-react'
+import { getDiary, saveDiary, getDiaries, getDailyCard, getDailyCardText, getTodayStr, formatLocalDate, type Diary as DiaryType, type DiaryMedia, type DailyCardData } from '../api/client'
 import { useToast } from '../components/Toast'
 
 const MOODS = [
@@ -43,6 +43,39 @@ export default function Diary() {
   const toast = useToast()
   // 用于在组件卸载时清理 savedFlash 的 setTimeout
   const flashTimerRef = useRef<number | undefined>(undefined)
+
+  // 「今日完成」自动卡片（借鉴 GoalDay 核心创新：数据自动关联）
+  const [dailyCard, setDailyCard] = useState<DailyCardData | null>(null)
+  const [cardExpanded, setCardExpanded] = useState(false)
+  const [cardLoading, setCardLoading] = useState(false)
+
+  const loadDailyCard = useCallback(async () => {
+    setCardLoading(true)
+    try {
+      const card = await getDailyCard(currentDate)
+      setDailyCard(card)
+    } catch {
+      setDailyCard(null)
+    } finally {
+      setCardLoading(false)
+    }
+  }, [currentDate])
+
+  useEffect(() => { loadDailyCard() }, [loadDailyCard])
+
+  // 一键插入「今日完成」到日记正文
+  const handleInsertCard = async () => {
+    try {
+      const { text } = await getDailyCardText(currentDate)
+      if (!text) { toast.error('暂无可插入的数据'); return }
+      // 追加到日记正文末尾
+      const sep = content.trim() ? '\n\n---\n\n' : ''
+      setContent(prev => prev + sep + text)
+      toast.success('已插入今日完成卡片')
+    } catch {
+      toast.error('插入失败，请重试')
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -177,6 +210,17 @@ export default function Diary() {
         </div>
       </div>
 
+      {/* 「今日完成」自动卡片 — 借鉴 GoalDay 数据自动关联 */}
+      {dailyCard && (dailyCard.summary.total_tasks > 0 || dailyCard.summary.total_focus_min > 0 || dailyCard.summary.total_work_min > 0) && (
+        <TodayCompleteCard
+          card={dailyCard}
+          expanded={cardExpanded}
+          onToggle={() => setCardExpanded(!cardExpanded)}
+          onInsert={handleInsertCard}
+          loading={cardLoading}
+        />
+      )}
+
       {/* 日记内容 */}
       <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5 mb-4">
         <div className="flex items-center justify-between mb-2">
@@ -289,6 +333,171 @@ export default function Diary() {
               </button>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════
+   「今日完成」自动卡片组件（借鉴 GoalDay 核心创新）
+   自动汇总当天待办/习惯/专注/活动/成就，一键插入日记
+   ═══════════════════════════════════════════ */
+const GRADE_COLORS: Record<string, string> = {
+  S: 'text-gold', A: 'text-cd-green', B: 'text-cd-accent', C: 'text-yellow-400', D: 'text-cd-text-tertiary',
+}
+
+function TodayCompleteCard({
+  card, expanded, onToggle, onInsert, loading,
+}: {
+  card: DailyCardData
+  expanded: boolean
+  onToggle: () => void
+  onInsert: () => void
+  loading: boolean
+}) {
+  const s = card.summary
+  const gradeColor = GRADE_COLORS[s.grade] || 'text-cd-text'
+
+  return (
+    <div className="bg-gradient-to-br from-cd-bg-card to-cd-bg-card/80 rounded-xl border border-cd-accent/20 mb-4 overflow-hidden">
+      {/* 概览栏 */}
+      <div className="flex items-center gap-3 p-4">
+        {/* 评分圆环 */}
+        <div className="relative w-14 h-14 shrink-0">
+          <svg className="w-14 h-14 -rotate-90" viewBox="0 0 56 56">
+            <circle cx="28" cy="28" r="24" fill="none" stroke="currentColor" strokeWidth="3" className="text-cd-border opacity-30" />
+            <circle cx="28" cy="28" r="24" fill="none" stroke="currentColor" strokeWidth="3"
+              className="text-cd-accent transition-all"
+              strokeDasharray={`${(s.productivity_score / 100) * 150.8} 150.8`}
+              strokeLinecap="round"
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className={`text-lg font-bold ${gradeColor}`}>{s.grade}</span>
+          </div>
+        </div>
+
+        {/* 数据概览 */}
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-cd-text mb-1">今日完成</div>
+          <div className="flex gap-3 text-xs text-cd-text-secondary flex-wrap">
+            <span className="flex items-center gap-1"><CheckCircle size={11} className="text-cd-green" /> {s.total_tasks} 任务</span>
+            <span className="flex items-center gap-1"><Timer size={11} className="text-cd-accent" /> {s.total_focus_min}min 专注</span>
+            <span className="flex items-center gap-1"><BarChart3 size={11} className="text-blue-400" /> {s.total_work_min}min 工作</span>
+            <span className="flex items-center gap-1"><Flame size={11} className="text-orange-400" /> {s.total_habits} 打卡</span>
+            {s.total_achievements > 0 && (
+              <span className="flex items-center gap-1"><Trophy size={11} className="text-yellow-400" /> {s.total_achievements} 成就</span>
+            )}
+          </div>
+        </div>
+
+        {/* 操作按钮 */}
+        <div className="flex gap-1.5 shrink-0">
+          <button onClick={onInsert} title="插入到日记"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
+            <FileText size={12} /> 插入
+          </button>
+          <button onClick={onToggle} title={expanded ? '收起' : '展开'}
+            className="p-1.5 rounded-lg text-cd-text-tertiary hover:text-cd-text hover:bg-white/5 transition">
+            <ChevronDown size={14} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* 展开详情 */}
+      {expanded && !loading && (
+        <div className="px-4 pb-4 space-y-3 animate-fade-in border-t border-white/5 pt-3">
+          {/* 待办完成 */}
+          {card.todos_completed.length > 0 && (
+            <div>
+              <div className="text-[10px] font-medium text-cd-text-tertiary uppercase tracking-wider mb-1.5">✅ 已完成待办</div>
+              <div className="space-y-1">
+                {card.todos_completed.slice(0, 8).map(t => (
+                  <div key={t.id} className="flex items-center gap-2 text-xs">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-cd-bg-input text-cd-text-secondary">{t.category}</span>
+                    <span className="text-cd-text flex-1 truncate">{t.title}</span>
+                  </div>
+                ))}
+                {card.todos_completed.length > 8 && (
+                  <div className="text-[10px] text-cd-text-tertiary">+{card.todos_completed.length - 8} 项</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 专注会话 */}
+          {card.pomodoro_sessions.length > 0 && (
+            <div>
+              <div className="text-[10px] font-medium text-cd-text-tertiary uppercase tracking-wider mb-1.5">
+                🍅 专注会话（{card.pomodoro_count} 次 / {card.pomodoro_total_min}min）
+              </div>
+              <div className="space-y-1">
+                {card.pomodoro_sessions.slice(0, 5).map(ps => (
+                  <div key={ps.id} className="flex items-center gap-2 text-xs">
+                    <span className="text-cd-text flex-1 truncate">{ps.task || '未命名'}</span>
+                    <span className="text-cd-text-tertiary">{ps.duration_min}min</span>
+                  </div>
+                ))}
+                {card.pomodoro_sessions.length > 5 && (
+                  <div className="text-[10px] text-cd-text-tertiary">+{card.pomodoro_sessions.length - 5} 次</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 工作分布 */}
+          {Object.keys(card.activity_categories).length > 0 && (
+            <div>
+              <div className="text-[10px] font-medium text-cd-text-tertiary uppercase tracking-wider mb-1.5">
+                📊 工作分布（{card.activity_total_min}min）
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                {Object.entries(card.activity_categories).slice(0, 6).map(([cat, dur]) => (
+                  <span key={cat} className="px-2 py-0.5 rounded text-[10px] bg-cd-bg-input text-cd-text-secondary">
+                    {cat} {dur}min
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 习惯打卡 */}
+          {card.habits_logged.length > 0 && (
+            <div>
+              <div className="text-[10px] font-medium text-cd-text-tertiary uppercase tracking-wider mb-1.5">🔥 习惯打卡</div>
+              <div className="flex gap-1 flex-wrap">
+                {card.habits_logged.map(h => (
+                  <span key={h.habit_id} className="px-2 py-0.5 rounded text-[10px] bg-cd-bg-input text-cd-text-secondary">
+                    {h.name} ×{h.count}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 成就解锁 */}
+          {card.achievements_unlocked.length > 0 && (
+            <div>
+              <div className="text-[10px] font-medium text-cd-text-tertiary uppercase tracking-wider mb-1.5">🏆 解锁成就</div>
+              <div className="space-y-1">
+                {card.achievements_unlocked.map(a => (
+                  <div key={a.code} className="flex items-center gap-2 text-xs">
+                    <span>{a.icon}</span>
+                    <span className="text-cd-text">{a.name}</span>
+                    <span className="text-cd-text-tertiary text-[10px]">{a.description}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 活动时间范围 */}
+          {card.activity_first_ts && card.activity_last_ts && (
+            <div className="text-[10px] text-cd-text-tertiary pt-1 border-t border-white/5">
+              活动记录：{card.activity_first_ts.substring(11, 16)} — {card.activity_last_ts.substring(11, 16)}
+            </div>
+          )}
         </div>
       )}
     </div>

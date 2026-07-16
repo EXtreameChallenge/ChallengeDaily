@@ -1509,6 +1509,44 @@ export async function getDiaries(limit?: number): Promise<{ diaries: Diary[]; da
   return request(`/api/diaries/list?limit=${limit || 30}`) as Promise<{ diaries: Diary[]; dates: string[] }>
 }
 
+// ── 「今日完成」自动卡片（借鉴 GoalDay 核心创新：数据自动关联）──
+export interface DailyCardData {
+  date: string
+  todos_completed: { id: number; title: string; category: string; completed_at: string; priority: number }[]
+  todos_count: number
+  habits_logged: { habit_id: number; name: string; count: number; color: string; category: string }[]
+  habits_count: number
+  pomodoro_sessions: { id: number; task: string; category: string; duration_min: number; status: string; start_time: string; end_time: string }[]
+  pomodoro_count: number
+  pomodoro_total_min: number
+  pomodoro_quality: any
+  activity_categories: Record<string, number>
+  activity_total_min: number
+  activity_first_ts: string | null
+  activity_last_ts: string | null
+  achievements_unlocked: { code: string; name: string; description: string; icon: string; unlocked_at: string }[]
+  achievements_count: number
+  summary: {
+    total_tasks: number
+    total_focus_min: number
+    total_work_min: number
+    total_habits: number
+    total_achievements: number
+    productivity_score: number
+    grade: string
+  }
+}
+
+export async function getDailyCard(date?: string): Promise<DailyCardData> {
+  const d = date || new Date().toISOString().slice(0, 10)
+  return request(`/api/daily-card?date=${d}`) as Promise<DailyCardData>
+}
+
+export async function getDailyCardText(date?: string): Promise<{ date: string; text: string; summary: any }> {
+  const d = date || new Date().toISOString().slice(0, 10)
+  return request(`/api/daily-card/text?date=${d}`) as Promise<{ date: string; text: string; summary: any }>
+}
+
 // ── 成就系统 ──
 export interface Achievement {
   id: number

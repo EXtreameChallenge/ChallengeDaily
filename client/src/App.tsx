@@ -41,6 +41,8 @@ const StudyRoom = lazy(() => import('./pages/StudyRoom'))
 const RulesEngine = lazy(() => import('./pages/RulesEngine'))
 const Goals = lazy(() => import('./pages/Goals'))
 const TimelinePlayer = lazy(() => import('./pages/TimelinePlayer'))
+const Inspiration = lazy(() => import('./pages/Inspiration'))
+const DailyCards = lazy(() => import('./pages/DailyCards'))
 
 // 首次启动流程：法律协议 → 新手引导 → 主界面
 type FirstLaunchPhase = 'legal' | 'onboarding' | 'done'
@@ -300,6 +302,8 @@ export default function App() {
                         <Route path="/export" element={<ExportCenter />} />
                         <Route path="/habits" element={<Habits />} />
                         <Route path="/health" element={<Health />} />
+                        <Route path="/inspiration" element={<Inspiration />} />
+                        <Route path="/daily-cards" element={<DailyCards />} />
                         <Route path="*" element={<NotFoundPage />} />
                       </Routes>
                     </Suspense>

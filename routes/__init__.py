@@ -79,6 +79,7 @@ from routes.security_advanced_routes import bp as security_advanced_bp
 from routes.perf_apm_routes import bp as perf_apm_bp
 from routes.deployment_routes import bp as deployment_bp
 from routes.quality_docs_routes import bp as quality_docs_bp
+from routes.daily_card import bp as daily_card_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -162,4 +163,5 @@ ALL_BLUEPRINTS = [
     perf_apm_bp,
     deployment_bp,
     quality_docs_bp,
+    daily_card_bp,
 ]

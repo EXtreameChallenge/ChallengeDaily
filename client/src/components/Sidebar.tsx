@@ -32,6 +32,7 @@ import {
   Target,
   ChevronDown,
   BarChart3,
+  Lightbulb,
   type LucideIcon,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -100,6 +101,12 @@ const NAV_GROUPS: { label: string; items: NavParent[] }[] = [
           { to: '/export', icon: Download, label: '数据导出' },
         ],
       },
+      {
+        to: '/inspiration',
+        icon: Lightbulb,
+        label: '灵感中心',
+        desc: '计划/习惯/目标模板库',
+      },
     ],
   },
   {
@@ -137,6 +144,7 @@ const NAV_GROUPS: { label: string; items: NavParent[] }[] = [
         children: [
           { to: '/profile', icon: Brain, label: '深度画像' },
           { to: '/diary', icon: BookOpen, label: '每日日记' },
+          { to: '/daily-cards', icon: Sparkles, label: '每日卡片' },
         ],
       },
       {
