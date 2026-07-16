@@ -52,6 +52,8 @@ from routes.viz_routes import bp as viz_bp
 from routes.observability_routes import bp as observability_bp
 from routes.workflow_routes import bp as workflow_bp
 from routes.cross_platform_routes import bp as cross_platform_bp
+from routes.knowledge_graph_routes import bp as knowledge_graph_bp
+from routes.smart_search_routes import bp as smart_search_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -108,4 +110,6 @@ ALL_BLUEPRINTS = [
     observability_bp,
     workflow_bp,
     cross_platform_bp,
+    knowledge_graph_bp,
+    smart_search_bp,
 ]
