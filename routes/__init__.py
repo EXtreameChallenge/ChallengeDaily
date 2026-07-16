@@ -46,6 +46,7 @@ from routes.advanced_data_routes import bp as advanced_data_bp
 from routes.security_routes2 import bp as security_bp2
 from routes.smart_routes import bp as smart_bp
 from routes.uiux_routes import bp as uiux_bp
+from routes.perf_routes import bp as perf_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -96,4 +97,5 @@ ALL_BLUEPRINTS = [
     security_bp2,
     smart_bp,
     uiux_bp,
+    perf_bp,
 ]
