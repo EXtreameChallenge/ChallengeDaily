@@ -56,6 +56,8 @@ from routes.knowledge_graph_routes import bp as knowledge_graph_bp
 from routes.smart_search_routes import bp as smart_search_bp
 from routes.collaboration_routes import bp as collaboration_bp
 from routes.version_control_routes import bp as version_control_bp
+from routes.offline_routes import bp as offline_bp
+from routes.realtime_routes import bp as realtime_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -116,4 +118,6 @@ ALL_BLUEPRINTS = [
     smart_search_bp,
     collaboration_bp,
     version_control_bp,
+    offline_bp,
+    realtime_bp,
 ]
