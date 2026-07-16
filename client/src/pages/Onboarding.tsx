@@ -13,9 +13,20 @@ import {
   EyeOff,
   Zap,
   Heart,
+  LayoutDashboard,
+  CalendarDays,
+  CheckSquare,
+  Timer,
+  FileText,
+  BarChart3,
+  Brain,
+  Trophy,
+  Settings as SettingsIcon,
+  Tags,
+  Activity,
 } from 'lucide-react'
 
-const STEPS = ['welcome', 'ai', 'work-hours', 'personalize', 'done'] as const
+const STEPS = ['welcome', 'feature-tour', 'ai', 'work-hours', 'personalize', 'done'] as const
 type Step = typeof STEPS[number]
 
 interface OnboardingProps {
@@ -153,6 +164,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         {/* ─── 步骤内容 ─── */}
         <div className="animate-fade-in">
           {step === 'welcome' && <WelcomeStep />}
+          {step === 'feature-tour' && <FeatureTourStep />}
           {step === 'ai' && (
             <AIStep
               aiEnabled={aiEnabled}
@@ -248,6 +260,104 @@ function WelcomeStep() {
             <div className="text-[10px] text-cd-text-tertiary leading-relaxed">{desc}</div>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════
+   Step: Feature Tour（功能导览 — 整合后的三大区域）
+   ═══════════════════════════════════════════ */
+function FeatureTourStep() {
+  const groups: {
+    icon: typeof LayoutDashboard
+    label: string
+    desc: string
+    items: string[]
+  }[] = [
+    {
+      icon: LayoutDashboard,
+      label: '今日',
+      desc: '一眼看清今天',
+      items: ['今日总览：工作时长、活动摘要、AI 洞察'],
+    },
+    {
+      icon: CalendarDays,
+      label: '工作',
+      desc: '规划与执行',
+      items: [
+        '周计划 / 待办清单',
+        '专注番茄（含番茄自习室）',
+        '报告中心：生成 / 历史 / 导出',
+      ],
+    },
+    {
+      icon: BarChart3,
+      label: '洞察',
+      desc: '回顾与成长',
+      items: [
+        '数据看板：仪表盘 / 时间线 / 热力图 / 日历 / 应用记录 / 时间线回放',
+        'AI 助手：AI 对话 / AI 教练',
+        '深度画像：个人画像 / 每日日记',
+        '成长激励：成就 / 习惯 / 目标 / 倒数日',
+      ],
+    },
+  ]
+
+  const moreItems = [
+    { icon: Tags, label: '应用标签' },
+    { icon: Activity, label: '数据校准' },
+    { icon: Zap, label: '规则引擎' },
+    { icon: Bot, label: '智能代理' },
+    { icon: SettingsIcon, label: '设置' },
+  ]
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <Sparkles size={20} className="text-cd-green" />
+        <h2 className="text-lg font-bold text-cd-text font-display">功能导览</h2>
+      </div>
+      <p className="text-xs text-cd-text-tertiary mb-5">
+        左侧导航已整合为三大区域，相似功能用折叠子菜单收纳。点开父项即可看到细分入口，不会一眼看到一堆链接。
+      </p>
+
+      <div className="space-y-2.5">
+        {groups.map(({ icon: Icon, label, desc, items }) => (
+          <div key={label} className="card p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-lg bg-cd-green-light flex items-center justify-center shrink-0">
+                <Icon size={14} className="text-cd-green" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-cd-text">{label}</div>
+                <div className="text-[10px] text-cd-text-tertiary">{desc}</div>
+              </div>
+            </div>
+            <ul className="space-y-1 ml-9">
+              {items.map((it, i) => (
+                <li key={i} className="text-[11px] text-cd-text-secondary flex items-start gap-1.5">
+                  <span className="text-cd-green mt-0.5">·</span>
+                  <span className="flex-1">{it}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 card p-2.5">
+        <div className="text-[10px] font-medium text-cd-text-tertiary uppercase tracking-wider mb-1.5">
+          导航底部「更多」
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
+          {moreItems.map(({ icon: Icon, label }) => (
+            <div key={label} className="flex items-center gap-1 text-[10px] text-cd-text-secondary">
+              <Icon size={10} className="text-cd-text-tertiary" />
+              {label}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
