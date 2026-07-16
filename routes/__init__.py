@@ -63,6 +63,7 @@ from routes.accessibility_routes import bp as accessibility_bp
 from routes.ml_basic_routes import bp as ml_basic_bp
 from routes.nlp_routes import bp as nlp_bp
 from routes.cv_routes import bp as cv_bp
+from routes.rec_ab_routes import bp as rec_ab_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -130,4 +131,5 @@ ALL_BLUEPRINTS = [
     ml_basic_bp,
     nlp_bp,
     cv_bp,
+    rec_ab_bp,
 ]
