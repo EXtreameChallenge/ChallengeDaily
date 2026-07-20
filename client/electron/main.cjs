@@ -653,9 +653,9 @@ function createPomodoroWidget() {
   const { width: screenWidth } = screen.getPrimaryDisplay().workAreaSize
 
   pomodoroWidget = new BrowserWindow({
-    width: 200,
-    height: 80,
-    x: screenWidth - 220,
+    width: 216,
+    height: 94,
+    x: screenWidth - 236,
     y: 60,
     transparent: true,
     frame: false,

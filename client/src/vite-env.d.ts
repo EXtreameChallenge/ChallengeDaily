@@ -23,9 +23,9 @@ interface Window {
     onGenerateReport: (cb: (data: string) => void) => void
     showNotification: (opts: { title: string; body: string }) => void
     getWindowsLocation: () => Promise<{ lat: number; lon: number; status?: string } | null>
-    pomodoroWidgetUpdate: (data: { phase: string; remaining: number; totalSec: number; task: string; duration: number }) => void
+    pomodoroWidgetUpdate: (data: { phase: string; remaining: number; totalSec: number; task: string; duration: number; completed?: number; total?: number; index?: number; distractions?: number }) => void
     pomodoroWidgetHide: () => void
-    onPomodoroTick: (cb: (data: { phase: string; remaining: number; totalSec: number; task: string; duration: number }) => void) => void
+    onPomodoroTick: (cb: (data: { phase: string; remaining: number; totalSec: number; task: string; duration: number; completed?: number; total?: number; index?: number; distractions?: number }) => void) => void
     sendDistractionAlert: (data: { app: string; count: number }) => void
     onDistractionAlert: (cb: (data: { app: string; count: number }) => void) => void
     onNavigateTo: (cb: (path: string) => void) => void

@@ -219,16 +219,25 @@ export default function Focus() {
 
   // ── 番茄钟悬浮窗同步 ──
   const syncWidget = useCallback((override?: Partial<{ phase: Phase; remaining: number; totalSec: number; task: string; duration: number }>) => {
+    const ph = override?.phase ?? phase
     const curRemaining = override?.remaining ?? remainingRef.current
+    // 当前阶段完整时长：工作取 sizeConfig，休息取对应休息时长（进度条分母）
+    const phaseTotal = ph === 'working' ? sizeConfig.work * 60
+      : ph === 'long_break' ? sizeConfig.long_break * 60
+      : sizeConfig.short_break * 60
     const data = {
-      phase: override?.phase ?? phase,
+      phase: ph,
       remaining: curRemaining,
-      totalSec: override?.totalSec ?? (phase === 'idle' ? sizeConfig.work * 60 : curRemaining + (curRemaining > 0 ? 0 : 0)),
+      totalSec: override?.totalSec ?? phaseTotal,
       task: override?.task ?? task,
       duration: override?.duration ?? sizeConfig.work,
+      completed: completedPomodoros,
+      total: totalPomodoros,
+      index: pomodoroIndex,
+      distractions: distractionCount,
     }
     window.electronAPI?.pomodoroWidgetUpdate?.(data)
-  }, [phase, task, sizeConfig])
+  }, [phase, task, sizeConfig, completedPomodoros, totalPomodoros, pomodoroIndex, distractionCount])
 
   // 倒计时
   useEffect(() => {
