@@ -66,6 +66,11 @@ SCREENSHOT_MAX_WIDTH = int(os.getenv("SCREENSHOT_MAX_WIDTH", "1920"))
 # ── HTTP API 端口 ──
 HTTP_PORT = int(os.getenv("PORT", os.getenv("HTTP_PORT", "58888")))
 
+# ── HTTP 绑定地址 ──
+# 默认 0.0.0.0：自习室"扫描局域网"需要让同网段设备能访问本机 /api/study-room/heartbeat。
+# 其余所有接口仍有 token 鉴权 + rate limit 保护；设 HTTP_HOST=127.0.0.1 可回退为仅本机访问。
+HTTP_HOST = os.getenv("HTTP_HOST", "0.0.0.0")
+
 # ── AI 模型配置（兼容 OpenAI 接口协议）──
 # 支持双模型：识图模型（Vision）+ 文本分析模型（Text）
 AI_BASE_URL = os.getenv("AI_BASE_URL", "https://open.bigmodel.cn/api/paas/v4")

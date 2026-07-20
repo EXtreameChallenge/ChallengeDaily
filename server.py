@@ -72,7 +72,9 @@ def set_collector(collector_instance):
 # ── 鉴权中间件 ──
 
 _PUBLIC_PATHS = {"/", "/api/health", "/api/metrics"}
-_PUBLIC_PREFIXES = ["/api/icons/"]
+# 自习室心跳：局域网内其他设备不可能持有本机 token（每台独立生成），
+# 免鉴权开放；仅写入内存成员列表，非 localhost 仍受 rate limit 约束
+_PUBLIC_PREFIXES = ["/api/icons/", "/api/study-room/heartbeat"]
 # SSE 端点：不能通过 header 传 token，改用 query param ?token=xxx，在 handler 内自行校验
 _SSE_PATHS = {"/api/events/stream"}
 
@@ -244,10 +246,11 @@ def start_server():
     # 原因：waitress 不支持 SSE 流式响应（/api/events/stream），会返回 500
     # Flask threaded 服务器支持 streaming generator，且对单用户桌面应用足够稳定
     # 参考：项目约束"本地桌面应用场景：Flask 开发服务器足够稳定"
-    logger.info(f"使用 Flask threaded 服务器启动: http://127.0.0.1:{HTTP_PORT}")
-    print(f"HTTP API 已启动: http://127.0.0.1:{HTTP_PORT}", flush=True)
+    from config import HTTP_HOST
+    logger.info(f"使用 Flask threaded 服务器启动: http://{HTTP_HOST}:{HTTP_PORT}")
+    print(f"HTTP API 已启动: http://{HTTP_HOST}:{HTTP_PORT}", flush=True)
     app.run(
-        host="127.0.0.1",
+        host=HTTP_HOST,
         port=HTTP_PORT,
         debug=False,
         use_reloader=False,

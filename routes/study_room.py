@@ -8,6 +8,8 @@ import json
 import time
 import socket
 import threading
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 import db
@@ -100,35 +102,59 @@ def update_status():
     return jsonify({"status": "ok"})
 
 
+_broadcast_lock = threading.Lock()   # 防止并发重复扫描
+_broadcasting = False
+
+
 @bp.route('/broadcast', methods=['POST'])
 def broadcast_to_lan():
-    """向局域网广播本机状态"""
-    local_ip = _get_local_ip()
-    parts = local_ip.split(".")
-    if len(parts) != 4:
-        return jsonify({"error": "无法解析局域网网段"})
-    base = ".".join(parts[:3])
-    my_port = request.host.split(":")[-1] if ":" in request.host else "5000"
+    """向局域网广播本机状态（并行扫描，秒级返回）
 
-    with _local_lock:
-        payload = {**_local_member, "ip": local_ip}
+    旧实现顺序遍历 254 个 IP（每个 0.3s 超时，最坏 ~78s），
+    前端 10s 超时必然 abort → "广播失败"。
+    现改为 64 并发，整体耗时 ≈ ceil(254/64) × 0.3s ≈ 1.2~4s。
+    """
+    global _broadcasting
+    with _broadcast_lock:
+        if _broadcasting:
+            return jsonify({"status": "scanning", "message": "扫描进行中，请稍候"})
+        _broadcasting = True
 
-    sent = 0
-    for i in range(1, 255):
-        target_ip = f"{base}.{i}"
-        if target_ip == local_ip:
-            continue
-        try:
-            import urllib.request
-            url = f"http://{target_ip}:{my_port}/api/study-room/heartbeat"
-            req = urllib.request.Request(url, data=json.dumps(payload).encode(),
-                                         headers={"Content-Type": "application/json"})
-            urllib.request.urlopen(req, timeout=0.3)
-            sent += 1
-        except:
-            pass
+    try:
+        local_ip = _get_local_ip()
+        parts = local_ip.split(".")
+        if len(parts) != 4:
+            return jsonify({"error": "无法解析局域网网段"})
+        base = ".".join(parts[:3])
+        my_port = request.host.split(":")[-1] if ":" in request.host else "5000"
 
-    return jsonify({"status": "ok", "broadcasted": sent, "subnet": f"{base}.0/24"})
+        with _local_lock:
+            payload = {**_local_member, "ip": local_ip}
+        body = json.dumps(payload).encode()
+
+        def _send_one(target_ip: str) -> bool:
+            try:
+                url = f"http://{target_ip}:{my_port}/api/study-room/heartbeat"
+                req = urllib.request.Request(
+                    url, data=body,
+                    headers={"Content-Type": "application/json"},
+                )
+                urllib.request.urlopen(req, timeout=0.3)
+                return True
+            except Exception:
+                return False
+
+        targets = [f"{base}.{i}" for i in range(1, 255) if f"{base}.{i}" != local_ip]
+        sent = 0
+        with ThreadPoolExecutor(max_workers=64) as pool:
+            for ok in pool.map(_send_one, targets):
+                if ok:
+                    sent += 1
+
+        return jsonify({"status": "ok", "broadcasted": sent, "subnet": f"{base}.0/24"})
+    finally:
+        with _broadcast_lock:
+            _broadcasting = False
 
 
 @bp.route('/leaderboard', methods=['GET'])

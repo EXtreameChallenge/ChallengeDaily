@@ -37,9 +37,15 @@ export default function StudyRoom() {
     setBroadcasting(true)
     try {
       const result = await broadcastStudyRoom()
-      toast('success', `已扫描 ${result.subnet}，发现 ${result.broadcasted} 个设备`)
+      if (result.status === 'scanning') {
+        toast('info', '扫描进行中，请稍候再试')
+      } else if (result.broadcasted > 0) {
+        toast('success', `已扫描 ${result.subnet}，发现 ${result.broadcasted} 个设备`)
+      } else {
+        toast('success', `已扫描 ${result.subnet}，暂未发现其他在线设备`)
+      }
       setTimeout(load, 2000)
-    } catch { toast('error', '广播失败') }
+    } catch { toast('error', '广播失败，请检查网络后重试') }
     setBroadcasting(false)
   }
 

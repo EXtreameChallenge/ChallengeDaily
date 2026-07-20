@@ -1254,7 +1254,8 @@ export async function updateStudyRoomStatus(status: string, task: string = '', s
   return request('/api/study-room/update', { method: 'POST', body: JSON.stringify({ status, task, started_at }) }) as Promise<{ status: string }>
 }
 export async function broadcastStudyRoom(): Promise<{ status: string; broadcasted: number; subnet: string }> {
-  return request('/api/study-room/broadcast', { method: 'POST' }) as Promise<{ status: string; broadcasted: number; subnet: string }>
+  // 后端并行扫描局域网通常 1~4s 返回，这里放宽到 20s 兜底弱网环境
+  return request('/api/study-room/broadcast', { method: 'POST' }, 20000) as Promise<{ status: string; broadcasted: number; subnet: string }>
 }
 
 // ── 长期目标管理（GoalDay集大成） ──
