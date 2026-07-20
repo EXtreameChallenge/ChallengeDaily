@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify
 from routes.deps import check_token
 import db
 import logging
+import time
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,12 @@ POMODORO_SIZES = {
     'small': {'work': 20, 'short_break': 10, 'long_break': 15},
 }
 LONG_BREAK_INTERVAL = 4  # 每4个番茄一次长休息
+
+# ── 分心停留去抖（参考 ManicTime 行业惯例：短暂一瞥不算分心）──
+# 前台切到"生活"类应用后需连续停留 ≥30 秒才计 1 次有效分心；
+# 同一次连续分心只计 1 次，切回工作类应用即结束 episode，下次重新计时。
+DWELL_THRESHOLD_SEC = 30
+_distraction_episodes = {}  # session_id -> {"first_seen": float, "counted": bool}
 
 
 @bp.route('/start', methods=['POST'])
@@ -95,6 +102,7 @@ def stop_pomodoro():
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     if session_id:
         db.update_pomodoro_session(session_id, end_time=now, status=status, interrupted_count=interrupted_count)
+        _distraction_episodes.pop(session_id, None)  # 清理分心去抖状态
         # 完成时自动回写 todo 进度（V19 联动）
         if status == 'completed':
             with db.get_conn() as conn:
@@ -395,8 +403,10 @@ def _generate_pomodoro_suggestions(completed: int, total: int, distractions: int
 def distraction_check():
     """番茄运行期间检测分心（前端定时调用）
 
-    通过 get_foreground_app 获取当前前台应用，查询其最近一次分类，
-    若为"生活"类则累加当前番茄会话的 interrupted_count。
+    通过 get_foreground_app 获取当前前台应用，查询其最近一次分类。
+    采用 30 秒停留去抖（行业惯例）：切到"生活"类应用需连续停留 ≥30 秒
+    才计 1 次有效分心并累加 interrupted_count；不足 30 秒视为误触一瞥，
+    不计数。同一次连续分心 episode 只计 1 次，切回工作类应用即结束 episode。
     注意：activities 表为快照表（无 start_time/end_time），按 timestamp 排序。
     """
     data = request.get_json(silent=True) or {}
@@ -418,7 +428,23 @@ def distraction_check():
                 (app_name, f"%{window_title[:50]}%"),
             ).fetchone()
             category = row[0] if row else "未知"
-            is_distraction = category == "生活"
+            distracting_now = category == "生活"
+
+            # ── 30 秒停留去抖：短暂一瞥不算分心 ──
+            now_ts = time.time()
+            is_distraction = False
+            if distracting_now:
+                ep = _distraction_episodes.get(session_id)
+                if ep is None:
+                    # 首次切到生活类应用：开始计时，暂不计数
+                    _distraction_episodes[session_id] = {"first_seen": now_ts, "counted": False}
+                elif not ep["counted"] and now_ts - ep["first_seen"] >= DWELL_THRESHOLD_SEC:
+                    # 连续停留满 30 秒：确认 1 次有效分心（同 episode 只计这一次）
+                    is_distraction = True
+                    ep["counted"] = True
+            else:
+                # 切回工作类应用：结束本次分心 episode，下次分心重新计时
+                _distraction_episodes.pop(session_id, None)
 
             if is_distraction:
                 conn.execute(

@@ -19,6 +19,9 @@ def _clean_tables(app):
         conn.execute("DELETE FROM activities")
         conn.execute("DELETE FROM pomodoro_sessions")
         conn.commit()
+    # 清空分心去抖的 episode 状态（模块级字典，跨测试残留会污染结果）
+    from routes import pomodoro as pomodoro_routes
+    pomodoro_routes._distraction_episodes.clear()
     yield
 
 
@@ -30,8 +33,8 @@ def test_distraction_check_missing_session_id(authed_client):
     assert resp.status_code == 400
 
 
-def test_distraction_check_life_category(authed_client):
-    """生活类应用触发分心，interrupted_count 累加为 1"""
+def test_distraction_check_life_category_dwell(authed_client):
+    """生活类应用连续停留满 30 秒才计 1 次有效分心（去抖），同 episode 不重复计数"""
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     session_id = db.insert_pomodoro_session(
         start_time=now, end_time=None, duration_min=25,
@@ -43,21 +46,67 @@ def test_distraction_check_life_category(authed_client):
         window_title='哔哩哔哩 - 看视频', category='生活',
         summary='看视频', interval_sec=60,
     )
-    with patch('app_tracker.get_foreground_app') as mock_fg:
+    results = []
+    with patch('app_tracker.get_foreground_app') as mock_fg, \
+         patch('routes.pomodoro.time') as mock_time:
         mock_fg.return_value = {
             "app_name": "bilibili.exe",
             "window_title": "哔哩哔哩 - 看视频",
             "exe_path": "",
         }
-        resp = authed_client.post(
-            '/api/pomodoro/distraction-check',
-            json={"session_id": session_id},
-        )
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert data["is_distraction"] is True
-    assert data["category"] == "生活"
-    assert data["distraction_count"] == 1
+        # 模拟每 15 秒轮询一次：t=1000 首次发现 / t=1015 停留中 / t=1030 满 30 秒 / t=1045 同 episode
+        for t in (1000.0, 1015.0, 1030.0, 1045.0):
+            mock_time.time.return_value = t
+            resp = authed_client.post(
+                '/api/pomodoro/distraction-check',
+                json={"session_id": session_id},
+            )
+            assert resp.status_code == 200
+            results.append(resp.get_json())
+    # 前两次停留不足 30 秒不计数；第三次确认；第四次同 episode 不重复计
+    assert [r["is_distraction"] for r in results] == [False, False, True, False]
+    assert results[2]["category"] == "生活"
+    assert results[2]["distraction_count"] == 1
+    assert results[3]["distraction_count"] == 1
+
+
+def test_distraction_check_short_glance_not_counted(authed_client):
+    """不足 30 秒切回工作应用：视为误触一瞥，不计分心，episode 清零"""
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    session_id = db.insert_pomodoro_session(
+        start_time=now, end_time=None, duration_min=25,
+        task='测试', category='开发', status='running',
+        interrupted_count=0, source='manual',
+    )
+    db.insert_activity(
+        timestamp=now, screenshot='', app_name='bilibili.exe',
+        window_title='哔哩哔哩 - 看视频', category='生活',
+        summary='看视频', interval_sec=60,
+    )
+    db.insert_activity(
+        timestamp=now, screenshot='', app_name='Code.exe',
+        window_title='main.py - Visual Studio Code', category='开发',
+        summary='写代码', interval_sec=60,
+    )
+    # t=1000/1015 停在 B 站（不足 30 秒），t=1030 切回 VSCode
+    timeline = [
+        (1000.0, "bilibili.exe", "哔哩哔哩 - 看视频"),
+        (1015.0, "bilibili.exe", "哔哩哔哩 - 看视频"),
+        (1030.0, "Code.exe", "main.py - Visual Studio Code"),
+    ]
+    with patch('app_tracker.get_foreground_app') as mock_fg, \
+         patch('routes.pomodoro.time') as mock_time:
+        for t, app, title in timeline:
+            mock_time.time.return_value = t
+            mock_fg.return_value = {"app_name": app, "window_title": title, "exe_path": ""}
+            resp = authed_client.post(
+                '/api/pomodoro/distraction-check',
+                json={"session_id": session_id},
+            )
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data["is_distraction"] is False
+            assert data["distraction_count"] == 0
 
 
 def test_distraction_check_work_category(authed_client):
