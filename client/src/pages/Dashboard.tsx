@@ -321,7 +321,7 @@ export default function Dashboard() {
               <YAxis tick={{ fill: 'var(--cd-text-tertiary)', fontSize: 11 }} axisLine={{ stroke: 'var(--cd-border)' }} allowDecimals={false} />
               <Tooltip
                 contentStyle={{
-                  background: 'var(--cd-bg-card)',
+                  background: 'var(--cd-card)',
                   border: '1px solid var(--cd-border)',
                   borderRadius: 8,
                   fontSize: 12,
@@ -362,7 +362,7 @@ export default function Dashboard() {
               <YAxis tick={{ fill: 'var(--cd-text-tertiary)', fontSize: 10 }} axisLine={{ stroke: 'var(--cd-border)' }} />
               <Tooltip
                 contentStyle={{
-                  background: 'var(--cd-bg-card)',
+                  background: 'var(--cd-card)',
                   border: '1px solid var(--cd-border)',
                   borderRadius: 8,
                   fontSize: 12,
@@ -413,7 +413,7 @@ export default function Dashboard() {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    background: 'var(--cd-bg-card)',
+                    background: 'var(--cd-card)',
                     border: '1px solid var(--cd-border)',
                     borderRadius: 8,
                     fontSize: 12,

@@ -20,7 +20,7 @@ export default function Modal({ open, onClose, title, children, footer, maxWidth
     >
       <div
         className={`flex flex-col rounded-2xl w-full ${maxWidth} shadow-2xl overflow-hidden`}
-        style={{ background: 'var(--cd-bg-card)', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '90vh' }}
+        style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)', maxHeight: '90vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 标题栏 */}
