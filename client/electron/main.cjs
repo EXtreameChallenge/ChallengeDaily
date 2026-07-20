@@ -53,6 +53,8 @@ console.log('[Main] main.cjs loaded, log file:', mainLogFile)
 let mainWindow = null
 let petWindow = null
 let pomodoroWidget = null
+let widgetDismissed = false     // 用户手动关闭过：当前番茄内不再强行弹出
+let widgetLastPhase = 'idle'    // 上一次 tick 的阶段，用于识别新番茄开始
 let tray = null
 let backendProcess = null
 let _backendDir = null        // 后端工作目录，供 readApiToken 使用
@@ -677,6 +679,11 @@ function createPomodoroWidget() {
   pomodoroWidget.setAlwaysOnTop(true, 'floating')
   pomodoroWidget.setBackgroundColor('#00000000')
 
+  // Win11 毛玻璃：DWM acrylic 材质模糊窗口后方桌面内容（Win10 不支持则静默回退）
+  try {
+    if (process.platform === 'win32') pomodoroWidget.setBackgroundMaterial('acrylic')
+  } catch (_) { /* 旧系统无此 API，保持纯半透明外观 */ }
+
   // P20-1: 为番茄钟悬浮窗应用基础 CSP
   applyCSPToSession(pomodoroWidget.webContents.session)
 
@@ -687,22 +694,24 @@ function createPomodoroWidget() {
   }
 
   // 点击悬浮窗 → 激活主窗口并跳转到专注页
-  pomodoroWidget.on('focus', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.show()
-      mainWindow.focus()
-      mainWindow.webContents.send('navigate-to', '/focus')
-    }
-  })
+  // 注意：不用 focus 事件（拖拽窗口也会触发 focus，会误抢焦点）；
+  // 改由悬浮窗内点击发送的 pomodoro-widget-click IPC 显式触发（见 registerIpc）
 
   pomodoroWidget.on('closed', () => {
     pomodoroWidget = null
+    widgetDismissed = true  // 防止下一秒 tick 把已关闭的窗口重建出来
   })
 
   return pomodoroWidget
 }
 
 function showPomodoroWidget(data) {
+  // 新番茄开始（休息/空闲 → 工作）时，恢复被用户关闭的悬浮窗
+  if (data.phase === 'working' && widgetLastPhase !== 'working') widgetDismissed = false
+  widgetLastPhase = data.phase
+  // 用户手动关闭过：当前番茄内尊重其意图，不再强行弹出
+  if (widgetDismissed) return
+
   const w = createPomodoroWidget()
   w.webContents.once('did-finish-load', () => {
     w.webContents.send('pomodoro-tick', data)
@@ -868,9 +877,18 @@ function setupIPC() {
       showPomodoroWidget(data)
     }
   })
-  // 渲染进程请求关闭悬浮窗
+  // 渲染进程请求关闭悬浮窗（用户点击了悬浮窗上的 ×）
   ipcMain.on('pomodoro-widget-hide', () => {
+    widgetDismissed = true  // 记住关闭意图，当前番茄内不再弹出
     hidePomodoroWidget()
+  })
+  // 悬浮窗内点击 → 激活主窗口并跳转专注页
+  ipcMain.on('pomodoro-widget-click', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show()
+      mainWindow.focus()
+      mainWindow.webContents.send('navigate-to', '/focus')
+    }
   })
 
   // 宠物气泡内容更新 → 中转到主窗口侧边栏状态

@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 番茄钟悬浮窗
   pomodoroWidgetUpdate: (data) => ipcRenderer.send('pomodoro-widget-update', data),
   pomodoroWidgetHide: () => ipcRenderer.send('pomodoro-widget-hide'),
+  pomodoroWidgetClick: () => ipcRenderer.send('pomodoro-widget-click'),
   onPomodoroTick: _makeManagedListener('pomodoro-tick'),
 
   // 分心告警：主窗口 → 主进程 → 宠物窗口

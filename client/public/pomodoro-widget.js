@@ -11,8 +11,24 @@
   var pomoCount = document.getElementById('pomoCount')
   var distract = document.getElementById('distract')
   var progressFill = document.getElementById('progressFill')
+  var closeBtn = document.getElementById('closeBtn')
 
   var latestData = { phase: 'idle', remaining: 0, totalSec: 0, task: '', duration: 25 }
+
+  // 点击 × ：本次番茄内不再显示（主进程记录关闭意图，不会下一秒又弹回来）
+  closeBtn.addEventListener('click', function (e) {
+    e.stopPropagation()
+    if (window.electronAPI && window.electronAPI.pomodoroWidgetHide) {
+      window.electronAPI.pomodoroWidgetHide()
+    }
+  })
+
+  // 点击倒计时：打开主界面专注页
+  timer.addEventListener('click', function () {
+    if (window.electronAPI && window.electronAPI.pomodoroWidgetClick) {
+      window.electronAPI.pomodoroWidgetClick()
+    }
+  })
 
   var PHASE_META = {
     working: { label: '专注中', cls: 'working' },
