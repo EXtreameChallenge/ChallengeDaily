@@ -6,19 +6,19 @@ import SchedulePanel from './SchedulePanel'
 interface PendingTask {
   id: number
   title: string
-}
-
-interface YesterdayReview {
-  focus_minutes: number
-  tasks_completed: number
-  distraction_count: number
+  priority?: number
+  category?: string
+  estimated_pomodoros?: number
 }
 
 interface MorningData {
-  planned: boolean
-  yesterday: YesterdayReview | null
+  status: string
+  date: string
+  yesterday: { total_focus_min?: number; sessions?: number; tasks_done?: number } | null
   pending_tasks: PendingTask[]
-  schedule?: Array<{ time_start: string; time_end: string; task: string; type: string }>
+  energy_curve: Array<{ hour: number; energy: number }>
+  ai_suggestion: string | null
+  existing_plan: Record<string, unknown> | null
 }
 
 export default function MorningRitual() {
@@ -39,7 +39,7 @@ export default function MorningRitual() {
     try {
       const res = await request('/api/ritual/morning') as MorningData
       setData(res)
-      if (res.planned) setDone(true)
+      if (res.existing_plan) setDone(true)
     } catch {
       setData(null)
     } finally {
@@ -68,13 +68,15 @@ export default function MorningRitual() {
   const handleSubmit = async (adopt: boolean) => {
     setSubmitting(true)
     try {
-      await request('/api/ritual/morning/plan', {
+      await request('/api/ritual/morning/confirm', {
         method: 'POST',
         body: JSON.stringify({
-          intention,
-          focus_goal: focusGoal,
-          task_actions: taskActions,
-          adopt_schedule: adopt,
+          date: data?.date || new Date().toISOString().slice(0, 10),
+          plan: [],
+          mit_task: intention,
+          focus_target_min: focusGoal * 25,
+          limits: {},
+          adopted_ai: adopt,
         }),
       })
       setDone(true)
@@ -110,21 +112,21 @@ export default function MorningRitual() {
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-cd-bg-secondary rounded-lg px-3 py-2 text-center">
                   <div className="text-base font-semibold text-cd-text">
-                    {data.yesterday.focus_minutes}
+                    {data.yesterday.total_focus_min || 0}
                   </div>
                   <div className="text-[10px] text-cd-text-tertiary">专注分钟</div>
                 </div>
                 <div className="bg-cd-bg-secondary rounded-lg px-3 py-2 text-center">
                   <div className="text-base font-semibold text-cd-text">
-                    {data.yesterday.tasks_completed}
+                    {data.yesterday.tasks_done || 0}
                   </div>
                   <div className="text-[10px] text-cd-text-tertiary">完成任务</div>
                 </div>
                 <div className="bg-cd-bg-secondary rounded-lg px-3 py-2 text-center">
                   <div className="text-base font-semibold text-cd-text">
-                    {data.yesterday.distraction_count}
+                    {data.yesterday.sessions || 0}
                   </div>
-                  <div className="text-[10px] text-cd-text-tertiary">分心次数</div>
+                  <div className="text-[10px] text-cd-text-tertiary">番茄次数</div>
                 </div>
               </div>
             </div>
@@ -173,8 +175,14 @@ export default function MorningRitual() {
           )}
 
           <div>
-            <div className="text-xs text-cd-text-secondary mb-2">AI 排程建议</div>
-            <SchedulePanel initialSchedule={data.schedule} />
+            <div className="text-xs text-cd-text-secondary mb-2">AI 建议</div>
+            {data.ai_suggestion ? (
+              <div className="bg-cd-bg-secondary rounded-lg px-3 py-2.5 text-xs text-cd-text leading-relaxed">
+                {data.ai_suggestion}
+              </div>
+            ) : (
+              <SchedulePanel />
+            )}
           </div>
 
           <div>

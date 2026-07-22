@@ -32,7 +32,8 @@ export const useGrowthStore = create<GrowthState>((set) => ({
   fetchGrowth: async () => {
     set({ loading: true })
     try {
-      const data = await request('/api/growth/profile') as Record<string, unknown>
+      const res = await request('/api/growth/profile') as Record<string, unknown>
+      const data = (res.profile as Record<string, unknown>) || res
       set({
         level: (data.level as number) || 1,
         totalExp: (data.total_exp as number) || 0,

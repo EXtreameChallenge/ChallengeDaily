@@ -5,11 +5,13 @@ import { Moon, ChevronDown, ChevronUp, FileText } from 'lucide-react'
 import InsightCards, { Insight } from './InsightCards'
 
 interface EveningData {
-  has_activity: boolean
-  productivity_score: number
-  focus_minutes: number
-  tasks_completed: number
+  status: string
+  date: string
+  productivity: { score?: number; deep_work_min?: number; distraction_count?: number } | null
+  tasks_done: number
+  tasks_total: number
   insights: Insight[]
+  existing_reflection: Record<string, unknown> | null
 }
 
 const REFLECTIONS = [
@@ -58,7 +60,9 @@ export default function EveningRitual() {
       </div>
     )
   }
-  if (!data || !data.has_activity) return null
+  if (!data || dismissed) return null
+  const hasActivity = (data.tasks_done > 0 || data.tasks_total > 0 || (data.productivity?.score ?? 0) > 0)
+  if (!hasActivity) return null
 
   const handleIgnore = (index: number) => {
     setInsights((prev) => prev.filter((_, i) => i !== index))
@@ -79,10 +83,11 @@ export default function EveningRitual() {
     navigate('/report')
   }
 
+  const score = data.productivity?.score ?? 0
   const scoreColor =
-    data.productivity_score >= 80
+    score >= 80
       ? 'text-cd-green'
-      : data.productivity_score >= 50
+      : score >= 50
         ? 'text-cd-text'
         : 'text-red-400'
 
@@ -108,20 +113,20 @@ export default function EveningRitual() {
           <div className="flex items-center gap-4 bg-cd-bg-secondary rounded-lg px-4 py-3">
             <div className="text-center shrink-0">
               <div className={'text-2xl font-bold ' + scoreColor}>
-                {data.productivity_score}
+                {score}
               </div>
               <div className="text-[10px] text-cd-text-tertiary">效率分</div>
             </div>
             <div className="flex-1 grid grid-cols-2 gap-2">
               <div>
                 <div className="text-sm font-semibold text-cd-text">
-                  {data.focus_minutes}
+                  {data.productivity?.deep_work_min || 0}
                 </div>
                 <div className="text-[10px] text-cd-text-tertiary">专注分钟</div>
               </div>
               <div>
                 <div className="text-sm font-semibold text-cd-text">
-                  {data.tasks_completed}
+                  {data.tasks_done}
                 </div>
                 <div className="text-[10px] text-cd-text-tertiary">完成任务</div>
               </div>
