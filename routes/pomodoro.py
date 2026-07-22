@@ -109,6 +109,16 @@ def stop_pomodoro():
                 row = conn.execute("SELECT todo_id, duration_min FROM pomodoro_sessions WHERE id=?", (session_id,)).fetchone()
                 if row and row['todo_id']:
                     db.update_todo_progress(row['todo_id'], row['duration_min'])
+            # V35: 番茄完成奖励EXP
+            try:
+                import growth_service
+                dim = growth_service.infer_dimension_from_todo(row['todo_id']) if row and row['todo_id'] else 'deep_think'
+                exp = growth_service.calculate_exp(row['duration_min'] if row else 25, dim, interrupted_count, growth_service.get_streak_days())
+                growth_service.award_exp(exp, dim, 'pomodoro', session_id, f"番茄钟完成 {row['duration_min'] if row else 25}min")
+                from event_bus import push_event
+                push_event('growth_update', {'exp_awarded': exp, 'dimension': dim, 'source': 'pomodoro'})
+            except Exception as e:
+                logger.warning(f"EXP奖励失败: {e}")
         # 推送 SSE 事件（番茄状态变化）
         try:
             from event_bus import push_event

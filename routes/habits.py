@@ -66,6 +66,17 @@ def log_habit_route(hid):
     log_date = data.get('log_date')
     count = _safe_int(data.get('count', 1), 1)
     db.log_habit(hid, log_date, count)
+    # V35: 习惯打卡奖励EXP
+    try:
+        import growth_service
+        with db.get_conn() as conn:
+            habit_row = conn.execute("SELECT name, auto_category FROM habits WHERE id=?", (hid,)).fetchone()
+        habit_name = habit_row['name'] if habit_row else ''
+        habit_category = habit_row['auto_category'] if habit_row else ''
+        exp = 30 if habit_category == '运动' else 20
+        growth_service.award_exp(exp, growth_service.map_habit_to_dimension(habit_name), 'habit', hid, f"习惯打卡: {habit_name}")
+    except Exception:
+        pass
     return jsonify({"status": "ok"})
 
 

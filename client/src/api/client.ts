@@ -1456,6 +1456,8 @@ export interface Todo {
   estimated_pomodoros: number
   pomodoro_size: 'big' | 'small'
   goal_id?: number | null
+  plan_start_min?: number | null
+  sort_order?: number
 }
 
 export async function getTodos(status?: string): Promise<{ todos: Todo[] }> {
@@ -1883,12 +1885,16 @@ export async function getUnassignedTodos(): Promise<{ todos: TodoV2[] }> {
   return request('/api/week-plan/unassigned') as Promise<{ todos: TodoV2[] }>
 }
 
-export async function assignTodo(data: { todo_id: number; assigned_date?: string; week_start?: string; task_level?: TaskLevel }): Promise<{ status: string }> {
+export async function assignTodo(data: { todo_id: number; assigned_date?: string; week_start?: string; task_level?: TaskLevel; plan_start_min?: number | null }): Promise<{ status: string }> {
   return request('/api/week-plan/assign', { method: 'POST', body: JSON.stringify(data) }) as Promise<{ status: string }>
 }
 
 export async function unassignTodo(todo_id: number): Promise<{ status: string }> {
   return request('/api/week-plan/unassign', { method: 'POST', body: JSON.stringify({ todo_id }) }) as Promise<{ status: string }>
+}
+
+export async function updateTaskTime(todo_id: number, plan_start_min: number | null): Promise<{ status: string }> {
+  return request('/api/week-plan/task-time', { method: 'PUT', body: JSON.stringify({ todo_id, plan_start_min }) }) as Promise<{ status: string }>
 }
 
 export async function splitTask(data: { parent_id: number; title: string; week_start: string; task_level?: TaskLevel; category?: string; mode?: string; target_min?: number; priority?: number }): Promise<{ status: string; id: number }> {

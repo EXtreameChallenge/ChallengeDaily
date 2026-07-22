@@ -38,6 +38,7 @@ import {
 import { useState, useEffect } from 'react'
 import { getStatus, pauseCollector, resumeCollector, getTodayStats, type CollectorStatus, type TodayStats } from '../api/client'
 import { useTheme } from './ThemeContext'
+import { useGrowthStore } from '../stores/growthStore'
 
 // ─── 整合后的导航结构 ──────────────────────────────
 // 设计原则：从用户视角出发，将 32 个散乱入口整合为 3 组 + 设置
@@ -203,6 +204,7 @@ const MORE_NAV = [
 export default function Sidebar() {
   const [status, setStatus] = useState<CollectorStatus | null>(null)
   const [todayStats, setTodayStats] = useState<TodayStats | null>(null)
+  const { level, currentLevelExp, expToNext, streakDays } = useGrowthStore()
   const { sidebarTranslucent } = useTheme()
   // 记录展开的父项（按 to 唯一标识）；默认展开当前路由所属的父项
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -213,6 +215,7 @@ export default function Sidebar() {
       if (!isVisible) return
       getStatus().then(setStatus).catch(() => setStatus(null))
       getTodayStats().then(setTodayStats).catch(() => setTodayStats(null))
+      useGrowthStore.getState().fetchGrowth()
     }
     refresh()
     const interval = setInterval(refresh, 30000)
@@ -302,6 +305,21 @@ export default function Sidebar() {
           )}
         </button>
         <WorkTimeDisplay stats={todayStats} />
+        <div className="flex items-center gap-2 mt-2 px-2.5 py-2 rounded-lg bg-cd-bg-secondary">
+          <span className="shrink-0 text-[10px] font-bold text-cd-green bg-cd-green/15 rounded px-1.5 py-0.5">
+            Lv.{level}
+          </span>
+          <div className="flex-1 h-1.5 rounded-full bg-cd-border overflow-hidden">
+            <div
+              className="h-full rounded-full bg-cd-green transition-all duration-700"
+              style={{ width: Math.min(100, expToNext > 0 ? (currentLevelExp / expToNext) * 100 : 0) + '%' }}
+            />
+          </div>
+          <span className="shrink-0 flex items-center gap-0.5 text-[10px] text-cd-text-secondary">
+            <Flame size={11} className="text-cd-green" />
+            {streakDays}
+          </span>
+        </div>
       </div>
 
       {/* ─── 核心导航 ─────────────────────── */}

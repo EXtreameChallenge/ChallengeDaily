@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Play, Square, SkipForward, Brain, X, Sparkles, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react'
 import { startPomodoro, stopPomodoro, getPomodoroStats, getPomodoroQuality, getTodayTodos, checkPomodoroDistraction, formatLocalTimestamp, getSmartDuration, getPomodoroReport, type TodoV2, POMODORO_SIZES, LONG_BREAK_INTERVAL, type SmartDurationResult, type PomodoroReport } from '../api/client'
 import WhiteNoise from '../components/WhiteNoise'
+import LevelUpCelebration from '../components/LevelUpCelebration'
+import { useEventStream } from '../hooks/useEventStream'
+import { useGrowthStore } from '../stores/growthStore'
 
 type Phase = 'idle' | 'working' | 'short_break' | 'long_break'
 type PomodoroSize = 'big' | 'small'
@@ -89,6 +93,8 @@ export default function Focus() {
   const [reportData, setReportData] = useState<PomodoroReport | null>(null)
   const [reportDays, setReportDays] = useState(7)
   const [reportLoading, setReportLoading] = useState(false)
+  const [expPopup, setExpPopup] = useState<{ id: number; amount: number } | null>(null)
+  const [levelUp, setLevelUp] = useState<number | null>(null)
   const [searchParams] = useSearchParams()
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const autoSelectedRef = useRef(false)
@@ -216,6 +222,40 @@ export default function Focus() {
       }
     }
   }, [todayTodos, searchParams])
+
+  // ── SSE：监听 growth_update 事件，刷新成长数据并弹出 +EXP 动画 ──
+  const { event } = useEventStream()
+  useEffect(() => {
+    if (!event || event.type !== 'growth_update') return
+    const prevLevel = useGrowthStore.getState().level
+    const newLevel = (event.data?.level as number) || 0
+    if (newLevel > prevLevel) {
+      setLevelUp(newLevel)
+    }
+    useGrowthStore.getState().fetchGrowth()
+    const gained = (event.data?.exp_gained as number) || (event.data?.today_exp as number) || 0
+    if (gained > 0) {
+      setExpPopup({ id: Date.now(), amount: gained })
+    }
+  }, [event])
+
+  // expPopup 自动消失
+  useEffect(() => {
+    if (!expPopup) return
+    const t = setTimeout(() => setExpPopup(null), 1800)
+    return () => clearTimeout(t)
+  }, [expPopup])
+
+  // ── ?autostart=1：从命令面板/洞察卡片直达并自动开始番茄 ──
+  const autoStartedRef = useRef(false)
+  useEffect(() => {
+    if (autoStartedRef.current) return
+    if (searchParams.get('autostart') !== '1') return
+    if (phase !== 'idle') return
+    autoStartedRef.current = true
+    handleStart()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, phase])
 
   // ── 番茄钟悬浮窗同步 ──
   const syncWidget = useCallback((override?: Partial<{ phase: Phase; remaining: number; totalSec: number; task: string; duration: number }>) => {
@@ -346,6 +386,10 @@ export default function Focus() {
     setCompletedPomodoros(newCompleted)
     setTodayCount(c => c + 1)
     setTodayMin(m => m + sizeConfig.work)
+
+    // 即时 +EXP 反馈（SSE growth_update 会再刷新真实成长数据）
+    setExpPopup({ id: Date.now(), amount: sizeConfig.work })
+    useGrowthStore.getState().fetchGrowth()
 
     // 判断：是否所有预估番茄都已完成？
     const allDone = newCompleted >= totalPomodoros
@@ -578,6 +622,21 @@ export default function Focus() {
               <span className="text-xs text-red-400 mt-1">已分心 {distractionCount} 次</span>
             )}
           </div>
+          <AnimatePresence>
+            {expPopup && (
+              <motion.div
+                key={expPopup.id}
+                initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                animate={{ opacity: 1, y: -40, scale: 1.1 }}
+                exit={{ opacity: 0, y: -70, scale: 1 }}
+                transition={{ duration: 1.4, ease: 'easeOut' }}
+                className="absolute left-1/2 top-6 -translate-x-1/2 pointer-events-none flex items-center gap-1 text-cd-green font-bold text-lg"
+              >
+                <Sparkles size={18} />
+                +{expPopup.amount} EXP
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* 番茄进度指示 */}
@@ -989,6 +1048,11 @@ export default function Focus() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 升级庆祝 */}
+      {levelUp !== null && (
+        <LevelUpCelebration newLevel={levelUp} onClose={() => setLevelUp(null)} />
       )}
     </div>
   )

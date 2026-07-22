@@ -165,6 +165,35 @@ def _evaluate_rule(rule: dict) -> dict | None:
             fired = True
             message = rule.get("name", "定时提醒")
 
+    elif trigger == "pomodoro_complete":
+        # V35: 番茄完成触发——检查最近N分钟内是否有完成的番茄钟
+        window_min = params.get("window_min", 5)
+        today = date.today().isoformat()
+        with db.get_conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) as c FROM pomodoro_sessions "
+                "WHERE status='completed' AND end_time >= datetime('now','localtime',?)",
+                (f"-{window_min} minutes",)
+            ).fetchone()
+        if row and row["c"] > 0:
+            fired = True
+            count = row["c"]
+            message = params.get("message", f"刚完成 {count} 个番茄钟，休息一下或继续下一个吧")
+
+    elif trigger == "idle_too_long":
+        # V35: 闲置过久触发——检查最近N分钟内是否无活动记录
+        idle_min = params.get("idle_min", 30)
+        with db.get_conn() as conn:
+            row = conn.execute(
+                "SELECT MAX(end_time) as last_active FROM activities "
+                "WHERE end_time >= datetime('now','localtime',?)",
+                (f"-{idle_min} minutes",)
+            ).fetchone()
+        if not row or not row["last_active"]:
+            # 最近 idle_min 分钟内无活动
+            fired = True
+            message = params.get("message", f"已经闲置超过 {idle_min} 分钟了，要不要开始一个番茄钟？")
+
     if not fired:
         return None
 

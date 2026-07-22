@@ -4,7 +4,7 @@ import {
   Search, Home, Calendar, CheckSquare, Timer, FileText, BookOpen,
   Flame, Trophy, Target, Users, Zap, Bot, Sparkles, Brain, Clock,
   Grid3X3, AppWindow, History, Download, Activity, Settings as SettingsIcon,
-  CalendarRange, CornerDownLeft, ArrowUp, ArrowDown
+  CalendarRange, CornerDownLeft, ArrowUp, ArrowDown, Moon, TrendingUp
 } from 'lucide-react'
 
 interface Command {
@@ -60,6 +60,35 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       nav('/export', '数据导出', Download, '导出', ['export']),
       nav('/health', '数据校准', Activity, '健康度', ['health']),
       nav('/settings', '设置', SettingsIcon, '应用设置', ['setting', 'config']),
+
+      // ── 快捷动作 ──
+      {
+        id: 'action-start-pomodoro',
+        label: '立即开始番茄',
+        icon: Timer,
+        hint: '直达专注页并自动开始',
+        group: 'action',
+        keywords: ['start', 'pomodoro', 'focus', '开始', '番茄'],
+        action: () => { navigate('/focus?autostart=1'); onClose() },
+      },
+      {
+        id: 'action-end-day',
+        label: '结束今天 · 生成日报',
+        icon: Moon,
+        hint: '前往报告页总结今日',
+        group: 'action',
+        keywords: ['end', 'day', 'report', '结束', '日报', '总结'],
+        action: () => { navigate('/report'); onClose() },
+      },
+      {
+        id: 'action-view-growth',
+        label: '查看成长等级',
+        icon: TrendingUp,
+        hint: '经验值与等级仪表盘',
+        group: 'action',
+        keywords: ['growth', 'level', 'exp', '成长', '等级', '经验'],
+        action: () => { navigate('/dashboard'); onClose() },
+      },
     ]
   }, [navigate, onClose])
 

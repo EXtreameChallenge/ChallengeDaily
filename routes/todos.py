@@ -78,6 +78,17 @@ def update_todo_route(todo_id):
     if data.get('status') == 'completed' and 'completed_at' not in data:
         data['completed_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     db.update_todo(todo_id, **data)
+    # V35: 任务完成奖励EXP
+    if data.get('status') == 'completed':
+        try:
+            import growth_service
+            with db.get_conn() as conn:
+                todo = conn.execute("SELECT title, estimated_pomodoros FROM todos WHERE id=?", (todo_id,)).fetchone()
+            estimated = (todo['estimated_pomodoros'] if todo else None) or 2
+            exp = estimated * 15
+            growth_service.award_exp(exp, 'deep_think', 'task', todo_id, f"任务完成: {todo['title'] if todo else ''}")
+        except Exception:
+            pass
     return jsonify({"status": "ok"})
 
 

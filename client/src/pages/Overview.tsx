@@ -32,6 +32,9 @@ import EmotionalCare from '../components/EmotionalCare'
 import InfoTooltip, { METRIC_EXPLANATIONS } from '../components/InfoTooltip'
 import SmartCoachPanel from '../components/SmartCoachPanel'
 import BenchmarkPanel from '../components/BenchmarkPanel'
+import MorningRitual from '../components/MorningRitual'
+import EveningRitual from '../components/EveningRitual'
+import { useGrowthStore } from '../stores/growthStore'
 
 function getDisplayAppName(appName: string): string {
   const lower = appName.toLowerCase()
@@ -85,6 +88,7 @@ export default function Overview() {
     let isFirst = true
     const refresh = async () => {
       if (!isFirst) setRefreshing(true)
+      useGrowthStore.getState().fetchGrowth()
       try {
         const [s, st, actsPage] = await Promise.all([
           getTodayStats(),
@@ -268,6 +272,11 @@ export default function Overview() {
 
   return (
     <div className="animate-fade-in">
+      {/* ─── 晨间规划（仅 06:00-12:00 且未规划时显示） ──── */}
+      <div className="mb-6">
+        <MorningRitual />
+      </div>
+
       {/* ─── Hero 区域：时间日期 + AI 导语 + 关键数字 + 状态 ──── */}
       <div className="mb-8">
         <div className="flex items-start justify-between gap-4">
@@ -579,6 +588,11 @@ export default function Overview() {
           </div>
         </div>
       )}
+
+      {/* ─── 晚间回顾（仅 21:00 后且有活动数据时显示） ──── */}
+      <div className="mt-6">
+        <EveningRitual />
+      </div>
     </div>
   )
 }

@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 33
+SCHEMA_VERSION = 35
 
 # P-01: 默认数据保留天数（90 天）
 DEFAULT_DATA_RETENTION_DAYS = 90
@@ -930,6 +930,107 @@ def _init_db_impl():
             except Exception as e:
                 logger.warning(f"V33 schema 升级失败: {e}")
 
+        # V34: 甘特图支持——任务计划开始时刻（分钟偏移，如 540=9:00）
+        if current_version < 34:
+            try:
+                conn.execute("ALTER TABLE todos ADD COLUMN plan_start_min INTEGER DEFAULT NULL")
+                logger.info("V34: todos 表新增 plan_start_min 字段（甘特图时间定位）")
+            except Exception as e:
+                logger.warning(f"V34 schema 升级失败: {e}")
+
+        # V35: 成长系统 + 每日仪式
+        if current_version < 35:
+            try:
+                conn.executescript("""
+                    CREATE TABLE IF NOT EXISTS growth_profile (
+                        id INTEGER PRIMARY KEY CHECK (id = 1),
+                        total_exp INTEGER DEFAULT 0,
+                        level INTEGER DEFAULT 1,
+                        current_level_exp INTEGER DEFAULT 0,
+                        dimensions_json TEXT DEFAULT '{}',
+                        streak_days INTEGER DEFAULT 0,
+                        longest_streak INTEGER DEFAULT 0,
+                        last_active_date TEXT,
+                        initialized INTEGER DEFAULT 0,
+                        updated_at TEXT DEFAULT (datetime('now','localtime'))
+                    );
+
+                    CREATE TABLE IF NOT EXISTS growth_log (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        exp_amount INTEGER NOT NULL,
+                        dimension TEXT NOT NULL,
+                        source TEXT NOT NULL,
+                        source_id INTEGER,
+                        quality_mult REAL DEFAULT 1.0,
+                        streak_mult REAL DEFAULT 1.0,
+                        note TEXT DEFAULT '',
+                        created_at TEXT DEFAULT (datetime('now','localtime'))
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_growth_log_date ON growth_log(created_at);
+                    CREATE INDEX IF NOT EXISTS idx_growth_log_dim ON growth_log(dimension);
+
+                    CREATE TABLE IF NOT EXISTS life_quests (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        title TEXT NOT NULL,
+                        description TEXT DEFAULT '',
+                        target_date TEXT,
+                        status TEXT DEFAULT 'active',
+                        progress REAL DEFAULT 0,
+                        ai_breakdown_json TEXT DEFAULT '[]',
+                        created_at TEXT DEFAULT (datetime('now','localtime'))
+                    );
+
+                    CREATE TABLE IF NOT EXISTS quest_stages (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        quest_id INTEGER NOT NULL,
+                        title TEXT NOT NULL,
+                        order_index INTEGER DEFAULT 0,
+                        status TEXT DEFAULT 'pending',
+                        estimated_hours REAL DEFAULT 0,
+                        actual_hours REAL DEFAULT 0,
+                        linked_todo_ids TEXT DEFAULT '[]',
+                        FOREIGN KEY (quest_id) REFERENCES life_quests(id) ON DELETE CASCADE
+                    );
+
+                    CREATE TABLE IF NOT EXISTS daily_plans (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        date TEXT NOT NULL UNIQUE,
+                        plan_json TEXT DEFAULT '[]',
+                        mit_task TEXT DEFAULT '',
+                        focus_target_min INTEGER DEFAULT 240,
+                        limits_json TEXT DEFAULT '{}',
+                        status TEXT DEFAULT 'planned',
+                        adopted_ai INTEGER DEFAULT 0,
+                        created_at TEXT DEFAULT (datetime('now','localtime'))
+                    );
+
+                    CREATE TABLE IF NOT EXISTS daily_reflections (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        date TEXT NOT NULL UNIQUE,
+                        productivity_score REAL,
+                        good_thing TEXT DEFAULT '',
+                        improve_thing TEXT DEFAULT '',
+                        ai_insights_json TEXT DEFAULT '[]',
+                        report_generated INTEGER DEFAULT 0,
+                        created_at TEXT DEFAULT (datetime('now','localtime'))
+                    );
+
+                    CREATE TABLE IF NOT EXISTS productivity_scores (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        date TEXT NOT NULL UNIQUE,
+                        score REAL NOT NULL,
+                        deep_work_min INTEGER DEFAULT 0,
+                        learning_min INTEGER DEFAULT 0,
+                        exercise_min INTEGER DEFAULT 0,
+                        distraction_count INTEGER DEFAULT 0,
+                        total_active_min INTEGER DEFAULT 0,
+                        created_at TEXT DEFAULT (datetime('now','localtime'))
+                    );
+                """)
+                logger.info("V35: 成长系统+每日仪式表创建成功")
+            except Exception as e:
+                logger.warning(f"V35 schema 升级失败: {e}")
+
         # 更新版本号
         conn.execute(
             "INSERT OR REPLACE INTO schema_version (key, value) VALUES ('version', ?)",
@@ -1656,7 +1757,7 @@ _ALLOWED_TODO_FIELDS = {"title", "category", "mode", "target_min", "repeat_type"
                         "due_date", "priority", "status", "completed_at", "task_level",
                         "parent_id", "assigned_date", "week_start", "month_key", "color",
                         "progress_min", "pomodoro_count", "estimated_pomodoros", "pomodoro_size",
-                        "goal_id"}
+                        "goal_id", "plan_start_min", "sort_order"}
 
 # 番茄钟允许更新的字段白名单（防 SQL 注入：列名不能参数化，必须白名单校验）
 _ALLOWED_POMODORO_FIELDS = {"status", "end_time", "duration_min", "interrupted_count", "task", "category",
@@ -1671,7 +1772,7 @@ def insert_todo(title, category="开发", mode="timer", target_min=25, repeat_ty
         cursor = conn.execute(
             "INSERT INTO todos (title, category, mode, target_min, repeat_type, repeat_days, due_date, priority, sort_order, "
             "task_level, parent_id, assigned_date, week_start, month_key, color, estimated_pomodoros, pomodoro_size, goal_id) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (title, category, mode, target_min, repeat_type, repeat_days, due_date, priority, max_order+1,
              task_level, parent_id, assigned_date, week_start, month_key, color, estimated_pomodoros, pomodoro_size, goal_id)
         )
@@ -2497,13 +2598,13 @@ def get_unassigned_todos(limit: int = 50) -> list[dict]:
         return [dict(r) for r in rows]
 
 
-def assign_todo(todo_id: int, assigned_date: str = None, week_start: str = None, task_level: str = 'day') -> bool:
-    """分配任务到某天/某周/升级层级"""
+def assign_todo(todo_id: int, assigned_date: str = None, week_start: str = None, task_level: str = 'day', plan_start_min: int = None) -> bool:
+    """分配任务到某天/某周/升级层级，可选设置计划开始时刻"""
     _flush_pending_commits()
     with get_conn() as conn:
         conn.execute(
-            "UPDATE todos SET assigned_date=?, week_start=?, task_level=?, updated_at=datetime('now','localtime') WHERE id=?",
-            (assigned_date, week_start, task_level, todo_id)
+            "UPDATE todos SET assigned_date=?, week_start=?, task_level=?, plan_start_min=?, updated_at=datetime('now','localtime') WHERE id=?",
+            (assigned_date, week_start, task_level, plan_start_min, todo_id)
         )
         conn.commit()
         return True
