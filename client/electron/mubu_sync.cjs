@@ -169,12 +169,16 @@ function showLoginWindow() {
 }
 
 // ─── 同步窗口（隐藏，用于执行 JS）────────────────
-function _getSyncWindow() {
+function _getSyncWindow(reload = false) {
   if (_syncWindow && !_syncWindow.isDestroyed()) {
+    if (reload) {
+      // 重新加载前先注册拦截器（在 dom-ready 时注入）
+      _setupInterceptor(_syncWindow)
+      _syncWindow.loadURL(MUBU_LIST_URL)
+    }
     return _syncWindow
   }
 
-  const mubuSession = session.fromPartition(PARTITION)
   _syncWindow = new BrowserWindow({
     show: false,
     width: 1200,
@@ -187,6 +191,7 @@ function _getSyncWindow() {
     },
   })
 
+  _setupInterceptor(_syncWindow)
   _syncWindow.loadURL(MUBU_LIST_URL)
   _syncWindow.on('closed', () => { _syncWindow = null })
 
@@ -194,9 +199,9 @@ function _getSyncWindow() {
 }
 
 // ─── 检查 cookie 是否有效 ────────────────────────
-async function checkCookieValid() {
+async function checkCookieValid(reload = false) {
   try {
-    const win = _getSyncWindow()
+    const win = _getSyncWindow(reload)
     // 等待页面加载完成
     await _waitForLoad(win)
     // 注入 JS：检查是否已登录（未登录会跳转到 /login）
@@ -241,47 +246,146 @@ function _waitForLoad(win) {
 }
 
 // ─── 拉取文档列表 ────────────────────────────────
+
+// 拦截器注入脚本（在 dom-ready 时注入，确保在 SPA JS 之前执行）
+const _INTERCEPTOR_SCRIPT = `
+  (function() {
+    if (window.__mubuInterceptor) return;
+    window.__mubuInterceptor = { responses: [] };
+    const origFetch = window.fetch;
+    window.fetch = async function(...args) {
+      const resp = await origFetch.apply(this, args);
+      try {
+        const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
+        if (url.includes('/api/') || url.includes('document') || url.includes('file') || url.includes('note') || url.includes('list')) {
+          const clone = resp.clone();
+          const ct = clone.headers.get('content-type') || '';
+          if (ct.includes('json')) {
+            const data = await clone.json();
+            window.__mubuInterceptor.responses.push({ url, data, time: Date.now() });
+          }
+        }
+      } catch (e) {}
+      return resp;
+    };
+    const origOpen = XMLHttpRequest.prototype.open;
+    const origSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function(method, url) {
+      this.__mubuUrl = url;
+      return origOpen.apply(this, arguments);
+    };
+    XMLHttpRequest.prototype.send = function() {
+      this.addEventListener('load', function() {
+        try {
+          if (this.__mubuUrl && (this.__mubuUrl.includes('/api/') || this.__mubuUrl.includes('document') || this.__mubuUrl.includes('list'))) {
+            const data = JSON.parse(this.responseText);
+            window.__mubuInterceptor.responses.push({ url: this.__mubuUrl, data, time: Date.now() });
+          }
+        } catch (e) {}
+      });
+      return origSend.apply(this, arguments);
+    };
+  })()
+`
+
+function _setupInterceptor(win) {
+  // 在 dom-ready 时注入拦截器（在 SPA JS 运行之前）
+  win.webContents.once('dom-ready', () => {
+    win.webContents.executeJavaScript(_INTERCEPTOR_SCRIPT).catch(() => {})
+  })
+}
+
 async function fetchDocList() {
-  const win = _getSyncWindow()
+  const win = _getSyncWindow(true)  // reload=true，重新加载以触发拦截器
   await _waitForLoad(win)
+
+  // 等待 SPA 完全渲染
+  await new Promise(r => setTimeout(r, 8000))
 
   const result = await win.webContents.executeJavaScript(`
     (async () => {
-      // 调用幕布的文档列表 API
-      // 幕布网页本身会调这个接口，我们直接复用
-      const endpoints = [
-        '/api/document/list',
-        '/api/fileList',
-        '/api/noteList',
-      ]
-      for (const ep of endpoints) {
-        try {
-          const resp = await fetch(ep, { credentials: 'include' })
-          if (resp.ok) {
-            const data = await resp.json()
-            return { ok: true, endpoint: ep, data }
+      const url = window.location.href
+
+      // 方案1：从拦截到的 API 响应中提取文档列表
+      let apiDocs = []
+      const intercepted = window.__mubuInterceptor?.responses || []
+      // 输出所有拦截到的响应结构（调试用）
+      const debugIntercepted = intercepted.map(r => ({
+        url: r.url,
+        dataKeys: typeof r.data === 'object' ? Object.keys(r.data || {}).slice(0, 10) : typeof r.data,
+        dataSnippet: JSON.stringify(r.data).slice(0, 300)
+      }))
+      for (const resp of intercepted) {
+        const data = resp.data
+        // 幕布 API 返回格式：{ data: { ... } }
+        // 尝试多种可能的字段名
+        const possibleArrays = [
+          data?.data?.docs, data?.data?.list, data?.data?.files,
+          data?.data?.notes, data?.data?.items, data?.data?.folders,
+          data?.data?.documents, data?.data?.result,
+          data?.docs, data?.list, data?.files, data?.items,
+          data?.data?.data?.docs, data?.data?.data?.list,
+        ]
+        for (const docs of possibleArrays) {
+          if (Array.isArray(docs) && docs.length > 0) {
+            apiDocs = docs.map(d => ({
+              doc_id: String(d.doc_id || d.id || d._id || d.fileId || d.folderId || ''),
+              title: d.title || d.name || d.fileName || d.text || '',
+              parent_id: String(d.parent_id || d.parentId || d.folderId || d.pid || ''),
+              type: d.type || (d.isFolder ? 'folder' : 'doc'),
+              edit_time: d.edit_time || d.updateTime || d.updated_at || d.editTime || d.editTimeStr || 0,
+              url: d.url || '',
+            })).filter(d => d.doc_id)
+            break
           }
-        } catch (e) {
-          // 继续尝试下一个
         }
+        if (apiDocs.length > 0) break
       }
-      // 兜底：直接从 DOM 抓取文档列表
-      const items = document.querySelectorAll('[data-doc-id], .doc-item, .file-item')
-      if (items.length > 0) {
-        const docs = []
-        items.forEach(item => {
-          docs.push({
-            doc_id: item.getAttribute('data-doc-id') || item.getAttribute('data-id') || '',
-            title: item.querySelector('.title, .name')?.textContent?.trim() || item.textContent.trim(),
+
+      // 方案2：从 DOM 抓取文档链接
+      const docLinks = document.querySelectorAll('a[href*="/doc/"], a[href*="/docEdit/"]')
+      const docsFromDom = []
+      const seen = new Set()
+      docLinks.forEach(a => {
+        const href = a.getAttribute('href') || ''
+        const match = href.match(/\\/doc(?:Edit)?\\/([a-zA-Z0-9]{6,})/)
+        if (match && !seen.has(match[1])) {
+          seen.add(match[1])
+          docsFromDom.push({
+            doc_id: match[1],
+            title: a.textContent?.trim() || '',
+            url: href.startsWith('http') ? href : 'https://mubu.com' + href,
             type: 'doc',
           })
-        })
-        return { ok: true, endpoint: 'dom', data: { docs } }
+        }
+      })
+
+      // 方案3：从 DOM HTML 中正则匹配 /doc/xxx
+      if (docsFromDom.length === 0) {
+        const html = document.body.innerHTML
+        const regex = /\\/doc(?:Edit)?\\/([a-zA-Z0-9]{6,})/g
+        let m
+        while ((m = regex.exec(html)) !== null) {
+          if (!seen.has(m[1])) {
+            seen.add(m[1])
+            docsFromDom.push({ doc_id: m[1], title: '', type: 'doc' })
+          }
+        }
       }
-      return { ok: false, reason: 'no endpoint worked and no DOM items' }
+
+      const allDocs = apiDocs.length > 0 ? apiDocs : docsFromDom
+
+      if (allDocs.length > 0) {
+        return { ok: true, endpoint: apiDocs.length > 0 ? 'intercepted' : 'dom', data: { docs: allDocs }, url, interceptedCount: intercepted.length, interceptedUrls: intercepted.map(r => r.url) }
+      }
+
+      const spinnerVisible = !!document.querySelector('[class*="Spin"]')
+      const bodyText = document.body.textContent.slice(0, 300)
+      return { ok: false, reason: 'no docs found', url, interceptedCount: intercepted.length, interceptedUrls: intercepted.map(r => r.url), spinnerVisible, bodyText, debugIntercepted }
     })()
   `, true)
 
+  console.log('[MubuSync] fetchDocList result:', JSON.stringify(result).slice(0, 1000))
   return result
 }
 
@@ -326,8 +430,8 @@ async function startSync() {
   _notifyStatusChange('syncing')
 
   try {
-    // 1. 检查 cookie
-    const check = await checkCookieValid()
+    // 1. 检查 cookie（每次同步都重新加载页面，确保拾取最新 cookie）
+    const check = await checkCookieValid(true)
     if (!check.valid) {
       console.log('[MubuSync] cookie invalid:', check.reason)
       // cookie 无效时不推 ingest，只通知前端需要登录
