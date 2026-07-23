@@ -39,7 +39,8 @@ def add_cors_headers(response):
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-API-Token"
         response.headers["Access-Control-Max-Age"] = "86400"
     # P25: 为 GET JSON 响应添加 ETag + Cache-Control，减少重复数据传输
-    if request.method == "GET" and response.status_code == 200:
+    # SSE 流式响应跳过 ETag，避免 get_data() 阻塞无限流
+    if request.method == "GET" and response.status_code == 200 and response.mimetype != "text/event-stream":
         try:
             import hashlib
             body = response.get_data()
