@@ -8,14 +8,16 @@ import {
 } from 'recharts'
 import {
   getWeekPlan, getUnassignedTodos, getWeekPlanStats, getMonthPlan, getMonthPlanStats,
-  assignTodo, unassignTodo, createTodo, request, updatePlanMeta,
-  getWeekStart, getWeekDates, getMonthKey,
+  assignTodo, unassignTodo, createTodo, request, updatePlanMeta, updateTaskTime,
+  getWeekStart, getWeekDates, getMonthKey, getGoals,
   CATEGORY_COLORS, POMODORO_SIZES,
   type TodoV2, type WeekPlanData, type WeekPlanStats, type MonthPlanData, type MonthPlanStats,
 } from '../api/client'
 import { useToast } from '../components/Toast'
 import TaskDetailModal from '../components/TaskDetailModal'
 import TaskCreateModal from '../components/TaskCreateModal'
+import GanttBar from '../components/GanttBar'
+import TimeAxis from '../components/TimeAxis'
 
 // AI 拆解草案任务类型
 interface SplitDraftTask {
@@ -215,7 +217,7 @@ function StatBlock({ label, value, color }: { label: string; value: string | num
 
 // ── 月度进度条（年视图用）──
 function MonthProgressBar({ month, rate, total, completed }: { month: string; rate: number; total: number; completed: number }) {
-  const pct = Math.round(rate * 100)
+  const pct = Math.round(rate)
   return (
     <div className="flex items-center gap-2" style={{ fontSize: 11 }}>
       <span className="text-cd-text-tertiary w-10 shrink-0">{month}</span>
@@ -255,6 +257,7 @@ export default function WeekPlan() {
   const [splitGoalDesc, setSplitGoalDesc] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedTaskId, setExpandedTaskId] = useState<number | null>(null)
+  const [yearGoals, setYearGoals] = useState<any[]>([])
 
   const loadWeek = useCallback(async (ws: string) => {
     try {
@@ -283,9 +286,10 @@ export default function WeekPlan() {
     try {
       const monthKeys = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`)
       const weekStarts = getYearWeekStarts(year)
-      const [mStats, wStats] = await Promise.all([
+      const [mStats, wStats, goalsRes] = await Promise.all([
         Promise.all(monthKeys.map(mk => getMonthPlanStats(mk).catch(() => null))),
         Promise.all(weekStarts.map(ws => getWeekPlanStats(ws).catch(() => null))),
+        getGoals('active').catch(() => ({ goals: [] })),
       ])
       setYearMonthStats(mStats as (MonthPlanStats | null)[])
       const wMap = new Map<string, WeekPlanStats>()
@@ -294,6 +298,12 @@ export default function WeekPlan() {
         if (s) wMap.set(ws, s)
       })
       setYearWeekStats(wMap)
+      // 过滤出跨越该年的目标
+      setYearGoals((goalsRes.goals || []).filter((g: any) => {
+        const sy = g.start_date ? new Date(g.start_date).getFullYear() : year
+        const ey = g.target_date ? new Date(g.target_date).getFullYear() : year
+        return sy <= year && ey >= year
+      }))
     } catch {
       error('加载年计划失败')
     } finally {
@@ -513,7 +523,7 @@ export default function WeekPlan() {
           </ResponsiveContainer>
         </div>
         <div className="flex-1" />
-        <StatBlock label="完成率" value={`${Math.round(weekStats.completion_rate * 100)}%`} color="#10b981" />
+        <StatBlock label="完成率" value={`${weekStats.completion_rate}%`} color="#10b981" />
         <StatBlock label="深度工作" value={`${Math.round(weekStats.deep_focus_min)}m`} color="#7B68EE" />
         <StatBlock label="中断次数" value={weekStats.interrupt_count} color="#ef4444" />
         <StatBlock label="连续天数" value={`${weekStats.streak_days}d`} color="#F0C040" />
@@ -536,8 +546,70 @@ export default function WeekPlan() {
     const yearTotalTasks = yearMonthStats.reduce((s, m) => s + (m?.total_tasks || 0), 0)
     const yearRate = yearTotalTasks > 0 ? yearCompleted / yearTotalTasks : 0
 
+    // 当前月高亮
+    const now = new Date()
+    const currentMonthIdx = now.getFullYear() === yearKey ? now.getMonth() : -1
+    const MONTH_CELL_W = 72
+
     return (
       <div className="p-4 overflow-auto h-full">
+        {/* 年度目标甘特条（Goals 跨月） */}
+        <div className="mb-4 rounded-lg p-4" style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Layers size={14} className="text-cd-accent" />
+            <h3 className="text-sm font-semibold text-cd-text">年度目标时间线</h3>
+          </div>
+          {yearGoals.length === 0 ? (
+            <div className="text-xs text-cd-text-tertiary py-2">暂无长期目标，去「长期目标」页创建</div>
+          ) : (
+            <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--cd-border)' }}>
+              <TimeAxis mode="month" start={1} end={12} cellWidth={MONTH_CELL_W} height={24}
+                highlightIndex={currentMonthIdx} />
+              <div style={{ position: 'relative', minHeight: yearGoals.length * 36 + 8, padding: '4px 0' }}>
+                {/* 月网格竖线 */}
+                {Array.from({ length: 13 }, (_, i) => (
+                  <div key={i} style={{
+                    position: 'absolute', top: 0, bottom: 0, left: i * MONTH_CELL_W,
+                    width: 1, background: 'var(--cd-border)', opacity: 0.3,
+                  }} />
+                ))}
+                {/* 当前月高亮 */}
+                {currentMonthIdx >= 0 && (
+                  <div style={{
+                    position: 'absolute', top: 0, bottom: 0,
+                    left: currentMonthIdx * MONTH_CELL_W, width: MONTH_CELL_W,
+                    background: '#7B68EE08',
+                  }} />
+                )}
+                {/* 目标条 */}
+                {yearGoals.map((goal, rowIdx) => {
+                  const startMonth = goal.start_date ? new Date(goal.start_date).getMonth() : 0
+                  const endMonth = goal.target_date ? new Date(goal.target_date).getMonth() : 11
+                  const spanMonths = Math.max(1, endMonth - startMonth + 1)
+                  const progress = (goal.progress || 0) / 100
+                  const top = rowIdx * 36 + 4
+                  const left = startMonth * MONTH_CELL_W + 4
+                  const width = spanMonths * MONTH_CELL_W - 8
+                  return (
+                    <GanttBar
+                      key={goal.id}
+                      left={left}
+                      width={width}
+                      top={top}
+                      height={28}
+                      progress={progress}
+                      color={goal.color || '#7B68EE'}
+                      label={goal.title}
+                      sublabel={`${Math.round(progress * 100)}%`}
+                      done={progress >= 1}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* 年度目标卡片 */}
         <div className="mb-4 rounded-lg p-4" style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)' }}>
           <div className="flex items-center gap-2 mb-2">
@@ -629,74 +701,122 @@ export default function WeekPlan() {
     )
   }
 
-  // ── 月视图（增强：月历热力 + 右侧环 + 月目标）──
+  // ── 月视图（甘特横条：周为X轴 + 月任务跨周条）──
   function renderMonthView() {
     if (!monthPlan) return <div className="p-8 text-center text-cd-text-tertiary text-sm">加载中...</div>
     const [y, m] = monthKey.split('-').map(Number)
-    const firstDay = new Date(y, m - 1, 1)
-    const startWeekday = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1
     const daysInMonth = new Date(y, m, 0).getDate()
-    const totalCells = Math.ceil((startWeekday + daysInMonth) / 7) * 7
-    // 扁平化所有任务
-    const allTasks: TodoV2[] = []
-    monthPlan.month_tasks.forEach(mt => { allTasks.push(mt, ...mt.children) })
-    // 月完成率（环形）
-    const mRate = monthStats?.completion_rate || 0
+    // 计算该月有几周（ISO周）
+    const firstDate = new Date(y, m - 1, 1)
+    const lastDate = new Date(y, m - 1, daysInMonth)
+    const weekCount = Math.ceil((firstDate.getDay() + daysInMonth) / 7)
+    const CELL_W = 100  // 每周格子宽度
+
+    // 当前是第几周（用于高亮）
+    const today = new Date()
+    const isCurrentMonth = today.getFullYear() === y && today.getMonth() === m - 1
+    const currentWeekIdx = isCurrentMonth ? Math.floor((today.getDate() + firstDate.getDay() - 1) / 7) : -1
+
+    // 月完成率（环形）— 后端返回 0-100，转为 0-1 供 SVG 环计算
+    const mRate = (monthStats?.completion_rate || 0) / 100
     const ringR = 34, ringC = 2 * Math.PI * ringR
     const ringOff = ringC - mRate * ringC
 
+    // 构建甘特行：每个月任务一行，子任务缩进
+    const ganttRows: { task: TodoV2; isChild: boolean; startWeek: number; spanWeeks: number }[] = []
+    monthPlan.month_tasks.forEach(mt => {
+      // 月任务跨整月（或从创建到 due_date）
+      const totalWeeks = weekCount
+      ganttRows.push({ task: mt, isChild: false, startWeek: 0, spanWeeks: totalWeeks })
+      // 子任务按 week_start 定位
+      mt.children.forEach(child => {
+        let sw = 0
+        if (child.week_start) {
+          const wsDate = new Date(child.week_start + 'T00:00:00')
+          const dayOfMonth = wsDate.getDate()
+          const wsMonth = wsDate.getMonth()
+          if (wsMonth === m - 1) {
+            sw = Math.floor((dayOfMonth + firstDate.getDay() - 1) / 7)
+          }
+        } else if (child.assigned_date) {
+          const ad = new Date(child.assigned_date + 'T00:00:00')
+          sw = Math.floor((ad.getDate() + firstDate.getDay() - 1) / 7)
+        }
+        sw = Math.max(0, Math.min(sw, totalWeeks - 1))
+        ganttRows.push({ task: child, isChild: true, startWeek: sw, spanWeeks: 1 })
+      })
+    })
+
     return (
       <div className="flex h-full overflow-hidden">
-        {/* 月历主区 */}
+        {/* 甘特主区 */}
         <div className="flex-1 p-4 overflow-auto">
           <div className="mb-3 flex items-center gap-3">
             <CalendarDays size={16} className="text-cd-accent" />
             <h2 className="text-sm font-semibold text-cd-text">{monthPlan.title || `${monthKey} 月计划`}</h2>
             {monthPlan.goal && <span className="text-xs text-cd-text-tertiary truncate">🎯 {monthPlan.goal}</span>}
           </div>
-          <div className="grid grid-cols-7 gap-1">
-            {WEEKDAY_LABELS.map(w => (
-              <div key={w} className="text-center text-[10px] text-cd-text-tertiary py-1">{w}</div>
-            ))}
-            {Array.from({ length: totalCells }).map((_, i) => {
-              const dayNum = i - startWeekday + 1
-              if (dayNum < 1 || dayNum > daysInMonth) {
-                return <div key={i} style={{ background: 'var(--cd-bg-tertiary)', borderRadius: 4, minHeight: 64 }} />
-              }
-              const date = `${monthKey}-${String(dayNum).padStart(2, '0')}`
-              const dayTasks = allTasks.filter(t => t.assigned_date === date)
-              const doneCnt = dayTasks.filter(t => t.status === 'completed').length
-              const rate = dayTasks.length > 0 ? doneCnt / dayTasks.length : 0
-              const isTodayCell = date === getTodayStr()
-              return (
-                <div key={i}
-                  onClick={() => { setSelectedDate(date); setViewMode('day'); setWeekStart(getWeekStart(new Date(date + 'T00:00:00'))) }}
-                  className="rounded p-1 cursor-pointer hover:brightness-125 transition flex flex-col"
-                  style={{
-                    background: monthHeatColor(rate),
-                    border: `1px solid ${isTodayCell ? '#7B68EE' : 'var(--cd-border)'}`,
-                    minHeight: 64,
-                    opacity: dayTasks.length === 0 ? 0.7 : 1,
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px]" style={{ color: isTodayCell ? '#937CFF' : 'var(--cd-text-secondary)', fontWeight: isTodayCell ? 700 : 400 }}>{dayNum}</span>
-                    {dayTasks.length > 0 && (
-                      <span className="text-[8px] tabular-nums text-cd-text">{doneCnt}/{dayTasks.length}</span>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-0.5 mt-0.5 overflow-hidden">
-                    {dayTasks.slice(0, 2).map(t => (
-                      <div key={t.id} className="text-[8px] truncate rounded px-1"
-                        style={{ background: 'rgba(0,0,0,0.25)', borderLeft: `2px solid ${CATEGORY_COLORS[t.category] || '#9999B0'}`, color: 'var(--cd-text)', textDecoration: t.status === 'completed' ? 'line-through' : 'none' }}>
-                        {t.title}
-                      </div>
-                    ))}
-                    {dayTasks.length > 2 && <span className="text-[8px] text-cd-text-tertiary">+{dayTasks.length - 2}</span>}
-                  </div>
-                </div>
-              )
-            })}
+
+          {ganttRows.length === 0 ? (
+            <div className="text-center py-8 text-cd-text-tertiary text-sm">
+              <Target size={32} className="mx-auto mb-2 opacity-30" />
+              本月暂无任务
+            </div>
+          ) : (
+            <div className="rounded-lg overflow-hidden" style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)' }}>
+              {/* 周刻度 */}
+              <TimeAxis mode="week" start={1} end={weekCount} cellWidth={CELL_W} height={26}
+                highlightIndex={currentWeekIdx} />
+              {/* 甘特行 */}
+              <div style={{ position: 'relative', minHeight: ganttRows.length * 36 + 8, padding: '4px 0' }}>
+                {/* 周网格竖线 */}
+                {Array.from({ length: weekCount + 1 }, (_, i) => (
+                  <div key={i} style={{
+                    position: 'absolute', top: 0, bottom: 0, left: i * CELL_W,
+                    width: 1, background: 'var(--cd-border)', opacity: i === currentWeekIdx + 1 ? 0.8 : 0.3,
+                  }} />
+                ))}
+                {/* 当前周高亮背景 */}
+                {currentWeekIdx >= 0 && (
+                  <div style={{
+                    position: 'absolute', top: 0, bottom: 0,
+                    left: currentWeekIdx * CELL_W, width: CELL_W,
+                    background: '#7B68EE08',
+                  }} />
+                )}
+                {/* 任务条 */}
+                {ganttRows.map(({ task, isChild, startWeek, spanWeeks }, rowIdx) => {
+                  const catColor = CATEGORY_COLORS[task.category] || '#9999B0'
+                  const isDone = task.status === 'completed'
+                  const progress = task.target_min > 0 ? task.progress_min / task.target_min : (task as any).progress_pct ? (task as any).progress_pct / 100 : 0
+                  const top = rowIdx * 36 + 4
+                  const left = startWeek * CELL_W + 4
+                  const width = spanWeeks * CELL_W - 8
+                  return (
+                    <GanttBar
+                      key={task.id}
+                      left={left}
+                      width={width}
+                      top={top}
+                      height={isChild ? 22 : 28}
+                      progress={progress}
+                      category={task.category}
+                      label={`${isChild ? '  └ ' : ''}${task.title}`}
+                      sublabel={`${task.target_min}m`}
+                      compact={isChild}
+                      done={isDone}
+                      isHabit={task.mode === 'habit'}
+                      onClick={() => openDetail(task)}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 点击某周跳转提示 */}
+          <div className="mt-2 text-[10px] text-cd-text-tertiary">
+            提示：点击任务条查看详情 · 月任务显示为跨周长条，子任务按所属周定位
           </div>
         </div>
 
@@ -744,22 +864,35 @@ export default function WeekPlan() {
     )
   }
 
-  // ── 周视图（GoalDay 式：左 280 待分配 + 右 7 列）──
+  // ── 周视图（真·横向甘特图：Y=任务行，X=7天时间轴）──
   function renderWeekView() {
     if (!weekPlan) return <div className="p-8 text-center text-cd-text-tertiary text-sm">加载中...</div>
     const filteredUnassigned = searchQuery.trim()
       ? unassigned.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase()) || t.category.includes(searchQuery))
       : unassigned
+
+    // 构建甘特行：按日期→优先级排序
+    const ganttRows: { task: TodoV2; date: string }[] = []
+    dates.forEach(date => {
+      const tasks = [...(weekPlan.day_tasks[date] || [])]
+        .sort((a, b) => (a.priority || 3) - (b.priority || 3))
+      tasks.forEach(t => ganttRows.push({ task: t, date }))
+    })
+    const todayStr = getTodayStr()
+    const todayTasks = weekPlan.day_tasks[todayStr] || []
+    const LABEL_W = 172
+    const ROW_H = 42
+
     return (
       <div className="flex h-full">
-        {/* 左侧：待分配清单（280px） */}
+        {/* 左侧：待分配清单 */}
         <div
           onDragOver={handleDragOver('unassigned')}
           onDragLeave={handleDragLeave('unassigned')}
           onDrop={handleDropUnassigned}
-          className="flex flex-col overflow-hidden"
+          className="flex flex-col overflow-hidden shrink-0"
           style={{
-            width: 280, background: 'var(--cd-bg-tertiary)',
+            width: 240, background: 'var(--cd-bg-tertiary)',
             border: '1.5px dashed',
             borderColor: dragOverCol === 'unassigned' ? '#7B68EE' : '#F0C04066',
             transition: 'border-color 0.15s',
@@ -772,7 +905,6 @@ export default function WeekPlan() {
                 <span className="text-[10px] px-1.5 rounded-full tabular-nums" style={{ background: '#F0C04022', color: '#F0C040' }}>{unassigned.length}</span>
               </div>
             </div>
-            {/* 搜索过滤 */}
             <div className="relative mt-2">
               <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-cd-text-tertiary" />
               <input
@@ -798,7 +930,6 @@ export default function WeekPlan() {
                 onDragStart={handleDragStart(t)} onDragEnd={handleDragEnd} />
             ))}
           </div>
-          {/* 新建任务按钮 */}
           <div className="p-2 border-t border-cd-border">
             <button
               onClick={() => setShowCreateModal(true)}
@@ -810,93 +941,198 @@ export default function WeekPlan() {
           </div>
         </div>
 
-        {/* 右侧：7 天周计划拖拽区 */}
-        <div className="flex-1 flex overflow-hidden">
-          {dates.map((date, idx) => {
-            const tasks = weekPlan.day_tasks[date] || []
-            const totalMin = dayMin(tasks)
-            const full = totalMin >= DAILY_LIMIT
-            const overLimit = totalMin > DAILY_LIMIT
-            const isTodayCol = date === getTodayStr()
-            const weekend = isWeekend(date)
-            return (
-              <div key={date}
-                onDragOver={full ? undefined : handleDragOver(date)}
-                onDragLeave={handleDragLeave(date)}
-                onDrop={full ? undefined : handleDropDay(date)}
-                className="flex-1 flex flex-col overflow-hidden"
-                style={{
-                  background: 'var(--cd-card)',
-                  border: `1px solid ${isTodayCol ? '#7B68EE' : dragOverCol === date ? '#7B68EE' : 'var(--cd-border)'}`,
-                  opacity: weekend ? 0.7 : full ? 0.5 : 1,
-                  minWidth: 0,
-                  transition: 'border-color 0.15s, opacity 0.15s',
-                }}
-              >
-                {/* 日期头 */}
-                <div className="px-2 py-1.5 flex items-center justify-between" style={{ borderBottom: '1px solid var(--cd-border)' }}>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs font-medium text-cd-text">{WEEKDAY_LABELS[idx]}</span>
-                    {weekend && <span style={{ fontSize: 11 }}>😴</span>}
-                    {isTodayCol && <span className="text-[9px] px-1 rounded" style={{ background: '#7B68EE33', color: '#937CFF' }}>今日</span>}
-                    {full && <span className="text-[9px] px-1 rounded" style={{ background: '#ef444422', color: '#ef4444' }} title="满负荷">满</span>}
-                  </div>
-                  <span className="text-[9px] text-cd-text-tertiary tabular-nums">{fmtDate(date)}</span>
-                </div>
-                {/* 今日进度条 */}
-                {isTodayCol && weekStats && (() => {
-                  const todayFocus = weekStats.daily_focus.find(d => d.date === date)?.focus_min || 0
-                  const pct = Math.min(100, (todayFocus / 240) * 100)
-                  return (
-                    <div className="h-1 mx-2 rounded-full overflow-hidden" style={{ background: 'var(--cd-bg-tertiary)' }}>
-                      <div style={{ width: `${pct}%`, height: '100%', background: '#7B68EE', transition: 'width 0.5s' }} />
+        {/* 右侧：横向甘特图 */}
+        <div className="flex-1 flex flex-col overflow-hidden" style={{ background: 'var(--cd-card)' }}>
+          {/* 表头：日期列 + 7天负载 */}
+          <div className="flex shrink-0" style={{ borderBottom: '1.5px solid var(--cd-border)' }}>
+            <div className="flex items-center px-3 shrink-0" style={{ width: LABEL_W, borderRight: '1px solid var(--cd-border)' }}>
+              <span className="text-[10px] font-semibold text-cd-text-tertiary">任务 \ 日期</span>
+            </div>
+            <div className="flex-1 grid grid-cols-7">
+              {dates.map((date, idx) => {
+                const tasks = weekPlan.day_tasks[date] || []
+                const totalMin = dayMin(tasks)
+                const overLimit = totalMin > DAILY_LIMIT
+                const nearLimit = totalMin >= DAILY_LIMIT * 0.8
+                const loadPct = Math.min(100, (totalMin / DAILY_LIMIT) * 100)
+                const isTodayCol = date === todayStr
+                const weekend = isWeekend(date)
+                return (
+                  <div key={date} className="px-1.5 py-1.5"
+                    style={{
+                      borderRight: idx < 6 ? '1px solid var(--cd-border)' : 'none',
+                      background: isTodayCol ? '#7B68EE0D' : weekend ? 'var(--cd-bg-tertiary)' : 'transparent',
+                    }}>
+                    <div className="flex items-center justify-center gap-1">
+                      <span className="text-[11px] font-semibold" style={{ color: isTodayCol ? '#937CFF' : 'var(--cd-text)' }}>
+                        {WEEKDAY_LABELS[idx]}
+                      </span>
+                      <span className="text-[9px] text-cd-text-tertiary tabular-nums">{fmtDate(date)}</span>
+                      {isTodayCol && <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#7B68EE' }} />}
                     </div>
-                  )
-                })()}
-                {/* 任务列表 */}
-                <div className="flex-1 overflow-y-auto scrollbar-thin px-1.5 py-1.5 flex flex-col gap-1">
-                  {tasks.length === 0 && <div className="text-[9px] text-cd-text-tertiary text-center py-2 opacity-50">{full ? '已满' : '空'}</div>}
-                  {tasks.map(t => (
-                    <div key={t.id} style={{ opacity: dragId === t.id ? 0.5 : 1, transition: 'opacity 0.15s' }}>
-                      <TaskCard todo={t} compact
-                        expanded={expandedTaskId === t.id}
-                        onToggleExpand={() => toggleExpand(t.id)}
-                        onClick={() => openDetail(t)}
-                        onDragStart={handleDragStart(t)} onDragEnd={handleDragEnd} />
+                    {/* 日负载条 */}
+                    <div className="mt-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--cd-bg-tertiary)' }}>
+                      <div style={{
+                        width: `${loadPct}%`, height: '100%', borderRadius: 4,
+                        background: overLimit ? '#ef4444' : nearLimit ? '#F0C040' : '#10b981',
+                        transition: 'width 0.4s',
+                      }} />
                     </div>
-                  ))}
-                </div>
-                {/* 当日负载 + 开始专注 */}
-                <div className="px-2 py-1.5 border-t border-cd-border flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-[9px]">
-                    <span className="text-cd-text-tertiary">当日负载</span>
-                    <span className="tabular-nums" style={{ color: overLimit ? '#ef4444' : full ? '#F0C040' : 'var(--cd-text-secondary)' }}>
-                      {totalMin}/{DAILY_LIMIT}m
-                      {overLimit && <span title={`${totalMin}min 超载`}> ⚠</span>}
-                    </span>
+                    <div className="text-center mt-0.5">
+                      <span className="text-[8px] tabular-nums" style={{ color: overLimit ? '#ef4444' : 'var(--cd-text-tertiary)' }}>
+                        {totalMin}m / {DAILY_LIMIT}m{overLimit && ' ⚠'}
+                      </span>
+                    </div>
                   </div>
-                  {tasks.some(t => t.status !== 'completed') && (
-                    <button
-                      onClick={() => { const t = tasks.find(t => t.status !== 'completed'); if (t) startFocus(t.id) }}
-                      className="flex items-center justify-center gap-1 py-1 text-[10px] rounded transition hover:brightness-125"
-                      style={{ background: '#7B68EE22', color: '#937CFF', border: '1px solid #7B68EE55' }}
-                    >
-                      <Play size={9} /> 开始专注
-                    </button>
-                  )}
-                </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 甘特行 */}
+          <div className="flex-1 overflow-y-auto scrollbar-thin">
+            {ganttRows.length === 0 ? (
+              <div className="text-center py-12 text-cd-text-tertiary">
+                <Target size={28} className="mx-auto mb-2 opacity-30" />
+                <div className="text-xs">本周暂无任务，从左侧拖入任务开始规划</div>
               </div>
-            )
-          })}
+            ) : ganttRows.map(({ task: t, date }, rowIdx) => {
+              const catColor = CATEGORY_COLORS[t.category] || '#9999B0'
+              const isDone = t.status === 'completed'
+              const progress = t.target_min > 0 ? Math.min(1, t.progress_min / t.target_min) : 0
+              const dur = t.target_min || (t.estimated_pomodoros || 1) * (POMODORO_SIZES[t.pomodoro_size]?.work || 25)
+              const isHabit = t.mode === 'habit'
+              const pc = PRIORITY_COLORS[(t.priority || 3) - 1]
+              const dateIdx = dates.indexOf(date)
+              // 条宽：按时长占日限额比例，最小35%
+              const barWidthPct = Math.max(35, Math.min(96, (dur / DAILY_LIMIT) * 100))
+              return (
+                <div key={t.id} className="flex group"
+                  style={{
+                    height: ROW_H,
+                    borderBottom: '1px solid color-mix(in srgb, var(--cd-border) 50%, transparent)',
+                    background: rowIdx % 2 === 1 ? 'color-mix(in srgb, var(--cd-bg-tertiary) 30%, transparent)' : 'transparent',
+                    opacity: dragId === t.id ? 0.4 : 1,
+                    transition: 'opacity 0.15s',
+                  }}>
+                  {/* 左：任务标签 */}
+                  <div
+                    draggable
+                    onDragStart={handleDragStart(t)}
+                    onDragEnd={handleDragEnd}
+                    onClick={() => openDetail(t)}
+                    className="flex items-center gap-1.5 px-2.5 shrink-0 cursor-grab active:cursor-grabbing overflow-hidden"
+                    style={{ width: LABEL_W, borderRight: '1px solid var(--cd-border)', borderLeft: `3px solid ${pc}` }}
+                  >
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: catColor }} />
+                    <span className="text-[11px] text-cd-text truncate flex-1"
+                      style={{ textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.5 : 1 }}>
+                      {t.title}
+                    </span>
+                    <span className="text-[9px] tabular-nums text-cd-text-tertiary shrink-0">{dur}m</span>
+                  </div>
+                  {/* 右：7天网格 + 甘特条 */}
+                  <div className="flex-1 grid grid-cols-7 relative">
+                    {dates.map((d, idx) => {
+                      const isTodayCol = d === todayStr
+                      const weekend = isWeekend(d)
+                      const isDropTarget = dragOverCol === d
+                      return (
+                        <div key={d}
+                          onDragOver={handleDragOver(d)}
+                          onDragLeave={handleDragLeave(d)}
+                          onDrop={handleDropDay(d)}
+                          style={{
+                            borderRight: idx < 6 ? '1px solid color-mix(in srgb, var(--cd-border) 60%, transparent)' : 'none',
+                            background: isDropTarget ? '#7B68EE1A' : isTodayCol ? '#7B68EE08' : weekend ? 'color-mix(in srgb, var(--cd-bg-tertiary) 40%, transparent)' : 'transparent',
+                            transition: 'background 0.15s',
+                          }}
+                        />
+                      )
+                    })}
+                    {/* 甘特条（绝对定位于对应日期列） */}
+                    {isHabit ? (
+                      /* 习惯任务：横跨整周条纹条 */
+                      <div
+                        draggable
+                        onDragStart={handleDragStart(t)}
+                        onDragEnd={handleDragEnd}
+                        onClick={() => openDetail(t)}
+                        className="absolute rounded-md cursor-grab active:cursor-grabbing hover:brightness-110 transition flex items-center px-2 overflow-hidden"
+                        style={{
+                          left: 4, right: 4, top: (ROW_H - 26) / 2, height: 26,
+                          background: `repeating-linear-gradient(135deg, ${catColor}22 0px, ${catColor}22 6px, ${catColor}0D 6px, ${catColor}0D 12px)`,
+                          border: `1px solid ${catColor}55`,
+                          borderLeft: `3px solid ${catColor}`,
+                          opacity: isDone ? 0.5 : 1,
+                        }}
+                      >
+                        <span className="text-[9px] font-medium" style={{ color: catColor }}>习惯 · 每日</span>
+                        {progress > 0 && <span className="text-[8px] tabular-nums ml-auto text-cd-text-tertiary">{Math.round(progress * 100)}%</span>}
+                      </div>
+                    ) : (
+                      /* 普通任务：定位于分配日列，宽度按时长比例 */
+                      <div
+                        draggable
+                        onDragStart={handleDragStart(t)}
+                        onDragEnd={handleDragEnd}
+                        onClick={() => openDetail(t)}
+                        className="absolute rounded-md cursor-grab active:cursor-grabbing hover:brightness-110 transition overflow-hidden flex items-center"
+                        style={{
+                          left: `calc(${(dateIdx * 100 / 7).toFixed(3)}% + 3px)`,
+                          width: `${(barWidthPct / 7).toFixed(2)}%`,
+                          minWidth: 54,
+                          top: (ROW_H - 26) / 2, height: 26,
+                          background: `${catColor}1A`,
+                          border: `1px solid ${catColor}44`,
+                          borderLeft: `3px solid ${catColor}`,
+                          opacity: isDone ? 0.55 : 1,
+                        }}
+                      >
+                        {/* 进度填充 */}
+                        <div style={{
+                          position: 'absolute', left: 0, top: 0, bottom: 0,
+                          width: `${Math.round(progress * 100)}%`,
+                          background: isDone ? '#10b98166' : `${catColor}55`,
+                          transition: 'width 0.4s',
+                        }} />
+                        <span className="relative text-[9px] tabular-nums px-1.5 truncate"
+                          style={{ color: isDone ? '#10b981' : catColor, fontWeight: 600 }}>
+                          {isDone ? '✓ ' : ''}{t.plan_start_min != null ? fmtHM(t.plan_start_min) + ' ' : ''}{dur}m
+                        </span>
+                        {progress > 0 && !isDone && (
+                          <span className="relative text-[8px] tabular-nums text-cd-text-tertiary ml-auto pr-1.5">{Math.round(progress * 100)}%</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* 底栏：今日专注入口 */}
+          {todayTasks.some(t => t.status !== 'completed') && (
+            <div className="shrink-0 px-3 py-2 flex items-center gap-2" style={{ borderTop: '1px solid var(--cd-border)' }}>
+              <span className="text-[10px] text-cd-text-tertiary">今日待完成 {todayTasks.filter(t => t.status !== 'completed').length} 项</span>
+              <button
+                onClick={() => { const t = todayTasks.find(t => t.status !== 'completed'); if (t) startFocus(t.id) }}
+                className="flex items-center gap-1 px-2.5 py-1 text-[10px] rounded transition hover:brightness-125"
+                style={{ background: '#7B68EE22', color: '#937CFF', border: '1px solid #7B68EE55' }}
+              >
+                <Play size={9} /> 开始专注
+              </button>
+            </div>
+          )}
         </div>
       </div>
     )
   }
 
-  // ── 日视图（时间轴样式）──
+  // ── 日视图（甘特时间轴）──
   function renderDayView() {
     if (!weekPlan) return <div className="p-8 text-center text-cd-text-tertiary text-sm">加载中...</div>
-    const tasks = (weekPlan.day_tasks[selectedDate] || []).slice().sort((a, b) => (a.priority || 3) - (b.priority || 3) || a.id - b.id)
+    const allTasks = (weekPlan.day_tasks[selectedDate] || []).slice().sort((a, b) => (a.priority || 3) - (b.priority || 3) || a.id - b.id)
     const isToday = selectedDate === getTodayStr()
     const shiftDay = (delta: number) => {
       const d = new Date(selectedDate + 'T00:00:00')
@@ -906,28 +1142,62 @@ export default function WeekPlan() {
       const ws = getWeekStart(new Date(ns + 'T00:00:00'))
       if (ws !== weekStart) setWeekStart(ws)
     }
-    // 计算建议时段（从 09:00 累计，每番茄 = work 分钟）
-    let acc = 9 * 60
-    const slots = tasks.map(t => {
+    // 分离习惯任务和时间任务
+    const habitTasks = allTasks.filter(t => t.mode === 'habit')
+    const timeTasks = allTasks.filter(t => t.mode !== 'habit')
+
+    // 甘特时间轴参数
+    const DAY_START = 8 * 60  // 8:00
+    const DAY_END = 22 * 60   // 22:00
+    const TOTAL_MIN = DAY_END - DAY_START
+    const PX_PER_MIN = 0.9    // 每分钟像素高度
+    const GRID_HEIGHT = TOTAL_MIN * PX_PER_MIN
+    const LEFT_LABEL_W = 48   // 左侧时间标签宽度
+
+    // 自动排列算法：有 plan_start_min 的用存储值，没有的从 9:00 顺序累加（含番茄休息）
+    let autoAcc = 9 * 60
+    const BREAK_SHORT = 5   // 番茄间短休息
+    const BREAK_LONG = 15   // 每4番茄长休息
+    let pomodoroSinceBreak = 0
+    const ganttItems = timeTasks.map(t => {
       const work = POMODORO_SIZES[t.pomodoro_size]?.work || 25
       const dur = (t.estimated_pomodoros || 1) * work
-      const start = acc
-      const end = acc + dur
-      acc = end
-      return { t, start, end }
+      let start: number
+      if (t.plan_start_min != null && t.plan_start_min >= DAY_START && t.plan_start_min < DAY_END) {
+        start = t.plan_start_min
+      } else {
+        // 自动排列：加入休息间隔
+        if (pomodoroSinceBreak > 0) {
+          autoAcc += (pomodoroSinceBreak % 4 === 0) ? BREAK_LONG : BREAK_SHORT
+        }
+        start = autoAcc
+        pomodoroSinceBreak += (t.estimated_pomodoros || 1)
+      }
+      autoAcc = start + dur
+      const progress = t.target_min > 0 ? t.progress_min / t.target_min : 0
+      return { t, start, dur, progress }
     })
+
+    // 当前时间（分钟）
+    const now = new Date()
+    const nowMin = now.getHours() * 60 + now.getMinutes()
+    const showNowLine = isToday && nowMin >= DAY_START && nowMin <= DAY_END
+
     const d = new Date(selectedDate + 'T00:00:00')
     const wd = (d.getDay() + 6) % 7
+    const totalMin = dayMin(allTasks)
+
     return (
       <div className="p-4 overflow-auto h-full">
+        {/* 头部 */}
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-sm font-semibold text-cd-text">{fmtDate(selectedDate)} {WEEKDAY_LABELS[wd]}</h2>
-            <span className="text-xs text-cd-text-tertiary">{tasks.length} 个任务 · 总计 {dayMin(tasks)}m</span>
+            <span className="text-xs text-cd-text-tertiary">{allTasks.length} 个任务 · 总计 {totalMin}m</span>
           </div>
-          {isToday && tasks.some(t => t.status !== 'completed') && (
+          {isToday && allTasks.some(t => t.status !== 'completed') && (
             <button
-              onClick={() => { const t = tasks.find(t => t.status !== 'completed'); if (t) startFocus(t.id) }}
+              onClick={() => { const t = allTasks.find(t => t.status !== 'completed'); if (t) startFocus(t.id) }}
               className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition"
             >
               <Play size={12} /> 开始专注
@@ -942,74 +1212,142 @@ export default function WeekPlan() {
           <button onClick={() => shiftDay(1)} className="p-1 rounded hover:bg-cd-hover text-cd-text-secondary"><ChevronRight size={14} /></button>
           <button onClick={goToday} className="px-2 py-1 text-xs rounded-lg bg-cd-bg-input text-cd-text-secondary hover:bg-cd-hover transition ml-1">今天</button>
         </div>
-        {/* 时间轴任务列表 */}
-        <div className="space-y-1 max-w-2xl">
-          {tasks.length === 0 && (
-            <div className="text-center py-8 text-cd-text-tertiary text-sm">
-              <Target size={32} className="mx-auto mb-2 opacity-30" />
-              当日无任务
-            </div>
-          )}
-          {slots.map(({ t, start, end }) => {
-            const catColor = CATEGORY_COLORS[t.category] || '#9999B0'
-            const isDone = t.status === 'completed'
-            const pct = t.target_min > 0 ? (t.progress_min / t.target_min) * 100 : 0
-            const work = POMODORO_SIZES[t.pomodoro_size]?.work || 25
-            return (
-              <div key={t.id} className="flex items-stretch gap-2 group">
-                {/* 时间标记 */}
-                <div className="flex flex-col items-end justify-center w-14 shrink-0">
-                  <span className="text-[10px] tabular-nums text-cd-text-secondary">{fmtHM(start)}</span>
-                  <span className="text-[9px] tabular-nums text-cd-text-tertiary">{fmtHM(end)}</span>
-                </div>
-                {/* 时间轴线 */}
-                <div className="relative flex flex-col items-center">
-                  <div className="rounded-full mt-1.5" style={{ width: 8, height: 8, background: catColor, opacity: isDone ? 0.5 : 1 }} />
-                  <div className="flex-1 w-px" style={{ background: 'var(--cd-border)' }} />
-                </div>
-                {/* 任务卡片 */}
-                <div
-                  draggable
-                  onDragStart={handleDragStart(t)}
-                  onDragEnd={handleDragEnd}
-                  onClick={() => openDetail(t)}
-                  className="flex-1 rounded-md cursor-grab active:cursor-grabbing transition hover:brightness-110 mb-1"
-                  style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)', borderLeft: `3px solid ${catColor}`, padding: '6px 10px', opacity: dragId === t.id ? 0.5 : 1 }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-cd-text" style={{ textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.6 : 1 }}>{t.title}</span>
-                      {isDone && <span className="text-[9px] text-green-400">✓ 已完成</span>}
-                      {t.status === 'in_progress' && <span className="text-[9px] text-cd-accent">进行中</span>}
+
+        <div className="flex gap-4">
+          {/* 甘特时间轴主区 */}
+          <div className="flex-1 max-w-3xl">
+            {timeTasks.length === 0 && habitTasks.length === 0 ? (
+              <div className="text-center py-8 text-cd-text-tertiary text-sm">
+                <Target size={32} className="mx-auto mb-2 opacity-30" />
+                当日无任务
+              </div>
+            ) : (
+              <div className="rounded-lg overflow-hidden" style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)' }}>
+                {/* 时间刻度 */}
+                <TimeAxis mode="hour" start={8} end={22} cellWidth={60} labelOffset={LEFT_LABEL_W} height={24}
+                  highlightIndex={isToday ? now.getHours() - 8 : -1} />
+                {/* 时间网格 */}
+                <div style={{ position: 'relative', height: GRID_HEIGHT, marginLeft: LEFT_LABEL_W }}>
+                  {/* 小时网格线 */}
+                  {Array.from({ length: 14 }, (_, i) => (
+                    <div key={i} style={{
+                      position: 'absolute', top: i * 60 * PX_PER_MIN, left: 0, right: 0,
+                      height: 1, background: 'var(--cd-border)', opacity: 0.4,
+                    }} />
+                  ))}
+                  {/* 半小时虚线 */}
+                  {Array.from({ length: 14 }, (_, i) => (
+                    <div key={`h${i}`} style={{
+                      position: 'absolute', top: (i * 60 + 30) * PX_PER_MIN, left: 0, right: 0,
+                      height: 1, background: 'var(--cd-border)', opacity: 0.15,
+                      borderStyle: 'dashed',
+                    }} />
+                  ))}
+                  {/* 任务甘特条 */}
+                  {ganttItems.map(({ t, start, dur, progress }) => {
+                    const top = (start - DAY_START) * PX_PER_MIN
+                    const height = Math.max(dur * PX_PER_MIN, 22)
+                    const catColor = CATEGORY_COLORS[t.category] || '#9999B0'
+                    const isDone = t.status === 'completed'
+                    return (
+                      <GanttBar
+                        key={t.id}
+                        left={4}
+                        width="calc(100% - 8px)"
+                        top={top}
+                        height={height}
+                        progress={progress}
+                        category={t.category}
+                        label={t.title}
+                        sublabel={`${dur}m · ${t.progress_min}/${t.target_min}m`}
+                        done={isDone}
+                        priorityColor={['#ef4444', '#f59e0b', '#F0C040', '#10b981', '#6b7280'][(t.priority || 3) - 1]}
+                        draggable
+                        onDragStart={handleDragStart(t)}
+                        onDragEnd={handleDragEnd}
+                        onClick={() => openDetail(t)}
+                        style={{ opacity: dragId === t.id ? 0.5 : 1 }}
+                      />
+                    )
+                  })}
+                  {/* 当前时间红线 */}
+                  {showNowLine && (
+                    <div style={{
+                      position: 'absolute',
+                      top: (nowMin - DAY_START) * PX_PER_MIN,
+                      left: -LEFT_LABEL_W,
+                      right: 0,
+                      height: 2,
+                      background: '#ef4444',
+                      zIndex: 10,
+                      pointerEvents: 'none',
+                    }}>
+                      <div style={{
+                        position: 'absolute', left: 4, top: -8,
+                        fontSize: 9, color: '#ef4444', fontWeight: 600,
+                        background: 'var(--cd-card)', padding: '0 3px', borderRadius: 2,
+                      }}>
+                        {fmtHM(nowMin)}
+                      </div>
                     </div>
-                    <ExternalLink size={11} className="opacity-0 group-hover:opacity-60 text-cd-text-tertiary" />
-                  </div>
-                  <div className="flex items-center gap-3 mt-1 text-[10px] text-cd-text-tertiary">
-                    <span style={{ color: catColor }}>● {t.category}</span>
-                    <span className="flex items-center gap-1"><Clock size={9} /> {t.estimated_pomodoros || 0}番茄 · {work}m</span>
-                    <span className="flex items-center gap-1 tabular-nums">
-                      <ProgressRing pct={pct} size={11} stroke={1.5} color={isDone ? '#10b981' : catColor} />
-                      {t.progress_min}/{t.target_min}m
-                    </span>
-                    {/* 番茄进度小方块 */}
-                    <span className="flex items-center gap-0.5">
-                      {Array.from({ length: Math.max(1, t.estimated_pomodoros || 1) }).map((_, i) => (
-                        <span key={i} style={{ width: 6, height: 6, borderRadius: 1, background: i < (t.pomodoro_count || 0) ? '#ef4444' : 'var(--cd-bg-tertiary)' }} />
-                      ))}
-                    </span>
-                  </div>
+                  )}
+                </div>
+                {/* 左侧时间标签（覆盖层） */}
+                <div style={{ position: 'absolute', top: 0, left: 0, width: LEFT_LABEL_W, pointerEvents: 'none' }}>
                 </div>
               </div>
-            )
-          })}
+            )}
+            {/* 左侧小时标签 */}
+            {timeTasks.length > 0 && (
+              <div className="flex mt-1" style={{ marginLeft: 0 }}>
+                <div style={{ width: LEFT_LABEL_W }} className="flex flex-col text-right pr-2">
+                  {Array.from({ length: 15 }, (_, i) => (
+                    <span key={i} className="text-[9px] tabular-nums text-cd-text-tertiary" style={{ height: 60 * PX_PER_MIN, lineHeight: `${60 * PX_PER_MIN}px` }}>
+                      {8 + i}:00
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* 添加任务 */}
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="mt-4 flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-cd-green/20 text-cd-green border border-cd-green/30 hover:bg-cd-green/30 transition"
+            >
+              <Plus size={12} /> 添加任务
+            </button>
+          </div>
+
+          {/* 右侧：习惯清单 */}
+          {habitTasks.length > 0 && (
+            <div className="w-52 shrink-0">
+              <div className="rounded-lg p-3" style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)' }}>
+                <h3 className="text-xs font-semibold text-cd-text mb-2 flex items-center gap-1">
+                  <Flame size={12} className="text-cd-green" /> 每日习惯
+                </h3>
+                <div className="flex flex-col gap-1.5">
+                  {habitTasks.map(t => {
+                    const isDone = t.status === 'completed'
+                    const catColor = CATEGORY_COLORS[t.category] || '#F0C040'
+                    return (
+                      <div key={t.id}
+                        onClick={() => openDetail(t)}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:brightness-110 transition"
+                        style={{ background: `${catColor}12`, border: `1px solid ${catColor}33` }}
+                      >
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: isDone ? 'var(--cd-green)' : catColor }} />
+                        <span className="text-[11px] text-cd-text truncate" style={{ textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.6 : 1 }}>
+                          {t.title}
+                        </span>
+                        {isDone && <span className="text-[9px] text-green-400 ml-auto">✓</span>}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        {/* 添加任务 */}
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="mt-4 flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-cd-green/20 text-cd-green border border-cd-green/30 hover:bg-cd-green/30 transition"
-        >
-          <Plus size={12} /> 添加任务
-        </button>
       </div>
     )
   }

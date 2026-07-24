@@ -674,6 +674,56 @@ def tool_get_mubu_sync_status() -> list[dict]:
     return _ok(data)
 
 
+# ── 记忆系统（三阶段：幕布同步 → 向量化 → 统一记忆） ────────────────
+
+
+def tool_search_memory(query: str, limit: int = 10) -> list[dict]:
+    """混合检索记忆与文档片段（BM25 + 向量 RRF 融合排序）
+
+    覆盖已索引的幕布文档分块（doc_chunks）和抽取的结构化记忆（memories），
+    返回与 query 最相关的片段列表，每条含 content、source、score 等字段。
+
+    适用场景：
+      - 用户提问前检索历史上下文
+      - 查找某主题下的笔记/记忆
+      - 替代单纯关键词搜索（支持语义近似匹配）
+
+    Args:
+        query: 检索关键词或自然语言提问（必填，上限 500 字符）
+        limit: 返回条数上限 1-50，默认 10
+    """
+    if not query or not query.strip():
+        return _err("query 不能为空")
+    if len(query) > 500:
+        return _err("query 过长（上限 500 字符）")
+    body = {"query": query.strip(), "limit": limit}
+    data = _backend_request("POST", "/api/memory/search", json_body=body)
+    return _ok(data)
+
+
+def tool_get_memory_context(query: str, max_tokens: int = 2000) -> list[dict]:
+    """获取与 query 相关的记忆上下文（供 AI 对话注入）
+
+    返回结构化的 Markdown 上下文，包含相关记忆（memories）和文档片段（chunks），
+    已按相关性排序并按 max_tokens 截断，可直接拼入 AI prompt 的 system 部分。
+
+    与 search_memory 的区别：
+      - search_memory 返回原始片段列表（适合程序化处理）
+      - get_memory_context 返回拼好的 Markdown 文本（适合直接注入 AI 上下文）
+
+    Args:
+        query: 用户提问或主题（必填，上限 500 字符）
+        max_tokens: 上下文 token 上限 200-8000，默认 2000
+    """
+    if not query or not query.strip():
+        return _err("query 不能为空")
+    if len(query) > 500:
+        return _err("query 过长（上限 500 字符）")
+    body = {"query": query.strip(), "max_tokens": max_tokens}
+    data = _backend_request("POST", "/api/memory/query", json_body=body)
+    return _ok(data)
+
+
 # ──────────────────────────────────────────────────────────────
 # 工具注册表
 # ──────────────────────────────────────────────────────────────
@@ -810,6 +860,9 @@ _TOOL_REGISTRY: dict[str, Callable[..., list[dict]]] = {
     "get_mubu_doc": tool_get_mubu_doc,
     "get_mubu_context": tool_get_mubu_context,
     "get_mubu_sync_status": tool_get_mubu_sync_status,
+    # 记忆系统（三阶段记忆：search_memory 原始片段，get_memory_context 拼接上下文）
+    "search_memory": tool_search_memory,
+    "get_memory_context": tool_get_memory_context,
 }
 
 _TOOL_SCHEMAS = _build_tool_schemas()

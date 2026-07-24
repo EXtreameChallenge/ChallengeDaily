@@ -1,5 +1,9 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, globalShortcut, Notification, session, dialog, shell } = require('electron')
 
+// 幕布文档自动同步模块（BrowserWindow + cookie 持久化，无需会员）
+const mubuSync = require('./mubu_sync.cjs')
+const mubuSSE = require('./mubu_sse_client.cjs')
+
 // ─── ELECTRON_RUN_AS_NODE 防护 ─────────────────
 // 如果全局环境变量 ELECTRON_RUN_AS_NODE=1 被设置，require('electron') 返回空对象，app 为 undefined
 // 必须在此立即退出，否则后续所有 app.* 调用都会崩溃
@@ -868,6 +872,36 @@ function setupIPC() {
   // renderer 请求当前 pet 可见状态
   ipcMain.handle('pet-get-visible', () => petWindow?.isVisible() ?? false)
 
+  // ── 幕布文档同步 IPC ──
+  // 弹出登录窗口（用户点"登录幕布"按钮时触发）
+  ipcMain.handle('mubu:login', async () => {
+    try {
+      mubuSync.showLoginWindow()
+      return { ok: true }
+    } catch (e) {
+      console.error('[Main] mubu:login error:', e?.message || e, e?.stack || '')
+      return { ok: false, error: String(e?.message || e) }
+    }
+  })
+  // 立即触发一次同步（用户点"立即同步"按钮时触发）
+  ipcMain.handle('mubu:sync-now', async () => {
+    try {
+      const ok = await mubuSync.startSync()
+      return { ok, syncing: mubuSync.isSyncing() }
+    } catch (e) {
+      console.error('[Main] mubu:sync-now error:', e?.message || e, e?.stack || '')
+      return { ok: false, error: String(e?.message || e) }
+    }
+  })
+  // 查询当前同步状态
+  ipcMain.handle('mubu:sync-status', async () => {
+    try {
+      return { syncing: mubuSync.isSyncing() }
+    } catch (e) {
+      return { syncing: false, error: String(e?.message || e) }
+    }
+  })
+
   // ── 番茄钟悬浮窗 IPC ──
   // 渲染进程发送计时数据 → 悬浮窗更新显示
   ipcMain.on('pomodoro-widget-update', (_event, data) => {
@@ -1443,6 +1477,20 @@ app.whenReady().then(async () => {
   setupIPC()
   registerShortcuts()
 
+  // 启动幕布文档自动同步（后端就绪后 30 秒做首次同步，之后每 10 分钟一次）
+  try {
+    mubuSync.setBackendConfig(readApiToken(), app.getPath('userData'))
+    mubuSync.startAutoSync()
+    // 状态变化时转发给渲染进程（前端 Settings 页监听）
+    mubuSync.onStatusChange((status, data) => {
+      mainWindow?.webContents?.send('mubu:status-change', { status, data })
+    })
+    // 启动 SSE 客户端：接收前端的 login/sync 请求事件（绕过 IPC 注册不稳定问题）
+    mubuSSE.start(mubuSync)
+  } catch (e) {
+    console.error('[Main] mubu sync init failed:', e?.message || String(e), e?.stack || '')
+  }
+
   // 启动后30秒检查更新（仅打包版）
   setTimeout(checkForUpdates, 30000)
   // 每8小时检查一次更新（降低频率，减少网络请求和 CPU 唤醒）
@@ -1457,6 +1505,8 @@ app.on('before-quit', () => {
   // 清理定时器，防止退出后定时器继续触发导致异常
   if (_healthInterval) clearInterval(_healthInterval)
   if (_updateInterval) clearInterval(_updateInterval)
+  mubuSync.stopAutoSync()
+  mubuSSE.stop()
   stopBackend()
 })
 

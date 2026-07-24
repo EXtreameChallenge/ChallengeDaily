@@ -2471,3 +2471,108 @@ export async function testLocalModel(type: 'text' | 'vision' = 'text'): Promise<
   }) as Promise<{ ok: boolean; type: string; result: any }>
 }
 
+// ─── 记忆系统（向量检索 / 事实抽取） ─────────────────────────
+
+/** 记忆条目 */
+export interface MemoryItem {
+  id: string
+  content: string
+  source_type?: string
+  source_id?: string
+  title?: string
+  metadata?: Record<string, unknown>
+  created_at?: string
+  updated_at?: string
+}
+
+/** 记忆搜索结果条目 */
+export interface MemorySearchResult {
+  id: string
+  content: string
+  title?: string
+  source?: string
+  source_type?: string
+  score?: number
+  snippet?: string
+  metadata?: Record<string, unknown>
+  created_at?: string
+}
+
+/** 向量化状态 */
+export interface MemoryStatus {
+  total: number
+  indexed: number
+  pending: number
+  progress_pct?: number
+  last_index?: string | null
+  indexing?: boolean
+  [key: string]: unknown
+}
+
+/** 搜索记忆（语义检索） */
+export async function searchMemory(query: string, limit: number = 10): Promise<{ results: MemorySearchResult[]; query?: string; count?: number }> {
+  const data = await request('/api/memory/search', {
+    method: 'POST',
+    body: JSON.stringify({ query, limit }),
+  }) as { results?: MemorySearchResult[]; query?: string; count?: number }
+  // 兼容直接返回数组的后端实现
+  if (Array.isArray(data as unknown)) {
+    return { results: data as unknown as MemorySearchResult[] }
+  }
+  return { results: data?.results || [], query: data?.query, count: data?.count }
+}
+
+/** 获取向量化状态 */
+export async function getMemoryStatus(): Promise<MemoryStatus> {
+  return request('/api/memory/status') as Promise<MemoryStatus>
+}
+
+/** 获取记忆列表 */
+export async function getMemoryList(limit: number = 50): Promise<{ memories: MemoryItem[]; total?: number }> {
+  const data = await request(`/api/memory/list?limit=${limit}`) as { memories?: MemoryItem[]; total?: number }
+  // 兼容直接返回数组的后端实现
+  if (Array.isArray(data as unknown)) {
+    return { memories: data as unknown as MemoryItem[] }
+  }
+  return { memories: data?.memories || [], total: data?.total }
+}
+
+/** 删除记忆条目 */
+export async function deleteMemory(id: string): Promise<{ status: string }> {
+  return request(`/api/memory/${encodeURIComponent(id)}`, { method: 'DELETE' }) as Promise<{ status: string }>
+}
+
+/** 手动触发向量化索引 */
+export async function triggerIndexing(source?: string): Promise<{ status: string; indexed?: number; [k: string]: unknown }> {
+  const body = source ? JSON.stringify({ source }) : '{}'
+  return request('/api/memory/index', {
+    method: 'POST',
+    body,
+  }) as Promise<{ status: string; indexed?: number; [k: string]: unknown }>
+}
+
+/** 手动触发事实抽取 */
+export async function triggerExtraction(): Promise<{ status: string; extracted?: number; [k: string]: unknown }> {
+  return request('/api/memory/extract', {
+    method: 'POST',
+    body: '{}',
+  }) as Promise<{ status: string; extracted?: number; [k: string]: unknown }>
+}
+
+/** 上传 OPML 文件至幕布导入接口（multipart/form-data） */
+export async function uploadOpmlFile(file: File): Promise<{ status: string; imported?: number; skipped?: number; [k: string]: unknown }> {
+  const token = await getApiToken()
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch(`${BASE_URL}/api/mubu/import-opml`, {
+    method: 'POST',
+    headers: token ? { 'X-API-Token': token } : {},
+    body: formData,
+  })
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+    throw new Error(errData.error || 'OPML 导入失败')
+  }
+  return res.json()
+}
+

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Play, Check, Trash2, Calendar, Target } from 'lucide-react'
 import Modal from './Modal'
-import { updateTodo, deleteTodo, assignTodo, unassignTodo, getGoals, type TodoV2, type Goal } from '../api/client'
+import { updateTodo, deleteTodo, assignTodo, unassignTodo, updateTaskTime, getGoals, type TodoV2, type Goal } from '../api/client'
 import { useToast } from './Toast'
 
 const PRIORITY_COLORS = ['#ef4444', '#f59e0b', '#F0C040', '#10b981', '#6b7280']
@@ -218,6 +218,26 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
           className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-xl bg-cd-bg-input text-cd-text-secondary border border-cd-border hover:bg-cd-hover transition">
           <Calendar size={12} /> 移至
         </button>
+      </div>
+
+      {/* 计划开始时间（甘特图） */}
+      <div className="flex gap-2 mt-2">
+        <input
+          type="time"
+          value={todo.plan_start_min != null ? `${String(Math.floor(todo.plan_start_min / 60)).padStart(2, '0')}:${String(todo.plan_start_min % 60).padStart(2, '0')}` : ''}
+          onChange={async e => {
+            const val = e.target.value
+            if (val) {
+              const [h, m] = val.split(':').map(Number)
+              await updateTaskTime(todo.id, h * 60 + m)
+            } else {
+              await updateTaskTime(todo.id, null)
+            }
+            onUpdate()
+          }}
+          className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50"
+        />
+        <span className="flex items-center text-[10px] text-cd-text-tertiary">甘特图时间</span>
       </div>
     </Modal>
   )

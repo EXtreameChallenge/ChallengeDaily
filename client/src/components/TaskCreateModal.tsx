@@ -45,6 +45,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
   const [pomodoroSize, setPomodoroSize] = useState<PomodoroSize>('big')
   const [dueDate, setDueDate] = useState('')
   const [assignedDate, setAssignedDate] = useState('')
+  const [planStartTime, setPlanStartTime] = useState('')  // HH:MM 格式，甘特图计划开始时间
   const [taskLevel, setTaskLevel] = useState<TaskLevel>('day')
   const [targetMinOverride, setTargetMinOverride] = useState<number>(0)
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -101,6 +102,10 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
         data.week_start = getWeekStart(new Date(assignedDate + 'T00:00:00'))
       } else if (defaults?.week_start) {
         data.week_start = defaults.week_start
+      }
+      if (planStartTime) {
+        const [h, m] = planStartTime.split(':').map(Number)
+        data.plan_start_min = h * 60 + m
       }
       if (defaults?.parent_id) data.parent_id = defaults.parent_id
       if (defaults?.month_key) data.month_key = defaults.month_key
@@ -378,6 +383,26 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
                     : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
                 }`}
               >不分配</button>
+            </div>
+          </div>
+          {/* 计划开始时间（甘特图） */}
+          <div className="mt-3">
+            <label className="text-xs text-cd-text-secondary mb-1.5 block">计划开始时间（可选，用于甘特图定位）</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                value={planStartTime}
+                onChange={e => setPlanStartTime(e.target.value)}
+                className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
+              />
+              <button
+                onClick={() => setPlanStartTime('09:00')}
+                className="px-3 py-1.5 rounded-lg text-xs bg-cd-bg-input text-cd-text border border-cd-border hover:bg-cd-hover transition"
+              >9:00</button>
+              <button
+                onClick={() => setPlanStartTime('')}
+                className="px-3 py-1.5 rounded-lg text-xs bg-cd-bg-input text-cd-text border border-cd-border hover:bg-cd-hover transition"
+              >自动</button>
             </div>
           </div>
         </div>

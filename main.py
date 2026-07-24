@@ -212,6 +212,14 @@ def main():
     init_db()
     logger.info("数据库初始化完成")
 
+    # 1.5 初始化幕布同步表
+    try:
+        from mubu_sync import init_mubu_schema
+        init_mubu_schema()
+        logger.info("幕布文档表初始化完成")
+    except Exception as e:
+        logger.warning(f"幕布文档表初始化失败（非致命）: {e}")
+
     # 2. 打印配置信息
     logger.info(f"截图间隔: {config.SCREENSHOT_INTERVAL_SEC}s")
     logger.info(f"HTTP API 端口: {HTTP_PORT}")

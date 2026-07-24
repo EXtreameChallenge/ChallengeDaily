@@ -83,6 +83,8 @@ from routes.daily_card import bp as daily_card_bp
 from routes.growth import bp as growth_bp
 from routes.ritual import bp as ritual_bp
 from routes.scheduler import bp as scheduler_bp
+from routes.mubu_routes import bp as mubu_bp
+from routes.mubu_routes import memory_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -170,4 +172,6 @@ ALL_BLUEPRINTS = [
     growth_bp,
     ritual_bp,
     scheduler_bp,
+    mubu_bp,
+    memory_bp,
 ]

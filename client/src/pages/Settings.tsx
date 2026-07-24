@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getStatus, getSettings, updateSettings, testAiConnection, downloadExportActivities, downloadExportAppUsage, getBackupInfo, downloadBackup, restoreBackup, previewImport, executeImport, request, type CollectorStatus, type BackendSettings } from '../api/client'
+import { getStatus, getSettings, updateSettings, testAiConnection, downloadExportActivities, downloadExportAppUsage, getBackupInfo, downloadBackup, restoreBackup, previewImport, executeImport, request, getMemoryStatus, uploadOpmlFile, type CollectorStatus, type BackendSettings, type MemoryStatus } from '../api/client'
 import { ToggleSwitch, useTimeout, useAsyncData, ApiErrorDisplay } from '../components/shared'
 import { useToast } from '../components/Toast'
 import { useTheme, ACCENT_PRESETS, FONT_PRESETS, RADIUS_PRESETS, SHADOW_PRESETS, OPACITY_PRESETS, SKIN_PRESETS } from '../components/ThemeContext'
 import { AppLockSettings } from '../components/AppLock'
-import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon, Cat, Rocket, Search, Calendar, GitBranch, Cpu, Cloud } from 'lucide-react'
+import { Shield, Bot, Eye, EyeOff, Server, FileText, ListFilter, Download, Loader2, CheckCircle, XCircle, RotateCcw, Database, Upload, HardDrive, Info, RefreshCw, Palette, Type, GlassWater, Moon, Cat, Rocket, Search, Calendar, GitBranch, Cpu, Cloud, Brain, FileUp } from 'lucide-react'
 import dayjs from 'dayjs'
 import CalendarSubscriptionManager from '../components/CalendarSubscriptionManager'
 import GitRepoManager from '../components/GitRepoManager'
@@ -105,6 +105,10 @@ export default function Settings() {
   const [mubuSearchQuery, setMubuSearchQuery] = useState('')
   const [mubuSearching, setMubuSearching] = useState(false)
   const [mubuSearchResults, setMubuSearchResults] = useState<MubuDoc[]>([])
+  // OPML 导入 & 记忆向量化状态
+  const [opmlUploading, setOpmlUploading] = useState(false)
+  const opmlFileInputRef = useRef<HTMLInputElement>(null)
+  const [memoryStatus, setMemoryStatus] = useState<MemoryStatus | null>(null)
 
   const handleSearch = (query: string) => {
     setSearchQuery(query)
@@ -431,6 +435,42 @@ export default function Settings() {
       setMubuSearching(false)
     }
   }
+
+  // OPML 文件导入：上传至 /api/mubu/import-opml
+  const handleOpmlImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setOpmlUploading(true)
+    try {
+      const res = await uploadOpmlFile(file)
+      const imported = typeof res.imported === 'number' ? res.imported : 0
+      const skipped = typeof res.skipped === 'number' ? res.skipped : 0
+      toast.success(`OPML 导入完成：成功 ${imported} 条${skipped > 0 ? `，跳过 ${skipped} 条` : ''}`)
+      // 导入后刷新记忆向量化状态
+      fetchMemoryStatus()
+    } catch (err: any) {
+      toast.error(err?.message || 'OPML 导入失败')
+    } finally {
+      setOpmlUploading(false)
+      // 清空 file input 以允许重复选择同一文件
+      if (opmlFileInputRef.current) opmlFileInputRef.current.value = ''
+    }
+  }
+
+  // 拉取记忆向量化状态（失败时静默处理）
+  const fetchMemoryStatus = useCallback(async () => {
+    try {
+      const s = await getMemoryStatus()
+      setMemoryStatus(s)
+    } catch {
+      // 后端未实现 /api/memory/status 时静默失败
+      setMemoryStatus(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchMemoryStatus()
+  }, [fetchMemoryStatus])
 
   if (error) {
     return <ApiErrorDisplay error={error} onRetry={refreshData} />
@@ -1232,6 +1272,82 @@ export default function Settings() {
         <div className="text-xs text-cd-text-tertiary space-y-1">
           <p>• 首次使用请点击「登录幕布」完成账号授权</p>
           <p>• Cookie 失效时请重新登录以恢复同步</p>
+        </div>
+
+        {/* ── OPML 导入 & 记忆向量化 ── */}
+        <div className="pt-3 border-t border-cd-border space-y-3">
+          <div className="flex items-center gap-1.5">
+            <FileUp size={12} className="text-cd-text-tertiary" />
+            <span className="text-xs font-semibold text-cd-text-secondary">OPML 导入 & 记忆向量化</span>
+          </div>
+
+          {/* OPML 文件导入 */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border cursor-pointer disabled:opacity-50">
+              {opmlUploading ? <Loader2 size={12} className="animate-spin" /> : <FileUp size={12} />}
+              {opmlUploading ? '导入中...' : '导入 OPML 文件'}
+              <input
+                ref={opmlFileInputRef}
+                type="file"
+                accept=".opml,.xml"
+                onChange={handleOpmlImport}
+                className="hidden"
+                disabled={opmlUploading}
+              />
+            </label>
+            <a
+              href="#/memory"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-cd-green hover:bg-cd-green-light transition-colors"
+            >
+              <Brain size={12} />
+              管理记忆
+            </a>
+          </div>
+
+          {/* 向量化状态显示 */}
+          {memoryStatus ? (
+            <div className="bg-cd-bg-secondary rounded-lg p-3 border border-cd-border space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-cd-text-secondary">向量化进度</span>
+                <span className="font-medium text-cd-text">
+                  {memoryStatus.indexed ?? 0} / {memoryStatus.total ?? 0}
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-cd-bg overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-cd-green transition-all duration-500"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      memoryStatus.total > 0
+                        ? Math.round(((memoryStatus.indexed ?? 0) / memoryStatus.total) * 100)
+                        : 0,
+                    )}%`,
+                  }}
+                />
+              </div>
+              {(memoryStatus.pending ?? 0) > 0 && (
+                <div className="text-[10px] text-cd-text-tertiary">
+                  待索引 {memoryStatus.pending} 条
+                  {memoryStatus.indexing && (
+                    <span className="ml-2 text-cd-green flex items-center gap-1 inline-flex">
+                      <Loader2 size={9} className="animate-spin" />
+                      索引中
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-[10px] text-cd-text-tertiary">
+              记忆系统未启用或后端暂未就绪
+            </div>
+          )}
+
+          <div className="text-[10px] text-cd-text-tertiary space-y-1">
+            <p>• 支持从其他笔记软件导出的 OPML 文件批量导入文档大纲</p>
+            <p>• 导入的文档会自动抽取事实并写入记忆库，供语义检索使用</p>
+          </div>
         </div>
       </section>
 

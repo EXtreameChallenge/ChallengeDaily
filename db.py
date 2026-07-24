@@ -16,7 +16,7 @@ from config import DB_PATH, CATEGORIES
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 35
+SCHEMA_VERSION = 36
 
 # P-01: 默认数据保留天数（90 天）
 DEFAULT_DATA_RETENTION_DAYS = 90
@@ -1030,6 +1030,67 @@ def _init_db_impl():
                 logger.info("V35: 成长系统+每日仪式表创建成功")
             except Exception as e:
                 logger.warning(f"V35 schema 升级失败: {e}")
+
+        # V36: 三阶段记忆系统——文档分块 + FTS5 + 向量检索 + Mem0 风格记忆
+        # 表说明：
+        #   doc_chunks       文档分块（source/source_id 区分来源）
+        #   doc_chunks_fts   FTS5 全文索引（unicode61 分词，外部内容表）
+        #   doc_chunks_vec   sqlite-vec 向量虚表（512 维，按需创建）
+        #   memories         Mem0 风格原子事实（含软删除）
+        #   memories_vec     记忆向量虚表（512 维，按需创建）
+        #   ingest_jobs      摄入任务进度跟踪
+        if current_version < 36:
+            try:
+                conn.executescript("""
+                    CREATE TABLE IF NOT EXISTS doc_chunks (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        source TEXT DEFAULT 'mubu',
+                        source_id TEXT,
+                        chunk_index INTEGER DEFAULT 0,
+                        content TEXT,
+                        content_hash TEXT,
+                        created_at TEXT DEFAULT (datetime('now','localtime'))
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_doc_chunks_source ON doc_chunks(source, source_id);
+
+                    CREATE TABLE IF NOT EXISTS memories (
+                        id TEXT PRIMARY KEY,
+                        source_type TEXT,
+                        source_id TEXT,
+                        content TEXT,
+                        metadata TEXT DEFAULT '{}',
+                        created_at TEXT,
+                        updated_at TEXT,
+                        deleted_at TEXT
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_memories_source ON memories(source_type);
+
+                    CREATE TABLE IF NOT EXISTS ingest_jobs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        job_type TEXT,
+                        status TEXT DEFAULT 'pending',
+                        total INTEGER DEFAULT 0,
+                        done INTEGER DEFAULT 0,
+                        error TEXT,
+                        created_at TEXT,
+                        updated_at TEXT
+                    );
+                """)
+                # FTS5 虚表（可能因 SQLite 未启用 FTS5 而失败，单独 try）
+                try:
+                    conn.executescript("""
+                        CREATE VIRTUAL TABLE IF NOT EXISTS doc_chunks_fts USING fts5(
+                            content, content='doc_chunks', content_rowid='id', tokenize='unicode61'
+                        );
+                    """)
+                    logger.info("V36: doc_chunks_fts 全文索引创建成功")
+                except Exception as fts_err:
+                    logger.warning(f"V36: FTS5 创建失败（功能降级为 LIKE）: {fts_err}")
+                # sqlite-vec 向量虚表：依赖 sqlite_vec 扩展，按需加载
+                # 此处不直接创建 vec0 表（需要扩展已加载），交给 memory_engine.init_memory_schema 处理
+                logger.info("V36: 记忆系统表创建成功（向量虚表由 memory_engine 按需创建）")
+            except Exception as e:
+                logger.warning(f"V36 schema 升级失败: {e}")
 
         # 更新版本号
         conn.execute(

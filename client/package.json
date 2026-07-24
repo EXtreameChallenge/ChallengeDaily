@@ -117,6 +117,18 @@
         "to": "backend/main.py"
       },
       {
+        "from": "../mcp_server.py",
+        "to": "backend/mcp_server.py"
+      },
+      {
+        "from": "../mubu_sync.py",
+        "to": "backend/mubu_sync.py"
+      },
+      {
+        "from": "../routes/mubu_routes.py",
+        "to": "backend/routes/mubu_routes.py"
+      },
+      {
         "from": "../config.py",
         "to": "backend/config.py"
       },

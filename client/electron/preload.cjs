@@ -79,4 +79,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Windows Hello 生物识别（应用级隐私锁）
   // 返回 { success: boolean, error?: string }；不可用时返回 success:false
   windowsHello: (reason) => ipcRenderer.invoke('windows-hello', reason),
+
+  // ── 幕布文档接入 ──
+  // 通用 invoke（白名单受控，仅允许 mubu 相关通道，防止越权调用其他 IPC）
+  invoke: (channel, ...args) => {
+    const allowed = new Set(['mubu:login', 'mubu:sync-now', 'mubu:sync-status'])
+    if (allowed.has(channel)) {
+      return ipcRenderer.invoke(channel, ...args)
+    }
+    return Promise.reject(new Error('Channel not allowed: ' + channel))
+  },
+  // 幕布同步状态变化监听
+  on: (channel, cb) => {
+    if (channel === 'mubu:status-change') {
+      const handler = (_e, data) => cb(data)
+      ipcRenderer.on(channel, handler)
+      return () => {
+        try { ipcRenderer.removeListener(channel, handler) } catch (_) {}
+      }
+    }
+    return () => {}
+  },
 })

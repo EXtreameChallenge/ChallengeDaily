@@ -100,8 +100,10 @@ def batch_upsert(docs: list[dict]) -> int:
     """批量入库文档，返回成功入库的数量
 
     每个文档需包含：doc_id, title（其余可选）
+    入库后会在后台线程触发 memory_engine 的向量化索引（非阻塞，失败不影响入库）。
     """
     count = 0
+    indexed_docs: list[dict] = []
     for d in docs:
         try:
             upsert_doc(
@@ -115,9 +117,40 @@ def batch_upsert(docs: list[dict]) -> int:
                 extra=d.get("extra"),
             )
             count += 1
+            # 仅对有正文的 doc 类型触发向量化
+            if d.get("type", "doc") == "doc" and (d.get("content_md") or "").strip():
+                indexed_docs.append({
+                    "source": "mubu",
+                    "source_id": str(d.get("doc_id", "")),
+                    "title": d.get("title", ""),
+                    "content": d.get("content_md", ""),
+                })
         except Exception as e:
             logger.warning(f"入库文档失败 doc_id={d.get('doc_id')}: {e}")
+
+    # 后台线程触发向量化索引，避免阻塞 ingest 接口
+    if indexed_docs:
+        _trigger_memory_index(indexed_docs)
     return count
+
+
+def _trigger_memory_index(docs: list[dict]) -> None:
+    """在后台线程触发 memory_engine 批量索引（失败不影响主流程）"""
+    try:
+        import threading
+        import memory_engine
+
+        def _worker():
+            try:
+                memory_engine.batch_index_documents(docs)
+                logger.info(f"记忆索引完成，共 {len(docs)} 篇文档")
+            except Exception as e:
+                logger.warning(f"记忆索引后台任务失败（非致命）: {e}")
+
+        t = threading.Thread(target=_worker, name="memory-index", daemon=True)
+        t.start()
+    except Exception as e:
+        logger.warning(f"memory_engine 不可用，跳过向量化: {e}")
 
 
 # ── 查询/搜索 ──────────────────────────────────────
@@ -200,6 +233,70 @@ def get_recent_docs(days: int = 7, limit: int = 50) -> list[dict]:
         if days > 0:
             cutoff = int(time.time()) - days * 86400
             rows = [r for r in rows if r["edit_time"] >= cutoff]
+        return [dict(r) for r in rows]
+
+
+def get_all_docs(limit: int = 1000) -> list[dict]:
+    """获取所有文档（含正文），供全量向量化使用。
+
+    Args:
+        limit: 最多返回 N 篇 1-5000
+    """
+    limit = max(1, min(5000, int(limit)))
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT doc_id, title, parent_id, content_md, edit_time, sync_time
+            FROM mubu_docs
+            WHERE type = 'doc'
+            ORDER BY edit_time DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_unindexed_docs(limit: int = 1000) -> list[dict]:
+    """返回尚未向量化的文档（即 doc_chunks 表中不存在 source_id 对应记录的 mubu 文档）。
+    用于增量全量同步——只索引新增/变更的文档。
+    """
+    limit = max(1, min(5000, int(limit)))
+    with get_conn() as conn:
+        # doc_chunks 表可能尚未创建（V36 未迁移），先做存在性检查
+        try:
+            conn.execute("SELECT 1 FROM doc_chunks LIMIT 0")
+            chunk_table_ok = True
+        except Exception:
+            chunk_table_ok = False
+
+        if chunk_table_ok:
+            rows = conn.execute(
+                """
+                SELECT m.doc_id, m.title, m.parent_id, m.content_md, m.edit_time, m.sync_time
+                FROM mubu_docs m
+                LEFT JOIN (
+                    SELECT DISTINCT source_id FROM doc_chunks WHERE source = 'mubu'
+                ) c ON c.source_id = m.doc_id
+                WHERE m.type = 'doc' AND (m.content_md IS NOT NULL AND m.content_md != '')
+                  AND c.source_id IS NULL
+                ORDER BY m.edit_time DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        else:
+            # doc_chunks 表不存在 → 全部文档都未索引
+            rows = conn.execute(
+                """
+                SELECT doc_id, title, parent_id, content_md, edit_time, sync_time
+                FROM mubu_docs
+                WHERE type = 'doc' AND (content_md IS NOT NULL AND content_md != '')
+                ORDER BY edit_time DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
         return [dict(r) for r in rows]
 
 

@@ -170,6 +170,15 @@ def _ai_enhance_insights(yesterday: str, summary: dict, activities: list, rule_i
         interval_min = config.SCREENSHOT_INTERVAL_SEC / 60
         cats = {k: round(v * interval_min) for k, v in summary.get("categories", {}).items()}
         rule_text = "\n".join(f"- [{i['type']}] {i['title']}: {i['body']}" for i in rule_insights)
+        # 注入幕布笔记作为额外上下文（失败不影响生成）
+        mubu_section = ""
+        try:
+            from mubu_sync import build_mubu_context_for_ai
+            mubu_ctx = build_mubu_context_for_ai(days=7, limit=20)
+            if mubu_ctx:
+                mubu_section = "\n" + mubu_ctx + "\n"
+        except Exception as me:
+            logger.debug(f"幕布上下文注入失败(非致命): {me}")
         prompt = f"""请基于以下昨日数据，生成 1-3 条温暖、活泼、可爱（但不肉麻）的晨间洞察。
 要求：
 1. 上午时段必须用鼓励性语气，绝不出现"效率低"、"有点散"等负面词汇
@@ -180,8 +189,7 @@ def _ai_enhance_insights(yesterday: str, summary: dict, activities: list, rule_i
 昨日日期：{yesterday}
 分类时长（分钟）：{cats}
 规则引擎已检测到的模式：
-{rule_text or '（无）'}
-
+{rule_text or '（无）'}{mubu_section}
 请输出 JSON 数组："""
         response = client.chat.completions.create(
             model=config.AI_TEXT_MODEL,

@@ -1257,6 +1257,16 @@ def _build_rich_data_context(target_date, summary_data, app_usage, activities) -
     except Exception as di_err:
         logger.debug(f"DeepInsight context 注入失败(非致命): {di_err}")
 
+    # ── 注入幕布笔记作为额外上下文（失败不影响生成）──
+    try:
+        from mubu_sync import build_mubu_context_for_ai
+        mubu_ctx = build_mubu_context_for_ai(days=7, limit=20)
+        if mubu_ctx:
+            lines.append("")
+            lines.append(mubu_ctx)
+    except Exception as mubu_err:
+        logger.debug(f"幕布上下文注入失败(非致命): {mubu_err}")
+
     return "\n".join(lines)
 
 
@@ -1616,6 +1626,15 @@ def _build_ai_report_prompt(target_date: str, activities, summary_data, app_usag
                 )
     except Exception:
         pass
+
+    # 注入幕布笔记作为额外上下文（失败不影响生成）
+    try:
+        from mubu_sync import build_mubu_context_for_ai
+        mubu_ctx = build_mubu_context_for_ai(days=7, limit=20)
+        if mubu_ctx:
+            lines.extend(["", mubu_ctx])
+    except Exception as me:
+        logger.debug(f"幕布上下文注入失败(非致命): {me}")
 
     lines.extend(["", "---", "", "请直接输出 Markdown 日报内容，不要包含任何额外说明。"])
     return "\n".join(lines)
