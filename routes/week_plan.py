@@ -66,7 +66,7 @@ def unassigned():
 
 @bp.route('/assign', methods=['POST'])
 def assign():
-    """拖拽分配任务到某天/某周/升级层级"""
+    """拖拽分配任务到某天/某周/升级层级，可选设置计划开始时刻"""
     data = request.get_json(force=True, silent=True) or {}
     todo_id = data.get('todo_id')
     if not todo_id:
@@ -74,8 +74,11 @@ def assign():
     assigned_date = data.get('assigned_date')
     week_start = data.get('week_start')
     task_level = data.get('task_level', 'day')
+    plan_start_min = data.get('plan_start_min')  # 可选：分钟偏移（540=9:00）
+    if plan_start_min is not None:
+        plan_start_min = _safe_int(plan_start_min, None)
     try:
-        db.assign_todo(_safe_int(todo_id, 0), assigned_date, week_start, task_level)
+        db.assign_todo(_safe_int(todo_id, 0), assigned_date, week_start, task_level, plan_start_min)
         return jsonify({'status': 'ok'})
     except Exception as e:
         return jsonify({'error': safe_error(e, "操作失败")}), 500
@@ -90,6 +93,23 @@ def unassign_route():
         return jsonify({'error': 'todo_id 必填'}), 400
     try:
         db.unassign_todo(_safe_int(todo_id, 0))
+        return jsonify({'status': 'ok'})
+    except Exception as e:
+        return jsonify({'error': safe_error(e, "操作失败")}), 500
+
+
+@bp.route('/task-time', methods=['PUT'])
+def update_task_time():
+    """更新任务的计划开始时刻（甘特图拖拽调时间用）"""
+    data = request.get_json(force=True, silent=True) or {}
+    todo_id = data.get('todo_id')
+    if not todo_id:
+        return jsonify({'error': 'todo_id 必填'}), 400
+    plan_start_min = data.get('plan_start_min')  # null 表示清除
+    if plan_start_min is not None:
+        plan_start_min = _safe_int(plan_start_min, None)
+    try:
+        db.update_todo(_safe_int(todo_id, 0), plan_start_min=plan_start_min)
         return jsonify({'status': 'ok'})
     except Exception as e:
         return jsonify({'error': safe_error(e, "操作失败")}), 500
