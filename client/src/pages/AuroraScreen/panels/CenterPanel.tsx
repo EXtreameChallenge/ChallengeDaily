@@ -4,9 +4,163 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
 } from 'recharts'
-import { Target, TrendingUp, Brain } from 'lucide-react'
+import { TrendingUp, Target, Brain } from 'lucide-react'
 
-/** 中心面板：本周趋势 + 目标雷达 + 深度洞察 */
+/** 中心仪表盘环 — 大屏视觉焦点 */
+function GaugeRing({
+  value,
+  max,
+  label,
+  size = 220,
+}: {
+  value: number
+  max: number
+  label: string
+  size?: number
+}) {
+  const pct = max > 0 ? Math.min(1, value / max) : 0
+  // SVG 圆弧参数
+  const cx = size / 2
+  const cy = size / 2
+  const r = size / 2 - 16
+  const circumference = 2 * Math.PI * r
+  const dashOffset = circumference * (1 - pct)
+  const strokeWidth = 6
+
+  return (
+    <div className="aurora-gauge-ring" style={{ width: size, height: size }}>
+      {/* 外围旋转装饰环 */}
+      <div
+        className="aurora-particle-ring"
+        style={{
+          width: size + 30,
+          height: size + 30,
+          top: -15,
+          left: -15,
+        }}
+      />
+      <div
+        className="aurora-particle-ring"
+        style={{
+          width: size + 60,
+          height: size + 60,
+          top: -30,
+          left: -30,
+          animationDirection: 'normal',
+          borderStyle: 'dotted',
+        }}
+      />
+
+      <svg
+        width={size}
+        height={size}
+        style={{ position: 'relative', zIndex: 2 }}
+      >
+        <defs>
+          <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#005fff" />
+            <stop offset="50%" stopColor="#00d4ff" />
+            <stop offset="100%" stopColor="#00ffd5" />
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+            <feMerge>
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* 背景圆环 */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke="rgba(0,212,255,0.08)"
+          strokeWidth={strokeWidth}
+        />
+
+        {/* 进度圆环 */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke="url(#gaugeGrad)"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          transform={`rotate(-90 ${cx} ${cy})`}
+          filter="url(#glow)"
+          style={{ transition: 'stroke-dashoffset 1.5s ease' }}
+        />
+
+        {/* 进度头部发光点 */}
+        {pct > 0.01 && (
+          <circle
+            cx={cx + r * Math.cos(2 * Math.PI * pct - Math.PI / 2)}
+            cy={cy + r * Math.sin(2 * Math.PI * pct - Math.PI / 2)}
+            r={4}
+            fill="#00ffd5"
+            filter="url(#glow)"
+          />
+        )}
+
+        {/* 中心文字 */}
+        <text
+          x={cx}
+          y={cy - 10}
+          textAnchor="middle"
+          fill="#00e5ff"
+          fontSize="42"
+          fontFamily="'Consolas', 'JetBrains Mono', monospace"
+          fontWeight="700"
+          style={{ textShadow: '0 0 15px rgba(0,212,255,0.6)' }}
+        >
+          {Math.round(pct * 100)}
+        </text>
+        <text
+          x={cx}
+          y={cy - 10}
+          textAnchor="middle"
+          fill="#00e5ff"
+          fontSize="42"
+          fontFamily="'Consolas', 'JetBrains Mono', monospace"
+          fontWeight="700"
+          dx="2"
+          dy="2"
+          opacity="0.2"
+        >
+          {Math.round(pct * 100)}
+        </text>
+        <text
+          x={cx}
+          y={cy + 18}
+          textAnchor="middle"
+          fill="rgba(0,212,255,0.5)"
+          fontSize="13"
+          letterSpacing="2"
+        >
+          {label}
+        </text>
+        <text
+          x={cx}
+          y={cy + 36}
+          textAnchor="middle"
+          fill="rgba(0,212,255,0.3)"
+          fontSize="11"
+          fontFamily="'Consolas', 'JetBrains Mono', monospace"
+        >
+          {value} / {max}
+        </text>
+      </svg>
+    </div>
+  )
+}
+
+/** 中心面板：仪表盘环 + 核心指标 + 趋势图 + 雷达图 */
 export default function CenterPanel({
   weekTrend,
   goalsRadar,
@@ -20,36 +174,47 @@ export default function CenterPanel({
   deepFocusMin: number
   levelInfo: { level: number; title: string; currentExp: number; expToNext: number }
 }) {
+  const dayProgressPct = Math.min(100, Math.round((totalWeekMin / 2400) * 100))
+
   return (
-    <div className="flex flex-col gap-4 h-full">
-      {/* ── 核心数据卡片 ── */}
-      <div className="grid grid-cols-3 gap-3">
-        <DataVBorder>
-          <div className="text-center">
-            <div className="text-[11px] text-[rgba(0,212,255,0.5)] mb-2">本周总时长</div>
-            <AnimatedNumber value={totalWeekMin} className="aurora-number-lg" />
-            <span className="text-sm text-[rgba(0,212,255,0.4)] ml-1">min</span>
-          </div>
-        </DataVBorder>
-        <DataVBorder>
-          <div className="text-center">
-            <div className="text-[11px] text-[rgba(0,212,255,0.5)] mb-2">深度专注</div>
-            <AnimatedNumber value={deepFocusMin} className="aurora-number-lg" />
-            <span className="text-sm text-[rgba(0,212,255,0.4)] ml-1">min</span>
-          </div>
-        </DataVBorder>
-        <DataVBorder>
-          <div className="text-center">
-            <div className="text-[11px] text-[rgba(0,212,255,0.5)] mb-2 flex items-center justify-center gap-1">
-              <Brain size={11} /> 当前等级
+    <>
+      {/* ── 中心视觉焦点：仪表盘环 ── */}
+      <DataVBorder>
+        <div className="flex items-center justify-center py-4">
+          <GaugeRing
+            value={totalWeekMin}
+            max={2400}
+            label="本周目标进度"
+            size={220}
+          />
+        </div>
+        {/* 核心数据卡片行 */}
+        <div className="grid grid-cols-3 gap-3 mt-2">
+          <div className="aurora-stat-card text-center">
+            <div className="text-[10px] text-[rgba(0,212,255,0.5)] mb-1">本周总时长</div>
+            <div className="aurora-number aurora-number-md">
+              <AnimatedNumber value={totalWeekMin} />
             </div>
-            <div className="aurora-number aurora-number-lg">
+            <span className="aurora-unit">min</span>
+          </div>
+          <div className="aurora-stat-card text-center">
+            <div className="text-[10px] text-[rgba(0,212,255,0.5)] mb-1">深度专注</div>
+            <div className="aurora-number aurora-number-md">
+              <AnimatedNumber value={deepFocusMin} />
+            </div>
+            <span className="aurora-unit">min</span>
+          </div>
+          <div className="aurora-stat-card text-center">
+            <div className="text-[10px] text-[rgba(0,212,255,0.5)] mb-1 flex items-center justify-center gap-1">
+              <Brain size={10} /> 当前等级
+            </div>
+            <div className="aurora-number aurora-number-md">
               Lv.<AnimatedNumber value={levelInfo.level} />
             </div>
-            <div className="text-[10px] text-[rgba(0,212,255,0.35)] mt-1">{levelInfo.title}</div>
+            <div className="text-[9px] text-[rgba(0,212,255,0.35)] mt-0.5">{levelInfo.title}</div>
           </div>
-        </DataVBorder>
-      </div>
+        </div>
+      </DataVBorder>
 
       {/* ── 本周工作趋势（面积图）── */}
       <DataVBorder className="flex-1">
@@ -57,7 +222,7 @@ export default function CenterPanel({
           <TrendingUp size={14} /> 本周工作趋势
         </div>
         <div className="aurora-chart">
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={weekTrend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="auroraGradient" x1="0" y1="0" x2="0" y2="1">
@@ -110,7 +275,7 @@ export default function CenterPanel({
           </div>
         ) : (
           <div className="aurora-chart">
-            <ResponsiveContainer width="100%" height={240}>
+            <ResponsiveContainer width="100%" height={220}>
               <RadarChart data={goalsRadar} cx="50%" cy="50%" outerRadius="70%">
                 <PolarGrid stroke="rgba(0,212,255,0.1)" />
                 <PolarAngleAxis
@@ -144,6 +309,6 @@ export default function CenterPanel({
           </div>
         )}
       </DataVBorder>
-    </div>
+    </>
   )
 }

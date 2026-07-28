@@ -216,32 +216,38 @@ export default function AuroraScreen() {
       </a>
 
       {/* ── 三栏布局 ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.3fr_1fr] gap-4 px-4 pb-6 pt-2" style={{ position: 'relative', zIndex: 1 }}>
+      <div className="aurora-grid">
         {/* 左栏：今日概览 + 分类分布 + 应用排行 */}
-        <LeftPanel
-          todayMin={todayStats?.total_duration_min || 0}
-          streakDays={streakDays}
-          categoryData={categoryData}
-          appRank={appRank}
-        />
+        <div className="aurora-col">
+          <LeftPanel
+            todayMin={todayStats?.total_duration_min || 0}
+            streakDays={streakDays}
+            categoryData={categoryData}
+            appRank={appRank}
+          />
+        </div>
 
-        {/* 中栏：核心指标 + 趋势图 + 雷达图 */}
-        <CenterPanel
-          weekTrend={weekTrend}
-          goalsRadar={goalsRadar}
-          totalWeekMin={totalWeekMin}
-          deepFocusMin={deepFocusMin}
-          levelInfo={{ level, title: levelTitle || '', currentExp: currentLevelExp, expToNext }}
-        />
+        {/* 中栏：中心仪表盘 + 核心指标 + 趋势图 */}
+        <div className="aurora-col">
+          <CenterPanel
+            weekTrend={weekTrend}
+            goalsRadar={goalsRadar}
+            totalWeekMin={totalWeekMin}
+            deepFocusMin={deepFocusMin}
+            levelInfo={{ level, title: levelTitle || '', currentExp: currentLevelExp, expToNext }}
+          />
+        </div>
 
         {/* 右栏：成长 + 对比 + 打卡 + 成就 */}
-        <RightPanel
-          achievements={achievements}
-          dailyCheckins={dailyCheckins.length > 0 ? dailyCheckins : [{ date: todayStr, completed: 0, total: 0 }]}
-          weekCompare={weekCompare}
-          levelInfo={{ level, title: levelTitle || '', currentExp: currentLevelExp, expToNext }}
-          totalAchievements={totalAchievements}
-        />
+        <div className="aurora-col">
+          <RightPanel
+            achievements={achievements}
+            dailyCheckins={dailyCheckins.length > 0 ? dailyCheckins : [{ date: todayStr, completed: 0, total: 0 }]}
+            weekCompare={weekCompare}
+            levelInfo={{ level, title: levelTitle || '', currentExp: currentLevelExp, expToNext }}
+            totalAchievements={totalAchievements}
+          />
+        </div>
       </div>
     </div>
   )

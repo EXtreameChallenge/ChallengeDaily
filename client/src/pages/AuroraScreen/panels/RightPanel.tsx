@@ -25,7 +25,7 @@ export default function RightPanel({
     : 0
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <>
       {/* ── 等级与经验 ── */}
       <DataVBorder>
         <div className="aurora-panel-title flex items-center gap-2">
@@ -166,6 +166,6 @@ export default function RightPanel({
           />
         )}
       </DataVBorder>
-    </div>
+    </>
   )
 }

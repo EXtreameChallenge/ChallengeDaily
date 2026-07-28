@@ -1,6 +1,6 @@
 /**
- * DataV 风格边框容器
- * 四角装饰 + 半透明暗色背景 + 扫描线效果
+ * DataV V2 风格边框容器
+ * 渐变发光边框 + 切角 clip-path + 四角发光点 + 扫描线
  */
 export default function DataVBorder({
   children,
@@ -10,11 +10,11 @@ export default function DataVBorder({
   className?: string
 }) {
   return (
-    <div className={`dv-border-box ${className}`}>
-      <div className="dv-border-inner" />
-      <div className="dv-content">
+    <div className={`dv-panel ${className}`}>
+      <div className="dv-panel-inner">
         {children}
       </div>
+      <div className="dv-panel-corners" />
     </div>
   )
 }

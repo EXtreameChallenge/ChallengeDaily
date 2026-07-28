@@ -23,7 +23,7 @@ export default function LeftPanel({
   const mins = Math.round(todayMin % 60)
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <>
       {/* ── 今日概览 ── */}
       <DataVBorder>
         <div className="aurora-panel-title">今日工作概览</div>
@@ -150,6 +150,6 @@ export default function LeftPanel({
           />
         )}
       </DataVBorder>
-    </div>
+    </>
   )
 }
