@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import { Solar } from 'lunar-javascript'
 import { MapPin, Navigation, CloudSun, Cloud, CloudRain, Snowflake, Wind, Zap, Brain, RefreshCw, Lightbulb, AlertTriangle, Trophy, Sparkles, Eye, Compass } from 'lucide-react'
 import { request } from '../api/client'
+import { useGrowthStore } from '../stores/growthStore'
 
 interface HeroInfoProps {
   todayDurationMin: number
@@ -118,6 +119,13 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
   // 用于在 setTimeout/setInterval 闭包中读取最新的 insight，避免陈旧闭包
   const insightRef = useRef<InsightData | null>(null)
   useEffect(() => { insightRef.current = insight }, [insight])
+
+  // ── 成长系统（等级 + 人生进度） ──
+  const { level, totalExp, currentLevelExp, expToNext, streakDays, lifeProgress, fetchLifeProgress } = useGrowthStore()
+
+  useEffect(() => {
+    fetchLifeProgress()
+  }, [fetchLifeProgress])
 
   // 实时更新时间 — 每秒刷新，显示 HH:mm:ss
   useEffect(() => {
@@ -550,6 +558,56 @@ export default function HeroInfo({ todayDurationMin }: HeroInfoProps) {
               <span className="text-xs font-brand font-semibold text-cd-text-secondary whitespace-nowrap w-8 text-right">{p.pct}%</span>
             </div>
           ))}
+        </div>
+
+        {/* 分隔线 */}
+        <div className="h-10 w-px bg-cd-border shrink-0 hidden sm:block" />
+
+        {/* 等级 + 人生进度 */}
+        <div className="flex flex-col gap-1.5 shrink-0">
+          {/* 等级 */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-cd-text-tertiary font-display whitespace-nowrap w-6">等级</span>
+            <div className="w-20 sm:w-24 h-1.5 rounded-full bg-cd-bg-tertiary overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${expToNext > 0 ? Math.min(currentLevelExp / expToNext * 100, 100) : 0}%`,
+                  background: `linear-gradient(90deg, #af52de, #ff9500)`,
+                }}
+              />
+            </div>
+            <span className="text-xs font-brand font-semibold text-cd-text-secondary whitespace-nowrap">
+              Lv.{level}
+            </span>
+          </div>
+
+          {/* 人生进度（QuantLife 灵感） */}
+          {lifeProgress && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-cd-text-tertiary font-display whitespace-nowrap w-6">人生</span>
+              <div className="w-20 sm:w-24 h-1.5 rounded-full bg-cd-bg-tertiary overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${lifeProgress.pct}%`,
+                    background: `linear-gradient(90deg, #5ac8fa, #34c759)`,
+                  }}
+                />
+              </div>
+              <span className="text-xs font-brand font-semibold text-cd-text-secondary whitespace-nowrap">
+                {lifeProgress.pct}%
+              </span>
+            </div>
+          )}
+
+          {/* 连续天数 */}
+          {streakDays > 0 && (
+            <div className="flex items-center gap-1.5">
+              <Zap size={11} className="text-amber-400 shrink-0" />
+              <span className="text-[11px] text-amber-500 font-brand font-medium">连续 {streakDays} 天</span>
+            </div>
+          )}
         </div>
       </div>
 

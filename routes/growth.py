@@ -1,5 +1,6 @@
 """成长系统 API — V35"""
 from flask import Blueprint, request, jsonify
+from datetime import date
 import logging
 
 logger = logging.getLogger(__name__)
@@ -102,4 +103,55 @@ def initialize_growth():
         return jsonify({"status": "ok", "result": result})
     except Exception as e:
         logger.warning(f"初始化成长系统失败: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route('/life-progress', methods=['GET'])
+def get_life_progress():
+    """人生进度：基于生日和预期寿命计算人生已过百分比及可视化数据"""
+    try:
+        from config import load_settings
+        settings = load_settings()
+        birthday_str = settings.get('birthday', '')
+        life_exp = int(settings.get('life_expectancy', 80))
+        if not birthday_str:
+            return jsonify({"status": "ok", "life_progress": None,
+                             "message": "未设置生日，请在设置中填写生日"})
+        try:
+            birthday = date.fromisoformat(birthday_str)
+        except (ValueError, TypeError):
+            return jsonify({"status": "ok", "life_progress": None,
+                             "message": "生日格式无效，请使用 YYYY-MM-DD"})
+
+        today = date.today()
+        age_days = (today - birthday).days
+        if age_days < 0:
+            return jsonify({"status": "ok", "life_progress": None,
+                             "message": "生日不能晚于今天"})
+
+        total_days = life_exp * 365.25
+        passed_days = age_days
+        pct = round(passed_days / total_days * 100, 2)
+        remaining_days = max(int(total_days - passed_days), 0)
+        age_years = age_days / 365.25
+
+        # 按周计算人生方格图（52 周/年 × life_exp 年）
+        weeks_lived = int(age_days / 7)
+        total_weeks = int(life_exp * 52)
+        year_progress = round((today - date(today.year, 1, 1)).days / 365.25 * 100, 1)
+
+        return jsonify({"status": "ok", "life_progress": {
+            "birthday": birthday_str,
+            "life_expectancy": life_exp,
+            "age_years": round(age_years, 1),
+            "passed_days": passed_days,
+            "remaining_days": remaining_days,
+            "total_days": int(total_days),
+            "pct": pct,
+            "weeks_lived": weeks_lived,
+            "total_weeks": total_weeks,
+            "year_progress": year_progress,
+        }})
+    except Exception as e:
+        logger.warning(f"获取人生进度失败: {e}")
         return jsonify({"error": str(e)}), 500

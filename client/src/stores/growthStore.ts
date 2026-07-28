@@ -8,6 +8,19 @@ interface DimensionData {
   emoji: string
 }
 
+interface LifeProgressData {
+  birthday: string
+  life_expectancy: number
+  age_years: number
+  passed_days: number
+  remaining_days: number
+  total_days: number
+  pct: number
+  weeks_lived: number
+  total_weeks: number
+  year_progress: number
+}
+
 interface GrowthState {
   level: number
   totalExp: number
@@ -17,7 +30,9 @@ interface GrowthState {
   streakDays: number
   todayExp: number
   loading: boolean
+  lifeProgress: LifeProgressData | null
   fetchGrowth: () => Promise<void>
+  fetchLifeProgress: () => Promise<void>
 }
 
 export const useGrowthStore = create<GrowthState>((set) => ({
@@ -29,6 +44,7 @@ export const useGrowthStore = create<GrowthState>((set) => ({
   streakDays: 0,
   todayExp: 0,
   loading: false,
+  lifeProgress: null,
   fetchGrowth: async () => {
     set({ loading: true })
     try {
@@ -49,4 +65,15 @@ export const useGrowthStore = create<GrowthState>((set) => ({
       set({ loading: false })
     }
   },
+  fetchLifeProgress: async () => {
+    try {
+      const res = await request('/api/growth/life-progress') as Record<string, unknown>
+      const data = res.life_progress as LifeProgressData | null
+      set({ lifeProgress: data })
+    } catch {
+      // silent fail
+    }
+  },
 }))
+
+export type { LifeProgressData, DimensionData }

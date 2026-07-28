@@ -26,6 +26,50 @@ for _dk, _dv in DIMENSION_MAP.items():
     for _cat in _dv['categories']:
         _CATEGORY_TO_DIM[_cat] = _dk
 
+# 12 工作分类 → 6 维度映射（补充 config.CATEGORIES 中未直接匹配的）
+ACTIVITY_CATEGORY_TO_DIM = {
+    '开发': 'deep_think',
+    '编程': 'deep_think',
+    '写作': 'deep_think',
+    '设计': 'creative',
+    '会议': 'social',
+    '沟通': 'social',
+    '文档': 'deep_think',
+    '测试': 'deep_think',
+    '运维': 'deep_think',
+    '数据分析': 'deep_think',
+    '学习': 'learning',
+    '阅读': 'learning',
+    '管理': 'social',
+    '产品': 'creative',
+    '运动': 'fitness',
+    '娱乐': 'recovery',
+    '生活': 'recovery',
+    '休息': 'recovery',
+    '视频': 'creative',
+    '创作': 'creative',
+}
+
+
+def award_exp_from_activity(category: str, duration_min: float, source_id: str = '') -> dict:
+    """截图活动 → 自动 XP 奖励（数据飞轮核心管道）
+
+    每次截图被分类后调用，将活动时长转换为对应维度的经验值。
+    - 短时活动（<5min）给予少量 XP（保底 1 XP）
+    - 25 分钟基准时长，按 base_rate 换算
+    - 质量系数默认 1.0（无中断数据）
+    """
+    dim_key = ACTIVITY_CATEGORY_TO_DIM.get(category, 'deep_think')
+    # 活动时长以 interval_sec 为单位，通常 60s = 1min
+    exp = calculate_exp(max(int(duration_min), 1), dim_key, 0, get_streak_days())
+    # 每 5 分钟封顶一次奖励，避免高频截图过度膨胀
+    exp = min(exp, int(DIMENSION_MAP[dim_key]['base_rate'] * 0.2))
+    if exp <= 0:
+        return {'exp_awarded': 0, 'dimension': dim_key}
+    note = f"活动自动: {category} {int(duration_min)}min"
+    result = award_exp(exp, dim_key, 'activity', source_id, note)
+    return result
+
 
 def infer_dimension_from_todo(todo_id) -> str:
     """根据 todo 的 category 推断成长维度"""

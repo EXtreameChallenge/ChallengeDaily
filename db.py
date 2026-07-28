@@ -186,6 +186,14 @@ def insert_activity(timestamp: str, screenshot: str, app_name: str,
             if _pending_commits >= _COMMIT_BATCH_SIZE:
                 conn.commit()
                 _pending_commits = 0
+    # ── 数据飞轮：截图活动 → 自动 XP 奖励 ──
+    # 异步发放，不影响截图写入性能
+    try:
+        import growth_service
+        duration_min = interval_sec / 60.0
+        growth_service.award_exp_from_activity(category, duration_min)
+    except Exception:
+        pass  # XP 奖励失败不影响主流程
 
 
 def insert_manual_activity(timestamp: str, app_name: str, window_title: str,

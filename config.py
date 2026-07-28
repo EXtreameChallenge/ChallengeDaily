@@ -163,6 +163,8 @@ _DEFAULT_SETTINGS = {
     "diary_auto_link_workdata": True,
     "white_noise_default": "none",
     "focus_blocking_mode": False,
+    "birthday": "",
+    "life_expectancy": 80,
 }
 
 # ── settings 缓存（避免每次 API 请求都读磁盘）──

@@ -97,6 +97,8 @@ export interface BackendSettings {
   ai_vision_model?: string
   ai_text_model?: string
   ai_enabled?: boolean
+  birthday?: string
+  life_expectancy?: number
 }
 
 export interface ActivityPage {
