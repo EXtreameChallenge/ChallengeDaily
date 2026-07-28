@@ -1080,6 +1080,37 @@ export default function Settings() {
         <div className="text-xs text-cd-text-tertiary">
           该指令会在生成日报时附加到 AI 提示词中，影响报告的重点和风格
         </div>
+
+        {/* 每日定时生成日报 */}
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-cd-border">
+          <div>
+            <div className="text-xs text-cd-text-secondary">每日定时生成日报</div>
+            <div className="text-[10px] text-cd-text-tertiary mt-0.5">在指定时间自动基于当日工作记录生成日报</div>
+          </div>
+          <div className="flex items-center gap-3">
+            {settings.auto_daily_report && (
+              <select
+                value={settings.auto_daily_report_hour ?? 18}
+                onChange={(e) => updateSetting('auto_daily_report_hour', parseInt(e.target.value))}
+                className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded px-2 py-1 text-xs"
+              >
+                {Array.from({ length: 24 }, (_, i) => (
+                  <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
+                ))}
+              </select>
+            )}
+            <button
+              onClick={() => updateSetting('auto_daily_report', !settings.auto_daily_report)}
+              className={`relative w-10 h-5 rounded-full transition-colors ${
+                settings.auto_daily_report ? 'bg-cd-green' : 'bg-cd-bg-tertiary'
+              }`}
+            >
+              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                settings.auto_daily_report ? 'left-5.5' : 'left-0.5'
+              }`} />
+            </button>
+          </div>
+        </div>
       </section>
 
       {/* ─── 数据导出 ──────────────────────────── */}

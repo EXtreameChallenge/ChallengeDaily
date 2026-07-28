@@ -165,6 +165,9 @@ _DEFAULT_SETTINGS = {
     "focus_blocking_mode": False,
     "birthday": "",
     "life_expectancy": 80,
+    "auto_daily_report": False,
+    "auto_daily_report_hour": 18,
+    "auto_daily_report_template": "standard",
 }
 
 # ── settings 缓存（避免每次 API 请求都读磁盘）──

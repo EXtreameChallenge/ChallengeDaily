@@ -6,6 +6,7 @@ import SankeyChart from '../components/SankeyChart'
 import dayjs from 'dayjs'
 
 type HeatRange = 'week' | 'month' | 'year'
+type SubTab = 'heatmap' | 'ranking'
 interface HeatCell { date: string; focus_min: number; level: number }
 interface YearStats {
   total_active_days: number
@@ -20,6 +21,7 @@ export default function Heatmap() {
   const [tooltip, setTooltip] = useState<{ day: string; hour: number; val: number } | null>(null)
   const [weekOffset, setWeekOffset] = useState(0)
   const [range, setRange] = useState<HeatRange>('week')
+  const [subTab, setSubTab] = useState<SubTab>('heatmap')
   // 月/年视图基准日期（仅在 month/year 模式下使用）
   const [baseDate, setBaseDate] = useState<dayjs.Dayjs>(dayjs())
   const [heatmapData, setHeatmapData] = useState<HeatCell[]>([])
@@ -202,7 +204,26 @@ export default function Heatmap() {
   return (
     <div className="animate-fade-in space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-lg font-semibold text-cd-text">时段热力图</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-semibold text-cd-text">时段热力图</h1>
+          {/* 子标签：热力图 / 排行榜 */}
+          <div className="flex items-center rounded-lg border border-cd-border overflow-hidden">
+            {([['heatmap', '热力图'], ['ranking', '排行榜']] as [SubTab, string][]).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setSubTab(key)}
+                className={`px-3 py-1 text-xs transition-colors ${
+                  subTab === key
+                    ? 'bg-cd-green/30 text-cd-green'
+                    : 'bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {subTab === 'heatmap' ? (
         <div className="flex items-center gap-2 flex-wrap">
           {/* 范围切换器 */}
           <div className="flex items-center rounded-lg border border-cd-border overflow-hidden">
@@ -241,9 +262,12 @@ export default function Heatmap() {
             {range === 'week' ? '下一周' : range === 'month' ? '下一月' : '下一年'}
           </button>
         </div>
+        ) : null}
       </div>
 
-      {/* ─── 统计摘要 ──────────────────────── */}
+      {/* ─── 热力图内容 ──────────────────────── */}
+      {subTab === 'heatmap' && (
+      <>
       <div className="grid grid-cols-3 gap-4">
         {range === 'week' ? (
           <>
@@ -512,7 +536,7 @@ export default function Heatmap() {
             <span className="text-[10px] text-cd-text-tertiary">多</span>
           </div>
         </div>
-      )}
+        )}
 
       {/* ─── 分类时段分布 ──────────────────── */}
       <div className="card">
@@ -550,6 +574,95 @@ export default function Heatmap() {
       {range === 'week' && (
         <SankeyChart date={days[0].format('YYYY-MM-DD')} />
       )}
+      </>
+      )}
+
+      {/* ── 排行榜子标签 ── */}
+      {subTab === 'ranking' && (
+        <RankingView activities={activities} totalMin={totalMin} />
+      )}
+    </div>
+  )
+}
+
+/** 排行榜视图：应用时长排行 + 分类占比排行 */
+function RankingView({ activities, totalMin }: { activities: Activity[]; totalMin: number }) {
+  const appRank = useMemo(() => {
+    const map: Record<string, { name: string; min: number; cat: string }> = {}
+    for (const a of activities) {
+      const key = a.app_name || a.window_title || '未知'
+      if (!map[key]) map[key] = { name: key, min: 0, cat: a.category || '其他' }
+      map[key].min += a.duration_min || 0
+    }
+    return Object.values(map).sort((a, b) => b.min - a.min)
+  }, [activities])
+
+  const catRank = useMemo(() => {
+    const map: Record<string, { name: string; min: number }> = {}
+    for (const a of activities) {
+      const key = a.category || '其他'
+      if (!map[key]) map[key] = { name: key, min: 0 }
+      map[key].min += a.duration_min || 0
+    }
+    return Object.values(map).sort((a, b) => b.min - a.min)
+  }, [activities])
+
+  const maxAppMin = appRank.length > 0 ? appRank[0].min : 1
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* 应用使用排行 */}
+      <div className="bg-cd-bg-card rounded-xl p-4 border border-cd-border">
+        <h3 className="text-sm font-medium text-cd-text mb-3">应用使用排行</h3>
+        {appRank.length === 0 ? (
+          <p className="text-xs text-cd-text-tertiary text-center py-8">暂无数据</p>
+        ) : (
+          <div className="space-y-2">
+            {appRank.slice(0, 15).map((app, i) => (
+              <div key={app.name} className="flex items-center gap-2">
+                <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                  i < 3 ? 'bg-cd-green/20 text-cd-green' : 'bg-cd-bg-tertiary text-cd-text-tertiary'
+                }`}>{i + 1}</span>
+                <span className="text-xs text-cd-text flex-1 truncate">{app.name}</span>
+                <div className="w-20 progress-bar shrink-0">
+                  <div className="progress-bar-fill" style={{ width: `${(app.min / maxAppMin) * 100}%` }} />
+                </div>
+                <span className="text-xs text-cd-text-tertiary w-12 text-right shrink-0 tabular-nums">
+                  {Math.round(app.min)}min
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 分类时长排行 */}
+      <div className="bg-cd-bg-card rounded-xl p-4 border border-cd-border">
+        <h3 className="text-sm font-medium text-cd-text mb-3">分类时长排行</h3>
+        {catRank.length === 0 ? (
+          <p className="text-xs text-cd-text-tertiary text-center py-8">暂无数据</p>
+        ) : (
+          <div className="space-y-2">
+            {catRank.map((cat, i) => {
+              const pct = totalMin > 0 ? (cat.min / totalMin) * 100 : 0
+              return (
+                <div key={cat.name} className="flex items-center gap-2">
+                  <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                    i < 3 ? 'bg-cd-green/20 text-cd-green' : 'bg-cd-bg-tertiary text-cd-text-tertiary'
+                  }`}>{i + 1}</span>
+                  <span className="text-xs text-cd-text flex-1">{cat.name}</span>
+                  <div className="w-20 progress-bar shrink-0">
+                    <div className="progress-bar-fill" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs text-cd-text-tertiary w-12 text-right shrink-0 tabular-nums">
+                    {Math.round(cat.min)}min
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

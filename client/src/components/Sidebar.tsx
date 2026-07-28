@@ -33,6 +33,8 @@ import {
   ChevronDown,
   BarChart3,
   Lightbulb,
+  ClipboardList,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -195,6 +197,8 @@ const NAV_GROUPS: { label: string; items: NavParent[] }[] = [
 
 const MORE_NAV = [
   { to: '/app-tags',  icon: Tags,         label: '应用标签' },
+  { to: '/clipboard', icon: ClipboardList, label: '剪贴板' },
+  { to: '/toolbox',   icon: Wrench,        label: '工具箱' },
   { to: '/health',    icon: Activity,     label: '数据校准' },
   { to: '/rules-engine', icon: Zap,       label: '规则引擎' },
   { to: '/memory',    icon: Brain,        label: '记忆系统' },

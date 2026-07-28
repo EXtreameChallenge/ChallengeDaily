@@ -248,6 +248,13 @@ def start_server():
     save_token()
     logger.info(f"API Token 已生成: {TOKEN_PATH}")
 
+    # 启动每日定时日报调度器
+    try:
+        from auto_report_scheduler import init_auto_report_scheduler
+        init_auto_report_scheduler()
+    except Exception as e:
+        logger.warning(f"自动日报调度器启动失败: {e}")
+
     # 本地桌面应用场景：使用 Flask 内置 threaded 服务器
     # 原因：waitress 不支持 SSE 流式响应（/api/events/stream），会返回 500
     # Flask threaded 服务器支持 streaming generator，且对单用户桌面应用足够稳定
