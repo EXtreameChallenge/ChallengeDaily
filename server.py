@@ -169,17 +169,22 @@ def record_metrics(response):
 @app.before_request
 def auth_check():
     client_ip = request.remote_addr or 'unknown'
-    if not _check_rate_limit(client_ip):
+    is_local = _is_localhost(client_ip)
+    # localhost 豁免 rate limit：本地桌面应用已有 token 鉴权
+    if not is_local and not _check_rate_limit(client_ip):
         return jsonify({"error": "请求过于频繁"}), 429
     if _is_public_path(request.path) or request.method == "OPTIONS":
         return None
     # SSE 端点：跳过 header token 校验（在 handler 内用 query param 校验）
     if _is_sse_path(request.path):
         return None
-    if not _check_auth_fail_limit(client_ip):
+    # localhost 豁免 auth fail 锁定：重启后 token 变化会导致前端连续 401，
+    # 不应因此锁定本机 15 分钟（桌面应用场景，本机即唯一用户）
+    if not is_local and not _check_auth_fail_limit(client_ip):
         return jsonify({"error": "鉴权失败次数过多，请15分钟后重试"}), 429
     if not check_token(request):
-        _record_auth_fail(client_ip)
+        if not is_local:
+            _record_auth_fail(client_ip)
         return jsonify({"error": "未授权访问，请通过客户端操作"}), 401
 
 
