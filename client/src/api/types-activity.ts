@@ -99,6 +99,9 @@ export interface BackendSettings {
   ai_enabled?: boolean
   birthday?: string
   life_expectancy?: number
+  auto_daily_report?: boolean
+  auto_daily_report_hour?: number
+  auto_daily_report_template?: string
 }
 
 export interface ActivityPage {

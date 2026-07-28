@@ -94,6 +94,9 @@ export default function Settings() {
   const [petVisible, setPetVisible] = useState<boolean>(() => localStorage.getItem('cd_pet_visible') !== '0')
   // 开机自启动
   const [autoStart, setAutoStart] = useState(false)
+  // 每日自动生成日报
+  const [autoDailyReport, setAutoDailyReport] = useState(false)
+  const [autoDailyReportHour, setAutoDailyReportHour] = useState(18)
   // 设置搜索
   const [searchQuery, setSearchQuery] = useState('')
   const [highlightedSection, setHighlightedSection] = useState<string>('')
@@ -189,6 +192,9 @@ export default function Settings() {
     // 人生配置
     setBirthday(settings.birthday || '')
     setLifeExpectancy(settings.life_expectancy || 80)
+    // 每日自动生成日报
+    setAutoDailyReport(settings.auto_daily_report ?? false)
+    setAutoDailyReportHour(settings.auto_daily_report_hour ?? 18)
   }, [initialData])
 
   // 获取应用版本 & 开机自启动状态
@@ -309,6 +315,8 @@ export default function Settings() {
         ai_enabled: aiEnabled,
         birthday: birthday,
         life_expectancy: lifeExpectancy,
+        auto_daily_report: autoDailyReport,
+        auto_daily_report_hour: autoDailyReportHour,
       }
       // 仅当用户实际输入了 API Key 时才发送（避免清空已保存的 key）
       if (apiKey.trim()) {
@@ -1088,10 +1096,10 @@ export default function Settings() {
             <div className="text-[10px] text-cd-text-tertiary mt-0.5">在指定时间自动基于当日工作记录生成日报</div>
           </div>
           <div className="flex items-center gap-3">
-            {settings.auto_daily_report && (
+            {autoDailyReport && (
               <select
-                value={settings.auto_daily_report_hour ?? 18}
-                onChange={(e) => updateSetting('auto_daily_report_hour', parseInt(e.target.value))}
+                value={autoDailyReportHour}
+                onChange={(e) => setAutoDailyReportHour(parseInt(e.target.value))}
                 className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded px-2 py-1 text-xs"
               >
                 {Array.from({ length: 24 }, (_, i) => (
@@ -1100,13 +1108,13 @@ export default function Settings() {
               </select>
             )}
             <button
-              onClick={() => updateSetting('auto_daily_report', !settings.auto_daily_report)}
+              onClick={() => setAutoDailyReport(!autoDailyReport)}
               className={`relative w-10 h-5 rounded-full transition-colors ${
-                settings.auto_daily_report ? 'bg-cd-green' : 'bg-cd-bg-tertiary'
+                autoDailyReport ? 'bg-cd-green' : 'bg-cd-bg-tertiary'
               }`}
             >
               <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                settings.auto_daily_report ? 'left-5.5' : 'left-0.5'
+                autoDailyReport ? 'left-5.5' : 'left-0.5'
               }`} />
             </button>
           </div>
