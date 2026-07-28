@@ -557,7 +557,19 @@ function createMainWindow() {
   }
 
   // 页面加载失败诊断：记录 did-fail-load 事件，避免黑屏无日志
-  mainWindow.webContents.on('did-fail-load', (_e, errorCode, errorDescription, validatedURL) => {
+  // Renderer JS error diagnostic: capture console.error
+  mainWindow.webContents.on('console-message', (_e, level, message, _line, sourceId) => {
+    if (level >= 2) {
+      console.error('[Renderer] level=' + level + ' msg="' + message + '" src=' + sourceId)
+    }
+  })
+
+  // Renderer crash diagnostic
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    console.error('[Main] render-process-gone:', JSON.stringify(details))
+  })
+
+    mainWindow.webContents.on('did-fail-load', (_e, errorCode, errorDescription, validatedURL) => {
     console.error('[Main] did-fail-load:', errorCode, errorDescription, validatedURL)
   })
 

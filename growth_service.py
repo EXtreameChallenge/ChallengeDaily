@@ -252,8 +252,8 @@ def compute_productivity_score(target_date: str = None) -> dict:
     try:
         with db.get_conn() as conn:
             rows = conn.execute(
-                "SELECT category, COALESCE(SUM(duration_min),0) as total "
-                "FROM activities WHERE date(start_time)=? GROUP BY category",
+                "SELECT category, COALESCE(SUM(interval_sec)/60,0) as total "
+                "FROM activities WHERE date(timestamp)=? GROUP BY category",
                 (target_date,)
             ).fetchall()
             cat_map = {r['category']: r['total'] for r in rows}

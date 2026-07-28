@@ -185,8 +185,8 @@ def _evaluate_rule(rule: dict) -> dict | None:
         idle_min = params.get("idle_min", 30)
         with db.get_conn() as conn:
             row = conn.execute(
-                "SELECT MAX(end_time) as last_active FROM activities "
-                "WHERE end_time >= datetime('now','localtime',?)",
+                "SELECT MAX(timestamp) as last_active FROM activities "
+                "WHERE timestamp >= datetime('now','localtime',?)",
                 (f"-{idle_min} minutes",)
             ).fetchone()
         if not row or not row["last_active"]:
