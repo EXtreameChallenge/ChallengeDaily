@@ -45,6 +45,24 @@ def add_correction():
         correct_desc=data.get("correct_desc", ""),
         notes=data.get("notes", ""),
     )
+
+    # 自进化：纠正自动转化为分类规则，下次不再犯同样的错
+    correct_category = data.get("correct_category", "")
+    if correct_category:
+        try:
+            from db import upsert_app_category_rule
+            upsert_app_category_rule(
+                app_name=app_name,
+                primary_category=correct_category,
+                tags=[correct_category],
+                display_name=data.get("correct_desc", "") or app_name,
+            )
+            # 刷新分类器缓存
+            from classifier import invalidate_rule_cache
+            invalidate_rule_cache()
+        except Exception as e:
+            logger.warning(f"纠正自动写规则失败: {e}")
+
     return jsonify({"ok": True})
 
 

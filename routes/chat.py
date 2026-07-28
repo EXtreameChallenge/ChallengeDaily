@@ -642,6 +642,16 @@ def ai_chat_stream():
     except Exception:
         pass
 
+    # 自进化：注入记忆系统上下文（幕布笔记、Mem0 原子事实）
+    memory_hint = ""
+    try:
+        from memory_engine import build_memory_context
+        memory_ctx = build_memory_context(user_message, max_tokens=1500)
+        if memory_ctx:
+            memory_hint = f"\n用户相关记忆与笔记：\n{memory_ctx}"
+    except Exception:
+        pass
+
     # 获取历史对话
     history = db.get_chat_history(limit=20)
     # 排除刚插入的用户消息（它是最后一条）
@@ -653,7 +663,7 @@ def ai_chat_stream():
             content = h['content']
             chat_messages.append({"role": role, "content": content})
 
-    system_content = SYSTEM_PROMPT_BASE + SYSTEM_PROMPT_SAFETY + context_hint + today_hint + extra_hint
+    system_content = SYSTEM_PROMPT_BASE + SYSTEM_PROMPT_SAFETY + context_hint + today_hint + extra_hint + memory_hint
 
     messages = [{"role": "system", "content": system_content}] + chat_messages + [{"role": "user", "content": user_message}]
 

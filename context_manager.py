@@ -548,6 +548,8 @@ def auto_generate_yesterday_profile():
         if profile:
             save_daily_profile(yesterday, profile)
             logger.info(f"Auto-generated daily profile for {yesterday}")
+            # 自进化：日画像生成后自动蒸馏回写用户画像
+            auto_distill_profile()
     except Exception as e:
         logger.error(f"Auto profile generation failed: {e}")
     finally:
@@ -567,5 +569,121 @@ def auto_generate_today_profile_if_needed():
                 if profile:
                     save_daily_profile(today, profile)
                     logger.info(f"Auto-generated daily profile for {today}")
+                    # 自进化：日画像生成后自动蒸馏回写用户画像
+                    auto_distill_profile()
     except Exception as e:
         logger.error(f"Auto today profile generation failed: {e}")
+
+
+# ── 画像自动蒸馏更新（自进化：让画像随数据成长） ──
+
+_auto_distill_lock = threading.Lock()
+
+def auto_distill_profile():
+    """从 daily_profiles 自动蒸馏回写 user_profile。
+    聚合近 7 天画像的核心字段，更新到 user_profile 表，
+    使深度画像无需手动维护，用得越久越准。
+    """
+    if not _auto_distill_lock.acquire(blocking=False):
+        return
+    try:
+        _flush_pending_commits()
+        with get_conn() as conn:
+            # 取近 7 天画像
+            rows = conn.execute(
+                "SELECT daily_summary, work_patterns, peak_hours, work_rhythm, "
+                "content_types, behavior_tags, efficiency_pattern "
+                "FROM daily_profiles ORDER BY date DESC LIMIT 7"
+            ).fetchall()
+
+        if not rows:
+            return
+
+        # 聚合各字段
+        all_patterns = []
+        all_content_types = []
+        all_behavior_tags = []
+        all_peak_hours = []
+        all_rhythms = []
+        all_efficiency = []
+
+        for r in rows:
+            p = dict(r)
+            patterns = _parse_json_safe(p.get("work_patterns", "[]")) or []
+            all_patterns.extend(patterns)
+            ct = _parse_json_safe(p.get("content_types", "[]")) or []
+            all_content_types.extend(ct)
+            bt = _parse_json_safe(p.get("behavior_tags", "[]")) or []
+            all_behavior_tags.extend(bt)
+            if p.get("peak_hours"):
+                all_peak_hours.append(p["peak_hours"])
+            if p.get("work_rhythm"):
+                all_rhythms.append(p["work_rhythm"])
+            if p.get("efficiency_pattern"):
+                all_efficiency.append(p["efficiency_pattern"])
+
+        # 统计高频项（出现 2 次以上才保留）
+        from collections import Counter
+        def top_frequent(items: list, min_count: int = 2) -> list:
+            cnt = Counter(items)
+            return [item for item, c in cnt.most_common(10) if c >= min_count]
+
+        freq_patterns = top_frequent(all_patterns)
+        freq_content = top_frequent(all_content_types)
+        freq_tags = top_frequent(all_behavior_tags)
+
+        # 高峰时段：取最近出现过的
+        peak_hours = ""
+        if all_peak_hours:
+            # 取最近非空值
+            for ph in all_peak_hours:
+                if ph:
+                    peak_hours = ph
+                    break
+
+        # 工作节奏
+        work_rhythm = ""
+        if all_rhythms:
+            for wr in all_rhythms:
+                if wr:
+                    work_rhythm = wr
+                    break
+
+        # 效率模式
+        efficiency_pattern = ""
+        if all_efficiency:
+            for ep in all_efficiency:
+                if ep:
+                    efficiency_pattern = ep
+                    break
+
+        # 读取现有画像，保留用户手动填写的 role_desc / work_style
+        existing = get_user_profile()
+        role_desc = existing.get("role_desc", "")
+        work_style = existing.get("work_style", "")
+
+        # 如果 AI 画像能推断出角色/风格，且用户未手动设置，则自动填入
+        if not role_desc and freq_tags:
+            role_desc = freq_tags[0] if len(freq_tags) == 1 else ""
+        if not work_style and freq_patterns:
+            work_style = freq_patterns[0] if len(freq_patterns) == 1 else ""
+
+        # 写回 user_profile
+        data = {
+            "role_desc": role_desc,
+            "work_style": work_style,
+            "habits": existing.get("habits", {}),
+            "app_overrides": existing.get("app_overrides", {}),
+            "custom_rules": existing.get("custom_rules", []),
+            "peak_hours": peak_hours,
+            "work_rhythm": work_rhythm,
+            "content_types": freq_content,
+            "behavior_tags": freq_tags,
+            "efficiency_pattern": efficiency_pattern,
+        }
+        save_user_profile(data)
+        logger.info("Auto-distilled user_profile from recent daily_profiles")
+    except Exception as e:
+        logger.error(f"Auto distill profile failed: {e}")
+    finally:
+        _auto_distill_lock.release()
