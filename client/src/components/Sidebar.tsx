@@ -195,7 +195,6 @@ const NAV_GROUPS: { label: string; items: NavParent[] }[] = [
 
 const MORE_NAV = [
   { to: '/app-tags',  icon: Tags,         label: '应用标签' },
-  { to: '/aurora',    icon: BarChart3,   label: '极光大屏' },
   { to: '/health',    icon: Activity,     label: '数据校准' },
   { to: '/rules-engine', icon: Zap,       label: '规则引擎' },
   { to: '/memory',    icon: Brain,        label: '记忆系统' },
