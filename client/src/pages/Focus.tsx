@@ -86,7 +86,9 @@ export default function Focus() {
   const [strictMode, setStrictMode] = useState(false)
   const [lockLevel, setLockLevel] = useState(0)  // 0=关 1=L1软提醒 2=L2硬拦截 3=L3锁屏
   const [distractionCount, setDistractionCount] = useState(0)
-  const [distractionAlert, setDistractionAlert] = useState<{ app: string; count: number } | null>(null)
+  const [distractionAlert, setDistractionAlert] = useState<{ app: string; count: number; suspected?: boolean } | null>(null)
+  const distractionAlertCountRef = useRef(0)  // 本次番茄钟内提醒次数（最多5次，避免过度打扰）
+  const distractionAutoCloseRef = useRef<NodeJS.Timeout | null>(null)
   const [resumePrompt, setResumePrompt] = useState<{ remaining: number; phase: Phase } | null>(null)
   const [smartDuration, setSmartDuration] = useState<SmartDurationResult | null>(null)
   const [reportOpen, setReportOpen] = useState(false)
@@ -173,36 +175,48 @@ export default function Focus() {
   // T2: 番茄运行中每 15 秒调用后端分心检测
   const handleStopRef = useRef<() => void>(() => {})
   const lastAlertTimeRef = useRef(0)  // 防骚扰：60秒内不重复弹窗
+  const MAX_DISTRACTION_ALERTS = 5  // 单次番茄钟最多提醒5次，超过后静默记录
   useEffect(() => {
     if (phase !== 'working' || !sessionId) return
+    // 新番茄钟开始时重置提醒计数
+    distractionAlertCountRef.current = 0
     const interval = setInterval(async () => {
       try {
         const data = await checkPomodoroDistraction(sessionId)
         const judgment = (data as any).judgment || 'focused'
         const now = Date.now()
+        const canAlert = distractionAlertCountRef.current < MAX_DISTRACTION_ALERTS
 
         if (data.is_distraction) {
           setDistractionCount(data.distraction_count)
           setInterruptedCount(data.distraction_count)
-          // 明确分心：弹窗提醒（防骚扰60秒）
-          if (now - lastAlertTimeRef.current > 60000) {
-            setDistractionAlert({ app: data.app_name, count: data.distraction_count })
+          // 明确分心：弹窗提醒（防骚扰60秒 + 最多5次）
+          if (canAlert && now - lastAlertTimeRef.current > 60000) {
+            setDistractionAlert({ app: data.app_name, count: data.distraction_count, suspected: false })
             window.electronAPI?.sendDistractionAlert?.({ app: data.app_name, count: data.distraction_count })
             lastAlertTimeRef.current = now
+            distractionAlertCountRef.current++
+            // 8秒后自动消失
+            if (distractionAutoCloseRef.current) clearTimeout(distractionAutoCloseRef.current)
+            distractionAutoCloseRef.current = setTimeout(() => setDistractionAlert(null), 8000)
           }
           if (strictMode) {
             handleStopRef.current()
           }
-        } else if (judgment === 'suspected') {
+        } else if (judgment === 'suspected' && canAlert && now - lastAlertTimeRef.current > 60000) {
           // 疑似分心：温和提醒，不计数，不触发学霸模式
-          if (now - lastAlertTimeRef.current > 60000) {
-            setDistractionAlert({ app: data.app_name, count: data.distraction_count })
-            lastAlertTimeRef.current = now
-          }
+          setDistractionAlert({ app: data.app_name, count: data.distraction_count, suspected: true })
+          lastAlertTimeRef.current = now
+          distractionAlertCountRef.current++
+          if (distractionAutoCloseRef.current) clearTimeout(distractionAutoCloseRef.current)
+          distractionAutoCloseRef.current = setTimeout(() => setDistractionAlert(null), 6000)
         }
       } catch { /* 静默失败，不打断专注 */ }
     }, 15000)
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      if (distractionAutoCloseRef.current) clearTimeout(distractionAutoCloseRef.current)
+    }
   }, [phase, sessionId, strictMode])
 
   // 加载今日任务
@@ -340,6 +354,7 @@ export default function Focus() {
     setRemaining(workSec)
     setInterruptedCount(0)
     setDistractionCount(0)
+    if (distractionAutoCloseRef.current) clearTimeout(distractionAutoCloseRef.current)
     setDistractionAlert(null)
     setPomodoroIndex(1)
     setCompletedPomodoros(0)
@@ -521,6 +536,7 @@ export default function Focus() {
     setPhase('idle')
     setRemaining(sizeConfig.work * 60)
     setDistractionCount(0)
+    if (distractionAutoCloseRef.current) clearTimeout(distractionAutoCloseRef.current)
     setDistractionAlert(null)
     clearPomodoroState()
     loadStats()
@@ -883,22 +899,48 @@ export default function Focus() {
         </div>
       )}
 
-      {/* T2: 分心检测提醒（温和提示，不打断工作流） */}
+      {/* T2: 分心检测温和提醒（非模态，不抢焦点，自动消失） */}
       {distractionAlert && (
-        <div className="fixed top-4 right-4 p-4 bg-yellow-500/15 border border-yellow-500/40 rounded-lg shadow-lg z-50 max-w-sm backdrop-blur-sm">
-          <div className="flex items-start gap-2">
-            <span className="text-yellow-400 text-lg">💡</span>
-            <div className="flex-1">
-              <p className="text-sm text-cd-text font-medium">当前操作和计划任务不符</p>
-              <p className="text-xs text-cd-text-secondary mt-1">
-                正在使用：{distractionAlert.app}<br />
-                要不要回到正轨？（已分心 {distractionCount} 次）
+        <div
+          className={`fixed top-4 right-4 p-4 rounded-xl shadow-2xl z-50 max-w-xs backdrop-blur-md border transition-all duration-300 ${
+            distractionAlert.suspected
+              ? 'bg-blue-500/15 border-blue-500/40'
+              : 'bg-yellow-500/15 border-yellow-500/40'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <span className={`text-xl ${distractionAlert.suspected ? 'text-blue-400' : 'text-yellow-400'}`}>
+              {distractionAlert.suspected ? '🤔' : '💡'}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-cd-text">
+                {distractionAlert.suspected ? '似乎有点走神？' : '当前操作和计划任务不符'}
               </p>
-              <div className="flex gap-2 mt-2">
-                <button onClick={() => setDistractionAlert(null)}
-                  className="text-xs text-cd-blue hover:underline">知道了</button>
-                <button onClick={() => { setDistractionAlert(null); }}
-                  className="text-xs text-cd-text-tertiary hover:text-cd-text hover:underline">继续</button>
+              <p className="text-xs text-cd-text-secondary mt-1 leading-relaxed">
+                正在使用：<span className="text-cd-text">{distractionAlert.app}</span>
+                {distractionAlert.count > 0 && (
+                  <><br />本次已分心 <span className="text-yellow-400 font-medium">{distractionAlert.count}</span> 次</>
+                )}
+              </p>
+              <div className="flex gap-3 mt-2.5">
+                <button
+                  onClick={() => {
+                    if (distractionAutoCloseRef.current) clearTimeout(distractionAutoCloseRef.current)
+                    setDistractionAlert(null)
+                  }}
+                  className="text-xs font-medium text-cd-accent hover:underline"
+                >
+                  回到正轨
+                </button>
+                <button
+                  onClick={() => {
+                    if (distractionAutoCloseRef.current) clearTimeout(distractionAutoCloseRef.current)
+                    setDistractionAlert(null)
+                  }}
+                  className="text-xs text-cd-text-tertiary hover:text-cd-text-secondary transition"
+                >
+                  知道了
+                </button>
               </div>
             </div>
           </div>
