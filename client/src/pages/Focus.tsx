@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, Square, SkipForward, Brain, X, Sparkles, BarChart3, ChevronLeft, ChevronRight, CheckSquare, Plus, ListTodo, Clock, Target } from 'lucide-react'
-import { startPomodoro, stopPomodoro, getPomodoroStats, getPomodoroQuality, getTodayTodos, checkPomodoroDistraction, formatLocalTimestamp, getSmartDuration, getPomodoroReport, getRecentHeatmap, type TodoV2, type RecentHeatmapDay, POMODORO_SIZES, LONG_BREAK_INTERVAL, type SmartDurationResult, type PomodoroReport } from '../api/client'
+import { startPomodoro, stopPomodoro, getPomodoroStats, getPomodoroQuality, getTodayTodos, checkPomodoroDistraction, formatLocalTimestamp, getSmartDuration, getPomodoroReport, getRecentHeatmap, getPomodoroSessions, type TodoV2, type RecentHeatmapDay, type PomodoroSession, POMODORO_SIZES, LONG_BREAK_INTERVAL, type SmartDurationResult, type PomodoroReport } from '../api/client'
 import { request } from '../api/core'
 import WhiteNoise from '../components/WhiteNoise'
 import LevelUpCelebration from '../components/LevelUpCelebration'
@@ -99,6 +99,8 @@ export default function Focus() {
   const [expPopup, setExpPopup] = useState<{ id: number; amount: number } | null>(null)
   const [todayStats, setTodayStats] = useState<{ top_apps: Array<{ app_name: string; duration_min: number }>; total_duration_min: number } | null>(null)
   const [heatmapData, setHeatmapData] = useState<RecentHeatmapDay[]>([])
+  const [pomodoroSessions, setPomodoroSessions] = useState<PomodoroSession[]>([])
+  const [distractionEvents, setDistractionEvents] = useState<Array<{ time: string; app: string; type: 'distracted' | 'suspected' }>>([])
   const [levelUp, setLevelUp] = useState<number | null>(null)
   const [searchParams] = useSearchParams()
   const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -235,12 +237,14 @@ export default function Focus() {
   // 右栏：加载今日统计（应用分布）和热力图
   const loadRightPanel = useCallback(async () => {
     try {
-      const [stats, heatmap] = await Promise.all([
+      const [stats, heatmap, sessions] = await Promise.all([
         request('/api/stats/today') as Promise<{ top_apps: Array<{ app_name: string; duration_min: number }>; total_duration_min: number }>,
         getRecentHeatmap(84),  // 最近12周
+        getPomodoroSessions(),
       ])
       setTodayStats(stats)
       setHeatmapData(heatmap.data || [])
+      setPomodoroSessions(sessions.sessions || [])
     } catch { /* 静默失败，右栏显示空状态 */ }
   }, [])
   useEffect(() => { loadRightPanel() }, [loadRightPanel, phase])
@@ -1029,6 +1033,75 @@ export default function Focus() {
           </div>
         </div>
       )}
+
+      {/* 工作时间线 + 分心事件流 */}
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* 今日工作时间线 */}
+        <div className="bg-cd-bg-card rounded-xl p-4 border border-cd-border">
+          <h3 className="text-xs font-semibold text-cd-text-secondary uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <Clock size={14} className="text-cd-accent" /> 今日工作时间线
+            <span className="ml-auto text-cd-text-tertiary normal-case">{pomodoroSessions.length}个番茄</span>
+          </h3>
+          {pomodoroSessions.length === 0 ? (
+            <div className="text-center text-cd-text-tertiary text-xs py-6">
+              今日暂无番茄记录<br />开始第一个番茄吧
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {pomodoroSessions.slice(0, 10).map((s, i) => {
+                const start = new Date(s.start_time)
+                const end = s.end_time ? new Date(s.end_time) : null
+                const timeStr = `${start.getHours().toString().padStart(2, '0')}:${start.getMinutes().toString().padStart(2, '0')}` +
+                  (end ? ` - ${end.getHours().toString().padStart(2, '0')}:${end.getMinutes().toString().padStart(2, '0')}` : ' 进行中')
+                const statusColor = s.status === 'completed' ? 'bg-green-500' : s.status === 'interrupted' ? 'bg-red-500' : 'bg-cd-accent animate-pulse'
+                return (
+                  <div key={s.id} className="flex items-start gap-2.5 py-1.5 border-b border-cd-border/50 last:border-0">
+                    <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${statusColor}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-cd-text font-medium truncate">{s.task || '未命名任务'}</span>
+                        <span className="text-[10px] text-cd-text-tertiary flex-shrink-0">{s.duration_min}分</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] text-cd-text-tertiary">{timeStr}</span>
+                        {s.interrupted_count > 0 && (
+                          <span className="text-[10px] text-yellow-400">⚠️{s.interrupted_count}次分心</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 分心事件流 */}
+        <div className="bg-cd-bg-card rounded-xl p-4 border border-cd-border">
+          <h3 className="text-xs font-semibold text-cd-text-secondary uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <Target size={14} className="text-yellow-400" /> 分心事件流
+            <span className="ml-auto text-cd-text-tertiary normal-case">{distractionEvents.length}条</span>
+          </h3>
+          {distractionEvents.length === 0 ? (
+            <div className="text-center text-cd-text-tertiary text-xs py-6">
+              暂无分心记录<br />保持专注！
+            </div>
+          ) : (
+            <div className="space-y-1.5 max-h-64 overflow-y-auto">
+              {distractionEvents.map((e, i) => (
+                <div key={i} className="flex items-center gap-2 py-1 px-2 rounded-lg hover:bg-cd-bg-input/50 transition">
+                  <span className="text-[10px] text-cd-text-tertiary tabular-nums w-10 flex-shrink-0">{e.time}</span>
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${e.type === 'distracted' ? 'bg-yellow-400' : 'bg-blue-400'}`} />
+                  <span className="text-xs text-cd-text truncate flex-1">{e.app}</span>
+                  <span className={`text-[10px] flex-shrink-0 ${e.type === 'distracted' ? 'text-yellow-400' : 'text-blue-400'}`}>
+                    {e.type === 'distracted' ? '分心' : '疑似'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* T5: 番茄中断恢复提示 */}
       {resumePrompt && (
