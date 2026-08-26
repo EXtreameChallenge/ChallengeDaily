@@ -172,20 +172,32 @@ export default function Focus() {
 
   // T2: 番茄运行中每 15 秒调用后端分心检测
   const handleStopRef = useRef<() => void>(() => {})
+  const lastAlertTimeRef = useRef(0)  // 防骚扰：60秒内不重复弹窗
   useEffect(() => {
     if (phase !== 'working' || !sessionId) return
     const interval = setInterval(async () => {
       try {
         const data = await checkPomodoroDistraction(sessionId)
+        const judgment = (data as any).judgment || 'focused'
+        const now = Date.now()
+
         if (data.is_distraction) {
           setDistractionCount(data.distraction_count)
-          // 同步到 interruptedCount，确保停止时回写正确的计数
           setInterruptedCount(data.distraction_count)
-          setDistractionAlert({ app: data.app_name, count: data.distraction_count })
-          // 通知宠物窗口变红
-          window.electronAPI?.sendDistractionAlert?.({ app: data.app_name, count: data.distraction_count })
+          // 明确分心：弹窗提醒（防骚扰60秒）
+          if (now - lastAlertTimeRef.current > 60000) {
+            setDistractionAlert({ app: data.app_name, count: data.distraction_count })
+            window.electronAPI?.sendDistractionAlert?.({ app: data.app_name, count: data.distraction_count })
+            lastAlertTimeRef.current = now
+          }
           if (strictMode) {
             handleStopRef.current()
+          }
+        } else if (judgment === 'suspected') {
+          // 疑似分心：温和提醒，不计数，不触发学霸模式
+          if (now - lastAlertTimeRef.current > 60000) {
+            setDistractionAlert({ app: data.app_name, count: data.distraction_count })
+            lastAlertTimeRef.current = now
           }
         }
       } catch { /* 静默失败，不打断专注 */ }
@@ -871,19 +883,23 @@ export default function Focus() {
         </div>
       )}
 
-      {/* T2: 分心检测弹窗 */}
+      {/* T2: 分心检测提醒（温和提示，不打断工作流） */}
       {distractionAlert && (
-        <div className="fixed top-4 right-4 p-4 bg-red-500/20 border border-red-500/40 rounded-lg shadow-lg z-50 max-w-sm">
+        <div className="fixed top-4 right-4 p-4 bg-yellow-500/15 border border-yellow-500/40 rounded-lg shadow-lg z-50 max-w-sm backdrop-blur-sm">
           <div className="flex items-start gap-2">
-            <span className="text-red-400 text-lg">⚠️</span>
+            <span className="text-yellow-400 text-lg">💡</span>
             <div className="flex-1">
-              <p className="text-sm text-cd-text font-medium">检测到分心！</p>
+              <p className="text-sm text-cd-text font-medium">当前操作和计划任务不符</p>
               <p className="text-xs text-cd-text-secondary mt-1">
-                当前应用：{distractionAlert.app}<br />
-                已分心 {distractionCount} 次
+                正在使用：{distractionAlert.app}<br />
+                要不要回到正轨？（已分心 {distractionCount} 次）
               </p>
-              <button onClick={() => setDistractionAlert(null)}
-                className="mt-2 text-xs text-cd-blue hover:underline">知道了</button>
+              <div className="flex gap-2 mt-2">
+                <button onClick={() => setDistractionAlert(null)}
+                  className="text-xs text-cd-blue hover:underline">知道了</button>
+                <button onClick={() => { setDistractionAlert(null); }}
+                  className="text-xs text-cd-text-tertiary hover:text-cd-text hover:underline">继续</button>
+              </div>
             </div>
           </div>
         </div>

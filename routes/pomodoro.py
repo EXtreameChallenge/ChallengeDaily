@@ -23,6 +23,138 @@ LONG_BREAK_INTERVAL = 4  # 每4个番茄一次长休息
 DWELL_THRESHOLD_SEC = 30
 _distraction_episodes = {}  # session_id -> {"first_seen": float, "counted": bool}
 
+# ── 专注监督：三档严格度 + 关键词配置 ──
+# relaxed:  仅检测游戏/短视频等明显无关应用（productivity_level <= -1）
+# standard: 应用分类 + 窗口标题白/黑名单 + 任务相关性（默认）
+# strict:    standard + 信息不足时可触发视觉模型分析（需前端手动触发）
+DEFAULT_STRICTNESS = "standard"
+
+# 默认白名单关键词（命中则判定为专注，覆盖其他判定）
+_FOCUS_WHITELIST_KEYWORDS = [
+    "教程", "课程", "文档", "api", "源码", "debug", "论文", "笔记",
+    "documentation", "tutorial", "course", "github", "stackoverflow",
+    "学习", "研究", "分析", "设计", "开发", "编写", "整理", "参考",
+    "manual", "guide", "spec", "prd", "需求", "架构", "算法",
+]
+
+# 默认黑名单关键词（命中则判定为分心）
+_FOCUS_BLACKLIST_KEYWORDS = [
+    "推荐", "热门", "排行榜", "直播", "小说", "综艺", "追剧",
+    "短视频", "游戏", "娱乐", "八卦", "购物", "促销", "秒杀",
+    "抖音", "快手", "bilibili", "youtube", "netflix", "steam",
+]
+
+# 明显分心应用（relaxed 模式也检测）
+_HARD_DISTRACTION_APPS = [
+    "steam", "epic games", "原神", "英雄联盟", "王者荣耀",
+    "抖音", "快手", "tiktok", "netflix", "爱奇艺", "腾讯视频",
+    "优酷", "芒果tv", "bilibili", "b站",
+]
+
+
+def _load_focus_keywords():
+    """从 settings 加载用户自定义白/黑名单关键词，合并默认值"""
+    try:
+        from config import load_settings
+        s = load_settings()
+        wl = s.get("focus_whitelist_keywords", []) or []
+        bl = s.get("focus_blacklist_keywords", []) or []
+        return list(set(_FOCUS_WHITELIST_KEYWORDS + wl)), list(set(_FOCUS_BLACKLIST_KEYWORDS + bl))
+    except Exception:
+        return list(_FOCUS_WHITELIST_KEYWORDS), list(_FOCUS_BLACKLIST_KEYWORDS)
+
+
+def _calc_task_relevance(task_title, window_title, app_name):
+    """计算任务标题与当前窗口的相关性，返回 0~1
+
+    简单分词重叠度计算：任务关键词在窗口标题中出现的比例。
+    无任务时返回 0.5（中性）。
+    """
+    if not task_title or not task_title.strip():
+        return 0.5
+    # 简单分词：中文按字、英文按词
+    import re
+    task_words = set(re.findall(r'[a-zA-Z0-9]+|[\u4e00-\u9fff]', task_title.lower()))
+    # 过滤单字中文（噪声太大），保留2字以上的中文词和英文词
+    task_words = {w for w in task_words if len(w) >= 2 or re.match(r'[a-zA-Z0-9]', w)}
+    if not task_words:
+        return 0.5
+    title_lower = (window_title or "").lower() + " " + (app_name or "").lower()
+    overlap = sum(1 for w in task_words if w in title_lower)
+    return min(1.0, overlap / len(task_words) * 1.5)  # *1.5 让部分匹配也能得高分
+
+
+def _is_excluded_app(app_name, window_title):
+    """检查应用是否在排除列表中（复用 config.get_exclude_apps）"""
+    try:
+        from config import get_exclude_apps
+        excluded = get_exclude_apps()
+        app_lower = (app_name or "").lower()
+        title_lower = (window_title or "").lower()
+        for ex in excluded:
+            ex_lower = str(ex).lower()
+            if ex_lower and (ex_lower in app_lower or ex_lower in title_lower):
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def _judge_focus(app_name, window_title, category, task_title, strictness):
+    """核心判定逻辑，返回 (judgment, relevance_score, judgment_method)
+
+    judgment: focused / suspected / distracted / excluded
+    judgment_method: text_rule / whitelist / blacklist / hard_app / fallback
+    """
+    # 1. 排除应用 → 直接 focused（不参与分心判定）
+    if _is_excluded_app(app_name, window_title):
+        return "excluded", 1.0, "excluded"
+
+    whitelist, blacklist = _load_focus_keywords()
+    app_lower = (app_name or "").lower()
+    title_lower = (window_title or "").lower()
+    combined = title_lower + " " + app_lower
+
+    # 2. 白名单命中 → focused（覆盖其他判定）
+    for kw in whitelist:
+        if kw.lower() in combined:
+            return "focused", 0.9, "whitelist"
+
+    # 3. 黑名单命中 → distracted
+    for kw in blacklist:
+        if kw.lower() in combined:
+            return "distracted", 0.1, "blacklist"
+
+    # 4. 明显分心应用（所有模式都检测）
+    for app in _HARD_DISTRACTION_APPS:
+        if app.lower() in app_lower:
+            return "distracted", 0.05, "hard_app"
+
+    # 5. 任务相关性
+    relevance = _calc_task_relevance(task_title, window_title, app_name)
+
+    # 6. 按严格度判定
+    if strictness == "relaxed":
+        # relaxed: 仅明显分心应用（已在上面处理），其他都算 focused
+        return "focused", relevance, "text_rule"
+
+    # standard / strict: 结合分类和相关性
+    # 分类为"生活"且相关性低 → distracted
+    # 分类为"生活"且相关性中等 → suspected
+    # 分类非"生活" → focused（除非相关性极低）
+    if category == "生活":
+        if relevance < 0.2:
+            return "distracted", relevance, "text_rule"
+        elif relevance < 0.5:
+            return "suspected", relevance, "text_rule"
+        else:
+            return "focused", relevance, "text_rule"
+    else:
+        # 非生活类应用，相关性极低也可能是分心（如用浏览器逛购物网站）
+        if relevance < 0.1 and category in ("未知", "其他"):
+            return "suspected", relevance, "text_rule"
+        return "focused", relevance, "text_rule"
+
 
 @bp.route('/start', methods=['POST'])
 def start_pomodoro():
@@ -413,11 +545,15 @@ def _generate_pomodoro_suggestions(completed: int, total: int, distractions: int
 def distraction_check():
     """番茄运行期间检测分心（前端定时调用）
 
-    通过 get_foreground_app 获取当前前台应用，查询其最近一次分类。
-    采用 30 秒停留去抖（行业惯例）：切到"生活"类应用需连续停留 ≥30 秒
-    才计 1 次有效分心并累加 interrupted_count；不足 30 秒视为误触一瞥，
-    不计数。同一次连续分心 episode 只计 1 次，切回工作类应用即结束 episode。
-    注意：activities 表为快照表（无 start_time/end_time），按 timestamp 排序。
+    增强版判定逻辑：
+    1. 排除应用检查（复用 config.get_exclude_apps）
+    2. 窗口标题白/黑名单关键词匹配
+    3. 明显分心应用检测（游戏/短视频等）
+    4. 任务相关性计算（任务标题与窗口标题重叠度）
+    5. 三档严格度：relaxed / standard / strict
+
+    采用 30 秒停留去抖：切到分心应用需连续停留 >=30 秒才计 1 次有效分心。
+    异常时返回 is_distraction=false（宁可漏判不可误判，不崩溃）。
     """
     data = request.get_json(silent=True) or {}
     session_id = data.get('session_id')
@@ -430,30 +566,80 @@ def distraction_check():
         window_title = app_info.get("window_title", "") or ""
 
         with db.get_conn() as conn:
-            # 查询最近一条匹配活动记录的分类（activities 是快照表，按 timestamp DESC）
-            row = conn.execute(
-                "SELECT category FROM activities "
-                "WHERE app_name = ? OR window_title LIKE ? "
-                "ORDER BY timestamp DESC LIMIT 1",
-                (app_name, f"%{window_title[:50]}%"),
-            ).fetchone()
-            category = row[0] if row else "未知"
-            distracting_now = category == "生活"
+            # 查询番茄钟关联的任务标题（用于相关性计算）
+            task_title = ""
+            strictness = DEFAULT_STRICTNESS
+            try:
+                row = conn.execute(
+                    "SELECT p.task, p.todo_id, t.title as todo_title "
+                    "FROM pomodoro_sessions p LEFT JOIN todos t ON p.todo_id = t.id "
+                    "WHERE p.id = ?", (session_id,)
+                ).fetchone()
+                if row:
+                    task_title = row['todo_title'] or row['task'] or ""
+            except Exception:
+                pass
 
-            # ── 30 秒停留去抖：短暂一瞥不算分心 ──
+            # 从 settings 读取严格度（用户可配置）
+            try:
+                from config import load_settings
+                s = load_settings()
+                strictness = s.get("focus_strictness", DEFAULT_STRICTNESS)
+                if strictness not in ("relaxed", "standard", "strict"):
+                    strictness = DEFAULT_STRICTNESS
+            except Exception:
+                pass
+
+            # 查询最近一条活动记录的分类（用于辅助判定）
+            category = "未知"
+            try:
+                row = conn.execute(
+                    "SELECT category FROM activities "
+                    "WHERE app_name = ? OR window_title LIKE ? "
+                    "ORDER BY timestamp DESC LIMIT 1",
+                    (app_name, f"%{window_title[:50]}%"),
+                ).fetchone()
+                category = row[0] if row else "未知"
+            except Exception:
+                pass
+
+            # 核心判定
+            judgment, relevance_score, judgment_method = _judge_focus(
+                app_name, window_title, category, task_title, strictness
+            )
+
+            # excluded 应用：不参与分心计数，直接返回
+            if judgment == "excluded":
+                distraction_count = conn.execute(
+                    "SELECT interrupted_count FROM pomodoro_sessions WHERE id = ?", (session_id,)
+                ).fetchone()
+                return jsonify({
+                    "is_distraction": False,
+                    "category": category,
+                    "app_name": app_name,
+                    "window_title": window_title,
+                    "distraction_count": distraction_count[0] if distraction_count else 0,
+                    "judgment": "focused",
+                    "relevance_score": 1.0,
+                    "judgment_method": "excluded",
+                    "strictness": strictness,
+                    "lock_action": "none",
+                })
+
+            # 判定为分心或疑似分心 -> 30秒去抖
+            distracting_now = judgment in ("distracted", "suspected")
             now_ts = time.time()
             is_distraction = False
             if distracting_now:
                 ep = _distraction_episodes.get(session_id)
                 if ep is None:
-                    # 首次切到生活类应用：开始计时，暂不计数
                     _distraction_episodes[session_id] = {"first_seen": now_ts, "counted": False}
                 elif not ep["counted"] and now_ts - ep["first_seen"] >= DWELL_THRESHOLD_SEC:
-                    # 连续停留满 30 秒：确认 1 次有效分心（同 episode 只计这一次）
-                    is_distraction = True
-                    ep["counted"] = True
+                    # 只有明确 distracted 才计数，suspected 不计数（只是提醒）
+                    if judgment == "distracted":
+                        is_distraction = True
+                        ep["counted"] = True
             else:
-                # 切回工作类应用：结束本次分心 episode，下次分心重新计时
                 _distraction_episodes.pop(session_id, None)
 
             if is_distraction:
@@ -465,8 +651,7 @@ def distraction_check():
                 conn.commit()
 
             distraction_count = conn.execute(
-                "SELECT interrupted_count FROM pomodoro_sessions WHERE id = ?",
-                (session_id,),
+                "SELECT interrupted_count FROM pomodoro_sessions WHERE id = ?", (session_id,)
             ).fetchone()
 
         # 叠加学霸硬锁机拦截（L2 关进程 / L3 置顶窗口）
@@ -484,9 +669,27 @@ def distraction_check():
             "is_distraction": is_distraction,
             "category": category,
             "app_name": app_name,
+            "window_title": window_title,
             "distraction_count": distraction_count[0] if distraction_count else 0,
+            "judgment": judgment,
+            "relevance_score": round(relevance_score, 3),
+            "judgment_method": judgment_method,
+            "strictness": strictness,
+            "task_title": task_title,
             "lock_action": lock_action,
         })
     except Exception as e:
         logger.error(f"分心检测失败: {e}", exc_info=True)
-        return jsonify({"error": "检测失败"}), 500
+        # 异常兜底：返回非分心，不崩溃
+        return jsonify({
+            "is_distraction": False,
+            "category": "未知",
+            "app_name": "",
+            "window_title": "",
+            "distraction_count": 0,
+            "judgment": "focused",
+            "relevance_score": 0.5,
+            "judgment_method": "error_fallback",
+            "strictness": DEFAULT_STRICTNESS,
+            "lock_action": "none",
+        })
