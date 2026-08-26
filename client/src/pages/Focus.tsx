@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, Square, SkipForward, Brain, X, Sparkles, BarChart3, ChevronLeft, ChevronRight, CheckSquare, Plus, ListTodo, Clock, Target } from 'lucide-react'
-import { startPomodoro, stopPomodoro, getPomodoroStats, getPomodoroQuality, getTodayTodos, checkPomodoroDistraction, formatLocalTimestamp, getSmartDuration, getPomodoroReport, type TodoV2, POMODORO_SIZES, LONG_BREAK_INTERVAL, type SmartDurationResult, type PomodoroReport } from '../api/client'
+import { startPomodoro, stopPomodoro, getPomodoroStats, getPomodoroQuality, getTodayTodos, checkPomodoroDistraction, formatLocalTimestamp, getSmartDuration, getPomodoroReport, getRecentHeatmap, type TodoV2, type RecentHeatmapDay, POMODORO_SIZES, LONG_BREAK_INTERVAL, type SmartDurationResult, type PomodoroReport } from '../api/client'
+import { request } from '../api/core'
 import WhiteNoise from '../components/WhiteNoise'
 import LevelUpCelebration from '../components/LevelUpCelebration'
 import { useEventStream } from '../hooks/useEventStream'
@@ -96,6 +97,8 @@ export default function Focus() {
   const [reportDays, setReportDays] = useState(7)
   const [reportLoading, setReportLoading] = useState(false)
   const [expPopup, setExpPopup] = useState<{ id: number; amount: number } | null>(null)
+  const [todayStats, setTodayStats] = useState<{ top_apps: Array<{ app_name: string; duration_min: number }>; total_duration_min: number } | null>(null)
+  const [heatmapData, setHeatmapData] = useState<RecentHeatmapDay[]>([])
   const [levelUp, setLevelUp] = useState<number | null>(null)
   const [searchParams] = useSearchParams()
   const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -228,6 +231,19 @@ export default function Focus() {
   }, [])
 
   useEffect(() => { loadTodos() }, [loadTodos])
+
+  // 右栏：加载今日统计（应用分布）和热力图
+  const loadRightPanel = useCallback(async () => {
+    try {
+      const [stats, heatmap] = await Promise.all([
+        request('/api/stats/today') as Promise<{ top_apps: Array<{ app_name: string; duration_min: number }>; total_duration_min: number }>,
+        getRecentHeatmap(84),  // 最近12周
+      ])
+      setTodayStats(stats)
+      setHeatmapData(heatmap.data || [])
+    } catch { /* 静默失败，右栏显示空状态 */ }
+  }, [])
+  useEffect(() => { loadRightPanel() }, [loadRightPanel, phase])
 
   // 从 URL 参数 ?todo_id=xxx 自动选中对应任务
   useEffect(() => {
@@ -1181,6 +1197,105 @@ export default function Focus() {
       )}
         </div>
       </main>
+
+      {/* 右栏：数据预览区 */}
+      <aside className="w-80 flex-shrink-0 border-l border-cd-border overflow-y-auto bg-cd-bg-card/30 p-4 space-y-4 hidden xl:block">
+        {/* 今日专注统计 */}
+        <div className="bg-cd-bg-card rounded-xl p-4 border border-cd-border">
+          <h3 className="text-xs font-semibold text-cd-text-secondary uppercase tracking-wider mb-3">今日专注</h3>
+          <div className="flex items-end gap-2 mb-3">
+            <span className="text-3xl font-bold text-cd-text tabular-nums">{Math.floor(todayMin / 60)}</span>
+            <span className="text-sm text-cd-text-tertiary mb-1">小时 {todayMin % 60}分</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="bg-cd-bg-input rounded-lg p-2">
+              <div className="text-lg font-bold text-cd-accent tabular-nums">{todayCount}</div>
+              <div className="text-[10px] text-cd-text-tertiary">番茄数</div>
+            </div>
+            <div className="bg-cd-bg-input rounded-lg p-2">
+              <div className="text-lg font-bold text-yellow-400 tabular-nums">{distractionCount}</div>
+              <div className="text-[10px] text-cd-text-tertiary">分心</div>
+            </div>
+            <div className="bg-cd-bg-input rounded-lg p-2">
+              <div className="text-lg font-bold text-cd-text tabular-nums">{quality.grade || '—'}</div>
+              <div className="text-[10px] text-cd-text-tertiary">评级</div>
+            </div>
+          </div>
+          {streak > 0 && (
+            <div className="mt-3 text-xs text-cd-text-secondary flex items-center gap-1">
+              <span className="text-orange-400">🔥</span> 连续专注 {streak} 天
+            </div>
+          )}
+        </div>
+
+        {/* 专注热力图（最近12周） */}
+        <div className="bg-cd-bg-card rounded-xl p-4 border border-cd-border">
+          <h3 className="text-xs font-semibold text-cd-text-secondary uppercase tracking-wider mb-3">专注热力图</h3>
+          {heatmapData.length > 0 ? (
+            <div className="grid grid-cols-12 gap-0.5">
+              {heatmapData.slice(-84).map((day, i) => {
+                const level = day.count > 0 ? Math.min(4, Math.ceil(day.count / 2)) : 0
+                const colors = ['bg-cd-bg-input', 'bg-cd-accent/20', 'bg-cd-accent/40', 'bg-cd-accent/60', 'bg-cd-accent/80']
+                return (
+                  <div
+                    key={i}
+                    className={`aspect-square rounded-sm ${colors[level]} hover:ring-1 hover:ring-cd-accent/50 transition`}
+                    title={`${day.date}: ${day.count}个番茄, ${day.duration_min || 0}分钟`}
+                  />
+                )
+              })}
+            </div>
+          ) : (
+            <div className="text-center text-cd-text-tertiary text-xs py-4">暂无数据</div>
+          )}
+          <div className="flex items-center justify-between mt-2 text-[10px] text-cd-text-tertiary">
+            <span>少</span>
+            <div className="flex gap-0.5">
+              {['bg-cd-bg-input', 'bg-cd-accent/20', 'bg-cd-accent/40', 'bg-cd-accent/60', 'bg-cd-accent/80'].map((c, i) => (
+                <div key={i} className={`w-2.5 h-2.5 rounded-sm ${c}`} />
+              ))}
+            </div>
+            <span>多</span>
+          </div>
+        </div>
+
+        {/* 应用使用分布 TOP5 */}
+        <div className="bg-cd-bg-card rounded-xl p-4 border border-cd-border">
+          <h3 className="text-xs font-semibold text-cd-text-secondary uppercase tracking-wider mb-3">应用分布 TOP5</h3>
+          {todayStats && todayStats.top_apps && todayStats.top_apps.length > 0 ? (
+            <div className="space-y-2">
+              {todayStats.top_apps.slice(0, 5).map((app, i) => {
+                const maxMin = todayStats.top_apps[0]?.duration_min || 1
+                const pct = Math.round((app.duration_min / maxMin) * 100)
+                return (
+                  <div key={i} className="group">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-cd-text truncate max-w-[140px]">{app.app_name}</span>
+                      <span className="text-cd-text-tertiary tabular-nums flex-shrink-0 ml-2">{app.duration_min}分</span>
+                    </div>
+                    <div className="h-1.5 bg-cd-bg-input rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-cd-accent/60 rounded-full transition-all group-hover:bg-cd-accent"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="text-center text-cd-text-tertiary text-xs py-4">今日暂无应用记录</div>
+          )}
+        </div>
+
+        {/* 查看完整报告入口 */}
+        <button
+          onClick={() => setReportOpen(true)}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs bg-cd-bg-card border border-cd-border rounded-lg text-cd-text-secondary hover:text-cd-text hover:border-cd-accent/30 transition"
+        >
+          <BarChart3 size={14} /> 查看完整报告
+        </button>
+      </aside>
     </div>
   )
 }
