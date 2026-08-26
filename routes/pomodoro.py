@@ -129,30 +129,29 @@ def _judge_focus(app_name, window_title, category, task_title, strictness):
     title_lower = (window_title or "").lower()
     combined = title_lower + " " + app_lower
 
-    # 2. 白名单命中 → focused（覆盖其他判定）
+    # 2. 白名单命中 → focused（覆盖其他判定，所有模式生效）
     for kw in whitelist:
         if kw.lower() in combined:
             return "focused", 0.9, "whitelist"
 
-    # 3. 黑名单命中 → distracted
-    for kw in blacklist:
-        if kw.lower() in combined:
-            return "distracted", 0.1, "blacklist"
-
-    # 4. 明显分心应用（所有模式都检测）
+    # 3. 明显分心应用（所有模式都检测）
     for app in _HARD_DISTRACTION_APPS:
         if app.lower() in app_lower:
             return "distracted", 0.05, "hard_app"
 
-    # 5. 任务相关性
+    # 4. relaxed 模式：仅硬分心应用（已处理），其他都算 focused
+    if strictness == "relaxed":
+        return "focused", 0.5, "relaxed"
+
+    # 5. 黑名单命中 → distracted（仅 standard/strict 模式）
+    for kw in blacklist:
+        if kw.lower() in combined:
+            return "distracted", 0.1, "blacklist"
+
+    # 6. 任务相关性
     relevance = _calc_task_relevance(task_title, window_title, app_name)
 
-    # 6. 按严格度判定
-    if strictness == "relaxed":
-        # relaxed: 仅明显分心应用（已在上面处理），其他都算 focused
-        return "focused", relevance, "text_rule"
-
-    # standard / strict: 结合分类和相关性
+    # 7. standard/strict: 结合分类和相关性
     # 分类为"生活"且相关性低 → distracted
     # 分类为"生活"且相关性中等 → suspected
     # 分类非"生活" → focused（除非相关性极低）

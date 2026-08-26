@@ -176,7 +176,9 @@ def test_distraction_check_foreground_error(authed_client):
             '/api/pomodoro/distraction-check',
             json={"session_id": session_id},
         )
-    assert resp.status_code == 500
+    # 异常兜底：返回200且 is_distraction=false（宁可漏判不可误判，不崩溃）
+    assert resp.status_code == 200
+    assert resp.get_json()["is_distraction"] is False
 
 
 # ── /api/stats/distraction-heatmap ──
@@ -230,7 +232,8 @@ class TestJudgeFocus:
     def test_excluded_app_returns_excluded(self):
         """排除应用应返回 excluded，不参与判定"""
         from routes.pomodoro import _judge_focus
-        judgment, score, method = _judge_focus("微信", "工作群", "沟通", "写代码", "standard")
+        with patch('config.get_exclude_apps', return_value=['微信', 'wechat']):
+            judgment, score, method = _judge_focus("微信", "工作群", "沟通", "写代码", "standard")
         assert judgment == "excluded"
         assert method == "excluded"
 
@@ -307,10 +310,10 @@ class TestTaskRelevance:
         assert score < 0.3
 
     def test_empty_task_title(self):
-        """空任务标题应返回0"""
+        """空任务标题应返回中性值0.5（无任务时不偏不倚）"""
         from routes.pomodoro import _calc_task_relevance
         score = _calc_task_relevance("", "任意窗口", "chrome")
-        assert score == 0
+        assert score == 0.5
 
     def test_development_app_high_base(self):
         """开发类应用应有基础相关性加成"""
@@ -355,9 +358,13 @@ class TestSessionReport:
 
     def test_session_report_no_distractions_high_score(self, authed_client):
         """无分心的番茄钟应获得较高评分"""
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        from datetime import timedelta
+        start = datetime.now()
+        end = start + timedelta(minutes=25)
         session_id = db.insert_pomodoro_session(
-            start_time=now, end_time=now, duration_min=25,
+            start_time=start.strftime('%Y-%m-%d %H:%M:%S'),
+            end_time=end.strftime('%Y-%m-%d %H:%M:%S'),
+            duration_min=25,
             task="专注任务", category="开发", status="completed",
             interrupted_count=0,
         )
