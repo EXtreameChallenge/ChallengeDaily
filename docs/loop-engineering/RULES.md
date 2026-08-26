@@ -40,6 +40,6 @@
 - 注释用中文(与项目现有风格一致)
 
 ## R7. 验证命令
-- Python 语法验证: `python -m py_compile <file_path>`(cwd 设为 `d:\Project\OpenSourcePlan\ChallengeDaily20260703\xiaohei-daily`)
+- Python 语法验证: `python -m py_compile <file_path>`(cwd 设为 `d:\Project\OpenSourcePlan\ChallengeDaily20260703\ChallengeDaily`)
 - 如果 py_compile 失败,必须修复后才能标记任务 done
 - 前端文件无命令行验证工具,需人工复查语法

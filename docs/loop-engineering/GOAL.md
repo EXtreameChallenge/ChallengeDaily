@@ -1,4 +1,4 @@
-# Loop Engineering Goal — xiaohei-daily 安全与质量加固
+# Loop Engineering Goal — ChallengeDaily 安全与质量加固
 
 ## 使命
 修复项目审计发现的 48 个 Critical 级问题 + 关键 High 级问题,使项目达到「安全可用」状态。
@@ -38,7 +38,7 @@ STEP FINAL:
 5. **记录**:每个任务完成后立即更新 PROGRESS.md,不得批量更新
 
 ## 项目路径
-- 项目根: `d:\Project\OpenSourcePlan\ChallengeDaily20260703\xiaohei-daily`
+- 项目根: `d:\Project\OpenSourcePlan\ChallengeDaily20260703\ChallengeDaily`
 - 后端 Python: 项目根下 *.py 和 routes/*.py
 - Electron: client/electron/*.cjs
 - 前端 React: client/src/**/*.tsx

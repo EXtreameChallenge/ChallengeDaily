@@ -148,7 +148,7 @@ export async function downloadBackup(): Promise<void> {
   if (!res.ok) throw new Error(`备份失败: HTTP ${res.status}`)
   const blob = await res.blob()
   const date = formatLocalDate(new Date())
-  _triggerDownload(blob, `xiaohei_backup_${date}.zip`)
+  _triggerDownload(blob, `challengedaily_backup_${date}.zip`)
 }
 
 // ── 数据校准 / 健康度 ──────────────────────────────

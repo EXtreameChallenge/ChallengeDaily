@@ -2,7 +2,7 @@
 
 ---
 
-# xiaohei-daily 安全与质量加固 · 最终汇报
+# ChallengeDaily 安全与质量加固 · 最终汇报
 
 ## 一、执行概况
 

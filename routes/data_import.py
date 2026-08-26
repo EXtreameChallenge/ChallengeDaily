@@ -1,5 +1,5 @@
 """数据迁移导入 API
-支持从竞品（番茄TODO/小黑日报/GoalDay/通用CSV）导入数据，降低用户切换成本
+支持从竞品（番茄TODO/ChallengeDaily/GoalDay/通用CSV）导入数据，降低用户切换成本
 """
 import json
 import logging
@@ -29,7 +29,7 @@ def _parse_json(text: str):
 def preview_import():
     """预览导入数据：解析并返回统计信息，不写入数据库"""
     data = request.get_json(force=True, silent=True) or {}
-    source = data.get('source', '')  # fanqie_todo / xiaohei_report / goalday / generic_csv
+    source = data.get('source', '')  # fanqie_todo / challengedaily_report / goalday / generic_csv
     format_type = data.get('format', 'json')  # json / csv
     raw_text = data.get('data', '')
 
@@ -119,8 +119,8 @@ def _detect_data_type(rows, source):
     if source == 'fanqie_todo' or {'title', 'task', 'name'} & keys:
         if {'target_min', 'duration', 'pomodoro', '番茄'} & keys:
             return 'todos'
-    # 小黑日报导出含 content/report
-    if source == 'xiaohei_report' or {'content', 'report', '日报'} & keys:
+    # ChallengeDaily 导出含 content/report
+    if source == 'challengedaily_report' or {'content', 'report', '日报'} & keys:
         return 'diaries'
     # GoalDay 目标导出
     if source == 'goalday' or {'goal', '目标', 'target_date'} & keys:
@@ -132,7 +132,7 @@ def _detect_data_type(rows, source):
     if {'countdown', '倒数', 'target_date'} & keys:
         return 'countdowns'
     # 默认按 source
-    return {'fanqie_todo': 'todos', 'xiaohei_report': 'diaries', 'goalday': 'goals'}.get(source, 'todos')
+    return {'fanqie_todo': 'todos', 'challengedaily_report': 'diaries', 'goalday': 'goals'}.get(source, 'todos')
 
 
 def _import_todos(rows, source):

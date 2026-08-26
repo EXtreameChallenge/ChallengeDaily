@@ -575,7 +575,7 @@ def tool_query_database(sql: str, limit: int = 100) -> list[dict]:
         sql = f"{sql.rstrip(';')} LIMIT {limit}"
 
     # 直接读 SQLite（WAL 模式支持多进程读，不影响后端写入）
-    db_path = DATA_DIR / "xiaohei.db"
+    db_path = DATA_DIR / "challengedaily.db"
     if not db_path.exists():
         return _err(f"数据库文件不存在: {db_path}")
 

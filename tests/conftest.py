@@ -8,7 +8,7 @@ import os
 import tempfile
 
 # ── 在导入项目模块前设置临时数据目录 ──
-_TMP_DATA_DIR = tempfile.mkdtemp(prefix="xiaohei_test_")
+_TMP_DATA_DIR = tempfile.mkdtemp(prefix="challengedaily_test_")
 os.environ["CHALLENGE_DAILY_DATA_DIR"] = _TMP_DATA_DIR
 
 import pytest
@@ -47,7 +47,7 @@ def authed_client(client):
 @pytest.fixture
 def temp_db(tmp_path, monkeypatch):
     """临时数据库文件：monkey-patch db.DB_PATH 到 tmp_path 下的独立文件"""
-    db_path = tmp_path / "test_xiaohei.db"
+    db_path = tmp_path / "test_challengedaily.db"
     monkeypatch.setattr(db, "DB_PATH", db_path)
     # 重置线程局部连接，使下次 _get_thread_conn 使用新路径
     _reset_thread_conn()

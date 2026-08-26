@@ -31,7 +31,7 @@ def create_backup():
 
     buf = io.BytesIO()
     backup_files = [
-        ("xiaohei.db", DATA_DIR / "xiaohei.db"),
+        ("challengedaily.db", DATA_DIR / "challengedaily.db"),
         ("settings.json", DATA_DIR / "settings.json"),
         ("webhooks.json", DATA_DIR / "webhooks.json"),
         ("auto_report.json", DATA_DIR / "auto_report.json"),
@@ -62,7 +62,7 @@ def create_backup():
 
 @bp.route("/api/backup/info", methods=["GET"])
 def backup_info():
-    db_path = DATA_DIR / "xiaohei.db"
+    db_path = DATA_DIR / "challengedaily.db"
     db_size_mb = round(db_path.stat().st_size / (1024 * 1024), 2) if db_path.exists() else 0
 
     from db import get_conn
@@ -99,8 +99,10 @@ def restore_backup():
             uploaded.save(tmp)
             tmp_path = tmp.name
 
+        # 兼容旧备份：xiaohei.db 统一恢复到 challengedaily.db
         restore_map = {
-            "xiaohei.db": DATA_DIR / "xiaohei.db",
+            "challengedaily.db": DATA_DIR / "challengedaily.db",
+            "xiaohei.db": DATA_DIR / "challengedaily.db",
             "settings.json": DATA_DIR / "settings.json",
             "webhooks.json": DATA_DIR / "webhooks.json",
             "auto_report.json": DATA_DIR / "auto_report.json",
@@ -176,7 +178,7 @@ def restore_backup():
 
         # 恢复数据库后强制重置旧连接，确保新 DB 文件生效
         # 旧连接持有文件描述符指向被覆盖前的 DB，必须关闭
-        if "xiaohei.db" in restored:
+        if "xiaohei.db" in restored or "challengedaily.db" in restored:
             try:
                 import db as _db
                 _db._persistent_conn = None
@@ -192,7 +194,7 @@ def restore_backup():
             logger.warning(f"恢复后 init_db 失败: {type(ie).__name__}")
 
         # 完整性校验：恢复的数据库必须通过 PRAGMA integrity_check
-        if "xiaohei.db" in restored:
+        if "xiaohei.db" in restored or "challengedaily.db" in restored:
             try:
                 import db as _db
                 with _db.get_conn() as conn:

@@ -84,7 +84,7 @@ def _get_archive_db_path():
     from config import DATA_DIR
     archive_dir = DATA_DIR / "archives"
     archive_dir.mkdir(parents=True, exist_ok=True)
-    _ARCHIVE_DB_PATH = archive_dir / "xiaohei-archive.db"
+    _ARCHIVE_DB_PATH = archive_dir / "challengedaily-archive.db"
     return _ARCHIVE_DB_PATH
 
 

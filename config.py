@@ -37,8 +37,46 @@ else:
     DATA_DIR = BASE_DIR / "data"
 SCREENSHOT_DIR = DATA_DIR / "screenshots"
 REPORT_DIR = DATA_DIR / "reports"
-DB_PATH = DATA_DIR / "xiaohei.db"
+DB_PATH = DATA_DIR / "challengedaily.db"
 SETTINGS_PATH = DATA_DIR / "settings.json"
+
+
+def _migrate_legacy_db():
+    """旧版数据库文件迁移：xiaohei.db → challengedaily.db
+
+    若旧库存在而新库不存在，自动重命名（含 WAL/SHM 侧车文件及归档库），
+    保证升级后用户数据不丢失。幂等：迁移过一次后不再触发。
+    """
+    old_db = DATA_DIR / "xiaohei.db"
+    if old_db.exists() and not DB_PATH.exists():
+        try:
+            old_db.rename(DB_PATH)
+            logging.getLogger(__name__).info("数据库迁移: xiaohei.db → challengedaily.db")
+        except Exception as e:
+            logging.getLogger(__name__).error(f"数据库迁移失败: {e}")
+    # 侧车文件
+    for suffix in ("-wal", "-shm"):
+        old_side = DATA_DIR / f"xiaohei.db{suffix}"
+        new_side = DATA_DIR / f"challengedaily.db{suffix}"
+        if old_side.exists() and not new_side.exists():
+            try:
+                old_side.rename(new_side)
+            except Exception:
+                pass
+    # 归档库
+    archive_dir = DATA_DIR / "archives"
+    old_archive = archive_dir / "xiaohei-archive.db"
+    new_archive = archive_dir / "challengedaily-archive.db"
+    if old_archive.exists() and not new_archive.exists():
+        try:
+            archive_dir.mkdir(parents=True, exist_ok=True)
+            old_archive.rename(new_archive)
+            logging.getLogger(__name__).info("归档库迁移: xiaohei-archive.db → challengedaily-archive.db")
+        except Exception as e:
+            logging.getLogger(__name__).error(f"归档库迁移失败: {e}")
+
+
+_migrate_legacy_db()
 
 # 确保目录存在
 for d in [DATA_DIR, SCREENSHOT_DIR, REPORT_DIR]:

@@ -1587,7 +1587,7 @@ export default function Settings() {
 
 // ── 数据迁移导入组件 ──
 function DataImportSection({ toast, highlighted }: { toast: ReturnType<typeof useToast>; highlighted?: boolean }) {
-  const [source, setSource] = useState<'fanqie_todo' | 'xiaohei_report' | 'goalday' | 'generic_csv'>('fanqie_todo')
+  const [source, setSource] = useState<'fanqie_todo' | 'challengedaily_report' | 'goalday' | 'generic_csv'>('fanqie_todo')
   const [format, setFormat] = useState<'json' | 'csv'>('csv')
   const [rawText, setRawText] = useState('')
   const [previewing, setPreviewing] = useState(false)
@@ -1638,7 +1638,7 @@ function DataImportSection({ toast, highlighted }: { toast: ReturnType<typeof us
 
   const SOURCES = [
     { value: 'fanqie_todo', label: '番茄TODO', desc: '任务/番茄数据' },
-    { value: 'xiaohei_report', label: '小黑日报', desc: '历史日报' },
+    { value: 'challengedaily_report', label: 'ChallengeDaily', desc: '历史日报' },
     { value: 'goalday', label: 'GoalDay', desc: '目标/日记' },
     { value: 'generic_csv', label: '通用CSV', desc: '自定义格式' },
   ] as const

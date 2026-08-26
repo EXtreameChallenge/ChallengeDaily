@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'SilentlyContinue'
+﻿$ErrorActionPreference = 'SilentlyContinue'
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $rootDir = Split-Path -Parent $scriptDir
@@ -25,7 +25,7 @@ if ($targetProcesses.Count -gt 0) {
 $allPy = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'"
 $pyToKill = @()
 foreach ($p in $allPy) {
-    if ($p.CommandLine -and ($p.CommandLine -like "*xiaohei-daily*")) {
+    if ($p.CommandLine -and ($p.CommandLine -like "*ChallengeDaily*")) {
         $pyToKill += $p
     }
 }

@@ -184,7 +184,7 @@ ChallengeDaily 这边：
 
 ```bash
 git clone https://github.com/EXtreameChallenge/ChallengeDaily.git
-cd xiaohei-daily
+cd ChallengeDaily
 pip install -r requirements.txt
 cd client && npm install && npm run build && cd ..
 python main.py

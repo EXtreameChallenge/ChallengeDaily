@@ -81,7 +81,7 @@ def auto_backup_critical_files(data_dir: Path):
     定时备份关键数据文件（由 main.py 调用）。
     """
     critical_files = [
-        data_dir / "xiaohei.db",
+        data_dir / "challengedaily.db",
         data_dir / "settings.json",
         data_dir / "vault.dat",
         data_dir / "webhooks.json",

@@ -53,7 +53,7 @@ def _backup_loop(db_path):
 def _do_backup(db_path):
     """执行一次备份"""
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    backup_path = _BACKUP_DIR / f"xiaohei-{ts}.db"
+    backup_path = _BACKUP_DIR / f"challengedaily-{ts}.db"
     shutil.copy2(db_path, backup_path)
     # 计算 SHA256
     with open(backup_path, 'rb') as f:
@@ -72,7 +72,11 @@ def _do_backup(db_path):
 
 def _cleanup_old_backups():
     """清理过期备份（保留最近 _MAX_BACKUPS 个）"""
-    backups = sorted(_BACKUP_DIR.glob("xiaohei-*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
+    # 同时匹配新旧前缀，确保旧备份也能被清理
+    backups = sorted(
+        list(_BACKUP_DIR.glob("challengedaily-*.db")) + list(_BACKUP_DIR.glob("xiaohei-*.db")),
+        key=lambda p: p.stat().st_mtime, reverse=True,
+    )
     for old in backups[_MAX_BACKUPS:]:
         try:
             old.unlink()
@@ -108,7 +112,7 @@ def _do_archive(db_path):
 
     archive_dir = DATA_DIR / "archives"
     archive_dir.mkdir(parents=True, exist_ok=True)
-    archive_path = archive_dir / "xiaohei-archive.db"
+    archive_path = archive_dir / "challengedaily-archive.db"
 
     cutoff = (date.today() - timedelta(days=_ARCHIVE_RETENTION_DAYS)).isoformat()
     cutoff_ts = f"{cutoff} 00:00:00"

@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChallengeDaily 系统架构全景图</title>
+<style>
+:root {
+  --bg: #0a0e1a;
+  --card: #111827;
+  --card-hover: #1a2332;
+  --border: #1f2937;
+  --text: #e5e7eb;
+  --text-dim: #9ca3af;
+  --accent: #22c55e;
+  --accent2: #3b82f6;
+  --accent3: #f59e0b;
+  --accent4: #ef4444;
+  --accent5: #8b5cf6;
+  --accent6: #06b6d4;
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  line-height: 1.6;
+  padding: 20px;
+  font-size: 13px;
+}
+h1 { font-size: 24px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.02em; }
+h2 { font-size: 16px; font-weight: 600; margin: 32px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+h3 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; color: var(--accent); }
+h4 { font-size: 12px; font-weight: 600; margin: 12px 0 6px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.subtitle { color: var(--text-dim); font-size: 13px; margin-bottom: 24px; }
+
+/* 顶部统计栏 */
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.stat-card .num { font-size: 22px; font-weight: 700; margin-bottom: 2px; }
+.stat-card .label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; }
+.stat-card:nth-child(1) .num { color: var(--accent); }
+.stat-card:nth-child(2) .num { color: var(--accent2); }
+.stat-card:nth-child(3) .num { color: var(--accent3); }
+.stat-card:nth-child(4) .num { color: var(--accent5); }
+.stat-card:nth-child(5) .num { color: var(--accent6); }
+.stat-card:nth-child(6) .num { color: var(--accent4); }
+
+/* 三列布局 */
+.columns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+@media (max-width: 1100px) { .columns { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px) { .columns { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.card-header .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 流程图 */
+.flow-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 16px;
+  background: var(--card);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.flow-step {
+  background: #1a2332;
+  border: 1px solid #2d3748;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.flow-step .step-name { color: var(--text); }
+.flow-step .step-detail { color: var(--text-dim); font-size: 10px; margin-top: 2px; }
+.flow-arrow {
+  color: var(--text-dim);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.flow-step.accent-green { border-color: var(--accent); }
+.flow-step.accent-blue { border-color: var(--accent2); }
+.flow-step.accent-orange { border-color: var(--accent3); }
+.flow-step.accent-purple { border-color: var(--accent5); }
+.flow-step.accent-red { border-color: var(--accent4); }
+
+/* 数据表 */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+.data-table th {
+  text-align: left;
+  padding: 6px 8px;
+  color: var(--text-dim);
+  font-weight: 500;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.data-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.data-table tr:hover td { background: var(--card-hover); }
+.data-table .route-path { color: var(--accent2); font-family: 'SF Mono', monospace; font-size: 11px; }
+.data-table .page-name { color: var(--accent); font-weight: 500; }
+.data-table .table-name { color: var(--accent6); font-family: 'SF Mono', monospace; }
+.data-table .api-count { color: var(--accent3); font-weight: 600; text-align: center; }
+.data-table .desc { color: var(--text-dim); font-size: 11px; }
+
+/* 关系图 */
+.relation-block {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.relation-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.relation-grid {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 6px 12px;
+  font-size: 11.5px;
+}
+.relation-grid .key {
+  color: var(--text-dim);
+  text-align: right;
+  padding-right: 8px;
+  border-right: 1px solid var(--border);
+}
+.relation-grid .val {
+  color: var(--text);
+}
+.relation-grid .val code {
+  background: #1a2332;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: 'SF Mono', monospace;
+  font-size: 10.5px;
+  color: var(--accent2);
+}
+.relation-grid .val .arrow {
+  color: var(--text-dim);
+  margin: 0 4px;
+}
+
+/* 标签 */
+.tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  margin-right: 3px;
+  margin-bottom: 2px;
+}
+.tag-green { background: rgba(34,197,94,0.12); color: var(--accent); }
+.tag-blue { background: rgba(59,130,246,0.12); color: var(--accent2); }
+.tag-orange { background: rgba(245,158,11,0.12); color: var(--accent3); }
+.tag-red { background: rgba(239,68,68,0.12); color: var(--accent4); }
+.tag-purple { background: rgba(139,92,246,0.12); color: var(--accent5); }
+.tag-cyan { background: rgba(6,182,212,0.12); color: var(--accent6); }
+.tag-gray { background: rgba(156,163,175,0.12); color: var(--text-dim); }
+
+/* 折叠 */
+.collapsible {
+  cursor: pointer;
+  user-select: none;
+}
+.collapsible::before {
+  content: "▼";
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 9px;
+  color: var(--text-dim);
+  transition: transform 0.2s;
+}
+.collapsible.collapsed::before {
+  transform: rotate(-90deg);
+}
+.collapsible-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+.collapsible-content.collapsed {
+  max-height: 0;
+}
+
+/* 图例 */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 12px 0;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* 架构层 */
+.arch-layer {
+  border-left: 3px solid;
+  padding-left: 14px;
+  margin-bottom: 20px;
+}
+.arch-layer.layer-collect { border-color: var(--accent); }
+.arch-layer.layer-process { border-color: var(--accent2); }
+.arch-layer.layer-storage { border-color: var(--accent3); }
+.arch-layer.layer-serve { border-color: var(--accent5); }
+.arch-layer.layer-present { border-color: var(--accent6); }
+
+.arch-layer h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.arch-layer.layer-collect h4 { color: var(--accent); }
+.arch-layer.layer-process h4 { color: var(--accent2); }
+.arch-layer.layer-storage h4 { color: var(--accent3); }
+.arch-layer.layer-serve h4 { color: var(--accent5); }
+.arch-layer.layer-present h4 { color: var(--accent6); }
+
+.arch-components {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.arch-component {
+  background: #1a2332;
+  border: 1px solid #2d3748;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+}
+.arch-component .name { font-weight: 500; color: var(--text); }
+.arch-component .detail { font-size: 10px; color: var(--text-dim); margin-top: 1px; }
+
+/* 窄列内容 */
+.scrollable {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.scrollable::-webkit-scrollbar { width: 4px; }
+.scrollable::-webkit-scrollbar-track { background: transparent; }
+.scrollable::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 2px; }
+
+.section-intro {
+  color: var(--text-dim);
+  font-size: 12px;
+  margin-bottom: 12px;
+  line-height: 1.7;
+}
+
+/* 依赖链 */
+.dep-chain {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 11px;
+  margin: 4px 0;
+}
+.dep-chain .node {
+  background: #1a2332;
+  border: 1px solid #2d3748;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-family: 'SF Mono', monospace;
+  font-size: 10.5px;
+}
+.dep-chain .arrow { color: #4b5563; }
+.dep-chain .node.highlight { border-color: var(--accent2); color: var(--accent2); }
+</style>
+</head>
+<body>
+
+<h1>ChallengeDaily 系统架构全景图</h1>
+<p class="subtitle">小黑日报 v3.4.1 — Windows AI 自动时间追踪应用 | 194 commits | Python 3.13 + React 18 + Electron 31 + SQLite WAL</p>
+
+<!-- 统计栏 -->
+<div class="stats-bar">
+  <div class="stat-card"><div class="num">36</div><div class="label">前端页面</div></div>
+  <div class="stat-card"><div class="num">68</div><div class="label">后端蓝图</div></div>
+  <div class="stat-card"><div class="num">53</div><div class="label">数据表</div></div>
+  <div class="stat-card"><div class="num">103</div><div class="label">后端 Python 文件</div></div>
+  <div class="stat-card"><div class="num">132</div><div class="label">前端 TSX 文件</div></div>
+  <div class="stat-card"><div class="num">600+</div><div class="label">API 端点</div></div>
+</div>
+
+<!-- 核心数据流向 -->
+<h2>核心数据流：采集 → 识别 → 分类 → 存储 → 展示</h2>
+<div class="flow-container">
+  <div class="flow-step accent-green">
+    <div class="step-name">1. 截屏采集</div>
+    <div class="step-detail">mss 每 60s 截图</div>
+  </div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step accent-blue">
+    <div class="step-name">2. AI 视觉识别</div>
+    <div class="step-detail">GLM-4V-Flash 分析截图</div>
+  </div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step accent-orange">
+    <div class="step-name">3. NLP 分类</div>
+    <div class="step-detail">正则 + 规则引擎 → 5 大类</div>
+  </div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step accent-purple">
+    <div class="step-name">4. SQLite WAL</div>
+    <div class="step-detail">activities / app_usage / screenshots</div>
+  </div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step accent-red">
+    <div class="step-name">5. 统计计算</div>
+    <div class="step-detail">聚合 / 热力图 / 时长统计</div>
+  </div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step accent-cyan">
+    <div class="step-name">6. 前端展示</div>
+    <div class="step-detail">React + SSE 实时更新</div>
+  </div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">
+    <div class="step-name">7. 日报生成</div>
+    <div class="step-detail">AI 文本总结 → 导出</div>
+  </div>
+</div>
+
+<!-- 五层架构 -->
+<h2>五层架构总览</h2>
+<div class="columns" style="grid-template-columns: 1fr;">
+  <div>
+    <div class="arch-layer layer-collect">
+      <h4>采集层（Windows 原生）</h4>
+      <div class="arch-components">
+        <div class="arch-component"><span class="name">screenshot.py</span><div class="detail">mss 截屏 + 窗口标题抓取</div></div>
+        <div class="arch-component"><span class="name">collector.py</span><div class="detail">60s 定时调度 + 队列缓冲</div></div>
+        <div class="arch-component"><span class="name">win_event_hook</span><div class="detail">前台窗口变化监听</div></div>
+        <div class="arch-component"><span class="name">web_tracker</span><div class="detail">浏览器插件数据接收</div></div>
+      </div>
+    </div>
+    <div class="arch-layer layer-process">
+      <h4>处理层（AI + NLP）</h4>
+      <div class="arch-components">
+        <div class="arch-component"><span class="name">ai_client.py</span><div class="detail">GLM-4V 视觉识别 + Circuit Breaker</div></div>
+        <div class="arch-component"><span class="name">nlp_engine.py</span><div class="detail">正则分类 + 窗口标题匹配</div></div>
+        <div class="arch-component"><span class="name">app_rules.py</span><div class="detail">规则引擎 + 自动分类规则库</div></div>
+        <div class="arch-component"><span class="name">reclassify_routes.py</span><div class="detail">arbtt 风格重分类</div></div>
+      </div>
+    </div>
+    <div class="arch-layer layer-storage">
+      <h4>存储层（SQLite WAL）</h4>
+      <div class="arch-components">
+        <div class="arch-component"><span class="name">db.py</span><div class="detail">53 表 ORM + FTS 全文索引</div></div>
+        <div class="arch-component"><span class="name">config.py</span><div class="detail">DATA_DIR / CATEGORIES / HTTP_PORT</div></div>
+        <div class="arch-component"><span class="name">backup.py</span><div class="detail">自动备份 + 增量导出</div></div>
+      </div>
+    </div>
+    <div class="arch-layer layer-serve">
+      <h4>服务层（Flask API）</h4>
+      <div class="arch-components">
+        <div class="arch-component"><span class="name">server.py</span><div class="detail">Flask App + CORS + Token 鉴权</div></div>
+        <div class="arch-component"><span class="name">routes/</span><div class="detail">68 蓝图 × 600+ 端点</div></div>
+        <div class="arch-component"><span class="name">observability.py</span><div class="detail">Trace ID + 请求指标</div></div>
+      </div>
+    </div>
+    <div class="arch-layer layer-present">
+      <h4>展示层（React + Electron）</h4>
+      <div class="arch-components">
+        <div class="arch-component"><span class="name">Vite 5173</span><div class="detail">开发服务器 + HMR</div></div>
+        <div class="arch-component"><span class="name">React 18 + TS</span><div class="detail">132 组件 + Context 状态</div></div>
+        <div class="arch-component"><span class="name">Electron 31</span><div class="detail">桌面壳 + IPC + 托盘</div></div>
+        <div class="arch-component"><span class="name">Tailwind CSS</span><div class="detail">暗色主题 + 毛玻璃</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 三列详细内容 -->
+<div class="columns">
+
+<!-- 左列：前端路由 -->
+<div>
+<h2>前端路由与页面映射</h2>
+<p class="section-intro">36 个页面组件通过 HashRouter 懒加载，按功能域分组。核心三入口：今日(Overview)、专注(Focus)、数据(Report/Dashboard)。</p>
+
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--accent)"></span>执行层（高频使用）</div>
+  <table class="data-table">
+    <tr><th>路由</th><th>页面</th><th>API 依赖</th></tr>
+    <tr><td><code class="route-path">/</code></td><td class="page-name">Overview 今日</td><td class="desc">stats/today, activities, status, growth</td></tr>
+    <tr><td><code class="route-path">/focus</code></td><td class="page-name">Focus 专注</td><td class="desc">pomodoro, todos, status, SSE</td></tr>
+    <tr><td><code class="route-path">/todos</code></td><td class="page-name">Todos 待办</td><td class="desc">todos, week-plan, habits</td></tr>
+    <tr><td><code class="route-path">/timeline</code></td><td class="page-name">Timeline 时间线</td><td class="desc">activities, search</td></tr>
+    <tr><td><code class="route-path">/heatmap</code></td><td class="page-name">Heatmap 热力图</td><td class="desc">stats/heatmap</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--accent2)"></span>统计层（复盘分析）</div>
+  <table class="data-table">
+    <tr><th>路由</th><th>页面</th><th>API 依赖</th></tr>
+    <tr><td><code class="route-path">/report</code></td><td class="page-name">Report 日报</td><td class="desc">reports, stats/today, exports</td></tr>
+    <tr><td><code class="route-path">/dashboard</code></td><td class="page-name">Dashboard 仪表盘</td><td class="desc">stats/*, achievements, profile</td></tr>
+    <tr><td><code class="route-path">/calendar</code></td><td class="page-name">CalendarView 日历</td><td class="desc">calendar-view, stats</td></tr>
+    <tr><td><code class="route-path">/apps</code></td><td class="page-name">AppRecords 应用</td><td class="desc">app-usage, stats</td></tr>
+    <tr><td><code class="route-path">/history-reports</code></td><td class="page-name">HistoryReports</td><td class="desc">reports/search, templates</td></tr>
+    <tr><td><code class="route-path">/deep-profile</code></td><td class="page-name">DeepProfile 深度画像</td><td class="desc">profile, deep-insight</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--accent3)"></span>计划成长层</div>
+  <table class="data-table">
+    <tr><th>路由</th><th>页面</th><th>API 依赖</th></tr>
+    <tr><td><code class="route-path">/week-plan</code></td><td class="page-name">WeekPlan 周计划</td><td class="desc">week-plan/*, todos</td></tr>
+    <tr><td><code class="route-path">/habits</code></td><td class="page-name">Habits 习惯</td><td class="desc">habits, logs, recommendations</td></tr>
+    <tr><td><code class="route-path">/goals</code></td><td class="page-name">Goals 目标</td><td class="desc">goals, mood-heatmap</td></tr>
+    <tr><td><code class="route-path">/achievements</code></td><td class="page-name">Achievements 成就</td><td class="desc">achievements, season</td></tr>
+    <tr><td><code class="route-path">/countdowns</code></td><td class="page-name">Countdowns 倒数日</td><td class="desc">countdowns</td></tr>
+    <tr><td><code class="route-path">/diary</code></td><td class="page-name">Diary 日记</td><td class="desc">diaries, daily-card</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--accent5)"></span>AI 与工具层</div>
+  <table class="data-table">
+    <tr><th>路由</th><th>页面</th><th>API 依赖</th></tr>
+    <tr><td><code class="route-path">/ai-chat</code></td><td class="page-name">AIChat 对话</td><td class="desc">ai/chat/stream, history</td></tr>
+    <tr><td><code class="route-path">/ai-coach</code></td><td class="page-name">AICoach 教练</td><td class="desc">coach/*, insight</td></tr>
+    <tr><td><code class="route-path">/agent</code></td><td class="page-name">Agent 智能体</td><td class="desc">agent/*, auto-report</td></tr>
+    <tr><td><code class="route-path">/study-room</code></td><td class="page-name">StudyRoom 自习室</td><td class="desc">study-room/*</td></tr>
+    <tr><td><code class="route-path">/rules-engine</code></td><td class="page-name">RulesEngine</td><td class="desc">rules/*</td></tr>
+    <tr><td><code class="route-path">/settings</code></td><td class="page-name">Settings 设置</td><td class="desc">settings, auth, exports</td></tr>
+    <tr><td><code class="route-path">/export-center</code></td><td class="page-name">ExportCenter</td><td class="desc">exports/*</td></tr>
+    <tr><td><code class="route-path">/health</code></td><td class="page-name">Health 校准</td><td class="desc">health, status</td></tr>
+  </table>
+</div>
+</div>
+
+<!-- 中列：后端蓝图 -->
+<div>
+<h2>后端蓝图与 API 端点</h2>
+<p class="section-intro">68 个 Flask Blueprint 共 600+ 端点，按业务域分组。Token 鉴权（X-API-Token），localhost 豁免 rate limit。</p>
+
+<div class="scrollable">
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--accent)"></span>核心数据域</div>
+  <table class="data-table">
+    <tr><th>蓝图</th><th>前缀</th><th>端点</th></tr>
+    <tr><td>activities</td><td><code class="route-path">/api/activities</code></td><td class="api-count">8</td></tr>
+    <tr><td>stats</td><td><code class="route-path">/api/stats/*</code></td><td class="api-count">12</td></tr>
+    <tr><td>todos</td><td><code class="route-path">/api/todos</code></td><td class="api-count">5</td></tr>
+    <tr><td>habits</td><td><code class="route-path">/api/habits</code></td><td class="api-count">8</td></tr>
+    <tr><td>goals</td><td><code class="route-path">/api/goals</code></td><td class="api-count">7</td></tr>
+    <tr><td>diaries</td><td><code class="route-path">/api/diaries</code></td><td class="api-count">3</td></tr>
+    <tr><td>countdowns</td><td><code class="route-path">/api/countdowns</code></td><td class="api-count">3</td></tr>
+    <tr><td>pomodoro</td><td><code class="route-path">/api/pomodoro</code></td><td class="api-count">10</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--accent2)"></span>计划与报告</div>
+  <table class="data-table">
+    <tr><th>蓝图</th><th>前缀</th><th>端点</th></tr>
+    <tr><td>week_plan</td><td><code class="route-path">/api/week-plan</code></td><td class="api-count">11</td></tr>
+    <tr><td>reports</td><td><code class="route-path">/api/reports/*</code></td><td class="api-count">14</td></tr>
+    <tr><td>auto_report</td><td><code class="route-path">/api/agent/auto-report</code></td><td class="api-count">3</td></tr>
+    <tr><td>report_channels</td><td><code class="route-path">/api/report-channels</code></td><td class="api-count">5</td></tr>
+    <tr><td>exports</td><td><code class="route-path">/api/exports/*</code></td><td class="api-count">11</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--accent3)"></span>AI 与智能</div>
+  <table class="data-table">
+    <tr><th>蓝图</th><th>前缀</th><th>端点</th></tr>
+    <tr><td>chat</td><td><code class="route-path">/api/ai/*</code></td><td class="api-count">8</td></tr>
+    <tr><td>agent</td><td><code class="route-path">(多前缀)</code></td><td class="api-count">3</td></tr>
+    <tr><td>coach</td><td><code class="route-path">/api/coach</code></td><td class="api-count">4</td></tr>
+    <tr><td>insight</td><td><code class="route-path">/api/insight</code></td><td class="api-count">2</td></tr>
+    <tr><td>deep_insight</td><td><code class="route-path">/api/deep-insight</code></td><td class="api-count">3</td></tr>
+    <tr><td>ai_intel</td><td><code class="route-path">/api/ai-intel</code></td><td class="api-count">8</td></tr>
+    <tr><td>local_model</td><td><code class="route-path">/api/local-model</code></td><td class="api-count">5</td></tr>
+    <tr><td>smart_search</td><td><code class="route-path">/api/smart-search</code></td><td class="api-count">8</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--accent5)"></span>RPG 成长系统</div>
+  <table class="data-table">
+    <tr><th>蓝图</th><th>前缀</th><th>端点</th></tr>
+    <tr><td>achievements</td><td><code class="route-path">/api/achievements</code></td><td class="api-count">5</td></tr>
+    <tr><td>growth</td><td><code class="route-path">/api/growth</code></td><td class="api-count">6</td></tr>
+    <tr><td>leaderboard</td><td><code class="route-path">/api/leaderboard</code></td><td class="api-count">4</td></tr>
+    <tr><td>ritual</td><td><code class="route-path">/api/ritual</code></td><td class="api-count">4</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--accent6)"></span>集成与兼容</div>
+  <table class="data-table">
+    <tr><th>蓝图</th><th>前缀</th><th>端点</th></tr>
+    <tr><td>wakatime_compat</td><td><code class="route-path">/api/wakatime</code></td><td class="api-count">6</td></tr>
+    <tr><td>aw_compat</td><td><code class="route-path">/api/aw</code></td><td class="api-count">13</td></tr>
+    <tr><td>mubu</td><td><code class="route-path">/api/mubu</code></td><td class="api-count">16</td></tr>
+    <tr><td>web_tracker</td><td><code class="route-path">/api/web-activity</code></td><td class="api-count">3</td></tr>
+    <tr><td>calendar</td><td><code class="route-path">/api/calendar</code></td><td class="api-count">8</td></tr>
+    <tr><td>git_integration</td><td><code class="route-path">/api/git</code></td><td class="api-count">7</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--text-dim)"></span>系统与基础设施（30+ 蓝图）</div>
+  <p class="desc" style="margin-bottom:8px">health, settings, auth, backup, audit, privacy, profile, rules_engine, workflow, notifications, webhooks, scheduler, study_room, data_import, imports, collaboration, cross_platform, platform, integration, version_control, knowledge_graph, benchmark, analytics, viz, smart, uiux, perf, observability, mq_stream, local_model, cv, nlp, ml_basic, rec_ab, mlops, infra_edge, network_dr, deployment, quality_docs, cost_compliance, privacy_dq, flags_adv, chaos_cap, cache_advanced, db_advanced, security_advanced, security_routes2, perf_apm, flow_control, migration_i18n, realtime, offline, resilience, advanced_data, accessibility</p>
+</div>
+</div>
+</div>
+
+<!-- 右列：数据库 + 依赖 -->
+<div>
+<h2>数据库表结构（53 表）</h2>
+<p class="section-intro">SQLite WAL 模式，schema_version=37。核心表围绕 activities（活动记录）展开，支持 FTS 全文索引。</p>
+
+<div class="scrollable">
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--accent)"></span>核心记录表</div>
+  <table class="data-table">
+    <tr><th>表名</th><th>说明</th></tr>
+    <tr><td class="table-name">activities</td><td class="desc">AI 识别后的活动记录（窗口标题、分类、时长）</td></tr>
+    <tr><td class="table-name">app_usage</td><td class="desc">应用使用时长聚合（按天/应用名汇总）</td></tr>
+    <tr><td class="table-name">activities_deleted</td><td class="desc">软删除的活动记录（可恢复）</td></tr>
+    <tr><td class="table-name">screenshots</td><td class="desc">截图元数据（路径、时间戳、OCR 文本）</td></tr>
+    <tr><td class="table-name">daily_stats</td><td class="desc">每日统计汇总（工作时长、专注度、分类占比）</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--accent2)"></span>计划与任务</div>
+  <table class="data-table">
+    <tr><th>表名</th><th>说明</th></tr>
+    <tr><td class="table-name">todos</td><td class="desc">待办清单（支持番茄钟关联、优先级、截止日期）</td></tr>
+    <tr><td class="table-name">habits</td><td class="desc">习惯定义（频率、目标、颜色标记）</td></tr>
+    <tr><td class="table-name">habit_logs</td><td class="desc">习惯打卡记录（日期、完成状态）</td></tr>
+    <tr><td class="table-name">goals</td><td class="desc">长期目标（年度/季度/月度 + 关键结果）</td></tr>
+    <tr><td class="table-name">daily_plans</td><td class="desc">日计划（与 Todo 关联）</td></tr>
+    <tr><td class="table-name">plan_meta</td><td class="desc">计划元数据（周/月视图配置）</td></tr>
+    <tr><td class="table-name">countdowns</td><td class="desc">倒数日事件</td></tr>
+    <tr><td class="table-name">pomodoro_sessions</td><td class="desc">番茄钟专注记录（开始/结束/中断）</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--accent3)"></span>AI 与内容</div>
+  <table class="data-table">
+    <tr><th>表名</th><th>说明</th></tr>
+    <tr><td class="table-name">chat_history</td><td class="desc">AI 对话历史（role/content/tool_calls）</td></tr>
+    <tr><td class="table-name">reports</td><td class="desc">AI 生成的日报/周报/月报（Markdown 内容）</td></tr>
+    <tr><td class="table-name">reports_fts</td><td class="desc">报告全文索引（SQLite FTS5）</td></tr>
+    <tr><td class="table-name">diaries</td><td class="desc">用户日记（心情、标签、媒体附件）</td></tr>
+    <tr><td class="table-name">memories</td><td class="desc">AI 记忆（长期上下文存储）</td></tr>
+    <tr><td class="table-name">ai_conversations</td><td class="desc">AI 会话元数据</td></tr>
+    <tr><td class="table-name">ai_retry_queue</td><td class="desc">AI 调用失败重试队列</td></tr>
+    <tr><td class="table-name">profile_analysis_cache</td><td class="desc">用户画像分析缓存</td></tr>
+    <tr><td class="table-name">doc_chunks</td><td class="desc">文档分块（RAG 知识库）</td></tr>
+    <tr><td class="table-name">doc_chunks_fts</td><td class="desc">文档全文索引</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--accent5)"></span>RPG 成长系统</div>
+  <table class="data-table">
+    <tr><th>表名</th><th>说明</th></tr>
+    <tr><td class="table-name">achievements</td><td class="desc">成就定义（触发条件、奖励）</td></tr>
+    <tr><td class="table-name">achievement_seasons</td><td class="desc">赛季周期配置</td></tr>
+    <tr><td class="table-name">season_achievements</td><td class="desc">赛季成就关联</td></tr>
+    <tr><td class="table-name">growth_profile</td><td class="desc">用户等级/经验/金币</td></tr>
+    <tr><td class="table-name">growth_log</td><td class="desc">经验获取历史</td></tr>
+    <tr><td class="table-name">items</td><td class="desc">道具定义（稀有度、类型）</td></tr>
+    <tr><td class="table-name">inventory</td><td class="desc">用户背包</td></tr>
+    <tr><td class="table-name">equipped_items</td><td class="desc">已装备道具</td></tr>
+    <tr><td class="table-name">life_quests</td><td class="desc">人生任务系统</td></tr>
+    <tr><td class="table-name">quest_stages</td><td class="desc">任务阶段</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="dot" style="background:var(--accent6)"></span>系统与配置</div>
+  <table class="data-table">
+    <tr><th>表名</th><th>说明</th></tr>
+    <tr><td class="table-name">settings</td><td class="desc">应用配置（采集间隔、AI 模型、隐私应用）</td></tr>
+    <tr><td class="table-name">user_preferences</td><td class="desc">用户偏好（主题、通知、快捷键）</td></tr>
+    <tr><td class="table-name">user_profile</td><td class="desc">用户基础信息</td></tr>
+    <tr><td class="table-name">app_category_rules</td><td class="desc">应用分类规则库</td></tr>
+    <tr><td class="table-name">user_corrections</td><td class="desc">用户手动纠正记录</td></tr>
+    <tr><td class="table-name">audit_log</td><td class="desc">操作审计日志</td></tr>
+    <tr><td class="table-name">schema_version</td><td class="desc">数据库版本（当前 v37）</td></tr>
+  </table>
+</div>
+</div>
+
+<h2 style="margin-top:32px">关键模块依赖链</h2>
+
+<div class="relation-block">
+  <div class="relation-title">采集主链路</div>
+  <div class="dep-chain">
+    <span class="node highlight">collector.py</span>
+    <span class="arrow">→</span>
+    <span class="node">screenshot.py</span>
+    <span class="arrow">→</span>
+    <span class="node">ai_client.py</span>
+    <span class="arrow">→</span>
+    <span class="node">nlp_engine.py</span>
+    <span class="arrow">→</span>
+    <span class="node">db.py</span>
+    <span class="arrow">→</span>
+    <span class="node">routes/stats.py</span>
+    <span class="arrow">→</span>
+    <span class="node highlight">Overview.tsx</span>
+  </div>
+</div>
+
+<div class="relation-block">
+  <div class="relation-title">AI 对话链路</div>
+  <div class="dep-chain">
+    <span class="node highlight">AIChat.tsx</span>
+    <span class="arrow">→</span>
+    <span class="node">api/client.ts</span>
+    <span class="arrow">→</span>
+    <span class="node">routes/chat.py</span>
+    <span class="arrow">→</span>
+    <span class="node">ai_client.py</span>
+    <span class="arrow">→</span>
+    <span class="node">GLM-4-Flash API</span>
+    <span class="arrow">→</span>
+    <span class="node">db.py (chat_history)</span>
+  </div>
+</div>
+
+<div class="relation-block">
+  <div class="relation-title">专注番茄链路</div>
+  <div class="dep-chain">
+    <span class="node highlight">Focus.tsx</span>
+    <span class="arrow">→</span>
+    <span class="node">useEventStream.ts</span>
+    <span class="arrow">→</span>
+    <span class="node">routes/pomodoro.py</span>
+    <span class="arrow">→</span>
+    <span class="node">db.py (pomodoro_sessions)</span>
+    <span class="arrow">→</span>
+    <span class="node">growth.py (奖励)</span>
+  </div>
+</div>
+
+<div class="relation-block">
+  <div class="relation-title">日报生成链路</div>
+  <div class="dep-chain">
+    <span class="node highlight">Report.tsx</span>
+    <span class="arrow">→</span>
+    <span class="node">routes/reports.py</span>
+    <span class="arrow">→</span>
+    <span class="node">ai_client.py</span>
+    <span class="arrow">→</span>
+    <span class="node">GLM-4-Flash</span>
+    <span class="arrow">→</span>
+    <span class="node">db.py (reports)</span>
+    <span class="arrow">→</span>
+    <span class="node">routes/exports.py</span>
+  </div>
+</div>
+
+<div class="relation-block">
+  <div class="relation-title">周计划链路</div>
+  <div class="dep-chain">
+    <span class="node highlight">WeekPlan.tsx</span>
+    <span class="arrow">→</span>
+    <span class="node">routes/week_plan.py</span>
+    <span class="arrow">→</span>
+    <span class="node">db.py (daily_plans)</span>
+    <span class="arrow">↔</span>
+    <span class="node">db.py (todos)</span>
+  </div>
+</div>
+
+<div class="relation-block">
+  <div class="relation-title">成长 RPG 链路</div>
+  <div class="dep-chain">
+    <span class="node highlight">HeroInfo.tsx</span>
+    <span class="arrow">+</span>
+    <span class="node">RpgPanel.tsx</span>
+    <span class="arrow">→</span>
+    <span class="node">growthStore.ts</span>
+    <span class="arrow">→</span>
+    <span class="node">routes/growth.py</span>
+    <span class="arrow">→</span>
+    <span class="node">db.py (growth_profile, items, inventory)</span>
+  </div>
+</div>
+</div>
+
+</div><!-- end columns -->
+
+<!-- 技术栈全景 -->
+<h2>技术栈全景</h2>
+<div class="columns" style="grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px;">
+  <div class="card" style="margin-bottom:0;">
+    <div class="card-header"><span class="dot" style="background:var(--accent)"></span>后端</div>
+    <div style="font-size:11px; line-height:1.8;">
+      <span class="tag tag-green">Python 3.13</span>
+      <span class="tag tag-blue">Flask</span>
+      <span class="tag tag-orange">SQLite WAL</span>
+      <span class="tag tag-purple">OpenAI SDK</span>
+      <span class="tag tag-cyan">httpx</span>
+      <span class="tag tag-gray">pywin32</span>
+      <span class="tag tag-gray">mss</span>
+      <span class="tag tag-gray">Pillow</span>
+      <span class="tag tag-gray">pydantic</span>
+      <span class="tag tag-gray">pytest</span>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:0;">
+    <div class="card-header"><span class="dot" style="background:var(--accent2)"></span>前端</div>
+    <div style="font-size:11px; line-height:1.8;">
+      <span class="tag tag-green">React 18</span>
+      <span class="tag tag-blue">TypeScript 5</span>
+      <span class="tag tag-orange">Vite</span>
+      <span class="tag tag-purple">Tailwind</span>
+      <span class="tag tag-cyan">React Router</span>
+      <span class="tag tag-gray">Zustand</span>
+      <span class="tag tag-gray">Recharts</span>
+      <span class="tag tag-gray">Lucide</span>
+      <span class="tag tag-gray">ECharts</span>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:0;">
+    <div class="card-header"><span class="dot" style="background:var(--accent3)"></span>桌面</div>
+    <div style="font-size:11px; line-height:1.8;">
+      <span class="tag tag-green">Electron 31</span>
+      <span class="tag tag-blue">Node 22</span>
+      <span class="tag tag-orange">npm 10.9</span>
+      <span class="tag tag-purple">concurrently</span>
+      <span class="tag tag-gray">wait-on</span>
+      <span class="tag tag-gray">auto-launch</span>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:0;">
+    <div class="card-header"><span class="dot" style="background:var(--accent5)"></span>AI 模型</div>
+    <div style="font-size:11px; line-height:1.8;">
+      <span class="tag tag-green">GLM-4V-Flash</span>
+      <span class="tag tag-blue">GLM-4-Flash</span>
+      <span class="tag tag-orange">智谱 AI</span>
+      <span class="tag tag-gray">OpenAI 兼容</span>
+      <span class="tag tag-gray">DeepSeek 兼容</span>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:0;">
+    <div class="card-header"><span class="dot" style="background:var(--accent6)"></span>基础设施</div>
+    <div style="font-size:11px; line-height:1.8;">
+      <span class="tag tag-green">Git</span>
+      <span class="tag tag-blue">GitHub</span>
+      <span class="tag tag-orange">Git Bash</span>
+      <span class="tag tag-purple">SQLite FTS5</span>
+      <span class="tag tag-gray">JWT-less Token</span>
+      <span class="tag tag-gray">Circuit Breaker</span>
+    </div>
+  </div>
+</div>
+
+<!-- 底部：关键设计决策 -->
+<h2>关键设计决策</h2>
+<div class="columns" style="grid-template-columns: 1fr 1fr;">
+  <div class="relation-block">
+    <div class="relation-title">架构选择</div>
+    <div class="relation-grid">
+      <div class="key">桌面优先</div>
+      <div class="val">Electron + Python 后端，而非纯 Web SaaS，因为需要截屏 API 访问</div>
+      <div class="key">单用户本地</div>
+      <div class="val">Token 鉴权但 localhost 豁免，本地即唯一用户，简化权限模型</div>
+      <div class="key">SQLite WAL</div>
+      <div class="val">WAL 模式支持读写并发，避免采集器写入阻塞查询</div>
+      <div class="key">懒加载</div>
+      <div class="val">36 页面全部 lazy import，首屏只加载 Overview（~350KB）</div>
+      <div class="key">SSE 实时</div>
+      <div class="val">EventSource 推送采集器状态，替代轮询减少延迟</div>
+    </div>
+  </div>
+  <div class="relation-block">
+    <div class="relation-title">数据一致性策略</div>
+    <div class="relation-grid">
+      <div class="key">活动记录</div>
+      <div class="val"><code>activities</code> 为主表，<code>app_usage</code> 为聚合视图，数据从 activities 派生</div>
+      <div class="key">软删除</div>
+      <div class="val"><code>activities_deleted</code> 保留 30 天，支持误删恢复</div>
+      <div class="key">FTS 索引</div>
+      <div class="val">reports_fts / doc_chunks_fts 全文检索，关键词搜索日报和知识库</div>
+      <div class="key">AI 缓存</div>
+      <div class="val"><code>profile_analysis_cache</code> 避免重复调用 AI 分析同一画像</div>
+      <div class="key">熔断保护</div>
+      <div class="val">AI 连续失败 5 次触发熔断，指数退避冷却，防止 API 费用暴涨</div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.collapsible').forEach(el => {
+  el.addEventListener('click', () => {
+    const content = el.nextElementSibling;
+    el.classList.toggle('collapsed');
+    content.classList.toggle('collapsed');
+  });
+});
+</script>
+
+</body>
+</html>
