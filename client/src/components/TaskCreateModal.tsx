@@ -46,6 +46,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
   const [dueDate, setDueDate] = useState('')
   const [assignedDate, setAssignedDate] = useState('')
   const [planStartTime, setPlanStartTime] = useState('')  // HH:MM 格式，甘特图计划开始时间
+  const [planEndTime, setPlanEndTime] = useState('')      // HH:MM 格式，计划结束时间（专注监督工作时间段）
   const [taskLevel, setTaskLevel] = useState<TaskLevel>('day')
   const [targetMinOverride, setTargetMinOverride] = useState<number>(0)
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -64,6 +65,8 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
       setPomodoroSize('big')
       setDueDate('')
       setAssignedDate(defaults?.assigned_date ?? formatLocalDate(new Date()))
+      setPlanStartTime(defaults?.plan_start_min ? `${String(Math.floor(defaults.plan_start_min / 60)).padStart(2,'0')}:${String(defaults.plan_start_min % 60).padStart(2,'0')}` : '')
+      setPlanEndTime(defaults?.plan_end_min ? `${String(Math.floor(defaults.plan_end_min / 60)).padStart(2,'0')}:${String(defaults.plan_end_min % 60).padStart(2,'0')}` : '')
       setTaskLevel(defaults?.task_level ?? 'day')
       setTargetMinOverride(0)
       setShowAdvanced(false)
@@ -106,6 +109,14 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
       if (planStartTime) {
         const [h, m] = planStartTime.split(':').map(Number)
         data.plan_start_min = h * 60 + m
+      }
+      if (planEndTime) {
+        const [h, m] = planEndTime.split(':').map(Number)
+        const endMin = h * 60 + m
+        // 校验：结束时间必须大于开始时间
+        if (!planStartTime || endMin > (data.plan_start_min as number)) {
+          data.plan_end_min = endMin
+        }
       }
       if (defaults?.parent_id) data.parent_id = defaults.parent_id
       if (defaults?.month_key) data.month_key = defaults.month_key
@@ -404,6 +415,41 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
                 className="px-3 py-1.5 rounded-lg text-xs bg-cd-bg-input text-cd-text border border-cd-border hover:bg-cd-hover transition"
               >自动</button>
             </div>
+          </div>
+          {/* 计划结束时间（专注监督工作时间段） */}
+          <div className="mt-3">
+            <label className="text-xs text-cd-text-secondary mb-1.5 block">计划结束时间（可选，专注监督时间段）</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                value={planEndTime}
+                onChange={e => setPlanEndTime(e.target.value)}
+                className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
+              />
+              <button
+                onClick={() => {
+                  if (planStartTime) {
+                    const [h, m] = planStartTime.split(':').map(Number)
+                    const endMin = h * 60 + m + 120
+                    setPlanEndTime(`${String(Math.floor(endMin / 60) % 24).padStart(2,'0')}:${String(endMin % 60).padStart(2,'0')}`)
+                  } else {
+                    setPlanEndTime('18:00')
+                  }
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs bg-cd-bg-input text-cd-text border border-cd-border hover:bg-cd-hover transition"
+              >+2h</button>
+              <button
+                onClick={() => setPlanEndTime('')}
+                className="px-3 py-1.5 rounded-lg text-xs bg-cd-bg-input text-cd-text border border-cd-border hover:bg-cd-hover transition"
+              >不设</button>
+            </div>
+            {planStartTime && planEndTime && (() => {
+              const [sh, sm] = planStartTime.split(':').map(Number)
+              const [eh, em] = planEndTime.split(':').map(Number)
+              const dur = (eh * 60 + em) - (sh * 60 + sm)
+              if (dur <= 0) return <p className="text-xs text-red-400 mt-1">结束时间需晚于开始时间</p>
+              return <p className="text-xs text-cd-text-tertiary mt-1">计划工作时长：{Math.floor(dur / 60)}小时{dur % 60}分钟</p>
+            })()}
           </div>
         </div>
       )}

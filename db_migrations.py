@@ -10,7 +10,7 @@ from config import DB_PATH
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 36
+SCHEMA_VERSION = 37
 
 # P-01: 默认数据保留天数（90 天）
 DEFAULT_DATA_RETENTION_DAYS = 90
@@ -946,6 +946,19 @@ def _init_db_impl():
                 logger.info("V36: 记忆系统表创建成功（向量虚表由 memory_engine 按需创建）")
             except Exception as e:
                 logger.warning(f"V36 schema 升级失败: {e}")
+
+        # V37: 待办新增计划结束时间 plan_end_min（专注监督工作时间段）
+        if current_version < 37:
+            try:
+                # 检查列是否已存在（幂等）
+                cols = [r[1] for r in conn.execute("PRAGMA table_info(todos)").fetchall()]
+                if "plan_end_min" not in cols:
+                    conn.execute("ALTER TABLE todos ADD COLUMN plan_end_min INTEGER")
+                    logger.info("V37: todos 表新增 plan_end_min 列成功")
+                else:
+                    logger.info("V37: plan_end_min 列已存在，跳过")
+            except Exception as e:
+                logger.warning(f"V37 schema 升级失败: {e}")
 
         # 更新版本号
         conn.execute(

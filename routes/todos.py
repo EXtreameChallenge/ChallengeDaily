@@ -1,7 +1,10 @@
 """待办清单 API（融入GoalDay打卡清单自动进度）"""
 from flask import Blueprint, request, jsonify
 from datetime import datetime, date
+import logging
 import db
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('todos', __name__, url_prefix='/api/todos')
 
@@ -67,7 +70,17 @@ def create_todo():
         )
     except Exception as e:
         return jsonify({"error": "创建待办失败"}), 500
-    # 如果传了层级相关字段，需在 INSERT 后 UPDATE（insert_todo 不支持这些字段）
+    # insert_todo 不支持 plan_start_min / plan_end_min，需 INSERT 后 UPDATE
+    extra_fields = {}
+    if data.get('plan_start_min') is not None:
+        extra_fields['plan_start_min'] = _safe_int(data.get('plan_start_min'), None)
+    if data.get('plan_end_min') is not None:
+        extra_fields['plan_end_min'] = _safe_int(data.get('plan_end_min'), None)
+    if extra_fields:
+        try:
+            db.update_todo(todo_id, **extra_fields)
+        except Exception as e:
+            logger.warning(f"更新待办计划时间失败: {e}")
     return jsonify({"status": "ok", "id": todo_id})
 
 
