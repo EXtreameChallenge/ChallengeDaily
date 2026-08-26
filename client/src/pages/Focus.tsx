@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Square, SkipForward, Brain, X, Sparkles, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Play, Square, SkipForward, Brain, X, Sparkles, BarChart3, ChevronLeft, ChevronRight, CheckSquare, Plus, ListTodo, Clock, Target } from 'lucide-react'
 import { startPomodoro, stopPomodoro, getPomodoroStats, getPomodoroQuality, getTodayTodos, checkPomodoroDistraction, formatLocalTimestamp, getSmartDuration, getPomodoroReport, type TodoV2, POMODORO_SIZES, LONG_BREAK_INTERVAL, type SmartDurationResult, type PomodoroReport } from '../api/client'
 import WhiteNoise from '../components/WhiteNoise'
 import LevelUpCelebration from '../components/LevelUpCelebration'
@@ -616,9 +616,76 @@ export default function Focus() {
   }
 
   return (
-    <div className="min-h-screen p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-cd-text">专注模式</h1>
+    <div className="flex h-screen overflow-hidden bg-cd-bg">
+      {/* 左栏：今日待办 */}
+      <aside className="w-64 flex-shrink-0 border-r border-cd-border flex flex-col bg-cd-bg-card/50">
+        <div className="p-4 border-b border-cd-border flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-cd-text flex items-center gap-1.5">
+            <ListTodo size={16} className="text-cd-accent" /> 今日待办
+          </h2>
+          <span className="text-xs text-cd-text-tertiary">{todayTodos.filter(t => t.status !== 'completed').length}项</span>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {todayTodos.length === 0 ? (
+            <div className="text-center text-cd-text-tertiary text-xs py-8">
+              暂无今日待办<br />点击下方按钮创建
+            </div>
+          ) : (
+            [...todayTodos]
+              .sort((a, b) => a.priority - b.priority)
+              .map(todo => {
+                const isSelected = selectedTodoId === todo.id
+                const progress = todo.target_min > 0 ? Math.min(100, (todo.progress_min / todo.target_min) * 100) : 0
+                const priorityColors = ['bg-red-500', 'bg-orange-500', 'bg-blue-500', 'bg-gray-500']
+                return (
+                  <div
+                    key={todo.id}
+                    onClick={() => {
+                      setSelectedTodoId(todo.id)
+                      setTask(todo.title)
+                      setPomodoroSize((todo.pomodoro_size as PomodoroSize) || 'big')
+                      setTotalPomodoros(todo.estimated_pomodoros || 1)
+                    }}
+                    className={`p-2.5 rounded-lg cursor-pointer transition border ${
+                      isSelected
+                        ? 'bg-cd-accent/15 border-cd-accent/40'
+                        : 'hover:bg-cd-bg-card border-transparent'
+                    } ${todo.status === 'completed' ? 'opacity-50' : ''}`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${priorityColors[todo.priority] || 'bg-gray-500'}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs font-medium truncate ${todo.status === 'completed' ? 'line-through text-cd-text-tertiary' : 'text-cd-text'}`}>
+                          {todo.title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 h-1 bg-cd-bg-input rounded-full overflow-hidden">
+                            <div className="h-full bg-cd-accent/60 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                          </div>
+                          <span className="text-[10px] text-cd-text-tertiary flex-shrink-0">{todo.pomodoro_count || 0}🍅</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+          )}
+        </div>
+        <div className="p-3 border-t border-cd-border">
+          <button
+            onClick={() => { /* 打开创建待办弹窗，复用现有机制 */ }}
+            className="w-full flex items-center justify-center gap-1.5 py-2 text-xs bg-cd-accent/15 text-cd-accent rounded-lg hover:bg-cd-accent/25 transition font-medium"
+          >
+            <Plus size={14} /> 新建待办
+          </button>
+        </div>
+      </aside>
+
+      {/* 中栏：番茄钟主体 */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-cd-text">专注模式</h1>
         <button onClick={() => setReportOpen(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-cd-bg-card border border-white/5 rounded-lg text-cd-text-secondary hover:text-cd-text hover:bg-white/5 transition">
           <BarChart3 size={16} /> 番茄报告
@@ -1112,6 +1179,8 @@ export default function Focus() {
       {levelUp !== null && (
         <LevelUpCelebration newLevel={levelUp} onClose={() => setLevelUp(null)} />
       )}
+        </div>
+      </main>
     </div>
   )
 }
