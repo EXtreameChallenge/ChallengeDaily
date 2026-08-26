@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, Square, SkipForward, Brain, X, Sparkles, BarChart3, ChevronLeft, ChevronRight, CheckSquare, Plus, ListTodo, Clock, Target } from 'lucide-react'
-import { startPomodoro, stopPomodoro, getPomodoroStats, getPomodoroQuality, getTodayTodos, checkPomodoroDistraction, formatLocalTimestamp, getSmartDuration, getPomodoroReport, getRecentHeatmap, getPomodoroSessions, type TodoV2, type RecentHeatmapDay, type PomodoroSession, POMODORO_SIZES, LONG_BREAK_INTERVAL, type SmartDurationResult, type PomodoroReport } from '../api/client'
+import { startPomodoro, stopPomodoro, getPomodoroStats, getPomodoroQuality, getTodayTodos, checkPomodoroDistraction, formatLocalTimestamp, getSmartDuration, getPomodoroReport, getRecentHeatmap, getPomodoroSessions, getPomodoroSessionReport, type TodoV2, type RecentHeatmapDay, type PomodoroSession, type PomodoroSessionReport, POMODORO_SIZES, LONG_BREAK_INTERVAL, type SmartDurationResult, type PomodoroReport } from '../api/client'
 import { request } from '../api/core'
 import WhiteNoise from '../components/WhiteNoise'
 import LevelUpCelebration from '../components/LevelUpCelebration'
@@ -101,6 +101,8 @@ export default function Focus() {
   const [heatmapData, setHeatmapData] = useState<RecentHeatmapDay[]>([])
   const [pomodoroSessions, setPomodoroSessions] = useState<PomodoroSession[]>([])
   const [distractionEvents, setDistractionEvents] = useState<Array<{ time: string; app: string; type: 'distracted' | 'suspected' }>>([])
+  const [sessionReport, setSessionReport] = useState<PomodoroSessionReport | null>(null)
+  const [sessionReportOpen, setSessionReportOpen] = useState(false)
   const [levelUp, setLevelUp] = useState<number | null>(null)
   const [searchParams] = useSearchParams()
   const timerRef = useRef<NodeJS.Timeout | null>(null)

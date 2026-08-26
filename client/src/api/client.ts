@@ -22,8 +22,8 @@ export { generateDailyReport, generateWeeklyReport, generateMonthlyReport, getCu
 export type { CustomTemplate, ReportChannelConfig, ReportQualityDimension, ReportQualityResult, ReportSearchResult, DeepInsights } from './report'
 
 // ── 番茄钟 API ──
-export { startPomodoro, stopPomodoro, getPomodoroSessions, getPomodoroStats, getPomodoroQuality, checkPomodoroDistraction, getSmartDuration, getPomodoroReport } from './pomodoro'
-export type { PomodoroSession, PomodoroQuality, SmartDurationResult, PomodoroReport } from './pomodoro'
+export { startPomodoro, stopPomodoro, getPomodoroSessions, getPomodoroStats, getPomodoroQuality, checkPomodoroDistraction, getSmartDuration, getPomodoroReport, getPomodoroSessionReport } from './pomodoro'
+export type { PomodoroSession, PomodoroQuality, SmartDurationResult, PomodoroReport, PomodoroSessionReport } from './pomodoro'
 
 // ── 统计 API ──
 export { getHourlyStats, getTrendStats, getRhythmStats, getRecentHeatmap, getDistractionHeatmap, getCalendarView, getSankeyData } from './stats'

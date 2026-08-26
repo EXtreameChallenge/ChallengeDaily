@@ -300,6 +300,108 @@ def pomodoro_quality():
     return jsonify(db.get_pomodoro_quality_score(date_str))
 
 
+@bp.route('/session-report', methods=['GET'])
+def session_report():
+    """单次番茄钟专注报告
+
+    GET /api/pomodoro/session-report?session_id=xxx
+    返回: {session_id, task, duration_min, actual_min, status, distraction_count,
+           focus_score, grade, purity, completion, time_range, suggestions}
+    """
+    session_id = request.args.get('session_id', type=int)
+    if not session_id:
+        return jsonify({"error": "缺少 session_id"}), 400
+    try:
+        with db.get_conn() as conn:
+            row = conn.execute(
+                "SELECT id, task, start_time, end_time, duration_min, status, "
+                "interrupted_count, todo_id FROM pomodoro_sessions WHERE id = ?",
+                (session_id,),
+            ).fetchone()
+        if not row:
+            return jsonify({"error": "番茄钟记录不存在"}), 404
+
+        start_time = row['start_time']
+        end_time = row['end_time']
+        duration_min = row['duration_min'] or 0
+        actual_min = 0
+        if start_time and end_time:
+            try:
+                from datetime import datetime
+                st = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                et = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                actual_min = max(0, round((et - st).total_seconds() / 60, 1))
+            except Exception:
+                actual_min = duration_min
+        elif row['status'] == 'running':
+            actual_min = duration_min  # 进行中用计划时长
+
+        distraction_count = row['interrupted_count'] or 0
+        status = row['status']
+
+        # 专注度评分算法（0-100）
+        # 完成度: actual_min / duration_min (最高1.0)
+        completion = min(1.0, actual_min / duration_min) if duration_min > 0 else 0
+        # 纯度: 1 - (分心次数 * 5%) 每次分心扣5%,最低0.3
+        purity = max(0.3, 1.0 - distraction_count * 0.05)
+        # 综合评分
+        focus_score = round(completion * purity * 100)
+
+        # 评级
+        if focus_score >= 90:
+            grade = 'S'
+        elif focus_score >= 80:
+            grade = 'A'
+        elif focus_score >= 70:
+            grade = 'B'
+        elif focus_score >= 60:
+            grade = 'C'
+        else:
+            grade = 'D'
+
+        # 时间段
+        time_range = ""
+        if start_time:
+            try:
+                from datetime import datetime
+                st = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                time_range = f"{st.strftime('%H:%M')}"
+                if end_time:
+                    et = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                    time_range += f" - {et.strftime('%H:%M')}"
+            except Exception:
+                pass
+
+        # 智能建议
+        suggestions = []
+        if distraction_count >= 3:
+            suggestions.append(f"本次分心{distraction_count}次，建议下次开启学霸模式或使用白噪音减少干扰")
+        if completion < 0.8 and status == 'interrupted':
+            suggestions.append("番茄钟被中断，建议将任务拆分为更小的目标，或选择干扰较少的时段")
+        if grade in ('S', 'A'):
+            suggestions.append("专注度很高！保持这个节奏，休息一下继续")
+        if not suggestions:
+            suggestions.append("完成得不错，休息片刻后继续下一个番茄")
+
+        return jsonify({
+            "session_id": session_id,
+            "task": row['task'] or "未命名任务",
+            "duration_min": duration_min,
+            "actual_min": actual_min,
+            "status": status,
+            "distraction_count": distraction_count,
+            "focus_score": focus_score,
+            "grade": grade,
+            "purity": round(purity, 2),
+            "completion": round(completion, 2),
+            "time_range": time_range,
+            "suggestions": suggestions,
+        })
+    except Exception as e:
+        logger.error(f"单次番茄报告生成失败: {e}", exc_info=True)
+        return jsonify({"error": "报告生成失败"}), 500
+
+
 @bp.route('/config', methods=['GET'])
 def pomodoro_config():
     """获取番茄钟配置（大小番茄的工作/休息时长）"""

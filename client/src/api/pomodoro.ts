@@ -95,3 +95,22 @@ export interface PomodoroReport {
 export async function getPomodoroReport(days = 7): Promise<PomodoroReport> {
   return request(`/api/pomodoro/report?days=${days}`) as Promise<PomodoroReport>
 }
+
+export interface PomodoroSessionReport {
+  session_id: number
+  task: string
+  duration_min: number
+  actual_min: number
+  status: 'running' | 'completed' | 'interrupted'
+  distraction_count: number
+  focus_score: number
+  grade: string
+  purity: number
+  completion: number
+  time_range: string
+  suggestions: string[]
+}
+
+export async function getPomodoroSessionReport(sessionId: number): Promise<PomodoroSessionReport> {
+  return request(`/api/pomodoro/session-report?session_id=${sessionId}`) as Promise<PomodoroSessionReport>
+}
