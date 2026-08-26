@@ -22,6 +22,20 @@ LONG_BREAK_INTERVAL = 4  # 每4个番茄一次长休息
 # 同一次连续分心只计 1 次，切回工作类应用即结束 episode，下次重新计时。
 DWELL_THRESHOLD_SEC = 30
 _distraction_episodes = {}  # session_id -> {"first_seen": float, "counted": bool}
+_MAX_DISTRACTION_EPISODES = 1000  # 内存泄漏防护上限
+
+def _cleanup_distraction_episodes():
+    """清理过期的分心去抖状态，防止内存泄漏"""
+    if len(_distraction_episodes) > _MAX_DISTRACTION_EPISODES:
+        # 清理超过1小时的旧记录
+        now = time.time()
+        expired = [sid for sid, ep in _distraction_episodes.items()
+                   if now - ep.get("first_seen", 0) > 3600]
+        for sid in expired:
+            _distraction_episodes.pop(sid, None)
+        # 如果还是太多，全部清空
+        if len(_distraction_episodes) > _MAX_DISTRACTION_EPISODES * 2:
+            _distraction_episodes.clear()
 
 # ── 专注监督：三档严格度 + 关键词配置 ──
 # relaxed:  仅检测游戏/短视频等明显无关应用（productivity_level <= -1）
@@ -662,6 +676,7 @@ def distraction_check():
     if not session_id:
         return jsonify({"error": "缺少 session_id"}), 400
     try:
+        _cleanup_distraction_episodes()
         from app_tracker import get_foreground_app
         app_info = get_foreground_app()
         app_name = app_info.get("app_name", "") or ""

@@ -240,6 +240,7 @@ export default function Focus() {
   const loadRightPanel = useCallback(async () => {
     try {
       const [stats, heatmap, sessions] = await Promise.all([
+        // 每个请求都有独立的异常处理，失败不影响其他
         request('/api/stats/today') as Promise<{ top_apps: Array<{ app_name: string; duration_min: number }>; total_duration_min: number }>,
         getRecentHeatmap(84),  // 最近12周
         getPomodoroSessions(),
@@ -551,6 +552,10 @@ export default function Focus() {
   useEffect(() => { handleBreakCompleteRef.current = handleBreakComplete }, [handleBreakComplete])
 
   const handleStop = async () => {
+    if (!sessionId) {
+      setPhase('idle')
+      return
+    }
     if (sessionId) {
       try { await stopPomodoro({ id: sessionId, status: 'interrupted', interrupted_count: interruptedCount }) } catch {}
     }
