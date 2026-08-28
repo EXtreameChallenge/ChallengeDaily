@@ -10,8 +10,12 @@ import { getNotifications, startupHealthCheck } from './api/client'
 import { useAppLock, LockScreen } from './components/AppLock'
 import { CommandPalette, useCommandPaletteShortcut } from './components/CommandPalette'
 import { ShortcutHelp, useShortcutHelpShortcut } from './components/ShortcutHelp'
+import AIDock from './components/ai/AIDock'
+import { RelayEngineProvider } from './components/relay/RelayEngine'
+import { RelayCardContainer } from './components/relay/RelayCard'
 
 // 懒加载页面组件 — 减少首屏加载体积
+const TodayPage = lazy(() => import('./pages/Today/TodayPage'))
 const Overview = lazy(() => import('./pages/Overview'))
 const Timeline = lazy(() => import('./pages/Timeline'))
 const Report = lazy(() => import('./pages/Report'))
@@ -269,6 +273,7 @@ export default function App() {
               <Onboarding onComplete={handleOnboardingComplete} />
             ) : (
               <HashRouter>
+                <RelayEngineProvider>
                 <CommandPalette open={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} />
                 <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
                 <ElectronNavigationBridge />
@@ -277,7 +282,8 @@ export default function App() {
                   <RouteErrorBoundary>
                     <Suspense fallback={<PageSpinner />}>
                       <Routes>
-                        <Route path="/" element={<Overview />} />
+                        <Route path="/" element={<TodayPage />} />
+                        <Route path="/overview" element={<Overview />} />
                         <Route path="/timeline" element={<Timeline />} />
                         <Route path="/report" element={<Report />} />
                         <Route path="/focus" element={<Focus />} />
@@ -315,6 +321,9 @@ export default function App() {
                     </Suspense>
                   </RouteErrorBoundary>
                 </main>
+                <RelayCardContainer />
+                <AIDock currentPage="today" />
+                </RelayEngineProvider>
               </HashRouter>
             )}
           </div>
