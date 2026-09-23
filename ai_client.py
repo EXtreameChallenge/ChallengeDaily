@@ -20,6 +20,18 @@ logger = logging.getLogger(__name__)
 AI_MAX_TOKENS = 4000
 
 
+def inject_user_profile(system_prompt: str) -> str:
+    """将用户画像注入到 system prompt 中"""
+    try:
+        from user_profile import get_profile_context
+        ctx = get_profile_context()
+        if ctx and ctx.strip():
+            return system_prompt + "\n\n【用户画像】\n" + ctx
+    except Exception:
+        pass
+    return system_prompt
+
+
 # ── 日志脱敏：过滤 Bearer token / api_key 等敏感串 ──
 _BEARER_RE = re.compile(r"(Bearer\s+)[^\s]+")
 _APIKEY_RE = re.compile(r"(sk-[A-Za-z0-9]{6})[A-Za-z0-9]*")
@@ -264,7 +276,7 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
             response = client.chat.completions.create(
                 model=config.AI_VISION_MODEL,
                 messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "system", "content": inject_user_profile(SYSTEM_PROMPT)},
                     {
                         "role": "user",
                         "content": [
