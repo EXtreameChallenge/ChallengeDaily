@@ -85,6 +85,12 @@ from routes.ritual import bp as ritual_bp
 from routes.scheduler import bp as scheduler_bp
 from routes.mubu_routes import bp as mubu_bp
 from routes.mubu_routes import memory_bp
+from routes.obsidian_routes import bp as obsidian_bp
+from routes.reclassify_routes import bp as reclassify_bp
+from routes.web_tracker import bp as web_tracker_bp
+from routes.aw_compat import bp as aw_compat_bp
+from routes.wakatime_compat import bp as wakatime_compat_bp
+from routes.leaderboard import bp as leaderboard_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -174,4 +180,10 @@ ALL_BLUEPRINTS = [
     scheduler_bp,
     mubu_bp,
     memory_bp,
+    obsidian_bp,
+    reclassify_bp,
+    web_tracker_bp,
+    aw_compat_bp,
+    wakatime_compat_bp,
+    leaderboard_bp,
 ]
