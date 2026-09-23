@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Plus, Check, Trash2, Clock, Target, Repeat, ListChecks, Play, Calendar, Flame, ChevronRight, GitBranch } from 'lucide-react'
+import { Plus, Check, Trash2, Clock, Target, Repeat, ListChecks, Play, Calendar, Flame, ChevronRight, GitBranch, Wand2, Loader2 } from 'lucide-react'
 import { getTodos, updateTodo, deleteTodo, getTodayTodos, CATEGORY_COLORS, type TodoV2, formatLocalDate } from '../api/client'
 import { useToast } from '../components/Toast'
 import TaskCreateModal from '../components/TaskCreateModal'
+import Modal from '../components/Modal'
+import { extractTodos, confirmExtractedTodos, type ExtractedTodo } from '../api/todoExtraction'
 
 const MODE_ICONS = { timer: Clock, goal: Target, habit: Repeat }
 
@@ -51,6 +53,13 @@ export default function Todos() {
   const [showCreate, setShowCreate] = useState(false)
   const [expandedParents, setExpandedParents] = useState<Set<number>>(new Set())
   const toast = useToast()
+
+  // ── AI 提取待办 ──
+  const [aiModalOpen, setAiModalOpen] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiTodos, setAiTodos] = useState<ExtractedTodo[]>([])
+  const [selectedAiIdx, setSelectedAiIdx] = useState<Set<number>>(new Set())
+  const [aiConfirming, setAiConfirming] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -111,6 +120,67 @@ export default function Todos() {
       else next.add(id)
       return next
     })
+  }
+
+  // ── AI 提取待办 ──
+  const handleExtractTodos = async () => {
+    setAiLoading(true)
+    try {
+      const res = await extractTodos()
+      if (res.todos.length === 0) {
+        toast.info(res.message || '未从今日活动中识别到待办事项')
+        return
+      }
+      setAiTodos(res.todos)
+      // 默认全选
+      setSelectedAiIdx(new Set(res.todos.map((_, i) => i)))
+      setAiModalOpen(true)
+    } catch (e) {
+      toast.error('AI 提取待办失败，请稍后重试')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const toggleAiSelect = (idx: number) => {
+    setSelectedAiIdx(prev => {
+      const next = new Set(prev)
+      if (next.has(idx)) next.delete(idx)
+      else next.add(idx)
+      return next
+    })
+  }
+
+  const handleConfirmAdd = async () => {
+    const selected = aiTodos.filter((_, i) => selectedAiIdx.has(i))
+    if (selected.length === 0) {
+      toast.warning('请至少选择一条待办')
+      return
+    }
+    setAiConfirming(true)
+    try {
+      const res = await confirmExtractedTodos(selected)
+      toast.success(`已添加 ${res.inserted} 条待办`)
+      setAiModalOpen(false)
+      setAiTodos([])
+      setSelectedAiIdx(new Set())
+      load()
+    } catch (e) {
+      toast.error('添加待办失败，请稍后重试')
+    } finally {
+      setAiConfirming(false)
+    }
+  }
+
+  const PRIORITY_BADGE: Record<string, string> = {
+    high: 'bg-red-500/15 text-red-400',
+    medium: 'bg-yellow-500/15 text-yellow-400',
+    low: 'bg-gray-500/15 text-gray-400',
+  }
+  const PRIORITY_LABEL: Record<string, string> = {
+    high: '高',
+    medium: '中',
+    low: '低',
   }
 
   // 按 parent_id 建立子任务映射（Notion 式树形组织）
@@ -382,6 +452,14 @@ export default function Todos() {
             ))}
           </div>
           <button
+            onClick={handleExtractTodos}
+            disabled={aiLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-500/15 text-purple-400 rounded-lg border border-purple-500/30 hover:bg-purple-500/25 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {aiLoading ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
+            {aiLoading ? '分析中...' : 'AI 提取待办'}
+          </button>
+          <button
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-2 px-4 py-2 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition"
           >
@@ -407,6 +485,72 @@ export default function Todos() {
         onClose={() => setShowCreate(false)}
         onCreated={() => { setShowCreate(false); load() }}
       />
+
+      {/* AI 提取待办确认 Modal */}
+      <Modal
+        open={aiModalOpen}
+        onClose={() => { setAiModalOpen(false); setAiTodos([]); setSelectedAiIdx(new Set()) }}
+        title="AI 提取待办"
+        maxWidth="max-w-md"
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => { setAiModalOpen(false); setAiTodos([]); setSelectedAiIdx(new Set()) }}
+              className="px-4 py-2 rounded-lg text-sm text-cd-text-secondary hover:bg-cd-hover transition"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleConfirmAdd}
+              disabled={aiConfirming || selectedAiIdx.size === 0}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {aiConfirming ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              添加选中（{selectedAiIdx.size}）
+            </button>
+          </div>
+        }
+      >
+        {aiTodos.length === 0 ? (
+          <p className="text-sm text-cd-text-secondary text-center py-6">未从今日活动中识别到待办事项</p>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs text-cd-text-tertiary mb-3">AI 从今日活动中识别出 {aiTodos.length} 条待办，勾选需要添加的条目：</p>
+            {aiTodos.map((todo, idx) => {
+              const checked = selectedAiIdx.has(idx)
+              return (
+                <div
+                  key={idx}
+                  onClick={() => toggleAiSelect(idx)}
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                    checked ? 'border-cd-accent/30 bg-cd-accent/5' : 'border-white/5 hover:border-white/10'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 transition ${
+                      checked ? 'bg-cd-accent/20 border-cd-accent/40 text-cd-accent' : 'border-white/20'
+                    }`}
+                  >
+                    {checked && <Check size={11} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm text-cd-text leading-snug">{todo.title}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${PRIORITY_BADGE[todo.priority] || PRIORITY_BADGE.low}`}>
+                        {PRIORITY_LABEL[todo.priority] || '低'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 text-[11px] text-cd-text-tertiary">
+                      {todo.due_hint && <span>⏰ {todo.due_hint}</span>}
+                      <span>置信度 {Math.round((todo.confidence || 0) * 100)}%</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
