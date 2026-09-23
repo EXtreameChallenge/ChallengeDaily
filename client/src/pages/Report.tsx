@@ -24,8 +24,13 @@ import { useTimeout, useAsyncData } from '../components/shared'
 import { useToast } from '../components/Toast'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { FileText, Calendar, Sparkles, Copy, Check, Download, Save, Trash2, BookOpen, Send, Gauge, BookMarked } from 'lucide-react'
+import { FileText, Calendar, Sparkles, Copy, Check, Download, Save, Trash2, BookOpen, Send, Gauge, BookMarked, Plus, Pencil, Star, Eye, X, Variable, CheckCircle2 } from 'lucide-react'
 import dayjs from 'dayjs'
+import {
+  getReportTemplates, createReportTemplate, updateReportTemplate,
+  deleteReportTemplate, setDefaultTemplate, previewTemplate,
+  type ReportTemplate,
+} from '../api/reportTemplates'
 
 type ReportType = 'daily' | 'weekly' | 'monthly'
 type TemplateType = 'standard' | 'simple' | 'technical' | 'okr' | 'ai' | 'deep'
@@ -60,6 +65,17 @@ export default function Report() {
   const [templateName, setTemplateName] = useState('')
   const [qualityResult, setQualityResult] = useState<ReportQualityResult | null>(null)
   const [scoring, setScoring] = useState(false)
+
+  // ── P0-3: 报告模板系统 ──
+  const [tplList, setTplList] = useState<ReportTemplate[]>([])
+  const [customTemplateId, setCustomTemplateId] = useState<number | null>(null)
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+  const [editContent, setEditContent] = useState('')
+  const [previewMd, setPreviewMd] = useState('')
+  const [savingTpl, setSavingTpl] = useState(false)
 
   // 周报模式时拉取目标对比
   useEffect(() => {
@@ -129,13 +145,19 @@ export default function Report() {
     try {
       let result
       if (reportType === 'daily') {
-        result = await generateDailyReport(template)
+        // 选择了自定义模板时，带 template_id 请求；否则走内置模板
+        if (customTemplateId) {
+          const qs = `template=${template}&template_id=${customTemplateId}`
+          result = await request(`/api/report/daily?${qs}`, {}, 120000)
+        } else {
+          result = await generateDailyReport(template)
+        }
       } else if (reportType === 'weekly') {
         result = await generateWeeklyReport()
       } else {
         result = await generateMonthlyReport(selectedMonth)
       }
-      setGeneratedContent(result.content)
+      setGeneratedContent((result as any).content || '')
       toast.success(`${REPORT_TYPES.find(t => t.value === reportType)?.label || '报告'}生成成功`)
     } catch (err: any) {
       setGeneratedContent(`# 生成失败\n\n${err.message}`)
@@ -260,6 +282,91 @@ export default function Report() {
     toast.success(`已加载模板：${tpl.name}`)
   }
 
+  // ── P0-3: 报告模板系统：加载 / 编辑 / 保存 / 删除 / 设默认 / 预览 ──
+  const loadTemplates = useCallback(async () => {
+    try {
+      const list = await getReportTemplates()
+      setTplList(list)
+      // 若尚未选择模板，默认选中内置（null）
+      setCustomTemplateId(prev => prev ?? null)
+    } catch { /* 静默失败 */ }
+  }, [])
+
+  useEffect(() => { loadTemplates() }, [loadTemplates])
+
+  const openCreateEditor = () => {
+    setEditingId(null)
+    setEditName('')
+    setEditDesc('')
+    setEditContent('# {{date}}\n\n{{activities}}\n')
+    setPreviewMd('')
+    setEditorOpen(true)
+  }
+
+  const openEditEditor = (tpl: ReportTemplate) => {
+    setEditingId(tpl.id)
+    setEditName(tpl.name)
+    setEditDesc(tpl.description || '')
+    setEditContent(tpl.content_md)
+    setPreviewMd('')
+    setEditorOpen(true)
+  }
+
+  const insertPlaceholder = (ph: string) => {
+    setEditContent(prev => prev + '{{' + ph + '}}')
+  }
+
+  // 实时预览（防抖 600ms）
+  useEffect(() => {
+    if (!editorOpen || !editContent.trim()) { setPreviewMd(''); return }
+    const t = setTimeout(async () => {
+      try {
+        const res = await previewTemplate(editContent)
+        setPreviewMd(res.content || '')
+      } catch { setPreviewMd('（预览失败）') }
+    }, 600)
+    return () => clearTimeout(t)
+  }, [editContent, editorOpen])
+
+  const handleSaveTpl = async () => {
+    const name = editName.trim()
+    if (!name || !editContent.trim()) {
+      toast.error('模板名称和内容不能为空'); return
+    }
+    setSavingTpl(true)
+    try {
+      const payload = { name, description: editDesc.trim(), content_md: editContent }
+      if (editingId) {
+        await updateReportTemplate(editingId, payload)
+        toast.success('模板已更新')
+      } else {
+        await createReportTemplate(payload)
+        toast.success('模板已创建')
+      }
+      setEditorOpen(false)
+      await loadTemplates()
+    } catch { toast.error('保存模板失败') } finally { setSavingTpl(false) }
+  }
+
+  const handleDeleteTpl = async (id: number) => {
+    try {
+      await deleteReportTemplate(id)
+      toast.success('已删除模板')
+      if (customTemplateId === id) setCustomTemplateId(null)
+      await loadTemplates()
+    } catch { toast.error('删除模板失败') }
+  }
+
+  const handleSetDefaultTpl = async (id: number) => {
+    try {
+      await setDefaultTemplate(id)
+      toast.success('已设为默认模板')
+      await loadTemplates()
+    } catch { toast.error('设为默认失败') }
+  }
+
+  const PLACEHOLDERS = ['date','activities','todos_completed','todos_pending','pomodoro_count','focus_minutes','apps_top5','user_name','user_role']
+
   return (
     <div className="animate-fade-in space-y-5">
       <h1 className="text-lg font-semibold text-cd-text">生成报告</h1>
@@ -323,6 +430,23 @@ export default function Report() {
           </div>
         )}
 
+        {/* 自定义模板选择（仅日报） */}
+        {reportType === 'daily' && (
+          <div>
+            <label className="text-xs text-cd-text-secondary mb-2 block">自定义模板（选“默认内置”走原模板）</label>
+            <select
+              value={customTemplateId ?? ''}
+              onChange={(e) => setCustomTemplateId(e.target.value ? Number(e.target.value) : null)}
+              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+            >
+              <option value="">默认内置</option>
+              {tplList.map(t => (
+                <option key={t.id} value={t.id}>{t.name}{t.is_default ? '（默认）' : ''}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* 生成按钮 */}
         <button
           onClick={handleGenerate}
@@ -332,6 +456,55 @@ export default function Report() {
           <Sparkles size={16} className={generating ? 'animate-spin' : ''} />
           {generating ? 'AI 生成中...' : '一键生成'}
         </button>
+      </div>
+
+      {/* ─── P0-3: 模板管理 ────────────────────────── */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-cd-text flex items-center gap-2">
+            <Variable size={14} className="text-cd-purple" />
+            报告模板管理
+          </h3>
+          <button
+            onClick={openCreateEditor}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-md text-xs bg-cd-green hover:bg-cd-green-dark text-white transition-colors"
+          >
+            <Plus size={12} /> 新建模板
+          </button>
+        </div>
+        <div className="space-y-2">
+          {tplList.map(tpl => (
+            <div key={tpl.id} className="flex items-center gap-2 bg-cd-bg-secondary rounded-lg px-3 py-2 border border-cd-border">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-cd-text truncate">{tpl.name}</span>
+                  {tpl.is_default && (
+                    <span className="flex items-center gap-0.5 text-[10px] text-cd-gold bg-cd-gold/15 px-1.5 py-0.5 rounded">
+                      <Star size={10} /> 默认
+                    </span>
+                  )}
+                </div>
+                {tpl.description && <div className="text-[11px] text-cd-text-tertiary truncate">{tpl.description}</div>}
+              </div>
+              <button onClick={() => handleSetDefaultTpl(tpl.id)}
+                disabled={tpl.is_default}
+                className="p-1.5 text-cd-text-tertiary hover:text-cd-gold transition-colors disabled:opacity-30"
+                title="设为默认模板">
+                <Star size={14} />
+              </button>
+              <button onClick={() => openEditEditor(tpl)}
+                className="p-1.5 text-cd-text-tertiary hover:text-cd-green transition-colors"
+                title="编辑模板">
+                <Pencil size={14} />
+              </button>
+              <button onClick={() => handleDeleteTpl(tpl.id)}
+                className="p-1.5 text-cd-text-tertiary hover:text-cd-red transition-colors"
+                title="删除模板">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ─── 报告内容 ────────────────────────── */}
@@ -624,6 +797,86 @@ export default function Report() {
                 className="px-4 py-2 text-sm text-cd-text-tertiary hover:text-cd-text">取消</button>
               <button onClick={handleSaveTemplate}
                 className="px-4 py-2 text-sm bg-cd-green text-white rounded hover:opacity-90">保存</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── P0-3: 模板编辑器弹窗 ────────────── */}
+      {editorOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setEditorOpen(false)}>
+          <div className="bg-cd-card rounded-lg border border-cd-border w-[90vw] max-w-5xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-cd-border">
+              <h3 className="text-base font-medium text-cd-text">{editingId ? '编辑模板' : '新建模板'}</h3>
+              <button onClick={() => setEditorOpen(false)} className="p-1 text-cd-text-tertiary hover:text-cd-text"><X size={16} /></button>
+            </div>
+
+            <div className="p-5 space-y-3 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="模板名称（如：周报-技术向）"
+                  maxLength={50}
+                  className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green"
+                />
+                <input
+                  type="text"
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  placeholder="描述（可选）"
+                  maxLength={100}
+                  className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green"
+                />
+              </div>
+
+              {/* 占位符提示 */}
+              <div>
+                <div className="text-xs text-cd-text-secondary mb-1.5">可用占位符（点击插入）</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {PLACEHOLDERS.map(ph => (
+                    <button key={ph} onClick={() => insertPlaceholder(ph)}
+                      className="px-2 py-0.5 rounded text-[11px] font-mono bg-cd-purple/15 text-cd-purple hover:bg-cd-purple/25 border border-cd-purple/30 transition-colors">
+                      {'{{' + ph + '}}'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 编辑 / 预览 双栏 */}
+              <div className="grid grid-cols-2 gap-3" style={{ minHeight: 360 }}>
+                <div className="flex flex-col">
+                  <div className="text-xs text-cd-text-secondary mb-1">Markdown 编辑</div>
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    spellCheck={false}
+                    className="flex-1 min-h-[340px] bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-cd-green resize-none"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <div className="text-xs text-cd-text-secondary mb-1 flex items-center gap-1">
+                    <Eye size={12} /> 实时预览
+                  </div>
+                  <div className="flex-1 min-h-[340px] overflow-auto bg-cd-bg-secondary border border-cd-border rounded-lg px-3 py-2">
+                    {previewMd ? (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{previewMd}</ReactMarkdown>
+                    ) : (
+                      <span className="text-xs text-cd-text-tertiary">输入模板内容后自动预览…</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-5 py-3 border-t border-cd-border">
+              <button onClick={() => setEditorOpen(false)}
+                className="px-4 py-2 text-sm text-cd-text-tertiary hover:text-cd-text">取消</button>
+              <button onClick={handleSaveTpl} disabled={savingTpl}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-cd-green text-white rounded hover:opacity-90 disabled:opacity-50">
+                <CheckCircle2 size={14} /> {savingTpl ? '保存中…' : '保存'}
+              </button>
             </div>
           </div>
         </div>

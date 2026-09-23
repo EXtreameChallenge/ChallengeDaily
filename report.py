@@ -1731,15 +1731,105 @@ _TEMPLATE_MAP = {
 }
 
 
-def generate_daily_report(target_date: str = None, template: str = "standard") -> str:
+def _build_template_context(target_date: str) -> dict:
+    """为自定义 Markdown 模板构建占位符 context。
+
+    返回的 dict 包含 report_templates.SUPPORTED_PLACEHOLDERS 中定义的全部 key，
+    所有值均为字符串，供 render_template 用 str.replace 替换。
+    任何子查询失败都不阻断主流程，对应字段回退为友好空值。
+    """
+    ctx = {k: "" for k in (
+        "date", "activities", "todos_completed", "todos_pending",
+        "pomodoro_count", "focus_minutes", "apps_top5",
+        "user_name", "user_role",
+    )}
+    ctx["date"] = target_date
+
+    # ── 活动摘要（文本列表）+ Top5 应用 ──
+    try:
+        activities = get_activities(target_date, target_date)
+        app_usage = get_app_usage(target_date, target_date)
+        if activities:
+            blocks = _group_into_blocks(activities)
+            narratives = _build_category_narrative(blocks)
+            lines = []
+            for narr in narratives:
+                line = f"- **{narr['category']}**（{narr['duration_str']}）：{narr['time_desc']}"
+                if narr.get("summary"):
+                    line += f"，{narr['summary']}"
+                lines.append(line)
+            ctx["activities"] = "\n".join(lines) if lines else "今日暂无活动记录。"
+        else:
+            ctx["activities"] = "今日暂无活动记录。"
+
+        if app_usage:
+            app_lines = []
+            for au in app_usage[:5]:
+                tsec = (au.get("duration_min", 0) or 0) * 60
+                app_lines.append(f"- {get_display_name(au['app_name'])}：{_format_duration(tsec)}")
+            ctx["apps_top5"] = "\n".join(app_lines)
+    except Exception as e:
+        logger.warning(f"构建活动/应用上下文失败(非致命): {e}")
+
+    # ── 待办完成情况 ──
+    try:
+        all_todos = _db.get_todos()
+        done = [t for t in all_todos if (t.get("status") or "").lower() == "completed"]
+        pending = [t for t in all_todos if (t.get("status") or "").lower() != "completed"]
+        ctx["todos_completed"] = ("\n".join(f"- [x] {t.get('title', '')}" for t in done)
+                                  if done else "（无已完成待办）")
+        ctx["todos_pending"] = ("\n".join(f"- [ ] {t.get('title', '')}" for t in pending)
+                                if pending else "（无待处理待办）")
+    except Exception as e:
+        logger.warning(f"构建待办上下文失败(非致命): {e}")
+
+    # ── 番茄钟 / 专注时长 ──
+    try:
+        sessions = _db.get_pomodoro_sessions(target_date)
+        completed = [s for s in sessions if (s.get("status") or "") == "completed"]
+        ctx["pomodoro_count"] = str(len(completed))
+        ctx["focus_minutes"] = str(int(sum(s.get("duration_min", 0) or 0 for s in completed)))
+    except Exception as e:
+        logger.warning(f"构建番茄上下文失败(非致命): {e}")
+
+    # ── 用户画像 ──
+    try:
+        from user_profile import get_profile
+        profile = get_profile() or {}
+        ctx["user_name"] = profile.get("nickname", "") or ""
+        ctx["user_role"] = profile.get("role", "") or ""
+    except Exception as e:
+        logger.warning(f"构建用户画像上下文失败(非致命): {e}")
+
+    return ctx
+
+
+def generate_daily_report(target_date: str = None, template: str = "standard",
+                          template_id: int = None) -> str:
     """
     生成指定日期的 Markdown 日报，保存到 data/reports/ 和数据库。
     target_date: "YYYY-MM-DD" 格式，默认今天。
-    template: "standard" / "simple" / "technical" / "okr" / "ai"
+    template: "standard" / "simple" / "technical" / "okr" / "ai"（内置模板函数）
+    template_id: 若指定，则使用 report_templates 表中的自定义 Markdown 模板渲染；
+                 为 None 或模板不存在/渲染失败时，回退到 template 参数对应的内置模板逻辑。
     返回生成的报告内容。
     """
     if not target_date:
         target_date = date.today().isoformat()
+
+    # 自定义 Markdown 模板渲染
+    if template_id is not None:
+        try:
+            import report_templates as _rt
+            tpl = _rt.get_template(int(template_id))
+            if tpl:
+                context = _build_template_context(target_date)
+                content = _rt.render_template(tpl["content_md"], context)
+                _save(content, target_date)
+                return content
+            logger.warning(f"template_id={template_id} 不存在，回退内置模板")
+        except Exception as e:
+            logger.error(f"自定义模板渲染失败，回退内置模板: {e}")
 
     # 数据获取
     activities = get_activities(target_date, target_date)

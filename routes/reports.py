@@ -57,12 +57,15 @@ def _validate_template(template: str) -> str:
 def report_daily():
     target_date = request.args.get("date", date.today().isoformat())
     template = _validate_template(request.args.get("template", "standard"))
+    # P0-3: 可选自定义 Markdown 模板 id；不传或非法时走内置 template 逻辑
+    template_id = request.args.get("template_id", type=int)
     if not validate_date(target_date):
         return jsonify({"error": f"Invalid date format: {target_date}"}), 400
     try:
-        content = generate_daily_report(target_date, template=template)
+        content = generate_daily_report(target_date, template=template, template_id=template_id)
         content += _get_pomodoro_section(target_date)
-        return jsonify({"date": target_date, "content": content, "template": template})
+        return jsonify({"date": target_date, "content": content, "template": template,
+                        "template_id": template_id})
     except Exception as e:
         return jsonify({"error": safe_error(e, "日报生成失败")}), 500
 
