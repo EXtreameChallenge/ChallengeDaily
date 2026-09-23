@@ -105,20 +105,16 @@ def ingest():
 
 @bp.route('/sync/trigger', methods=['POST'])
 def trigger_sync():
-    """触发同步——通知 Electron 开始拉取
+    """触发同步——双保险：优先 MCP，失败自动回退 Electron
 
-    通过 SSE event_bus 推送 mubu:sync:request 事件，
-    Electron main.cjs 监听到后执行 BrowserWindow 注入 JS 拉取。
+    1. 配置了 MCP Token 时，后端直接通过 MCP API 拉取文档入库（不需要浏览器）
+    2. MCP 失败或未配置时，回退到通过 event_bus 通知 Electron 用 cookie 方案拉取
     """
     if not check_token(request):
         return jsonify({"error": "Unauthorized"}), 401
     try:
-        from event_bus import push_event
-        push_event('mubu:sync:request', {"requested_at": datetime.now().isoformat()})
-        return jsonify({"status": "ok", "message": "同步请求已发送"})
-    except ImportError:
-        # event_bus 不存在时降级：直接返回 ok，等待下次定时同步
-        return jsonify({"status": "ok", "message": "event_bus 不可用，请等待下次定时同步"})
+        result = mubu_sync.trigger_sync_smart()
+        return jsonify({"status": "ok", "sync_source": result.get("source"), "sync_status": result.get("status"), "detail": result.get("detail", {})})
     except Exception as e:
         return jsonify({"error": safe_error(e, "触发同步失败")}), 500
 
@@ -417,3 +413,86 @@ def memory_query():
         })
     except Exception as e:
         return jsonify({"error": safe_error(e, "记忆查询失败")}), 500
+
+
+# ── MCP 相关路由 ──────────────────────────────────────
+
+@bp.route('/mcp/status', methods=['GET'])
+def mcp_status():
+    """获取幕布 MCP 连接状态"""
+    try:
+        return jsonify(mubu_sync.get_mcp_status())
+    except Exception as e:
+        return jsonify({"error": safe_error(e, "获取 MCP 状态失败")}), 500
+
+
+@bp.route('/mcp/token', methods=['POST'])
+def mcp_set_token():
+    """设置幕布 MCP 个人 Token
+
+    Body: {"token": "xxxx"}
+    """
+    if not check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json(force=True, silent=True) or {}
+    token = (data.get('token') or '').strip()
+    if not token:
+        return jsonify({"error": "token 不能为空"}), 400
+    try:
+        import mubu_mcp_client
+        mubu_mcp_client.set_token(token)
+        return jsonify({"status": "ok", "message": "MCP Token 已保存"})
+    except Exception as e:
+        return jsonify({"error": safe_error(e, "保存 Token 失败")}), 500
+
+
+@bp.route('/mcp/test', methods=['POST'])
+def mcp_test():
+    """测试幕布 MCP 连接（列出可用工具）"""
+    if not check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        import mubu_mcp_client
+        result = mubu_mcp_client.test_connection()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"ok": False, "error": safe_error(e, "MCP 连接测试异常")})
+
+
+@bp.route('/mcp/sync', methods=['POST'])
+def mcp_sync():
+    """触发 MCP 全量同步（后台线程执行，不阻塞请求）
+
+    Body: {"force": false}  （force 预留，当前 MCP 同步始终全量拉取后增量入库）
+    """
+    if not check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        import mubu_mcp_client
+        if not mubu_mcp_client.has_token():
+            return jsonify({"error": "MCP Token 未配置，请先调用 /api/mubu/mcp/token 设置"}), 400
+
+        def _worker():
+            try:
+                mubu_mcp_client.sync_all_to_db()
+            except Exception as e:
+                logger.error(f"MCP 后台同步失败: {e}", exc_info=True)
+
+        t = threading.Thread(target=_worker, name="mcp-sync", daemon=True)
+        t.start()
+        return jsonify({"status": "ok", "message": "MCP 同步已在后台启动，完成后可通过 /api/mubu/status 查看结果"})
+    except Exception as e:
+        return jsonify({"error": safe_error(e, "触发 MCP 同步失败")}), 500
+
+
+@bp.route('/mcp/tools', methods=['GET'])
+def mcp_list_tools():
+    """列出幕布 MCP 暴露的所有工具（调试用）"""
+    if not check_token(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        import mubu_mcp_client
+        tools = mubu_mcp_client.list_tools(force_refresh=True)
+        return jsonify({"count": len(tools), "tools": tools})
+    except Exception as e:
+        return jsonify({"error": safe_error(e, "获取工具列表失败")}), 500

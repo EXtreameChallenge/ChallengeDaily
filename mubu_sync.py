@@ -415,3 +415,77 @@ def extract_todos_from_doc(doc: dict) -> list[dict]:
 
 # 在 db.init_db 之后调用一次即可
 # routes/__init__.py 不直接调用，由 main.py 或 server.py 显式调用
+
+
+# ── MCP 双保险同步 ──────────────────────────────────────
+
+def trigger_sync_smart() -> dict:
+    """智能同步入口：优先 MCP，失败自动回退到 Electron cookie 方案
+
+    双保险逻辑：
+      1. 如果配置了 MCP Token，先用 MCP 全量同步
+      2. MCP 成功 → 直接返回
+      3. MCP 失败（Token 未配置/网络错误/会员过期等）→ 回退到 Electron event_bus 通知拉取
+      4. 返回同步来源和结果
+
+    Returns:
+        {"source": "mcp" | "electron" | "none", "status": "ok" | "fallback" | "error", "detail": {...}}
+    """
+    import mubu_mcp_client
+
+    # 第一步：尝试 MCP
+    if mubu_mcp_client.has_token():
+        logger.info("智能同步：尝试 MCP 方案")
+        try:
+            result = mubu_mcp_client.sync_all_to_db()
+            if result.get("success", 0) > 0 or result.get("total", 0) > 0:
+                logger.info(f"智能同步：MCP 方案成功，入库 {result.get('success')} 篇")
+                return {
+                    "source": "mcp",
+                    "status": "ok",
+                    "detail": result,
+                }
+            else:
+                logger.warning(f"智能同步：MCP 返回空结果，回退 Electron。detail={result}")
+        except Exception as e:
+            logger.warning(f"智能同步：MCP 方案失败，回退 Electron。error={e}")
+    else:
+        logger.info("智能同步：MCP Token 未配置，直接使用 Electron 方案")
+
+    # 第二步：回退到 Electron cookie 方案
+    try:
+        from event_bus import push_event
+        push_event('mubu:sync:request', {"requested_at": datetime.now().isoformat(), "reason": "mcp_fallback"})
+        logger.info("智能同步：已通知 Electron 开始同步（回退方案）")
+        return {
+            "source": "electron",
+            "status": "fallback",
+            "detail": {"message": "MCP 不可用，已回退到 Electron cookie 同步"},
+        }
+    except ImportError:
+        logger.warning("智能同步：event_bus 不可用，无法触发 Electron 同步")
+        return {
+            "source": "none",
+            "status": "error",
+            "detail": {"error": "MCP 不可用且 event_bus 不存在，无法同步"},
+        }
+    except Exception as e:
+        logger.error(f"智能同步：回退 Electron 也失败: {e}")
+        return {
+            "source": "none",
+            "status": "error",
+            "detail": {"error": str(e)},
+        }
+
+
+def get_mcp_status() -> dict:
+    """获取 MCP 连接状态"""
+    import mubu_mcp_client
+    token_configured = mubu_mcp_client.has_token()
+    mcp_available = get_sync_state("mcp_available", "0") == "1"
+    mcp_last_sync = get_sync_state("mcp_last_sync", "")
+    return {
+        "token_configured": token_configured,
+        "mcp_available": mcp_available,
+        "last_sync": mcp_last_sync,
+    }
