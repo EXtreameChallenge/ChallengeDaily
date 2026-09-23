@@ -303,7 +303,8 @@ export default function TodayPage() {
   }
 
 return (
-    <div className="animate-fade-in pb-4">
+    <div className="animate-fade-in pb-4 relative">
+      <div className="bg-glow-top" />
       {(timeOfDay === 'morning' || timeOfDay === 'forenoon') && (
         <div className="mb-3"><MorningRitual /></div>
       )}
@@ -348,7 +349,7 @@ return (
       </div>
 
       {/* P0-4: 今日一句话 AI 摘要卡片 */}
-      <div className="mb-3 bg-cd-card/50 border border-cd-border rounded-xl p-4 flex items-center gap-3">
+      <div className="mb-3 card-gradient-border rounded-xl p-4 flex items-center gap-3">
         <div className="w-8 h-8 rounded-full bg-cd-purple/10 flex items-center justify-center shrink-0">
           <Sparkles size={15} className="text-cd-purple" />
         </div>

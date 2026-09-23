@@ -352,7 +352,7 @@ export default function Sidebar() {
                       className={({ isActive }) =>
                         `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${
                           isActive
-                            ? 'bg-cd-green-light text-cd-green font-medium'
+                            ? 'bg-cd-green-light text-cd-green font-medium nav-item-active'
                             : 'text-cd-text-secondary hover:bg-cd-hover hover:text-cd-text'
                         }`
                       }
@@ -396,7 +396,7 @@ export default function Sidebar() {
                             className={({ isActive }) =>
                               `flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] transition-colors ${
                                 isActive
-                                  ? 'bg-cd-green-light text-cd-green font-medium'
+                                  ? 'bg-cd-green-light text-cd-green font-medium nav-item-active'
                                   : 'text-cd-text-tertiary hover:bg-cd-hover hover:text-cd-text'
                               }`
                             }
@@ -427,7 +427,7 @@ export default function Sidebar() {
                 className={({ isActive }) =>
                   `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${
                     isActive
-                      ? 'bg-cd-green-light text-cd-green font-medium'
+                      ? 'bg-cd-green-light text-cd-green font-medium nav-item-active'
                       : 'text-cd-text-secondary hover:bg-cd-hover hover:text-cd-text'
                   }`
                 }
@@ -441,7 +441,7 @@ export default function Sidebar() {
       </div>
 
       {/* ─── 底部用户信息 ─────────────────────── */}
-      <div className="px-4 py-3 border-t border-cd-border">
+      <div className="px-4 py-3 border-t border-cd-border bg-gradient-soft">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-full flex items-center justify-center bg-cd-green/20 shrink-0">
             <svg viewBox="0 0 24 24" className="w-4 h-4 text-cd-green" fill="currentColor">
