@@ -260,7 +260,7 @@ export default function Dashboard() {
           </p>
         </div>
         <a href="#/" className="text-sm text-cd-green hover:underline flex items-center gap-1">
-          <LayoutDashboard className="w-4 h-4" /> 返回今日总览
+          <LayoutDashboard className="w-4 h-4" /> 返回今日主页
         </a>
       </div>
 

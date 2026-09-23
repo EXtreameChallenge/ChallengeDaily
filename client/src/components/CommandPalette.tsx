@@ -36,7 +36,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       action: () => { navigate(to); onClose() },
     })
     return [
-      nav('/', '今日总览', Home, '首页', ['home', 'dashboard']),
+      nav('/', '今日主页', Home, '首页', ['home', 'dashboard']),
       nav('/week-plan', '周计划', Calendar, '周计划管理', ['week', 'plan']),
       nav('/todos', '待办清单', CheckSquare, '任务管理', ['todo', 'task']),
       nav('/focus', '专注番茄', Timer, '番茄钟', ['pomodoro', 'focus', '番茄']),

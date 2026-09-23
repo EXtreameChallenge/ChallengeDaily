@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense, type ReactNode } from 'react'
-import { HashRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import TitleBar from './components/TitleBar'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -16,7 +16,6 @@ import { RelayCardContainer } from './components/relay/RelayCard'
 
 // 懒加载页面组件 — 减少首屏加载体积
 const TodayPage = lazy(() => import('./pages/Today/TodayPage'))
-const Overview = lazy(() => import('./pages/Overview'))
 const Timeline = lazy(() => import('./pages/Timeline'))
 const Report = lazy(() => import('./pages/Report'))
 const Heatmap = lazy(() => import('./pages/Heatmap'))
@@ -283,7 +282,7 @@ export default function App() {
                     <Suspense fallback={<PageSpinner />}>
                       <Routes>
                         <Route path="/" element={<TodayPage />} />
-                        <Route path="/overview" element={<Overview />} />
+                        <Route path="/overview" element={<Navigate to="/" replace />} />
                         <Route path="/timeline" element={<Timeline />} />
                         <Route path="/report" element={<Report />} />
                         <Route path="/focus" element={<Focus />} />

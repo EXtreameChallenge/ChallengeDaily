@@ -107,12 +107,6 @@ const NAV_GROUPS: { label: string; items: NavParent[] }[] = [
     label: '执行',
     items: [
       {
-        to: '/',
-        icon: LayoutDashboard,
-        label: '今日总览',
-        desc: '工作时长、活动摘要、AI 洞察',
-      },
-      {
         to: '/todos',
         icon: CheckSquare,
         label: '待办清单',
