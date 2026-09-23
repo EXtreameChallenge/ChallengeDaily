@@ -91,6 +91,10 @@ from routes.web_tracker import bp as web_tracker_bp
 from routes.aw_compat import bp as aw_compat_bp
 from routes.wakatime_compat import bp as wakatime_compat_bp
 from routes.leaderboard import bp as leaderboard_bp
+from routes.ai_today_summary import bp as ai_today_summary_bp
+from routes.user_profile_routes import bp as user_profile_bp
+from routes.todo_extraction import bp as todo_extraction_bp
+from routes.report_templates import bp as report_templates_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -186,4 +190,8 @@ ALL_BLUEPRINTS = [
     aw_compat_bp,
     wakatime_compat_bp,
     leaderboard_bp,
+    ai_today_summary_bp,
+    user_profile_bp,
+    todo_extraction_bp,
+    report_templates_bp,
 ]

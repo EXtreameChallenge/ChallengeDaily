@@ -220,6 +220,14 @@ def main():
     except Exception as e:
         logger.warning(f"幕布文档表初始化失败（非致命）: {e}")
 
+    # 1.6 初始化报告模板表
+    try:
+        from report_templates import init_table as init_report_templates
+        init_report_templates()
+        logger.info("报告模板表初始化完成")
+    except Exception as e:
+        logger.warning(f"报告模板表初始化失败（非致命）: {e}")
+
     # 2. 打印配置信息
     logger.info(f"截图间隔: {config.SCREENSHOT_INTERVAL_SEC}s")
     logger.info(f"HTTP API 端口: {HTTP_PORT}")
