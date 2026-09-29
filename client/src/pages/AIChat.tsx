@@ -5,36 +5,41 @@ import {
   Check, Copy, X, Paperclip, ChevronDown, ArrowDown, Brain,
   BarChart3, ListTodo, Timer, FileText, TrendingUp, UserCircle,
   Loader2, PanelLeftClose, PanelLeftOpen, Square, Settings,
+  Search, Globe, ChevronRight,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { aiChatStream, getChatHistory, clearChatHistory, executeChatAction, type ChatMessage, type ChatStreamEvent, type ActionConfirmation } from '../api/client'
 
-// ── 工具名称映射（中文标签）──
-const TOOL_LABELS: Record<string, { label: string; icon: string }> = {
-  get_activities: { label: '查询活动记录', icon: '🔍' },
-  get_todos: { label: '查询待办列表', icon: '📋' },
-  get_pomodoro_stats: { label: '查询番茄钟', icon: '🍅' },
-  get_daily_summary: { label: '查询日画像', icon: '📊' },
-  get_work_trends: { label: '查询效率趋势', icon: '📈' },
-  get_user_profile: { label: '查询用户画像', icon: '👤' },
-  create_todo: { label: '创建待办', icon: '✏️' },
-  start_pomodoro: { label: '启动番茄钟', icon: '🍅' },
-  save_diary: { label: '保存日记', icon: '📝' },
+// ════════════════════════════════════════════════════════════
+//  常量
+// ════════════════════════════════════════════════════════════
+
+// 工具名 → 中文标签
+const TOOL_LABELS: Record<string, { label: string; emoji: string }> = {
+  get_activities:      { label: '查询活动记录', emoji: '🔍' },
+  get_todos:           { label: '查询待办列表', emoji: '📋' },
+  get_pomodoro_stats:  { label: '查询番茄钟',   emoji: '🍅' },
+  get_daily_summary:   { label: '查询日画像',   emoji: '📊' },
+  get_work_trends:     { label: '查询效率趋势', emoji: '📈' },
+  get_user_profile:    { label: '查询用户画像', emoji: '👤' },
+  create_todo:         { label: '创建待办',     emoji: '✏️' },
+  start_pomodoro:      { label: '启动番茄钟',   emoji: '🍅' },
+  save_diary:          { label: '保存日记',     emoji: '📝' },
 }
 
-// ── 快捷操作卡片 ──
-const QUICK_ACTIONS = [
-  { label: '今日工作概览', icon: BarChart3, prompt: '我今天的工作情况怎么样？请给我一个概览' },
-  { label: '效率趋势分析', icon: TrendingUp, prompt: '分析我最近7天的工作效率趋势，有什么变化和规律？' },
-  { label: '待办进展', icon: ListTodo, prompt: '我还有哪些待办没完成？帮我整理一下' },
-  { label: '番茄钟统计', icon: Timer, prompt: '我最近的番茄钟执行情况怎么样？' },
-  { label: '生成本周复盘', icon: FileText, prompt: '帮我生成本周的工作复盘总结，包含数据和分析' },
-  { label: '深度画像', icon: UserCircle, prompt: '介绍一下我的工作画像和特征' },
+// 欢迎页快捷建议卡片
+const QUICK_SUGGESTIONS = [
+  { icon: BarChart3,   title: '今日工作概览', desc: '快速了解今天的整体情况', prompt: '我今天的工作情况怎么样？请给我一个概览' },
+  { icon: TrendingUp,  title: '效率趋势分析', desc: '近 7 天的效率变化与规律',   prompt: '分析我最近7天的工作效率趋势，有什么变化和规律？' },
+  { icon: ListTodo,    title: '待办进展',     desc: '整理未完成的待办事项',       prompt: '我还有哪些待办没完成？帮我整理一下' },
+  { icon: Timer,       title: '番茄钟统计',   desc: '最近的番茄钟执行情况',       prompt: '我最近的番茄钟执行情况怎么样？' },
+  { icon: FileText,    title: '生成本周复盘', desc: '包含数据和分析的总结',       prompt: '帮我生成本周的工作复盘总结，包含数据和分析' },
+  { icon: UserCircle,  title: '深度画像',     desc: '了解我的工作特征',         prompt: '介绍一下我的工作画像和特征' },
 ]
 
-// ── 工具调用状态：preparing(灰脉冲) / running(扫光) / done(绿勾) / failed(红) ──
-type ToolStatus = 'preparing' | 'running' | 'done' | 'failed'
+// 工具调用状态
+type ToolStatus = 'pending' | 'running' | 'success' | 'error'
 
 interface ToolCall {
   id: string
@@ -42,6 +47,7 @@ interface ToolCall {
   status: ToolStatus
   result?: string
   startedAt: number
+  finishedAt?: number
 }
 
 interface Attachment {
@@ -56,13 +62,16 @@ interface DisplayMessage {
   content: string
   created_at: string
   reasoning?: string
+  reasoningMs?: number
   toolCalls?: ToolCall[]
   actions?: ActionConfirmation[]
   actionResults?: Record<number, 'confirmed' | 'rejected'>
   isStreaming?: boolean
 }
 
-// ── 日期分组辅助 ──
+// ════════════════════════════════════════════════════════════
+//  日期分组辅助
+// ════════════════════════════════════════════════════════════
 function sameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
@@ -81,8 +90,14 @@ function timeLabel(iso: string): string {
   const d = new Date(iso)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
+function fmtMs(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  return `${(ms / 1000).toFixed(1)}s`
+}
 
-// ── 提取操作确认（保留原逻辑）──
+// ════════════════════════════════════════════════════════════
+//  操作确认 JSON 提取
+// ════════════════════════════════════════════════════════════
 function extractActionConfirmations(content: string): { text: string; actions: ActionConfirmation[] } {
   const actions: ActionConfirmation[] = []
   let text = content
@@ -100,9 +115,9 @@ function extractActionConfirmations(content: string): { text: string; actions: A
   return { text: text.trim(), actions }
 }
 
-// ════════════════════════════════════════════
-//  代码块：语言标签 banner + 复制按钮（深色背景，16px 圆角）
-// ════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+//  代码块（16px 圆角 + sticky banner + 复制）
+// ════════════════════════════════════════════════════════════
 function CodeBlock({ language, code }: { language: string; code: string }) {
   const [copied, setCopied] = useState(false)
   const onCopy = async () => {
@@ -115,10 +130,10 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
   return (
     <div className="aic-code">
       <div className="aic-code-banner">
-        <span className="aic-code-lang">{language || 'code'}</span>
-        <button onClick={onCopy}>
+        <span className="aic-code-lang">{language || 'text'}</span>
+        <button onClick={onCopy} className="aic-code-copy">
           {copied ? <Check size={11} /> : <Copy size={11} />}
-          {copied ? '已复制' : '复制'}
+          <span>{copied ? '已复制' : '复制'}</span>
         </button>
       </div>
       <pre><code>{code}</code></pre>
@@ -126,21 +141,24 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
   )
 }
 
-// ════════════════════════════════════════════
-//  思考过程折叠行（24px 单行，13px 灰字，运行中 shimmer）
-// ════════════════════════════════════════════
-function ReasoningRow({ text, running }: { text: string; running?: boolean }) {
+// ════════════════════════════════════════════════════════════
+//  思考过程折叠行（DeepSeek 风格 24px 单行）
+// ════════════════════════════════════════════════════════════
+function ReasoningRow({ text, running, elapsedMs }: { text: string; running?: boolean; elapsedMs?: number }) {
   const [open, setOpen] = useState(false)
+  const done = !running && elapsedMs != null
   return (
     <div className="aic-think">
       <button className="aic-think-row" onClick={() => setOpen(o => !o)}>
         <Brain size={14} className="shrink-0 text-cd-text-tertiary" />
-        <span className={running && !open ? 'text-shimmer' : ''}>深度思考</span>
-        {text && <span className="aic-think-dot" />}
-        {text && (
-          <span className={`flex-1 min-w-0 truncate ${running ? 'aic-streaming-mask' : ''}`}>
-            {text.slice(0, 60)}
-          </span>
+        {running ? (
+          <span className="text-shimmer">深度思考中…</span>
+        ) : (
+          <span className="aic-think-label">已深度思考{done ? ` ${fmtMs(elapsedMs!)}` : ''}</span>
+        )}
+        {text && !running && <span className="aic-think-dot" />}
+        {text && !running && (
+          <span className="aic-think-preview">{text.slice(0, 50)}</span>
         )}
         <ChevronDown size={14} className={`ml-auto shrink-0 text-cd-text-tertiary transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -151,65 +169,86 @@ function ReasoningRow({ text, running }: { text: string; running?: boolean }) {
   )
 }
 
-// ════════════════════════════════════════════
-//  工具调用行（24px 单行，中文工具名 + 状态图标 + 耗时，结果可展开）
-// ════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+//  工具调用行（四态：pending / running / success / error）
+// ════════════════════════════════════════════════════════════
 function ToolRow({ tool }: { tool: ToolCall }) {
   const [open, setOpen] = useState(false)
-  const meta = TOOL_LABELS[tool.name] || { label: tool.name, icon: '🔧' }
+  const meta = TOOL_LABELS[tool.name] || { label: tool.name, emoji: '🔧' }
+
+  const elapsed = tool.finishedAt
+    ? tool.finishedAt - tool.startedAt
+    : Date.now() - tool.startedAt
 
   const stateIcon = () => {
     switch (tool.status) {
+      case 'pending':
+        return <span className="aic-tool-pulse-dot" />
       case 'running':
         return <Loader2 size={13} className="text-cd-accent animate-spin shrink-0" />
-      case 'done':
-        return <Check size={13} className="text-cd-accent shrink-0" />
-      case 'failed':
+      case 'success':
+        return <Check size={13} className="aic-tool-success shrink-0" />
+      case 'error':
         return <X size={13} className="text-cd-red shrink-0" />
-      default:
-        return <span className="w-2 h-2 rounded-full bg-cd-text-tertiary/40 animate-pulse-soft shrink-0" />
     }
   }
 
-  const elapsed = Math.max(1, Math.round((Date.now() - tool.startedAt) / 1000))
-  const statusText = tool.status === 'running' ? `${elapsed}s` : tool.status === 'done' ? '完成' : tool.status === 'failed' ? '失败' : '等待中'
+  const statusText = () => {
+    switch (tool.status) {
+      case 'pending':  return '等待中'
+      case 'running':  return `${fmtMs(elapsed)}`
+      case 'success':  return fmtMs(elapsed)
+      case 'error':    return '失败'
+    }
+  }
 
   return (
-    <div>
+    <div className="aic-tool">
       <button className="aic-tool-row" onClick={() => setOpen(o => !o)}>
         {stateIcon()}
-        <span className={tool.status === 'running' ? 'text-shimmer' : ''}>
-          {meta.icon} {meta.label}
+        <span className={`aic-tool-name ${tool.status === 'running' ? 'text-shimmer' : ''}`}>
+          {meta.emoji} {meta.label}
         </span>
         <span className="aic-think-dot" />
-        <span className="flex-1 min-w-0 text-cd-text-tertiary truncate text-xs">{statusText}</span>
+        <span className="aic-tool-status">{statusText()}</span>
         <ChevronDown size={14} className={`ml-auto shrink-0 text-cd-text-tertiary transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      {open && tool.result != null && (
-        <div className="aic-tool-result">{tool.result}</div>
+      {open && (
+        <div className="aic-tool-body">
+          {tool.result != null ? (
+            <div className="aic-tool-result">{tool.result}</div>
+          ) : (
+            <div className="aic-tool-empty">暂无返回结果</div>
+          )}
+        </div>
       )}
     </div>
   )
 }
 
-// ════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
 //  主页面
-// ════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
 export default function AIChat() {
   const [messages, setMessages] = useState<DisplayMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarSearch, setSidebarSearch] = useState('')
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [showJump, setShowJump] = useState(false)
   const [deepThink, setDeepThink] = useState(false)
   const [webSearch, setWebSearch] = useState(false)
+  const [modelOpen, setModelOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const streamingContentRef = useRef('')
+  const streamingReasoningRef = useRef('')
+  const reasoningStartRef = useRef<number>(0)
   const nearBottomRef = useRef(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sentFromUrlRef = useRef(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -255,6 +294,14 @@ export default function AIChat() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }
 
+  // ── 自动增高 textarea（最多 200px） ──
+  const autoGrow = useCallback(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 200) + 'px'
+  }, [])
+
   // ── 发送 ──
   const handleSend = async (text?: string) => {
     const msg = (text || input).trim()
@@ -263,6 +310,13 @@ export default function AIChat() {
     setAttachments([])
     setLoading(true)
     streamingContentRef.current = ''
+    streamingReasoningRef.current = ''
+    reasoningStartRef.current = Date.now()
+
+    // 重置 textarea 高度
+    requestAnimationFrame(() => {
+      if (textareaRef.current) textareaRef.current.style.height = 'auto'
+    })
 
     const userMsg: DisplayMessage = {
       id: Date.now(),
@@ -303,7 +357,12 @@ export default function AIChat() {
             case 'tool_call': {
               setMessages(prev => prev.map(m => {
                 if (m.id !== assistantId) return m
-                const tool: ToolCall = { id: event.id, name: event.name, status: 'running', startedAt: Date.now() }
+                const tool: ToolCall = {
+                  id: event.id,
+                  name: event.name,
+                  status: 'running',
+                  startedAt: Date.now(),
+                }
                 return { ...m, toolCalls: [...(m.toolCalls || []).filter(t => t.id !== event.id), tool] }
               }))
               break
@@ -314,26 +373,46 @@ export default function AIChat() {
                 return {
                   ...m,
                   toolCalls: (m.toolCalls || []).map(t =>
-                    t.id === event.id ? { ...t, status: 'done' as ToolStatus, result: event.result } : t
+                    t.id === event.id
+                      ? { ...t, status: 'success' as ToolStatus, result: event.result, finishedAt: Date.now() }
+                      : t
                   ),
                 }
               }))
               break
             }
-            case 'done':
+            case 'done': {
+              const reasoningMs = streamingReasoningRef.current
+                ? Date.now() - reasoningStartRef.current
+                : undefined
               setMessages(prev => prev.map(m => {
                 if (m.id !== assistantId) return m
                 const { text: clean, actions } = extractActionConfirmations(m.content)
-                return { ...m, content: clean, actions, isStreaming: false }
+                return {
+                  ...m,
+                  content: clean,
+                  actions,
+                  reasoning: streamingReasoningRef.current || undefined,
+                  reasoningMs,
+                  isStreaming: false,
+                }
               }))
               break
+            }
             case 'error':
               setMessages(prev => prev.map(m => {
                 if (m.id !== assistantId) return m
                 const toolCalls = (m.toolCalls || []).map(t =>
-                  t.status === 'running' ? { ...t, status: 'failed' as ToolStatus } : t
+                  t.status === 'running'
+                    ? { ...t, status: 'error' as ToolStatus, finishedAt: Date.now() }
+                    : t
                 )
-                return { ...m, content: event.content || 'AI 暂时无法回复', toolCalls, isStreaming: false }
+                return {
+                  ...m,
+                  content: event.content || 'AI 暂时无法回复',
+                  toolCalls,
+                  isStreaming: false,
+                }
               }))
               break
           }
@@ -377,7 +456,7 @@ export default function AIChat() {
     }
   }
 
-  // ── 附件（占位：仅本地预览，不上传后端）──
+  // ── 附件（占位：仅本地预览） ──
   const onPickFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
@@ -388,18 +467,26 @@ export default function AIChat() {
 
   // ── 侧栏：按日期分组历史 ──
   const historyGroups = useMemo(() => {
+    const filtered = messages.filter(m => {
+      if (!sidebarSearch.trim()) return true
+      return m.content.toLowerCase().includes(sidebarSearch.toLowerCase())
+    })
     const map = new Map<string, { label: string; snippet: string; time: string }>()
-    for (const m of messages) {
+    for (const m of filtered) {
       const key = dateKey(m.created_at)
       if (!map.has(key)) {
-        map.set(key, { label: dateLabel(m.created_at), snippet: m.role === 'user' ? m.content : '', time: timeLabel(m.created_at) })
+        map.set(key, {
+          label: dateLabel(m.created_at),
+          snippet: m.role === 'user' ? m.content : '',
+          time: timeLabel(m.created_at),
+        })
       } else {
         const ex = map.get(key)!
         if (!ex.snippet && m.role === 'user') ex.snippet = m.content
       }
     }
     return [...map.entries()].reverse().map(([key, v]) => ({ key, ...v }))
-  }, [messages])
+  }, [messages, sidebarSearch])
 
   const scrollToDate = (dateKeyStr: string) => {
     const el = scrollRef.current?.querySelector(`[data-date="${dateKeyStr}"]`)
@@ -408,28 +495,48 @@ export default function AIChat() {
 
   const lastMsg = messages[messages.length - 1]
   const canRegenerate = !loading && lastMsg?.role === 'assistant' && !lastMsg.isStreaming
+  const isEmpty = messages.length === 0
 
   return (
-    <div className="aic-chat flex gap-3 h-full min-h-0">
+    <div className="aic-chat flex h-full min-h-0">
       {/* ═══════ 左栏：会话列表（glass，可折叠 56px 图标轨） ═══════ */}
       <aside className={`aic-side glass shrink-0 flex flex-col overflow-hidden ${sidebarOpen ? '' : 'aic-side-collapsed'}`}>
-        {/* 新对话（胶囊按钮） */}
-        <div className="p-2.5">
-          <button
-            onClick={handleNewChat}
-            className="aic-newchat"
-            title="新对话"
-          >
-            <Plus size={15} />
-            {sidebarOpen && <span>新对话</span>}
-          </button>
+        {/* 顶部：新对话按钮 */}
+        <div className="aic-side-top">
+          {sidebarOpen ? (
+            <button onClick={handleNewChat} className="aic-newchat" title="新对话">
+              <Plus size={15} />
+              <span>新对话</span>
+            </button>
+          ) : (
+            <button onClick={handleNewChat} className="aic-newchat-icon" title="新对话">
+              <Plus size={16} />
+            </button>
+          )}
         </div>
+
+        {/* 搜索框 */}
+        {sidebarOpen && (
+          <div className="aic-side-search-wrap">
+            <div className="aic-side-search">
+              <Search size={13} className="shrink-0 text-cd-text-tertiary" />
+              <input
+                value={sidebarSearch}
+                onChange={e => setSidebarSearch(e.target.value)}
+                placeholder="搜索会话"
+                className="aic-side-search-input"
+              />
+            </div>
+          </div>
+        )}
 
         {/* 会话列表：按日期分组 */}
         {sidebarOpen && (
-          <div className="flex-1 overflow-y-auto pb-2 scrollbar-thin">
+          <div className="flex-1 overflow-y-auto pb-2 scrollbar-thin aic-side-list">
             {historyGroups.length === 0 ? (
-              <p className="px-3 py-3 text-[11px] text-cd-text-tertiary leading-relaxed">暂无历史会话</p>
+              <p className="px-3 py-3 text-[11px] text-cd-text-tertiary leading-relaxed">
+                {sidebarSearch ? '无匹配会话' : '暂无历史会话'}
+              </p>
             ) : (
               historyGroups.map(g => (
                 <div key={g.key}>
@@ -448,97 +555,91 @@ export default function AIChat() {
         )}
 
         {/* 底部：设置 + 折叠 */}
-        <div className="p-2 mt-auto border-t border-cd-border/40 flex flex-col gap-0.5">
+        <div className="aic-side-bottom">
           {sidebarOpen && (
-            <button
-              className="aic-session-row"
-              title="设置（占位）"
-            >
+            <button className="aic-session-row" title="设置（占位）">
               <Settings size={14} className="shrink-0" />
               <span className="aic-session-title">设置</span>
             </button>
           )}
           <button
             onClick={() => setSidebarOpen(o => !o)}
-            className="aic-session-row"
+            className="aic-session-row aic-side-collapse-btn"
             title={sidebarOpen ? '收起侧栏' : '展开侧栏'}
           >
-            {sidebarOpen ? <PanelLeftClose size={14} className="shrink-0" /> : <PanelLeftOpen size={16} />}
-            {sidebarOpen && <span className="aic-session-title">收起侧栏</span>}
+            {sidebarOpen
+              ? <><PanelLeftClose size={14} className="shrink-0" /><span className="aic-session-title">收起侧栏</span></>
+              : <PanelLeftOpen size={16} />
+            }
           </button>
         </div>
       </aside>
 
       {/* ═══════ 中栏：对话区 ═══════ */}
       <section className="flex-1 flex flex-col min-w-0 relative">
-        {/* 顶栏（精简） */}
-        <div className="flex items-center justify-between px-2 py-2 shrink-0">
-          <h1 className="text-sm font-semibold text-cd-text flex items-center gap-2">
-            <Bot size={16} className="text-cd-accent" />
-            AI 智能体
-          </h1>
-          <div className="flex items-center gap-1">
-            {canRegenerate && (
-              <button onClick={handleRegenerate} className="p-1.5 text-cd-text-secondary hover:text-cd-accent transition rounded-lg hover:bg-cd-hover" title="重新生成">
-                <RefreshCw size={14} />
-              </button>
-            )}
-            {messages.length > 0 && (
-              <button onClick={handleNewChat} className="p-1.5 text-cd-text-secondary hover:text-cd-red transition rounded-lg hover:bg-cd-hover" title="清空对话">
-                <Trash2 size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-
         {/* 消息列表 */}
         <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto scrollbar-thin">
-          {messages.length === 0 ? (
-            /* 空状态 hero：居中问候 + 快捷操作 */
-            <div className="min-h-full flex flex-col items-center justify-center px-6 pb-8">
-              <div className="w-14 h-14 rounded-2xl bg-cd-accent/10 flex items-center justify-center mb-4">
-                <Sparkles size={26} className="text-cd-accent" />
+          {isEmpty ? (
+            /* ═══════ 欢迎页 Hero ═══════ */
+            <div className="aic-hero">
+              <div className="aic-hero-icon">
+                <Bot size={32} className="text-cd-accent" />
               </div>
-              <h2 className="text-xl font-semibold text-cd-text mb-1.5">工作智能体</h2>
-              <p className="text-[13px] text-cd-text-secondary mb-6 text-center max-w-md">
-                你可以问我关于工作数据的任何事情，我也能帮你创建待办、启动番茄钟
+              <h1 className="aic-hero-title">有什么可以帮你的？</h1>
+              <p className="aic-hero-subtitle">
+                我可以帮你查看工作数据、创建待办、启动番茄钟，也能做分析和复盘
               </p>
-              <div className="grid grid-cols-2 gap-2.5 w-full max-w-lg">
-                {QUICK_ACTIONS.map(q => (
+              <div className="aic-hero-grid">
+                {QUICK_SUGGESTIONS.map(q => (
                   <button
-                    key={q.label}
+                    key={q.title}
                     onClick={() => handleSend(q.prompt)}
-                    className="flex items-center gap-2.5 px-3.5 py-3 bg-cd-card text-cd-text rounded-2xl border border-cd-border hover:border-cd-accent/40 transition text-left"
+                    className="aic-suggest-card"
                   >
-                    <q.icon size={16} className="text-cd-accent shrink-0" />
-                    <span className="text-[13px]">{q.label}</span>
+                    <q.icon size={18} className="aic-suggest-icon" />
+                    <div className="aic-suggest-text">
+                      <div className="aic-suggest-title">{q.title}</div>
+                      <div className="aic-suggest-desc">{q.desc}</div>
+                    </div>
+                    <ChevronRight size={14} className="aic-suggest-arrow" />
                   </button>
                 ))}
               </div>
+              <p className="aic-hero-hint">输入消息开始对话，Shift + Enter 换行</p>
             </div>
           ) : (
-            <div className="max-w-[768px] mx-auto flex flex-col" style={{ gap: 12 }}>
+            /* ═══════ 消息流 ═══════ */
+            <div className="aic-msgs">
               {messages.map((msg, idx) => {
                 const showDateAnchor = idx === 0 || dateKey(msg.created_at) !== dateKey(messages[idx - 1].created_at)
                 return (
                   <div key={msg.id}>
                     {showDateAnchor && <div data-date={dateKey(msg.created_at)} className="h-0" />}
                     {msg.role === 'user' ? (
-                      /* ── 用户消息：右对齐实色气泡，无头像 ── */
-                      <div className="flex justify-end">
+                      /* 用户消息：右对齐实色气泡 */
+                      <div className="aic-user-wrap">
                         <div className="aic-user-bubble">{msg.content}</div>
                       </div>
                     ) : (
-                      /* ── AI 消息：无气泡 transcript 流 ── */
+                      /* AI 消息：无气泡 */
                       <div className="aic-assistant">
+                        <div className="aic-assistant-head">
+                          <Bot size={16} className="text-cd-accent shrink-0" />
+                          <span className="aic-assistant-name">AI 助手</span>
+                        </div>
+
                         {/* 思考过程 */}
                         {msg.reasoning && (
-                          <ReasoningRow text={msg.reasoning} running={msg.isStreaming && !msg.content} />
+                          <ReasoningRow
+                            text={msg.reasoning}
+                            running={msg.isStreaming && !msg.content && !(msg.toolCalls?.length)}
+                            elapsedMs={msg.reasoningMs}
+                          />
                         )}
 
                         {/* 工具调用卡片 */}
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
-                          <div>
+                          <div className="aic-tool-list">
                             {msg.toolCalls.map(tc => <ToolRow key={tc.id} tool={tc} />)}
                           </div>
                         )}
@@ -561,12 +662,10 @@ export default function AIChat() {
                           </ReactMarkdown>
                         )}
 
-                        {/* 流式占位 */}
-                        {msg.isStreaming && !msg.content && !(msg.toolCalls && msg.toolCalls.length > 0) && !msg.reasoning && (
-                          <div className="flex gap-1.5 py-1">
-                            <span className="w-1.5 h-1.5 bg-cd-accent/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <span className="w-1.5 h-1.5 bg-cd-accent/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                            <span className="w-1.5 h-1.5 bg-cd-accent/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        {/* 流式占位（三点跳动） */}
+                        {msg.isStreaming && !msg.content && !(msg.toolCalls?.length) && !msg.reasoning && (
+                          <div className="aic-typing">
+                            <span /><span /><span />
                           </div>
                         )}
 
@@ -574,31 +673,31 @@ export default function AIChat() {
                         {msg.actions && msg.actions.map((action, i) => {
                           const result = msg.actionResults?.[i]
                           return (
-                            <div key={i} className="rounded-2xl border border-cd-accent/25 bg-cd-card p-3.5 max-w-lg">
-                              <div className="flex items-center gap-2 mb-1.5">
+                            <div key={i} className="aic-action-card">
+                              <div className="aic-action-head">
                                 <Sparkles size={13} className="text-cd-accent" />
-                                <span className="text-xs font-medium text-cd-text">操作确认</span>
+                                <span className="aic-action-title">操作确认</span>
                               </div>
-                              <p className="text-[13px] text-cd-text mb-3">{action.confirm_message}</p>
+                              <p className="aic-action-msg">{action.confirm_message}</p>
                               {result === 'confirmed' ? (
-                                <div className="flex items-center gap-1.5 text-xs text-cd-accent">
+                                <div className="aic-action-result aic-action-confirmed">
                                   <Check size={13} /> 已确认执行
                                 </div>
                               ) : result === 'rejected' ? (
-                                <div className="flex items-center gap-1.5 text-xs text-cd-text-tertiary">
+                                <div className="aic-action-result aic-action-rejected">
                                   <X size={13} /> 已取消
                                 </div>
                               ) : (
-                                <div className="flex gap-2">
+                                <div className="aic-action-btns">
                                   <button
                                     onClick={() => handleActionConfirm(action, msg.id, i)}
-                                    className="px-3.5 py-1.5 text-xs font-medium bg-cd-accent text-white rounded-full hover:opacity-90 transition"
+                                    className="aic-action-confirm-btn"
                                   >
                                     确认执行
                                   </button>
                                   <button
                                     onClick={() => setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, actionResults: { ...m.actionResults, [i]: 'rejected' as const } } : m))}
-                                    className="px-3.5 py-1.5 text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary rounded-full hover:bg-cd-hover transition border border-cd-border"
+                                    className="aic-action-cancel-btn"
                                   >
                                     取消
                                   </button>
@@ -612,39 +711,33 @@ export default function AIChat() {
                   </div>
                 )
               })}
-              {/* 底部留白，让 composer 上方有呼吸空间 */}
-              <div className="h-2" />
+              <div className="aic-msgs-bottom" />
             </div>
           )}
         </div>
 
-        {/* 回到底部：34px 圆形浮钮 */}
+        {/* 回到底部浮钮 */}
         {showJump && (
-          <button
-            onClick={jumpToBottom}
-            className="aic-to-bottom absolute left-1/2 -translate-x-1/2 z-10"
-            style={{ bottom: 140 }}
-            title="回到底部"
-          >
+          <button onClick={jumpToBottom} className="aic-to-bottom aic-to-bottom-float" title="回到底部">
             <ArrowDown size={15} />
           </button>
         )}
 
-        {/* ── 底部 sticky 输入区（composer 比消息列宽 16px 左右） ── */}
-        <div className="shrink-0 px-4 pb-4 pt-2">
-          {/* 附件 rail */}
+        {/* ═══════ 底部 Composer ═══════ */}
+        <div className="aic-composer-wrap">
+          {/* 附件预览条 */}
           {attachments.length > 0 && (
-            <div className="flex gap-2 mb-2 h-16 overflow-x-auto scrollbar-thin items-center">
+            <div className="aic-attachments">
               {attachments.map(a => (
-                <div key={a.id} className="relative shrink-0 w-40 h-14 rounded-xl border border-cd-border bg-cd-bg-secondary px-2.5 flex items-center gap-2">
+                <div key={a.id} className="aic-attachment-card">
                   <FileText size={16} className="text-cd-accent shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-[11px] text-cd-text truncate">{a.name}</div>
-                    <div className="text-[9px] text-cd-text-tertiary">{(a.size / 1024).toFixed(1)} KB</div>
+                  <div className="aic-attachment-info">
+                    <div className="aic-attachment-name">{a.name}</div>
+                    <div className="aic-attachment-size">{(a.size / 1024).toFixed(1)} KB</div>
                   </div>
                   <button
                     onClick={() => setAttachments(prev => prev.filter(p => p.id !== a.id))}
-                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-cd-bg-secondary border border-cd-border flex items-center justify-center hover:text-cd-red"
+                    className="aic-attachment-remove"
                   >
                     <X size={10} />
                   </button>
@@ -653,62 +746,73 @@ export default function AIChat() {
             </div>
           )}
 
-          {/* composer 卡片：28px 圆角 glass-strong，宽 800（消息列 768 + 32） */}
-          <div className="max-w-[800px] mx-auto">
-            <div className="aic-composer glass-strong">
-              <textarea
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSend()
-                  }
-                }}
-                placeholder="问我关于工作数据的任何问题..."
-                className="aic-composer-input scrollbar-thin"
-                rows={1}
-                disabled={loading}
-                onInput={e => {
-                  const el = e.target as HTMLTextAreaElement
-                  el.style.height = 'auto'
-                  el.style.height = Math.min(el.scrollHeight, 336) + 'px'
-                }}
-              />
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={onPickFiles}
-              />
-              {/* 工具行：左 [+] + 深度思考/联网 pill；右 发送/停止 */}
-              <div className="aic-composer-row">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="aic-add-btn"
-                    title="添加附件（占位）"
-                  >
-                    <Paperclip size={14} />
-                  </button>
-                  <button
-                    className={`aic-pill ${deepThink ? 'aic-pill-on' : ''}`}
-                    onClick={() => setDeepThink(v => !v)}
-                    title="深度思考（界面开关）"
-                  >
-                    <Brain size={13} />
-                    深度思考
-                  </button>
-                  <button
-                    className={`aic-pill ${webSearch ? 'aic-pill-on' : ''}`}
-                    onClick={() => setWebSearch(v => !v)}
-                    title="联网搜索（界面开关）"
-                  >
-                    <span className="text-xs">🌐</span>
-                    联网搜索
-                  </button>
-                </div>
+          {/* composer 卡片 */}
+          <div className="aic-composer glass-strong">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={e => { setInput(e.target.value); autoGrow() }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
+              placeholder="输入消息，Shift+Enter 换行..."
+              className="aic-composer-input scrollbar-thin"
+              rows={1}
+              disabled={loading}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={onPickFiles}
+            />
+
+            {/* 底部工具栏 */}
+            <div className="aic-composer-row">
+              {/* 左侧工具 */}
+              <div className="aic-composer-tools">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="aic-add-btn"
+                  title="添加附件"
+                >
+                  <Paperclip size={14} />
+                </button>
+                <button
+                  className={`aic-pill ${deepThink ? 'aic-pill-on' : ''}`}
+                  onClick={() => setDeepThink(v => !v)}
+                  title="深度思考"
+                >
+                  <Brain size={13} />
+                  深度思考
+                </button>
+                <button
+                  className={`aic-pill ${webSearch ? 'aic-pill-on' : ''}`}
+                  onClick={() => setWebSearch(v => !v)}
+                  title="联网搜索"
+                >
+                  <Globe size={13} />
+                  联网搜索
+                </button>
+              </div>
+
+              {/* 右侧：模型选择 + 设置 + 发送/停止 */}
+              <div className="aic-composer-trailing">
+                <button
+                  className="aic-model-btn"
+                  onClick={() => setModelOpen(o => !o)}
+                  title="选择模型"
+                >
+                  <span className="aic-model-name">GLM 4.5 Flash</span>
+                  <ChevronDown size={12} className="text-cd-text-tertiary" />
+                </button>
+                <button className="aic-settings-btn" title="设置">
+                  <Settings size={15} />
+                </button>
 
                 {loading ? (
                   <button
@@ -725,7 +829,7 @@ export default function AIChat() {
                     className="aic-send-btn"
                     title="发送"
                   >
-                    <Send size={16} style={{ transform: 'rotate(0deg)' }} />
+                    <Send size={15} />
                   </button>
                 )}
               </div>

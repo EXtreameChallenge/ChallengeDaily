@@ -359,7 +359,7 @@ export default function AIDock() {
       )}
 
       {/* ── 悬浮玻璃输入条（胶囊形，h-10）── */}
-      <div className="glass-strong rounded-full flex items-center gap-2 pl-3 pr-1.5 h-10">
+      <div className="glass-pill flex items-center gap-2 pl-3 pr-1.5 h-10">
         <Bot size={15} className="text-cd-accent shrink-0" />
         <input
           ref={inputRef}

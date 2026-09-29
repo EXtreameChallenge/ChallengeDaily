@@ -116,7 +116,7 @@ AI_BASE_URL = os.getenv("AI_BASE_URL", "https://open.bigmodel.cn/api/paas/v4")
 # 向后兼容：旧的 AI_MODEL 同时作为 vision/text 的兜底
 _legacy_model = os.getenv("AI_MODEL", "")
 AI_VISION_MODEL = os.getenv("AI_VISION_MODEL", _legacy_model or "glm-4v-flash")
-AI_TEXT_MODEL = os.getenv("AI_TEXT_MODEL", _legacy_model or "glm-4-flash")
+AI_TEXT_MODEL = os.getenv("AI_TEXT_MODEL", _legacy_model or "glm-4.5-flash")
 
 # API Key 优先级：环境变量（非空）> 加密 vault > 默认值
 _raw_api_key = os.getenv("AI_API_KEY", "").strip()

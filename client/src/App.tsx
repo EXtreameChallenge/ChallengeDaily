@@ -322,7 +322,7 @@ export default function App() {
                   </RouteErrorBoundary>
                 </main>
                 <RelayCardContainer />
-                <AIDock />
+                <AIDockGate />
                 </RelayEngineProvider>
               </HashRouter>
             )}
@@ -387,6 +387,13 @@ function RouteErrorBoundary({ children }: { children: ReactNode }) {
       {children}
     </ErrorBoundary>
   )
+}
+
+/** AI 对话页面隐藏底部悬浮对话框 */
+function AIDockGate() {
+  const location = useLocation()
+  if (location.pathname === '/ai-chat') return null
+  return <AIDock />
 }
 
 function LoadingScreen() {
