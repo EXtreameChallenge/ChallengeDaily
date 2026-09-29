@@ -673,7 +673,7 @@ export default function Focus() {
                       setPomodoroSize((todo.pomodoro_size as PomodoroSize) || 'big')
                       setTotalPomodoros(todo.estimated_pomodoros || 1)
                     }}
-                    className={`p-2.5 rounded-2xl cursor-pointer transition border ${
+                    className={`p-2.5 rounded-xl cursor-pointer transition border ${
                       isSelected
                         ? 'bg-cd-accent/15 border-cd-accent/40'
                         : 'hover:bg-cd-bg-card border-transparent'
@@ -794,7 +794,7 @@ export default function Focus() {
                     }
                   }
                 }}
-                className="w-full bg-cd-bg-input border border-white/5 rounded-2xl px-4 py-3 text-cd-text focus:outline-none focus:border-cd-accent/40"
+                className="w-full bg-cd-bg-input border border-white/5 rounded-xl px-4 py-3 text-cd-text focus:outline-none focus:border-cd-accent/40"
               >
                 <option value="">选择关联任务（可选）</option>
                 {[...todayTodos]
@@ -806,14 +806,14 @@ export default function Focus() {
                   ))}
               </select>
             ) : (
-              <div className="text-xs text-cd-text-secondary bg-cd-bg-card rounded-2xl px-4 py-3 border border-white/5">
+              <div className="text-xs text-cd-text-secondary bg-cd-bg-card rounded-xl px-4 py-3 border border-white/5">
                 今日还没有分配任务，<a href="#/week-plan" className="text-cd-accent hover:underline">前往周计划分配</a>
               </div>
             )}
             <input
               type="text" value={task} onChange={e => setTask(e.target.value)}
               placeholder="这次专注要做什么？"
-              className="w-full bg-cd-bg-input border border-white/5 rounded-2xl px-4 py-3 text-cd-text placeholder:text-cd-text-secondary focus:outline-none focus:border-cd-accent/40"
+              className="w-full bg-cd-bg-input border border-white/5 rounded-xl px-4 py-3 text-cd-text placeholder:text-cd-text-secondary focus:outline-none focus:border-cd-accent/40"
             />
             {/* 番茄大小选择 */}
             <div className="flex gap-2">
@@ -821,7 +821,7 @@ export default function Focus() {
                 const cfg = POMODORO_SIZES[s]
                 return (
                   <button key={s} onClick={() => setPomodoroSize(s)}
-                    className={`flex-1 py-2.5 rounded-2xl text-sm transition border ${
+                    className={`flex-1 py-2.5 rounded-lg text-sm transition border ${
                       pomodoroSize === s
                         ? 'bg-cd-accent/20 text-cd-accent border-cd-accent/30'
                         : 'bg-cd-bg-input text-cd-text-secondary border-white/5'
@@ -834,7 +834,7 @@ export default function Focus() {
             </div>
             {/* P9-3：智能时长建议 */}
             {smartDuration && smartDuration.analysis.length > 0 && (
-              <div className="flex items-start gap-2 bg-purple-500/10 border border-purple-400/20 rounded-2xl px-3 py-2 text-xs">
+              <div className="flex items-start gap-2 bg-purple-500/10 border border-purple-400/20 rounded-xl px-3 py-2 text-xs">
                 <Sparkles size={14} className="text-purple-400 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 text-cd-text-secondary">
                   <div className="text-cd-text font-medium">智能建议：{smartDuration.recommended_min} 分钟</div>
@@ -855,7 +855,7 @@ export default function Focus() {
             {/* 预估番茄数 */}
             <div className="flex items-center gap-3">
               <span className="text-sm text-cd-text-secondary">预估番茄</span>
-              <div className="flex items-center gap-2 bg-cd-bg-input border border-white/5 rounded-2xl px-3 py-1.5">
+              <div className="flex items-center gap-2 bg-cd-bg-input border border-white/5 rounded-xl px-3 py-1.5">
                 <button onClick={() => setTotalPomodoros(Math.max(1, totalPomodoros - 1))}
                   className="w-6 h-6 flex items-center justify-center rounded-lg bg-white/5 text-cd-text hover:bg-white/10 text-sm">-</button>
                 <span className="text-xl font-bold text-cd-text tabular-nums w-6 text-center">{totalPomodoros}</span>
@@ -1096,7 +1096,7 @@ export default function Focus() {
           ) : (
             <div className="space-y-1.5 max-h-64 overflow-y-auto">
               {distractionEvents.map((e, i) => (
-                <div key={i} className="flex items-center gap-2 py-1 px-2 rounded-2xl hover:bg-cd-bg-input/50 transition">
+                <div key={i} className="flex items-center gap-2 py-1 px-2 rounded-xl hover:bg-cd-bg-input/50 transition">
                   <span className="text-[10px] text-cd-text-tertiary tabular-nums w-10 flex-shrink-0">{e.time}</span>
                   <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${e.type === 'distracted' ? 'bg-yellow-400' : 'bg-blue-400'}`} />
                   <span className="text-xs text-cd-text truncate flex-1">{e.app}</span>
@@ -1113,7 +1113,7 @@ export default function Focus() {
       {/* T5: 番茄中断恢复提示 */}
       {resumePrompt && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-cd-card p-6 rounded-2xl border border-cd-border max-w-md">
+          <div className="bg-cd-card p-6 rounded-xl border border-cd-border max-w-md">
             <h3 className="text-lg font-medium text-cd-text mb-2">⚠️ 检测到未完成的番茄</h3>
             <p className="text-sm text-cd-text-secondary mb-4">
               剩余时间：{Math.floor(resumePrompt.remaining / 60)} 分 {resumePrompt.remaining % 60} 秒<br />
@@ -1168,19 +1168,19 @@ export default function Focus() {
                 <>
                   {/* 总览数据 */}
                   <div className="grid grid-cols-4 gap-3">
-                    <div className="bg-cd-bg-input rounded-2xl p-3 text-center">
+                    <div className="bg-cd-bg-input rounded-xl p-3 text-center">
                       <div className="text-xl font-bold text-cd-text">{reportData.total_sessions}</div>
                       <div className="text-[10px] text-cd-text-tertiary mt-0.5">总番茄</div>
                     </div>
-                    <div className="bg-cd-bg-input rounded-2xl p-3 text-center">
+                    <div className="bg-cd-bg-input rounded-xl p-3 text-center">
                       <div className="text-xl font-bold text-green-400">{reportData.completed_sessions}</div>
                       <div className="text-[10px] text-cd-text-tertiary mt-0.5">已完成</div>
                     </div>
-                    <div className="bg-cd-bg-input rounded-2xl p-3 text-center">
+                    <div className="bg-cd-bg-input rounded-xl p-3 text-center">
                       <div className="text-xl font-bold text-cd-accent">{Math.round((reportData.completion_rate || 0) * 100)}%</div>
                       <div className="text-[10px] text-cd-text-tertiary mt-0.5">完成率</div>
                     </div>
-                    <div className="bg-cd-bg-input rounded-2xl p-3 text-center">
+                    <div className="bg-cd-bg-input rounded-xl p-3 text-center">
                       <div className="text-xl font-bold text-gold">{reportData.total_focus_hour}</div>
                       <div className="text-[10px] text-cd-text-tertiary mt-0.5">专注小时</div>
                     </div>
@@ -1188,7 +1188,7 @@ export default function Focus() {
 
                   {/* 最佳时段 */}
                   {reportData.best_period && (
-                    <div className="bg-purple-500/10 border border-purple-400/20 rounded-2xl p-3 text-sm">
+                    <div className="bg-purple-500/10 border border-purple-400/20 rounded-xl p-3 text-sm">
                       <span className="text-purple-400 font-medium">★ 最佳时段：</span>
                       <span className="text-cd-text-secondary ml-1">
                         {reportData.best_period}（完成率 {Math.round((reportData.best_period_completion_rate || 0) * 100)}%）
@@ -1206,7 +1206,7 @@ export default function Focus() {
                           if (!ps || ps.total === 0) return null
                           const rate = Math.round((ps.completed / ps.total) * 100)
                           return (
-                            <div key={p} className="bg-cd-bg-input rounded-2xl p-2 text-center">
+                            <div key={p} className="bg-cd-bg-input rounded-xl p-2 text-center">
                               <div className="text-xs text-cd-text font-medium">{p}</div>
                               <div className="text-lg font-bold text-cd-text mt-1">{ps.total}</div>
                               <div className="text-[10px] text-green-400">{rate}%</div>
@@ -1222,7 +1222,7 @@ export default function Focus() {
                   {reportData.daily_trend && reportData.daily_trend.length > 0 && (
                     <div>
                       <h3 className="text-sm text-cd-text-secondary mb-2">每日趋势</h3>
-                      <div className="flex gap-1 items-end h-24 bg-cd-bg-input rounded-2xl p-2">
+                      <div className="flex gap-1 items-end h-24 bg-cd-bg-input rounded-xl p-2">
                         {reportData.daily_trend.map((d, i) => {
                           const max = Math.max(...reportData.daily_trend!.map(x => x.min), 60)
                           const h = (d.min / max) * 100
@@ -1239,7 +1239,7 @@ export default function Focus() {
 
                   {/* 任务关联 */}
                   {reportData.total_sessions && reportData.total_sessions > 0 && (
-                    <div className="bg-cd-bg-input rounded-2xl p-3 text-sm flex items-center justify-between">
+                    <div className="bg-cd-bg-input rounded-xl p-3 text-sm flex items-center justify-between">
                       <span className="text-cd-text-secondary">任务关联率</span>
                       <span className="text-cd-text font-medium">
                         {Math.round((reportData.linked_task_ratio || 0) * 100)}%
@@ -1256,7 +1256,7 @@ export default function Focus() {
                       <h3 className="text-sm text-cd-text-secondary mb-2">改进建议</h3>
                       <div className="space-y-1.5">
                         {reportData.suggestions.map((s, i) => (
-                          <div key={i} className="flex items-start gap-2 bg-cd-bg-input rounded-2xl p-2.5 text-xs text-cd-text-secondary">
+                          <div key={i} className="flex items-start gap-2 bg-cd-bg-input rounded-xl p-2.5 text-xs text-cd-text-secondary">
                             <span className="text-cd-accent mt-0.5">→</span>
                             <span>{s}</span>
                           </div>
@@ -1288,15 +1288,15 @@ export default function Focus() {
             <span className="text-sm text-cd-text-tertiary mb-1">小时 {todayMin % 60}分</span>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="bg-cd-bg-input rounded-2xl p-2">
+            <div className="bg-cd-bg-input rounded-xl p-2">
               <div className="text-lg font-bold text-cd-accent tabular-nums">{todayCount}</div>
               <div className="text-[10px] text-cd-text-tertiary">番茄数</div>
             </div>
-            <div className="bg-cd-bg-input rounded-2xl p-2">
+            <div className="bg-cd-bg-input rounded-xl p-2">
               <div className="text-lg font-bold text-yellow-400 tabular-nums">{distractionCount}</div>
               <div className="text-[10px] text-cd-text-tertiary">分心</div>
             </div>
-            <div className="bg-cd-bg-input rounded-2xl p-2">
+            <div className="bg-cd-bg-input rounded-xl p-2">
               <div className="text-lg font-bold text-cd-text tabular-nums">{quality.grade || '—'}</div>
               <div className="text-[10px] text-cd-text-tertiary">评级</div>
             </div>
@@ -1371,7 +1371,7 @@ export default function Focus() {
         {/* 查看完整报告入口 */}
         <button
           onClick={() => setReportOpen(true)}
-          className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs bg-cd-bg-card border border-cd-border rounded-2xl text-cd-text-secondary hover:text-cd-text hover:border-cd-accent/30 transition"
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs bg-cd-bg-card border border-cd-border rounded-full text-cd-text-secondary hover:text-cd-text hover:border-cd-accent/30 transition"
         >
           <BarChart3 size={14} /> 查看完整报告
         </button>

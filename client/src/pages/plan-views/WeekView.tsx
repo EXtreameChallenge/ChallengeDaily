@@ -99,8 +99,7 @@ export default function WeekView({
         <div className="p-2 border-t border-cd-border">
           <button
             onClick={() => setShowCreateModal(true)}
-            className="w-full flex items-center justify-center gap-1 py-1.5 text-xs rounded-xl transition hover:brightness-125"
-            style={{ background: 'var(--cd-green)', color: '#fff' }}
+            className="glass-pill w-full flex items-center justify-center gap-1 py-1.5 text-xs text-cd-green transition hover:brightness-125"
           >
             <Plus size={12} /> 新建任务
           </button>
@@ -156,7 +155,8 @@ export default function WeekView({
         </div>
 
         {/* 甘特行 */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin">
+        <div className="flex-1 overflow-hidden relative">
+          <div className="h-full overflow-y-auto scrollbar-thin">
           {ganttRows.length === 0 ? (
             <div className="text-center py-12 text-cd-text-tertiary">
               <Target size={28} className="mx-auto mb-2 opacity-30" />
@@ -275,6 +275,27 @@ export default function WeekView({
               </div>
             )
           })}
+          </div>
+          {/* 拖拽落点覆盖层：拖动期间铺满 7 列日格区域，保证松手必中目标日。
+              （原按行渲染的小格子会被绝对定位的可拖拽甘特条遮挡，导致 dragover 未 preventDefault、drop 被浏览器拒绝） */}
+          {dragId !== null && (
+            <div className="absolute inset-y-0 right-0" style={{ left: LABEL_W, zIndex: 30 }}>
+              <div className="h-full grid grid-cols-7">
+                {dates.map((d, idx) => (
+                  <div key={d}
+                    onDragOver={handleDragOver(d)}
+                    onDragLeave={handleDragLeave(d)}
+                    onDrop={handleDropDay(d)}
+                    style={{
+                      borderRight: idx < 6 ? '1px dashed var(--cd-border)' : 'none',
+                      background: dragOverCol === d ? 'var(--cd-accent)1A' : 'transparent',
+                      transition: 'background 0.15s',
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 底栏：今日专注入口 */}
@@ -283,8 +304,7 @@ export default function WeekView({
             <span className="text-[10px] text-cd-text-tertiary">今日待完成 {todayTasks.filter(t => t.status !== 'completed').length} 项</span>
             <button
               onClick={() => { const t = todayTasks.find(t => t.status !== 'completed'); if (t) startFocus(t.id) }}
-              className="flex items-center gap-1 px-2.5 py-1 text-[10px] rounded-lg transition hover:brightness-125"
-              style={{ background: 'var(--cd-accent)22', color: 'var(--cd-accent)', border: '1px solid var(--cd-accent)55' }}
+              className="glass-pill flex items-center gap-1 px-2.5 py-1 text-[10px] text-cd-accent transition hover:brightness-125"
             >
               <Play size={9} /> 开始专注
             </button>

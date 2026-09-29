@@ -90,7 +90,7 @@ export default function DayView({
         {isToday && allTasks.some(t => t.status !== 'completed') && (
           <button
             onClick={() => { const t = allTasks.find(t => t.status !== 'completed'); if (t) startFocus(t.id) }}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-2xl bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition"
+            className="glass-pill flex items-center gap-1 px-3 py-1.5 text-xs text-cd-accent transition hover:brightness-125"
           >
             <Play size={12} /> 开始专注
           </button>
@@ -98,11 +98,11 @@ export default function DayView({
       </div>
       {/* 日期导航 */}
       <div className="flex items-center gap-2 mb-4">
-        <button onClick={() => shiftDay(-1)} className="p-1 rounded-lg hover:bg-cd-hover text-cd-text-secondary"><ChevronLeft size={14} /></button>
+        <button onClick={() => shiftDay(-1)} className="glass-pill p-1.5 text-cd-text-secondary hover:text-cd-text transition"><ChevronLeft size={14} /></button>
         <input type="date" value={selectedDate} onChange={e => { setSelectedDate(e.target.value); const ws = getWeekStart(new Date(e.target.value)); if (ws !== weekStart) setWeekStart(ws) }}
           className="bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1 text-xs text-cd-text" />
-        <button onClick={() => shiftDay(1)} className="p-1 rounded-lg hover:bg-cd-hover text-cd-text-secondary"><ChevronRight size={14} /></button>
-        <button onClick={() => { const today = new Date(); const ts = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`; setSelectedDate(ts); setWeekStart(getWeekStart(today)) }} className="px-2 py-1 text-xs rounded-2xl bg-cd-bg-input text-cd-text-secondary hover:bg-cd-hover transition ml-1">今天</button>
+        <button onClick={() => shiftDay(1)} className="glass-pill p-1.5 text-cd-text-secondary hover:text-cd-text transition"><ChevronRight size={14} /></button>
+        <button onClick={() => { const today = new Date(); const ts = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`; setSelectedDate(ts); setWeekStart(getWeekStart(today)) }} className="glass-pill px-2.5 py-1 text-xs text-cd-text-secondary hover:text-cd-text transition ml-1">今天</button>
       </div>
 
       <div className="flex gap-4">
@@ -114,7 +114,7 @@ export default function DayView({
               当日无任务
             </div>
           ) : (
-            <div className="rounded-2xl overflow-hidden bg-cd-card border border-cd-border">
+            <div className="rounded-xl overflow-hidden bg-cd-card border border-cd-border">
               {/* 时间刻度 */}
               <TimeAxis mode="hour" start={8} end={22} cellWidth={60} labelOffset={LEFT_LABEL_W} height={24}
                 highlightIndex={isToday ? now.getHours() - 8 : -1} />
@@ -205,7 +205,7 @@ export default function DayView({
           {/* 添加任务 */}
           <button
             onClick={() => setShowCreateModal(true)}
-            className="mt-4 flex items-center gap-1 px-3 py-1.5 text-xs rounded-2xl bg-cd-green/20 text-cd-green border border-cd-green/30 hover:bg-cd-green/30 transition"
+            className="glass-pill mt-4 flex items-center gap-1 px-3 py-1.5 text-xs text-cd-green transition hover:brightness-125"
           >
             <Plus size={12} /> 添加任务
           </button>
@@ -214,7 +214,7 @@ export default function DayView({
         {/* 右侧：习惯清单 */}
         {habitTasks.length > 0 && (
           <div className="w-52 shrink-0">
-            <div className="rounded-2xl p-3 bg-cd-card border border-cd-border">
+            <div className="rounded-xl p-3 bg-cd-card border border-cd-border">
               <h3 className="text-xs font-semibold text-cd-text mb-2 flex items-center gap-1">
                 <Flame size={12} className="text-cd-green" /> 每日习惯
               </h3>

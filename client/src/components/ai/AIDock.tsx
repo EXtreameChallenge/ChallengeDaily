@@ -358,8 +358,8 @@ export default function AIDock() {
         </div>
       )}
 
-      {/* ── 悬浮玻璃输入条（胶囊形，h-10）── */}
-      <div className="glass-pill flex items-center gap-2 pl-3 pr-1.5 h-10">
+      {/* ── 悬浮玻璃输入条（与顶部搜索框完全一致：glass-pill + h-10 + 999px圆角）── */}
+      <div className="glass-pill topbar-search flex items-center gap-2 px-3 h-10 shrink-0" style={{ height: '40px', minHeight: '40px' }}>
         <Bot size={15} className="text-cd-accent shrink-0" />
         <input
           ref={inputRef}

@@ -166,7 +166,7 @@ export default function WeekPlan() {
       return
     }
     try {
-      await assignTodo({ todo_id: todoId, assigned_date: date })
+      await assignTodo({ todo_id: todoId, assigned_date: date, week_start: weekStart, task_level: 'day' })
       success(`已分配至 ${fmtDate(date)}`)
       loadWeek(weekStart)
     } catch { error('分配失败') }
@@ -341,10 +341,10 @@ export default function WeekPlan() {
           <div className="flex items-center gap-3">
             <Calendar size={18} className="text-cd-accent" />
             {/* 四级视图 Tab */}
-            <div className="flex bg-cd-bg-input rounded-2xl p-0.5">
+            <div className="flex glass-pill p-0.5">
               {VIEW_TABS.map(v => (
                 <button key={v.key} onClick={() => setViewMode(v.key)}
-                  className={`px-2.5 py-1 text-xs rounded-xl transition ${viewMode === v.key ? 'bg-cd-accent/20 text-cd-accent' : 'text-cd-text-secondary hover:text-cd-text'}`}>
+                  className={`px-2.5 py-1 text-xs rounded-full transition ${viewMode === v.key ? 'bg-cd-accent/20 text-cd-accent' : 'text-cd-text-secondary hover:text-cd-text'}`}>
                   {v.emoji} {v.label}
                 </button>
               ))}
@@ -352,25 +352,25 @@ export default function WeekPlan() {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => viewMode === 'year' ? shiftYear(-1) : viewMode === 'month' ? shiftMonth(-1) : shiftWeek(-1)}
-              className="p-1.5 rounded-2xl hover:bg-cd-hover text-cd-text-secondary transition">
+              className="glass-pill p-1.5 text-cd-text-secondary hover:text-cd-text transition">
               <ChevronLeft size={16} />
             </button>
             <span className="text-xs text-cd-text-secondary min-w-[160px] text-center tabular-nums">{rangeLabel}</span>
             <button onClick={() => viewMode === 'year' ? shiftYear(1) : viewMode === 'month' ? shiftMonth(1) : shiftWeek(1)}
-              className="p-1.5 rounded-2xl hover:bg-cd-hover text-cd-text-secondary transition">
+              className="glass-pill p-1.5 text-cd-text-secondary hover:text-cd-text transition">
               <ChevronRight size={16} />
             </button>
             <button onClick={goToday}
-              className="px-2 py-1 text-xs rounded-2xl bg-cd-bg-input text-cd-text-secondary hover:bg-cd-hover transition">
+              className="glass-pill px-2.5 py-1 text-xs text-cd-text-secondary hover:text-cd-text transition">
               今天
             </button>
             <button onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-1 px-3 py-1 text-xs rounded-2xl bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
+              className="glass-pill flex items-center gap-1 px-3 py-1 text-xs text-cd-accent transition hover:brightness-125">
               <Plus size={12} /> 新建
             </button>
             <button
               onClick={() => setSplitDraft([])}
-              className="flex items-center gap-1 px-3 py-1 text-xs rounded-2xl bg-cd-purple/20 text-cd-purple border border-cd-purple/30 hover:bg-cd-purple/30 transition"
+              className="glass-pill flex items-center gap-1 px-3 py-1 text-xs text-cd-purple transition hover:brightness-125"
               title="AI 拆解月目标为周待办草案"
             >
               🤖 AI 拆解
@@ -468,7 +468,7 @@ export default function WeekPlan() {
       {/* AI 拆解草案弹窗 */}
       {splitDraft !== null && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-auto flex flex-col bg-cd-card border border-cd-border">
+          <div className="rounded-xl max-w-2xl w-full max-h-[85vh] overflow-auto flex flex-col bg-cd-card border border-cd-border">
             <div className="flex items-center justify-between px-5 py-3 border-b border-cd-border">
               <h3 className="text-sm font-semibold text-cd-text">🤖 AI 拆解目标为周待办</h3>
               <button onClick={() => { setSplitDraft(null); setSplitGoalTitle(''); setSplitGoalDesc('') }} className="text-cd-text-tertiary hover:text-cd-text">
@@ -511,8 +511,7 @@ export default function WeekPlan() {
                   <button
                     onClick={handleAutoSplit}
                     disabled={splitLoading || !splitGoalTitle.trim()}
-                    className="px-4 py-2 text-xs rounded-lg text-white disabled:opacity-50"
-                    style={{ background: 'var(--cd-purple)' }}
+                    className="btn-primary text-xs"
                   >
                     {splitLoading ? '🤖 拆解中...' : '🤖 开始拆解'}
                   </button>
@@ -577,8 +576,7 @@ export default function WeekPlan() {
                   </button>
                   <button
                     onClick={confirmSplit}
-                    className="px-4 py-2 text-xs rounded-lg text-white"
-                    style={{ background: 'var(--cd-green)' }}
+                    className="btn-primary text-xs"
                   >
                     确认创建（{splitDraft.filter(t => t._checked !== false).length}）
                   </button>
