@@ -1371,3 +1371,379 @@ textarea:focus-visible,
     animation: none !important;
   }
 }
+
+/* ═══════════════════════════════════════════════
+   AIChat · DeepSeek harness 智能体界面移植
+   布局：左栏会话列表(glass) + 中栏对话流 + 底部 sticky composer
+   ═══════════════════════════════════════════════ */
+.aic-chat {
+  /* 用户气泡：实色浅蓝（不做玻璃） */
+  --aic-bubble-bg: rgba(91, 141, 239, 0.16);
+  /* 代码块：始终深色背景（DeepSeek 风格） */
+  --aic-code-bg: #161618;
+  --aic-code-banner: #232327;
+  --aic-code-text: #E6E6E6;
+  /* 折叠行（思考/工具）文字 */
+  --aic-row-dim: var(--cd-text-tertiary);
+  /* 侧栏会话行 */
+  --aic-row-radius: 12px;
+}
+.dark .aic-chat {
+  --aic-bubble-bg: #2C2C2E;
+}
+
+/* ── 左栏会话列表 ── */
+.aic-side {
+  width: 240px;
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.aic-side.aic-side-collapsed { width: 56px; }
+
+.aic-newchat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 38px;
+  border: 0.5px solid var(--cd-border);
+  border-radius: 12px;
+  background: var(--cd-glass-bg-strong);
+  color: var(--cd-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.aic-newchat:hover { background: var(--cd-accent-bg); border-color: var(--cd-accent); }
+
+.aic-session-group-label {
+  padding: 10px 10px 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cd-text-tertiary);
+  letter-spacing: 0.02em;
+}
+.aic-session-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--cd-text-secondary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.aic-session-row:hover { background: var(--cd-hover); }
+.aic-session-row .aic-session-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aic-session-row .aic-session-time {
+  font-size: 10px;
+  color: var(--cd-text-tertiary);
+  flex: none;
+}
+
+/* ── 用户消息气泡（实色，20px 圆角，右对齐，无头像） ── */
+.aic-user-bubble {
+  max-width: min(70%, 82%);
+  background: var(--aic-bubble-bg);
+  border-radius: 20px;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--cd-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* ── AI 消息：无气泡，透明铺底，14/24 ── */
+.aic-assistant {
+  font-size: 14px;
+  line-height: 24px;
+  color: var(--cd-text);
+}
+.aic-assistant > * + * { margin-top: 16px; }
+.aic-assistant p { margin: 0; }
+.aic-assistant ul, .aic-assistant ol { margin: 0; padding-left: 22px; }
+.aic-assistant li { margin: 2px 0; }
+.aic-assistant h1, .aic-assistant h2, .aic-assistant h3 {
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0;
+}
+.aic-assistant h1 { font-size: 21px; }
+.aic-assistant h2 { font-size: 19px; }
+.aic-assistant h3 { font-size: 16px; }
+.aic-assistant a { color: var(--cd-accent); }
+.aic-assistant table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.aic-assistant th, .aic-assistant td {
+  border: 1px solid var(--cd-border);
+  padding: 6px 10px;
+  text-align: left;
+}
+.aic-assistant blockquote {
+  border-left: 3px solid var(--cd-accent);
+  padding-left: 12px;
+  color: var(--cd-text-secondary);
+  margin: 0;
+}
+.aic-assistant code:not(pre code) {
+  background: var(--cd-bg-secondary);
+  border-radius: 6px;
+  padding: 1px 5px;
+  font-size: 12.5px;
+}
+
+/* ── 代码块：16px 圆角 + 顶部 sticky banner（语言名 + 复制） ── */
+.aic-code {
+  margin: 16px 0;
+  border-radius: 16px;
+  background: var(--aic-code-bg);
+  overflow: hidden;
+}
+.aic-code-banner {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: var(--aic-code-banner);
+}
+.aic-code-banner .aic-code-lang {
+  font-family: 'Anthropic Mono', 'JetBrains Mono', Consolas, monospace;
+  font-size: 11px;
+  line-height: 18px;
+  color: #9A9AA0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.aic-code-banner button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: #9A9AA0;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: color 0.12s;
+}
+.aic-code-banner button:hover { color: #fff; }
+.aic-code pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-family: 'Anthropic Mono', 'JetBrains Mono', Consolas, monospace;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--aic-code-text);
+}
+.aic-code pre code { background: transparent; padding: 0; }
+
+/* ── 思考过程行：24px 单行折叠条，13px 灰字 ── */
+.aic-think {
+  display: flex;
+  flex-direction: column;
+}
+.aic-think-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--aic-row-dim);
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+  text-align: left;
+}
+.aic-think-body {
+  padding: 4px 0 4px 22px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--cd-text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.aic-think-dot {
+  width: 2px; height: 2px;
+  border-radius: 1px;
+  background: var(--cd-text-tertiary);
+  margin: 0 6px;
+  flex: none;
+}
+
+/* ── 工具调用行：24px 单行，可展开结果 ── */
+.aic-tool-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--aic-row-dim);
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+  text-align: left;
+}
+.aic-tool-result {
+  margin: 4px 0 8px 22px;
+  padding: 12px 14px;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 0.5px solid var(--cd-border);
+  border-radius: 16px;
+  background: var(--aic-code-bg);
+  color: var(--aic-code-text);
+  font-family: 'Anthropic Mono', 'JetBrains Mono', Consolas, monospace;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ── Composer 输入卡：28px 大圆角，glass-strong，柔和投影 ── */
+.aic-composer {
+  border-radius: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 8px;
+  box-shadow: var(--cd-glass-highlight), 0 4px 16px rgba(0,0,0,0.05), 0 0 24px rgba(0,0,0,0.04);
+}
+.aic-composer-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  resize: none;
+  color: var(--cd-text);
+  font-size: 14px;
+  line-height: 24px;
+  padding: 4px 14px 0;
+  caret-color: var(--cd-accent);
+  max-height: 336px;
+}
+.aic-composer-input::placeholder { color: var(--cd-text-tertiary); }
+.aic-composer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 10px 8px;
+}
+/* 左下角 pill 开关（深度思考 / 联网搜索） */
+.aic-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cd-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.aic-pill:hover { background: var(--cd-hover); }
+.aic-pill.aic-pill-on {
+  background: var(--cd-accent-bg);
+  color: var(--cd-accent);
+}
+/* 28px 圆形 [+] 附件按钮 */
+.aic-add-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: var(--cd-bg-secondary);
+  color: var(--cd-text-secondary);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.aic-add-btn:hover { background: var(--cd-hover); }
+/* 34px 圆形发送按钮（品牌蓝填充，白色纸飞机） */
+.aic-send-btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: var(--cd-accent);
+  color: #fff;
+  cursor: pointer;
+  transform: translateY(-2px);
+  transition: filter 0.12s, opacity 0.12s;
+}
+.aic-send-btn:hover:not(:disabled) { filter: brightness(1.1); }
+.aic-send-btn:disabled { opacity: 0.4; cursor: default; }
+/* 停止按钮（运行中替代发送） */
+.aic-stop-btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: var(--cd-bg-secondary);
+  color: var(--cd-text-secondary);
+  cursor: pointer;
+  transform: translateY(-2px);
+  transition: background 0.12s;
+}
+.aic-stop-btn:hover { background: var(--cd-hover); }
+
+/* ── 回到底部：34px 圆形浮钮 ── */
+.aic-to-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0.5px solid var(--cd-border);
+  border-radius: 999px;
+  background: var(--cd-glass-bg-strong);
+  color: var(--cd-text);
+  box-shadow: var(--cd-glass-highlight), 0 4px 12px rgba(0,0,0,0.08);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.aic-to-bottom:hover { background: var(--cd-glass-bg); }
+
+/* 思考行运行中右侧渐隐 mask */
+.aic-streaming-mask {
+  mask-image: linear-gradient(to right, black calc(100% - 48px), transparent);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 48px), transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aic-side { transition: none; }
+}

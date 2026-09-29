@@ -12,7 +12,7 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="theme-toggle-float fixed top-3 z-50 no-drag"
+      className="theme-toggle-float fixed top-5 z-50 no-drag"
       style={{ right: '148px' }}
       title={dark ? '切换浅色模式' : '切换深色模式'}
     >

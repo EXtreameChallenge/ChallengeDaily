@@ -278,7 +278,7 @@ export default function App() {
                 <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
                 <ElectronNavigationBridge />
                 <Sidebar />
-                <main className="flex-1 overflow-auto p-6 pt-14 pb-24">
+                <main className="flex-1 overflow-auto p-6 pt-16 pb-24">
                   <RouteErrorBoundary>
                     <Suspense fallback={<PageSpinner />}>
                       <Routes>
@@ -322,7 +322,7 @@ export default function App() {
                   </RouteErrorBoundary>
                 </main>
                 <RelayCardContainer />
-                <AIDockGate />
+                <AIDock />
                 </RelayEngineProvider>
               </HashRouter>
             )}
@@ -344,13 +344,6 @@ function PageSpinner() {
       <div className="w-6 h-6 border-3 border-cd-green border-t-transparent rounded-full animate-spin" />
     </div>
   )
-}
-
-/** AI 坞：在完整对话页 /ai-chat 时隐藏，避免与页内输入框重复 */
-function AIDockGate() {
-  const location = useLocation()
-  if (location.pathname === '/ai-chat') return null
-  return <AIDock currentPage="today" />
 }
 
 /** P13-4：监听来自 Electron 主进程的导航/快捷键事件 */

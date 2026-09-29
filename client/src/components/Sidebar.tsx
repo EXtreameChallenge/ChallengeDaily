@@ -285,7 +285,7 @@ export default function Sidebar() {
       className="w-56 m-3 rounded-2xl glass flex flex-col shrink-0 select-none overflow-hidden"
     >
       {/* ─── 品牌标识 ───────────────── */}
-      <div className="px-5 pt-4 pb-2">
+      <div className="px-5 pt-4 pb-2 flex justify-center">
         <span className="text-base font-bold text-cd-accent font-brand tracking-tight">ChallengeDaily</span>
       </div>
 
