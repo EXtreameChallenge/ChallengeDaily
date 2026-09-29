@@ -62,11 +62,11 @@ export default function StudyRoom() {
         </div>
         <div className="flex gap-2">
           <button onClick={load} disabled={loading}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs bg-cd-bg-card border border-white/5 text-cd-text-secondary hover:bg-white/5 transition">
+            className="flex items-center gap-1 px-3 py-1.5 rounded-2xl text-xs bg-cd-bg-card border border-white/5 text-cd-text-secondary hover:bg-white/5 transition">
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> 刷新
           </button>
           <button onClick={handleBroadcast} disabled={broadcasting}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
+            className="flex items-center gap-1 px-3 py-1.5 rounded-2xl text-xs bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
             <Wifi size={12} className={broadcasting ? 'animate-pulse' : ''} /> 扫描局域网
           </button>
         </div>
@@ -105,7 +105,7 @@ export default function StudyRoom() {
               const cfg = STATUS_CONFIG[m.status] || STATUS_CONFIG.idle
               const Icon = cfg.icon
               return (
-                <div key={m.id} className={`flex items-center gap-3 p-3 rounded-lg ${
+                <div key={m.id} className={`flex items-center gap-3 p-3 rounded-2xl ${
                   m.is_self ? 'bg-cd-accent/10 border border-cd-accent/20' : 'bg-cd-bg-input'
                 }`}>
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -123,7 +123,7 @@ export default function StudyRoom() {
                     </div>
                     {m.task && <div className="text-xs text-cd-text-tertiary truncate">{m.task}</div>}
                   </div>
-                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] ${cfg.color}`}>
+                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] ${cfg.color}`}>
                     <Icon size={10} /> {cfg.label}
                   </div>
                   <div className="text-right">

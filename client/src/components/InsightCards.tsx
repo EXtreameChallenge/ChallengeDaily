@@ -50,7 +50,7 @@ export default function InsightCards({ insights, onIgnore }: Props) {
       {insights.map((insight, idx) => (
         <div
           key={idx}
-          className="flex items-start gap-3 bg-cd-bg-secondary rounded-lg px-3 py-2.5 border border-cd-border/50"
+          className="flex items-start gap-3 bg-cd-bg-secondary rounded-2xl px-3 py-2.5 border border-cd-border/50"
         >
           <span className="text-base mt-0.5 shrink-0">
             {TYPE_ICONS[insight.type] || '💡'}

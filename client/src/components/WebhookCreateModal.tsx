@@ -85,7 +85,7 @@ export default function WebhookCreateModal({ open, onClose, onCreated }: Webhook
             <button
               key={key}
               onClick={() => setType(key as any)}
-              className={`flex-1 py-2 rounded-lg text-xs font-medium border transition ${
+              className={`flex-1 py-2 rounded-2xl text-xs font-medium border transition ${
                 type === key
                   ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30'
                   : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
@@ -106,7 +106,7 @@ export default function WebhookCreateModal({ open, onClose, onCreated }: Webhook
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={`${WH_TYPE_INFO[type].label}群机器人`}
-          className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
+          className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
         />
       </div>
 
@@ -118,7 +118,7 @@ export default function WebhookCreateModal({ open, onClose, onCreated }: Webhook
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
           placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..."
-          className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50 font-mono"
+          className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50 font-mono"
         />
       </div>
     </Modal>

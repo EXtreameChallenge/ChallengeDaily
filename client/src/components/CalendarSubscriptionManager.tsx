@@ -95,7 +95,7 @@ export default function CalendarSubscriptionManager() {
     <div className="space-y-3">
       {/* 当前会议提示 */}
       {currentMeeting && (
-        <div className="flex items-center gap-2 p-3 bg-cd-green-light border border-cd-green/30 rounded-lg">
+        <div className="flex items-center gap-2 p-3 bg-cd-green-light border border-cd-green/30 rounded-2xl">
           <Video size={14} className="text-cd-green animate-pulse" />
           <div className="flex-1 text-xs">
             <span className="font-semibold text-cd-green">正在进行：</span>
@@ -115,7 +115,7 @@ export default function CalendarSubscriptionManager() {
           </div>
           <div className="max-h-32 overflow-y-auto space-y-1">
             {todayEvents.slice(0, 5).map((ev, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs p-1.5 bg-cd-bg-secondary rounded">
+              <div key={i} className="flex items-center gap-2 text-xs p-1.5 bg-cd-bg-secondary rounded-lg">
                 <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ev.calendar_color }} />
                 <span className="text-cd-text-secondary flex-shrink-0">{fmtTime(ev.start)}</span>
                 <span className="text-cd-text truncate">{ev.summary}</span>
@@ -156,22 +156,22 @@ export default function CalendarSubscriptionManager() {
         </div>
 
         {showAdd && (
-          <div className="p-3 bg-cd-bg-secondary border border-cd-border rounded-lg space-y-2">
+          <div className="p-3 bg-cd-bg-secondary border border-cd-border rounded-2xl space-y-2">
             <input
               type="text" placeholder="日历名称（如：工作日历）" value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="w-full bg-cd-bg text-cd-text border border-cd-border rounded px-2 py-1 text-xs"
+              className="w-full bg-cd-bg text-cd-text border border-cd-border rounded-lg px-2 py-1 text-xs"
             />
             <input
               type="url" placeholder="ICS 订阅 URL（https://...）" value={newUrl}
               onChange={(e) => setNewUrl(e.target.value)}
-              className="w-full bg-cd-bg text-cd-text border border-cd-border rounded px-2 py-1 text-xs"
+              className="w-full bg-cd-bg text-cd-text border border-cd-border rounded-lg px-2 py-1 text-xs"
             />
             <div className="flex items-center gap-2">
               <input type="color" value={newColor} onChange={(e) => setNewColor(e.target.value)}
-                className="w-6 h-6 rounded cursor-pointer" />
+                className="w-6 h-6 rounded-lg cursor-pointer" />
               <button onClick={handleAdd}
-                className="ml-auto px-3 py-1 bg-cd-green text-white rounded text-xs hover:opacity-90">
+                className="ml-auto px-3 py-1 bg-cd-green text-white rounded-lg text-xs hover:opacity-90">
                 添加
               </button>
               <button onClick={() => setShowAdd(false)}
@@ -191,7 +191,7 @@ export default function CalendarSubscriptionManager() {
           <div className="text-xs text-cd-text-tertiary">暂无订阅，点击"添加"开始</div>
         ) : (
           subs.map((s) => (
-            <div key={s.id} className="flex items-center gap-2 p-2 bg-cd-bg-secondary rounded text-xs">
+            <div key={s.id} className="flex items-center gap-2 p-2 bg-cd-bg-secondary rounded-lg text-xs">
               <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
               <div className="flex-1 min-w-0">
                 <div className="text-cd-text truncate">{s.name}</div>

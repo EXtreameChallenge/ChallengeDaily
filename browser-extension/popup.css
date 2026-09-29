@@ -1,0 +1,267 @@
+/* ChallengeDaily Web Tracker — Popup 样式
+ * 简洁现代，紫橙色调，与 ChallengeDaily 品牌一致。
+ */
+:root {
+  --purple: #6d4aff;
+  --purple-soft: #efeaff;
+  --orange: #ff8a3d;
+  --orange-soft: #fff1e6;
+  --bg: #f7f7fb;
+  --card: #ffffff;
+  --text: #1f1f2e;
+  --muted: #8a8a9b;
+  --border: #ececf3;
+  --green: #22c55e;
+  --red: #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 280px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, var(--purple) 0%, var(--orange) 100%);
+  color: #fff;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.logo {
+  font-size: 16px;
+}
+
+.title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.status-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.status-badge.connected {
+  background: rgba(34, 197, 94, 0.9);
+}
+
+.status-badge.disconnected {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.status-badge.error {
+  background: rgba(239, 68, 68, 0.9);
+}
+
+.card {
+  margin: 10px;
+  padding: 10px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.card-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.today-total {
+  color: var(--purple);
+  font-weight: 600;
+}
+
+.current-title {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.35;
+  max-height: 38px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.current-domain {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--orange);
+  word-break: break-all;
+}
+
+.current-meta {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.chip.muted {
+  background: #f0f0f5;
+  color: var(--muted);
+}
+
+.top-list {
+  list-style: none;
+  margin-top: 4px;
+}
+
+.top-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.top-list li:last-child {
+  border-bottom: none;
+}
+
+.top-list .domain {
+  color: var(--text);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 170px;
+}
+
+.top-list .duration {
+  color: var(--muted);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.top-list .bar {
+  flex: 1;
+  height: 4px;
+  margin: 0 8px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.top-list .bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--purple), var(--orange));
+  border-radius: 2px;
+}
+
+.top-list .empty {
+  color: var(--muted);
+  justify-content: center;
+  font-size: 11px;
+  border-bottom: none;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 14px 8px;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.switch input {
+  display: none;
+}
+
+.slider {
+  width: 36px;
+  height: 20px;
+  background: #d0d0db;
+  border-radius: 10px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.slider::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.switch input:checked + .slider {
+  background: var(--purple);
+}
+
+.switch input:checked + .slider::after {
+  transform: translateX(16px);
+}
+
+.switch-label {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.btn-icon:hover {
+  background: var(--border);
+}
+
+.footer {
+  padding: 6px 14px 10px;
+}
+
+.footer-text {
+  font-size: 10px;
+  color: var(--muted);
+}

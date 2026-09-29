@@ -65,7 +65,7 @@ function FormatButton({
     <button
       onClick={onClick}
       disabled={state === 'loading'}
-      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-medium transition-all ${
         state === 'loading'
           ? 'bg-cd-bg-secondary text-cd-text-tertiary cursor-wait'
           : state === 'success'
@@ -99,7 +99,7 @@ function ExportCard({ icon: Icon, title, description, accentColor, children }: E
     <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-5 hover:border-cd-green/30 transition-colors">
       <div className="flex items-start gap-3 mb-4">
         <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+          className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
           style={{ background: `${accentColor}22`, color: accentColor }}
         >
           <Icon size={20} />
@@ -190,7 +190,7 @@ export default function ExportCenter() {
 
       {/* 错误提示 */}
       {errorMsg && (
-        <div className="mb-4 px-4 py-3 rounded-lg bg-cd-red/10 border border-cd-red/20 text-sm text-cd-red">
+        <div className="mb-4 px-4 py-3 rounded-2xl bg-cd-red/10 border border-cd-red/20 text-sm text-cd-red">
           {errorMsg}
         </div>
       )}
@@ -211,7 +211,7 @@ export default function ExportCenter() {
                 type="date"
                 value={weekStart}
                 onChange={e => setWeekStart(e.target.value)}
-                className="w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-green"
+                className="w-full bg-cd-bg border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-green"
               />
             </div>
             <div className="flex gap-2">
@@ -254,7 +254,7 @@ export default function ExportCenter() {
                 type="month"
                 value={monthKey}
                 onChange={e => setMonthKey(e.target.value)}
-                className="w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-green"
+                className="w-full bg-cd-bg border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-green"
               />
             </div>
             <div className="flex gap-2">
@@ -292,7 +292,7 @@ export default function ExportCenter() {
                 min="2020"
                 max="2099"
                 onChange={e => setYear(e.target.value)}
-                className="w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-green"
+                className="w-full bg-cd-bg border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-green"
               />
             </div>
             <div className="flex gap-2">
@@ -322,7 +322,7 @@ export default function ExportCenter() {
           accentColor="#f59e0b"
         >
           <div className="space-y-3">
-            <div className="text-xs text-cd-text-tertiary bg-cd-bg rounded-lg px-3 py-2.5 border border-cd-border">
+            <div className="text-xs text-cd-text-tertiary bg-cd-bg rounded-2xl px-3 py-2.5 border border-cd-border">
               📦 包含：activities + todos + pomodoro_sessions + diaries
               <br />
               ⏱️ 活动记录导出最近 90 天，其他全量
@@ -360,17 +360,17 @@ export default function ExportCenter() {
                 type="date"
                 value={reportsRange.start}
                 onChange={(e) => setReportsRange(prev => ({ ...prev, start: e.target.value }))}
-                className="bg-cd-bg border border-cd-border rounded px-2 py-1 text-xs text-cd-text"
+                className="bg-cd-bg border border-cd-border rounded-lg px-2 py-1 text-xs text-cd-text"
               />
               <span className="text-cd-text-tertiary">→</span>
               <input
                 type="date"
                 value={reportsRange.end}
                 onChange={(e) => setReportsRange(prev => ({ ...prev, end: e.target.value }))}
-                className="bg-cd-bg border border-cd-border rounded px-2 py-1 text-xs text-cd-text"
+                className="bg-cd-bg border border-cd-border rounded-lg px-2 py-1 text-xs text-cd-text"
               />
             </div>
-            <div className="text-xs text-cd-text-tertiary bg-cd-bg rounded-lg px-3 py-2.5 border border-cd-border">
+            <div className="text-xs text-cd-text-tertiary bg-cd-bg rounded-2xl px-3 py-2.5 border border-cd-border">
               📝 包含：报告日期 / 创建时间 / 字符数 / 完整内容（最长 90 天）
             </div>
             <div className="flex gap-2">
@@ -406,17 +406,17 @@ export default function ExportCenter() {
                 type="date"
                 value={activitiesRange.start}
                 onChange={(e) => setActivitiesRange(prev => ({ ...prev, start: e.target.value }))}
-                className="bg-cd-bg border border-cd-border rounded px-2 py-1 text-xs text-cd-text"
+                className="bg-cd-bg border border-cd-border rounded-lg px-2 py-1 text-xs text-cd-text"
               />
               <span className="text-cd-text-tertiary">→</span>
               <input
                 type="date"
                 value={activitiesRange.end}
                 onChange={(e) => setActivitiesRange(prev => ({ ...prev, end: e.target.value }))}
-                className="bg-cd-bg border border-cd-border rounded px-2 py-1 text-xs text-cd-text"
+                className="bg-cd-bg border border-cd-border rounded-lg px-2 py-1 text-xs text-cd-text"
               />
             </div>
-            <div className="text-xs text-cd-text-tertiary bg-cd-bg rounded-lg px-3 py-2.5 border border-cd-border">
+            <div className="text-xs text-cd-text-tertiary bg-cd-bg rounded-2xl px-3 py-2.5 border border-cd-border">
               🔍 包含：时间 / 应用 / 窗口标题 / 分类 / 摘要 / 时长 / AI 详情 / 可见窗口（最长 90 天）
             </div>
             <div className="flex gap-2">
@@ -496,7 +496,7 @@ function ImportSection() {
         <button
           onClick={() => triggerFile('toggl')}
           disabled={importing !== null}
-          className="flex items-center gap-3 p-3 bg-cd-bg-input border border-white/5 rounded-lg hover:border-cd-accent/30 transition disabled:opacity-50 text-left"
+          className="flex items-center gap-3 p-3 bg-cd-bg-input border border-white/5 rounded-2xl hover:border-cd-accent/30 transition disabled:opacity-50 text-left"
         >
           {importing === 'toggl' ? <Loader2 size={20} className="animate-spin text-cd-accent" /> : <Upload size={20} className="text-cd-accent" />}
           <div>
@@ -507,7 +507,7 @@ function ImportSection() {
         <button
           onClick={() => triggerFile('rescuetime')}
           disabled={importing !== null}
-          className="flex items-center gap-3 p-3 bg-cd-bg-input border border-white/5 rounded-lg hover:border-cd-accent/30 transition disabled:opacity-50 text-left"
+          className="flex items-center gap-3 p-3 bg-cd-bg-input border border-white/5 rounded-2xl hover:border-cd-accent/30 transition disabled:opacity-50 text-left"
         >
           {importing === 'rescuetime' ? <Loader2 size={20} className="animate-spin text-cd-accent" /> : <Upload size={20} className="text-cd-accent" />}
           <div>
@@ -529,7 +529,7 @@ function ImportSection() {
       />
 
       {result && (
-        <div className={`mt-3 flex items-start gap-2 p-3 rounded-lg text-sm ${
+        <div className={`mt-3 flex items-start gap-2 p-3 rounded-2xl text-sm ${
           result.ok
             ? 'bg-green-500/10 border border-green-400/20 text-green-400'
             : 'bg-red-500/10 border border-red-400/20 text-red-400'
@@ -578,7 +578,7 @@ function WipeSection() {
         <p className="text-xs text-cd-text-tertiary mb-4">
           永久删除所有用户数据，包括活动记录、待办、番茄钟、日记、成就、截图、报告等。此操作不可恢复。
         </p>
-        <div className="flex items-start gap-2 p-3 bg-red-500/5 rounded-lg border border-red-500/10 mb-3">
+        <div className="flex items-start gap-2 p-3 bg-red-500/5 rounded-2xl border border-red-500/10 mb-3">
           <AlertTriangle size={14} className="text-red-400 mt-0.5 shrink-0" />
           <p className="text-xs text-red-300/80 leading-relaxed">
             删除前建议先导出数据备份。删除后保留 AI 配置和迁移记录，避免重新登录。
@@ -586,7 +586,7 @@ function WipeSection() {
         </div>
         <button
           onClick={handleStart}
-          className="flex items-center gap-1.5 px-4 py-2 bg-red-500/15 text-red-400 rounded-lg border border-red-500/30 hover:bg-red-500/25 transition text-sm font-medium"
+          className="flex items-center gap-1.5 px-4 py-2 bg-red-500/15 text-red-400 rounded-2xl border border-red-500/30 hover:bg-red-500/25 transition text-sm font-medium"
         >
           <Trash2 size={14} /> 我要永久删除所有数据
         </button>
@@ -604,7 +604,7 @@ function WipeSection() {
           你即将永久删除所有数据，此操作<strong className="text-red-400">不可恢复</strong>。
         </p>
         <p className="text-xs text-cd-text-tertiary mb-3">
-          请输入 <code className="px-1.5 py-0.5 bg-red-500/15 text-red-300 rounded font-mono">DELETE</code> 以确认操作：
+          请输入 <code className="px-1.5 py-0.5 bg-red-500/15 text-red-300 rounded-lg font-mono">DELETE</code> 以确认操作：
         </p>
         <input
           type="text"
@@ -612,19 +612,19 @@ function WipeSection() {
           onChange={e => setConfirmText(e.target.value)}
           placeholder="DELETE"
           autoFocus
-          className="w-full bg-cd-bg border border-red-500/30 rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-red-500 mb-4 font-mono"
+          className="w-full bg-cd-bg border border-red-500/30 rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-red-500 mb-4 font-mono"
         />
         <div className="flex gap-2">
           <button
             onClick={handleConfirmWipe}
             disabled={confirmText !== 'DELETE'}
-            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-red-500 text-white rounded-2xl text-sm font-medium hover:bg-red-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Trash2 size={14} /> 确认永久删除
           </button>
           <button
             onClick={handleCancel}
-            className="px-4 py-2 bg-cd-bg-secondary text-cd-text-secondary rounded-lg text-sm hover:text-cd-text border border-cd-border transition"
+            className="px-4 py-2 bg-cd-bg-secondary text-cd-text-secondary rounded-2xl text-sm hover:text-cd-text border border-cd-border transition"
           >
             取消
           </button>
@@ -673,7 +673,7 @@ function WipeSection() {
       </p>
       <button
         onClick={() => window.location.reload()}
-        className="mt-3 flex items-center gap-1.5 px-4 py-2 bg-cd-green text-white rounded-lg text-sm font-medium hover:opacity-90 transition"
+        className="mt-3 flex items-center gap-1.5 px-4 py-2 bg-cd-green text-white rounded-2xl text-sm font-medium hover:opacity-90 transition"
       >
         刷新应用
       </button>

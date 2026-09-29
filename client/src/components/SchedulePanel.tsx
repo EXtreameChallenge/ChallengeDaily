@@ -82,7 +82,7 @@ export default function SchedulePanel({ initialSchedule }: Props) {
       {!loading && schedule.map((block, idx) => (
         <div
           key={idx}
-          className="flex items-center gap-3 bg-cd-bg-secondary rounded-lg px-3 py-2 border border-cd-border/50"
+          className="flex items-center gap-3 bg-cd-bg-secondary rounded-2xl px-3 py-2 border border-cd-border/50"
         >
           <span className="text-sm shrink-0">
             {TYPE_ICONS[block.type] || TYPE_ICONS.default}
@@ -110,14 +110,14 @@ export default function SchedulePanel({ initialSchedule }: Props) {
             <button
               onClick={handleAdopt}
               disabled={loading}
-              className="flex-1 px-3 py-2 text-xs font-medium bg-cd-green/15 text-cd-green rounded-lg border border-cd-green/25 hover:bg-cd-green/25 transition-colors disabled:opacity-50"
+              className="flex-1 px-3 py-2 text-xs font-medium bg-cd-green/15 text-cd-green rounded-2xl border border-cd-green/25 hover:bg-cd-green/25 transition-colors disabled:opacity-50"
             >
               采纳全部
             </button>
             <button
               onClick={fetchSchedule}
               disabled={loading}
-              className="px-3 py-2 text-xs text-cd-text-secondary bg-cd-bg-secondary rounded-lg border border-cd-border hover:text-cd-text transition-colors disabled:opacity-50"
+              className="px-3 py-2 text-xs text-cd-text-secondary bg-cd-bg-secondary rounded-2xl border border-cd-border hover:text-cd-text transition-colors disabled:opacity-50"
             >
               重新生成
             </button>

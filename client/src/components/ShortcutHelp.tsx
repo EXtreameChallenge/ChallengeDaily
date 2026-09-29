@@ -80,7 +80,7 @@ export function ShortcutHelp({ open, onClose }: { open: boolean; onClose: () => 
                     <div className="flex items-center gap-1">
                       {sc.keys.map((key, j) => (
                         <kbd key={j}
-                          className="min-w-[24px] text-center text-[10px] font-medium text-cd-text bg-cd-bg-secondary px-1.5 py-0.5 rounded border border-cd-border">
+                          className="min-w-[24px] text-center text-[10px] font-medium text-cd-text bg-cd-bg-secondary px-1.5 py-0.5 rounded-lg border border-cd-border">
                           {key}
                         </kbd>
                       ))}

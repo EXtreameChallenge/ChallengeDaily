@@ -98,7 +98,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                     t.action!.onClick()
                     removeToast(t.id)
                   }}
-                  className="shrink-0 text-xs font-medium text-cd-green hover:text-cd-green-dark transition-colors px-2 py-0.5 rounded bg-cd-green/5"
+                  className="shrink-0 text-xs font-medium text-cd-green hover:text-cd-green-dark transition-colors px-2 py-0.5 rounded-lg bg-cd-green/5"
                 >
                   {t.action.label}
                 </button>

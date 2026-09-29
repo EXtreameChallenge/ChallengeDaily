@@ -164,10 +164,10 @@ export default function AICoach() {
 
       <div className="space-y-4">
         {/* 📝 本周复盘 */}
-        <section className="bg-cd-bg-secondary border border-cd-border rounded-xl p-5">
+        <section className="bg-cd-card border border-cd-border rounded-2xl p-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-cd-green/15 text-cd-green">
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-cd-green/15 text-cd-green">
                 <FileText size={20} />
               </div>
               <div>
@@ -178,7 +178,7 @@ export default function AICoach() {
             <button
               onClick={handleWeeklyReview}
               disabled={reviewLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cd-green text-white text-xs font-medium hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cd-green text-white text-xs font-medium hover:opacity-90 disabled:opacity-50"
             >
               {reviewLoading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
               {review ? '重新生成' : '生成复盘'}
@@ -189,7 +189,7 @@ export default function AICoach() {
           {reviewLoading ? (
             <LoadingBlock text="AI 正在翻阅你这一周的数据，马上就好~" />
           ) : reviewError ? (
-            <div className="px-4 py-3 rounded-lg bg-cd-red/10 border border-cd-red/20 text-sm text-cd-red">
+            <div className="px-4 py-3 rounded-2xl bg-cd-red/10 border border-cd-red/20 text-sm text-cd-red">
               {reviewError}
             </div>
           ) : review ? (
@@ -246,10 +246,10 @@ export default function AICoach() {
         </section>
 
         {/* 🎯 目标进度点评 */}
-        <section className="bg-cd-bg-secondary border border-cd-border rounded-xl p-5">
+        <section className="bg-cd-card border border-cd-border rounded-2xl p-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-cd-blue/15 text-cd-blue">
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-cd-blue/15 text-cd-blue">
                 <Target size={20} />
               </div>
               <div>
@@ -260,7 +260,7 @@ export default function AICoach() {
             <button
               onClick={handleGoalComment}
               disabled={goalLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cd-green text-white text-xs font-medium hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cd-green text-white text-xs font-medium hover:opacity-90 disabled:opacity-50"
             >
               {goalLoading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
               生成点评
@@ -271,12 +271,12 @@ export default function AICoach() {
           <div className="flex items-center gap-4 mb-4">
             <div className="flex items-center gap-2">
               <span className="text-xs text-cd-text-tertiary">层级</span>
-              <div className="flex bg-cd-bg rounded-lg p-0.5 border border-cd-border">
+              <div className="flex bg-cd-bg rounded-2xl p-0.5 border border-cd-border">
                 {(['month', 'week', 'day'] as const).map(lv => (
                   <button
                     key={lv}
                     onClick={() => setGoalLevel(lv)}
-                    className={`px-3 py-1 rounded-md text-xs transition-colors ${
+                    className={`px-3 py-1 rounded-xl text-xs transition-colors ${
                       goalLevel === lv
                         ? 'bg-cd-green text-white'
                         : 'text-cd-text-secondary hover:text-cd-text'
@@ -305,18 +305,18 @@ export default function AICoach() {
           {goalLoading ? (
             <LoadingBlock text="AI 正在为你加油打气，稍等一下下~" />
           ) : goalError ? (
-            <div className="px-4 py-3 rounded-lg bg-cd-red/10 border border-cd-red/20 text-sm text-cd-red">
+            <div className="px-4 py-3 rounded-2xl bg-cd-red/10 border border-cd-red/20 text-sm text-cd-red">
               {goalError}
             </div>
           ) : goalComment ? (
             <div className="space-y-3">
-              <div className="px-4 py-3 rounded-lg bg-cd-bg border border-cd-border">
+              <div className="px-4 py-3 rounded-2xl bg-cd-bg border border-cd-border">
                 <div className="text-sm text-cd-text leading-relaxed whitespace-pre-wrap">
                   {goalComment.comment}
                 </div>
               </div>
               {goalComment.encouragement && (
-                <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-cd-green/10 border border-cd-green/20">
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-cd-green/10 border border-cd-green/20">
                   <Sparkles size={14} className="text-cd-green shrink-0" />
                   <span className="text-sm text-cd-green font-medium">{goalComment.encouragement}</span>
                 </div>
@@ -330,10 +330,10 @@ export default function AICoach() {
         </section>
 
         {/* 🤖 智能排程建议 */}
-        <section className="bg-cd-bg-secondary border border-cd-border rounded-xl p-5">
+        <section className="bg-cd-card border border-cd-border rounded-2xl p-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-cd-purple/15 text-cd-purple">
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-cd-purple/15 text-cd-purple">
                 <Bot size={20} />
               </div>
               <div>
@@ -344,7 +344,7 @@ export default function AICoach() {
             <button
               onClick={handleSmartSchedule}
               disabled={scheduleLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cd-green text-white text-xs font-medium hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cd-green text-white text-xs font-medium hover:opacity-90 disabled:opacity-50"
             >
               {scheduleLoading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
               {suggestions.length > 0 ? '重新分析' : '开始分析'}
@@ -355,13 +355,13 @@ export default function AICoach() {
           {scheduleLoading ? (
             <LoadingBlock text="AI 正在分析你的高效时段，马上出建议~" />
           ) : scheduleError ? (
-            <div className="px-4 py-3 rounded-lg bg-cd-red/10 border border-cd-red/20 text-sm text-cd-red">
+            <div className="px-4 py-3 rounded-2xl bg-cd-red/10 border border-cd-red/20 text-sm text-cd-red">
               {scheduleError}
             </div>
           ) : suggestions.length > 0 ? (
             <div className="space-y-2">
               {scheduleMsg && (
-                <div className="text-xs text-cd-text-tertiary px-3 py-2 rounded-lg bg-cd-bg border border-cd-border">
+                <div className="text-xs text-cd-text-tertiary px-3 py-2 rounded-2xl bg-cd-bg border border-cd-border">
                   💡 {scheduleMsg}
                 </div>
               )}
@@ -371,7 +371,7 @@ export default function AICoach() {
                 return (
                   <div
                     key={`${s.todo_id}-${i}`}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors ${
+                    className={`flex items-center gap-3 px-4 py-3 rounded-2xl border transition-colors ${
                       adopted
                         ? 'bg-cd-green/10 border-cd-green/30'
                         : ignored
@@ -384,7 +384,7 @@ export default function AICoach() {
                         <span className="text-sm font-medium text-cd-text">
                           任务 #{s.todo_id ?? '?'}
                         </span>
-                        <span className="px-2 py-0.5 rounded bg-cd-green/15 text-cd-green text-[11px] font-medium">
+                        <span className="px-2 py-0.5 rounded-lg bg-cd-green/15 text-cd-green text-[11px] font-medium">
                           {s.suggested_day} {s.suggested_time}
                         </span>
                       </div>
@@ -402,13 +402,13 @@ export default function AICoach() {
                       <div className="flex items-center gap-2 shrink-0">
                         <button
                           onClick={() => handleAdopt(s)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-cd-green text-white text-[11px] font-medium hover:opacity-90"
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-cd-green text-white text-[11px] font-medium hover:opacity-90"
                         >
                           <Check size={12} /> 采纳
                         </button>
                         <button
                           onClick={() => handleIgnore(s)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-cd-bg-secondary text-cd-text-tertiary text-[11px] hover:text-cd-text border border-cd-border"
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-cd-bg-secondary text-cd-text-tertiary text-[11px] hover:text-cd-text border border-cd-border"
                         >
                           <X size={12} /> 忽略
                         </button>

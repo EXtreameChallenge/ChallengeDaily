@@ -47,7 +47,7 @@ export default function Countdowns() {
           <Calendar className="text-cd-accent" /> 未来计划
         </h1>
         <button onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition">
+          className="flex items-center gap-2 px-4 py-2 bg-cd-accent/20 text-cd-accent rounded-2xl border border-cd-accent/30 hover:bg-cd-accent/30 transition">
           <Plus size={18} /> 新建倒数日
         </button>
       </div>

@@ -112,7 +112,7 @@ export default function HistoryReports() {
         {/* P8-1：报告全文检索 */}
         <div className="flex items-center gap-2">
           {searchMode ? (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-cd-card border border-cd-border rounded-lg">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-cd-card border border-cd-border rounded-2xl">
               <Search size={14} className="text-cd-text-tertiary shrink-0" />
               <input
                 type="text"
@@ -135,7 +135,7 @@ export default function HistoryReports() {
           ) : (
             <button
               onClick={() => setSearchMode(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-2xl bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border"
               title="全文搜索"
             >
               <Search size={12} />
@@ -166,7 +166,7 @@ export default function HistoryReports() {
               <button
                 key={r.id}
                 onClick={() => handleViewSearchResult(r)}
-                className="w-full text-left p-3 rounded-lg bg-cd-bg-secondary hover:bg-cd-hover transition-colors border border-cd-border"
+                className="w-full text-left p-3 rounded-2xl bg-cd-bg-secondary hover:bg-cd-hover transition-colors border border-cd-border"
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-cd-text">{r.report_date}</span>
@@ -200,7 +200,7 @@ export default function HistoryReports() {
           <p className="text-cd-text-tertiary text-xs">生成你的第一份日报吧！</p>
           <button
             onClick={() => handleGenerate(dayjs().format('YYYY-MM-DD'))}
-            className="mt-4 inline-flex items-center gap-2 px-5 py-2 bg-cd-green hover:bg-cd-green-dark text-white rounded-lg text-sm font-medium transition-colors"
+            className="mt-4 inline-flex items-center gap-2 px-5 py-2 bg-cd-green hover:bg-cd-green-dark text-white rounded-2xl text-sm font-medium transition-colors"
           >
             <Sparkles size={14} />
             生成今日日报
@@ -220,7 +220,7 @@ export default function HistoryReports() {
                     : 'bg-cd-card border-cd-border hover:bg-cd-hover'
                 }`}
               >
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${
                   selectedReport?.date === report.date
                     ? 'bg-cd-green text-white'
                     : 'bg-cd-bg-secondary text-cd-text-tertiary'
@@ -259,14 +259,14 @@ export default function HistoryReports() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handleCopy}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border"
                     >
                       {copied ? <Check size={11} /> : <Copy size={11} />}
                       {copied ? '已复制' : '复制'}
                     </button>
                   </div>
                 </div>
-                <div className="prose prose-sm max-w-none prose-headings:text-cd-text prose-p:text-cd-text-secondary prose-strong:text-cd-text prose-li:text-cd-text-secondary prose-code:bg-cd-bg-secondary prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-cd-green prose-code:before:content-none prose-code:after:content-none prose-hr:border-cd-border">
+                <div className="prose prose-sm max-w-none prose-headings:text-cd-text prose-p:text-cd-text-secondary prose-strong:text-cd-text prose-li:text-cd-text-secondary prose-code:bg-cd-bg-secondary prose-code:px-1 prose-code:py-0.5 prose-code:rounded-lg prose-code:text-cd-green prose-code:before:content-none prose-code:after:content-none prose-hr:border-cd-border">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     urlTransform={(url) => {

@@ -143,7 +143,7 @@ export default function TodayTimeline({
   return (
     <div className="relative">
       {/* 时间线标题 */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-cd-text flex items-center gap-2">
           <Clock size={14} className="text-cd-green" />
           今日时间线
@@ -160,7 +160,7 @@ export default function TodayTimeline({
 
         <div className="space-y-1">
           {items.length === 0 && (
-            <div className="text-center py-12 text-cd-text-tertiary text-sm">
+            <div className="text-center py-6 text-cd-text-tertiary text-sm">
               <div className="text-4xl mb-3">⏳</div>
               正在记录你的活动，稍等片刻即可看到时间线
             </div>
@@ -176,7 +176,7 @@ export default function TodayTimeline({
               <div key={item.id} ref={isCurrent ? currentRef : undefined}>
                 {/* 时间线节点 */}
                 <div
-                  className={`relative flex items-start gap-3 py-2 px-2 rounded-lg cursor-pointer transition-colors ${
+                  className={`relative flex items-start gap-3 py-2 px-2 rounded-2xl cursor-pointer transition-colors ${
                     isCurrent ? 'bg-cd-green/5 ring-1 ring-cd-green/20' : 'hover:bg-cd-hover'
                   }`}
                   onClick={() => setExpandedId(isExpanded ? null : item.id)}
@@ -230,12 +230,12 @@ export default function TodayTimeline({
 
                     {/* 展开详情 */}
                     {isExpanded && item.raw && (
-                      <div className="mt-2 ml-5 p-3 bg-cd-bg-secondary rounded-lg text-xs space-y-1.5 animate-fade-in">
+                      <div className="mt-2 ml-5 p-3 bg-cd-bg-secondary rounded-2xl text-xs space-y-1.5 animate-fade-in">
                         {'category' in item.raw && (
                           <div className="flex items-center gap-2">
                             <span className="text-cd-text-tertiary">分类：</span>
                             <span
-                              className="px-1.5 py-0.5 rounded text-white"
+                              className="px-1.5 py-0.5 rounded-lg text-white"
                               style={{ background: getCategoryColor(item.raw.category) }}
                             >
                               {item.raw.category}
@@ -269,7 +269,7 @@ export default function TodayTimeline({
                                 e.stopPropagation()
                                 onStartTodo(item.raw as Todo)
                               }}
-                              className="flex items-center gap-1 bg-cd-green text-white px-3 py-1.5 rounded text-xs font-medium hover:opacity-90 transition"
+                              className="flex items-center gap-1 bg-cd-green text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:opacity-90 transition"
                             >
                               <Play size={12} /> 开始专注
                             </button>
@@ -279,7 +279,7 @@ export default function TodayTimeline({
                                   e.stopPropagation()
                                   onCompleteTodo(item.raw as Todo)
                                 }}
-                                className="flex items-center gap-1 border border-cd-border text-cd-text-secondary px-3 py-1.5 rounded text-xs hover:bg-cd-hover transition"
+                                className="flex items-center gap-1 border border-cd-border text-cd-text-secondary px-3 py-1.5 rounded-lg text-xs hover:bg-cd-hover transition"
                               >
                                 <CheckCircle2 size={12} /> 标记完成
                               </button>

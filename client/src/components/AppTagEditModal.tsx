@@ -161,7 +161,7 @@ export default function AppTagEditModal({ open, onClose, app, onSaved }: AppTagE
               <button
                 key={cat}
                 onClick={() => toggleTag(cat)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                className={`px-2.5 py-1 rounded-2xl text-xs font-medium border transition-colors ${
                   checked
                     ? 'border-transparent text-white'
                     : 'border-cd-border text-cd-text-secondary hover:bg-cd-hover'
@@ -180,7 +180,7 @@ export default function AppTagEditModal({ open, onClose, app, onSaved }: AppTagE
         <select
           value={draft.primary_category || ''}
           onChange={(e) => setPrimary(e.target.value)}
-          className="w-full bg-cd-bg-input text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-accent/50"
+          className="w-full bg-cd-bg-input text-cd-text border border-cd-border rounded-2xl px-3 py-2 text-sm focus:outline-none focus:border-cd-accent/50"
         >
           <option value="">自动推断</option>
           {CATEGORIES.map((cat) => (
@@ -209,12 +209,12 @@ export default function AppTagEditModal({ open, onClose, app, onSaved }: AppTagE
                 value={kw}
                 onChange={(e) => updateWindowRule(kw, e.target.value, cat)}
                 placeholder="关键词"
-                className="flex-1 bg-cd-bg-input text-cd-text border border-cd-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-cd-accent/50"
+                className="flex-1 bg-cd-bg-input text-cd-text border border-cd-border rounded-2xl px-2 py-1.5 text-xs focus:outline-none focus:border-cd-accent/50"
               />
               <select
                 value={cat}
                 onChange={(e) => updateWindowRule(kw, kw, e.target.value)}
-                className="bg-cd-bg-input text-cd-text border border-cd-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-cd-accent/50"
+                className="bg-cd-bg-input text-cd-text border border-cd-border rounded-2xl px-2 py-1.5 text-xs focus:outline-none focus:border-cd-accent/50"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c} value={c}>

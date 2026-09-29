@@ -43,7 +43,7 @@ export default function YearView({
   return (
     <div className="p-4 overflow-auto h-full">
       {/* 年度目标甘特条（Goals 跨月） */}
-      <div className="mb-4 rounded-lg p-4" style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)' }}>
+      <div className="mb-4 rounded-2xl p-4 bg-cd-card border border-cd-border">
         <div className="flex items-center gap-2 mb-3">
           <Layers size={14} className="text-cd-accent" />
           <h3 className="text-sm font-semibold text-cd-text">年度目标时间线</h3>
@@ -51,7 +51,7 @@ export default function YearView({
         {yearGoals.length === 0 ? (
           <div className="text-xs text-cd-text-tertiary py-2">暂无长期目标，去「长期目标」页创建</div>
         ) : (
-          <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--cd-border)' }}>
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--cd-border)' }}>
             <TimeAxis mode="month" start={1} end={12} cellWidth={MONTH_CELL_W} height={24}
               highlightIndex={currentMonthIdx} />
             <div style={{ position: 'relative', minHeight: yearGoals.length * 36 + 8, padding: '4px 0' }}>
@@ -67,7 +67,7 @@ export default function YearView({
                 <div style={{
                   position: 'absolute', top: 0, bottom: 0,
                   left: currentMonthIdx * MONTH_CELL_W, width: MONTH_CELL_W,
-                  background: '#7B68EE08',
+                  background: 'var(--cd-accent)08',
                 }} />
               )}
               {/* 目标条 */}
@@ -100,7 +100,7 @@ export default function YearView({
       </div>
 
       {/* 年度目标卡片 */}
-      <div className="mb-4 rounded-lg p-4" style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)' }}>
+      <div className="mb-4 rounded-2xl p-4 bg-cd-card border border-cd-border">
         <div className="flex items-center gap-2 mb-2">
           <Target size={16} className="text-cd-green" />
           <h2 className="text-sm font-semibold text-cd-text">{yearKey} 年度目标</h2>
@@ -111,7 +111,7 @@ export default function YearView({
           onChange={e => setYearGoal(e.target.value)}
           placeholder="设定本年度核心目标，例如：完成产品 3.0 大版本发布、阅读 24 本书、累计专注 1000 小时..."
           rows={2}
-          className="w-full px-3 py-2 rounded text-sm border border-cd-border resize-none"
+          className="w-full px-3 py-2 rounded-lg text-sm border border-cd-border resize-none"
           style={{ background: 'var(--cd-bg-input)', color: 'var(--cd-text)' }}
         />
         <div className="flex gap-4 mt-3 text-xs">
@@ -122,7 +122,7 @@ export default function YearView({
       </div>
 
       {/* 12 个月度进度条 */}
-      <div className="mb-4 rounded-lg p-4" style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)' }}>
+      <div className="mb-4 rounded-2xl p-4 bg-cd-card border border-cd-border">
         <div className="flex items-center gap-2 mb-3">
           <Layers size={14} className="text-cd-accent" />
           <h3 className="text-sm font-semibold text-cd-text">月度完成率</h3>
@@ -148,7 +148,7 @@ export default function YearView({
       </div>
 
       {/* 全年热力图（GitHub 风格 53×7） */}
-      <div className="rounded-lg p-4" style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)' }}>
+      <div className="rounded-2xl p-4 bg-cd-card border border-cd-border">
         <div className="flex items-center gap-2 mb-3">
           <Flame size={14} className="text-cd-green" />
           <h3 className="text-sm font-semibold text-cd-text">全年专注热力图</h3>
@@ -174,7 +174,7 @@ export default function YearView({
                     style={{
                       width: 10, height: 10, borderRadius: 2,
                       background: inYear ? heatColor(min) : 'transparent',
-                      border: ds === getTodayStr() ? '1px solid #7B68EE' : 'none',
+                      border: ds === getTodayStr() ? '1px solid var(--cd-accent)' : 'none',
                     }}
                   />
                 )

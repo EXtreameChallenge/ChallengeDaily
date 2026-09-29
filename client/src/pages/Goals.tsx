@@ -124,7 +124,7 @@ export default function Goals() {
           <p className="text-sm text-cd-text-secondary mt-1">年度/季度/月度目标 · 关键结果追踪 · GoalDay集大成</p>
         </div>
         <button onClick={() => setShowModal(true)}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs bg-cd-accent text-white hover:opacity-90 transition">
+          className="flex items-center gap-1 px-3 py-1.5 rounded-2xl text-xs bg-cd-accent text-white hover:opacity-90 transition">
           <Plus size={14} /> 新建目标
         </button>
       </div>
@@ -133,7 +133,7 @@ export default function Goals() {
       <div className="flex gap-2 mb-4">
         {['active', 'completed', 'all'].map(f => (
           <button key={f} onClick={() => setFilter(f)}
-            className={`px-3 py-1 rounded-lg text-xs transition ${
+            className={`px-3 py-1 rounded-2xl text-xs transition ${
               filter === f
                 ? 'bg-cd-accent/20 text-cd-accent border border-cd-accent/30'
                 : 'bg-cd-bg-card text-cd-text-secondary border border-white/5 hover:bg-white/5'
@@ -171,10 +171,10 @@ export default function Goals() {
                       <h3 className={`text-sm font-medium ${isCompleted ? 'text-cd-text-tertiary line-through' : 'text-cd-text'}`}>
                         {goal.title}
                       </h3>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${cat.color}20`, color: cat.color }}>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-lg" style={{ background: `${cat.color}20`, color: cat.color }}>
                         {cat.label}
                       </span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-cd-text-tertiary">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-lg bg-white/5 text-cd-text-tertiary">
                         {tf.label}
                       </span>
                     </div>
@@ -184,14 +184,14 @@ export default function Goals() {
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => handleComplete(goal)}
-                      className={`p-1.5 rounded-lg transition ${
+                      className={`p-1.5 rounded-2xl transition ${
                         isCompleted ? 'text-cd-green hover:bg-cd-green/10' : 'text-cd-text-tertiary hover:bg-white/5'
                       }`}
                       title={isCompleted ? '重新激活' : '标记完成'}>
                       {isCompleted ? <CheckCircle2 size={16} /> : <Circle size={16} />}
                     </button>
                     <button onClick={() => handleDelete(goal.id)}
-                      className="p-1.5 rounded-lg text-cd-text-tertiary hover:bg-red-500/10 hover:text-red-400 transition">
+                      className="p-1.5 rounded-2xl text-cd-text-tertiary hover:bg-red-500/10 hover:text-red-400 transition">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -214,7 +214,7 @@ export default function Goals() {
                   <div className="mt-3 space-y-1">
                     {goal.key_results.map((kr, i) => (
                       <button key={i} onClick={() => handleToggleKR(goal, i)}
-                        className="flex items-center gap-2 w-full text-left text-xs hover:bg-white/5 rounded px-2 py-1 transition">
+                        className="flex items-center gap-2 w-full text-left text-xs hover:bg-white/5 rounded-lg px-2 py-1 transition">
                         {kr.done ? (
                           <CheckCircle2 size={12} className="text-cd-green shrink-0" />
                         ) : (
@@ -255,7 +255,7 @@ export default function Goals() {
           {/* 心情统计 */}
           <div className="flex flex-wrap gap-3 mb-4">
             {Object.entries(moodStats).map(([mood, count]) => (
-              <div key={mood} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cd-bg-secondary">
+              <div key={mood} className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-cd-bg-secondary">
                 <span className="text-lg">{MOOD_EMOJI[mood] || '😊'}</span>
                 <span className="text-xs text-cd-text-secondary">{count} 天</span>
               </div>
@@ -265,7 +265,7 @@ export default function Goals() {
           <div className="flex flex-wrap gap-1">
             {moodData.slice(-30).map((m, i) => (
               <div key={i}
-                className="w-7 h-7 rounded flex items-center justify-center text-sm"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
                 style={{ background: `${MOOD_EMOJI[m.mood] ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.03)'}` }}
                 title={`${m.date}: ${m.mood}`}>
                 {MOOD_EMOJI[m.mood] || '·'}
@@ -291,26 +291,26 @@ export default function Goals() {
                 <label className="text-xs text-cd-text-secondary mb-1 block">目标标题 *</label>
                 <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
                   placeholder="例如：2026年阅读50本书"
-                  className="w-full px-3 py-2 rounded-lg bg-cd-bg-input border border-cd-border text-sm text-cd-text focus:border-cd-accent outline-none" />
+                  className="w-full px-3 py-2 rounded-2xl bg-cd-bg-input border border-cd-border text-sm text-cd-text focus:border-cd-accent outline-none" />
               </div>
               <div>
                 <label className="text-xs text-cd-text-secondary mb-1 block">描述</label>
                 <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
                   rows={2} placeholder="目标详细描述..."
-                  className="w-full px-3 py-2 rounded-lg bg-cd-bg-input border border-cd-border text-sm text-cd-text focus:border-cd-accent outline-none resize-none" />
+                  className="w-full px-3 py-2 rounded-2xl bg-cd-bg-input border border-cd-border text-sm text-cd-text focus:border-cd-accent outline-none resize-none" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-cd-text-secondary mb-1 block">分类</label>
                   <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value as Goal['category'] })}
-                    className="w-full px-3 py-2 rounded-lg bg-cd-bg-input border border-cd-border text-sm text-cd-text focus:border-cd-accent outline-none">
+                    className="w-full px-3 py-2 rounded-2xl bg-cd-bg-input border border-cd-border text-sm text-cd-text focus:border-cd-accent outline-none">
                     {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-xs text-cd-text-secondary mb-1 block">周期</label>
                   <select value={form.timeframe} onChange={e => setForm({ ...form, timeframe: e.target.value as Goal['timeframe'] })}
-                    className="w-full px-3 py-2 rounded-lg bg-cd-bg-input border border-cd-border text-sm text-cd-text focus:border-cd-accent outline-none">
+                    className="w-full px-3 py-2 rounded-2xl bg-cd-bg-input border border-cd-border text-sm text-cd-text focus:border-cd-accent outline-none">
                     {TIMEFRAMES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
@@ -318,16 +318,16 @@ export default function Goals() {
               <div>
                 <label className="text-xs text-cd-text-secondary mb-1 block">目标日期</label>
                 <input type="date" value={form.target_date} onChange={e => setForm({ ...form, target_date: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg bg-cd-bg-input border border-cd-border text-sm text-cd-text focus:border-cd-accent outline-none" />
+                  className="w-full px-3 py-2 rounded-2xl bg-cd-bg-input border border-cd-border text-sm text-cd-text focus:border-cd-accent outline-none" />
               </div>
             </div>
             <div className="flex gap-2 mt-5">
               <button onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2 rounded-lg text-sm bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition">
+                className="flex-1 px-4 py-2 rounded-2xl text-sm bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition">
                 取消
               </button>
               <button onClick={handleCreate}
-                className="flex-1 px-4 py-2 rounded-lg text-sm bg-cd-accent text-white hover:opacity-90 transition">
+                className="flex-1 px-4 py-2 rounded-2xl text-sm bg-cd-accent text-white hover:opacity-90 transition">
                 创建目标
               </button>
             </div>

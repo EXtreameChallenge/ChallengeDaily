@@ -228,7 +228,7 @@ export default function Todos() {
           {hasChildren ? (
             <button
               onClick={() => toggleExpand(todo.id)}
-              className="w-5 h-5 rounded flex items-center justify-center shrink-0 mt-0.5 text-cd-text-tertiary hover:text-cd-text hover:bg-white/5 transition"
+              className="w-5 h-5 rounded-lg flex items-center justify-center shrink-0 mt-0.5 text-cd-text-tertiary hover:text-cd-text hover:bg-white/5 transition"
               title={isExpanded ? '收起子任务' : '展开子任务'}
             >
               <ChevronRight size={14} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
@@ -300,7 +300,7 @@ export default function Todos() {
             </div>
             <div>
               <span
-                className={`inline-block text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                className={`inline-block text-[10px] px-1.5 py-0.5 rounded-lg font-medium ${
                   isCompleted
                     ? 'bg-green-500/15 text-green-400'
                     : 'bg-yellow-500/15 text-yellow-400'
@@ -316,13 +316,13 @@ export default function Todos() {
         <div className="flex items-center justify-between gap-2 px-3.5 py-2 border-t border-white/5 bg-black/10">
           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
             <span
-              className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+              className="text-[10px] px-1.5 py-0.5 rounded-lg font-medium"
               style={{ background: catColor + '20', color: catColor }}
             >
               {todo.category}
             </span>
             {todo.pomodoro_size === 'small' && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">小番茄</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400">小番茄</span>
             )}
             {todo.assigned_date && (
               <span className="text-[10px] text-cd-text-tertiary flex items-center gap-0.5">
@@ -338,7 +338,7 @@ export default function Todos() {
           {showFocus && !isCompleted && (
             <button
               onClick={() => startFocus(todo)}
-              className="px-2.5 py-1 rounded-lg text-xs bg-cd-accent/15 text-cd-accent border border-cd-accent/20 hover:bg-cd-accent/25 transition flex items-center gap-1 shrink-0"
+              className="px-2.5 py-1 rounded-full text-xs bg-cd-accent/15 text-cd-accent border border-cd-accent/20 hover:bg-cd-accent/25 transition flex items-center gap-1 shrink-0"
               title="开始专注"
             >
               <Play size={11} /> 开始专注
@@ -359,7 +359,7 @@ export default function Todos() {
               return (
                 <div
                   key={child.id}
-                  className="flex items-center gap-2 p-2 rounded-lg bg-cd-bg-input/50 border border-white/5"
+                  className="flex items-center gap-2 p-2 rounded-2xl bg-cd-bg-input/50 border border-white/5"
                   style={{ borderLeft: `2px solid ${childCatColor}` }}
                 >
                   <button
@@ -379,7 +379,7 @@ export default function Todos() {
                     {child.progress_min}/{child.target_min}m
                   </span>
                   <span
-                    className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                    className="text-[10px] px-1.5 py-0.5 rounded-lg shrink-0"
                     style={{ background: childCatColor + '20', color: childCatColor }}
                   >
                     {child.category}
@@ -438,12 +438,12 @@ export default function Todos() {
           <p className="text-xs text-cd-text-tertiary mt-1">快速管理任务 · 父任务可展开查看子任务 · 点击卡片可启动番茄专注</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-cd-bg-card rounded-lg border border-white/5 p-0.5">
+          <div className="flex items-center gap-1 bg-cd-bg-card rounded-2xl border border-white/5 p-0.5">
             {(['all', 'pending', 'completed'] as const).map(f => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-2.5 py-1 rounded-md text-xs transition ${
+                className={`px-2.5 py-1 rounded-xl text-xs transition ${
                   filter === f ? 'bg-cd-accent/20 text-cd-accent' : 'text-cd-text-secondary hover:text-cd-text'
                 }`}
               >
@@ -454,14 +454,14 @@ export default function Todos() {
           <button
             onClick={handleExtractTodos}
             disabled={aiLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-500/15 text-purple-400 rounded-lg border border-purple-500/30 hover:bg-purple-500/25 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-cd-accent/15 text-cd-accent rounded-full border border-cd-accent/30 hover:bg-cd-accent/25 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {aiLoading ? <Loader2 size={18} className="animate-spin" /> : <Wand2 size={18} />}
             {aiLoading ? '分析中...' : 'AI 提取待办'}
           </button>
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition"
+            className="flex items-center gap-2 px-4 py-2 bg-cd-accent/20 text-cd-accent rounded-full border border-cd-accent/30 hover:bg-cd-accent/30 transition"
           >
             <Plus size={18} /> 新建任务
           </button>
@@ -496,14 +496,14 @@ export default function Todos() {
           <div className="flex items-center justify-end gap-2">
             <button
               onClick={() => { setAiModalOpen(false); setAiTodos([]); setSelectedAiIdx(new Set()) }}
-              className="px-4 py-2 rounded-lg text-sm text-cd-text-secondary hover:bg-cd-hover transition"
+              className="px-4 py-2 rounded-full text-sm text-cd-text-secondary hover:bg-cd-hover transition"
             >
               取消
             </button>
             <button
               onClick={handleConfirmAdd}
               disabled={aiConfirming || selectedAiIdx.size === 0}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {aiConfirming ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
               添加选中（{selectedAiIdx.size}）
@@ -522,12 +522,12 @@ export default function Todos() {
                 <div
                   key={idx}
                   onClick={() => toggleAiSelect(idx)}
-                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                  className={`flex items-start gap-3 p-3 rounded-2xl border cursor-pointer transition ${
                     checked ? 'border-cd-accent/30 bg-cd-accent/5' : 'border-white/5 hover:border-white/10'
                   }`}
                 >
                   <div
-                    className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 transition ${
+                    className={`w-4 h-4 rounded-lg border-2 flex items-center justify-center shrink-0 mt-0.5 transition ${
                       checked ? 'bg-cd-accent/20 border-cd-accent/40 text-cd-accent' : 'border-white/20'
                     }`}
                   >
@@ -536,7 +536,7 @@ export default function Todos() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm text-cd-text leading-snug">{todo.title}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${PRIORITY_BADGE[todo.priority] || PRIORITY_BADGE.low}`}>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-lg font-medium ${PRIORITY_BADGE[todo.priority] || PRIORITY_BADGE.low}`}>
                         {PRIORITY_LABEL[todo.priority] || '低'}
                       </span>
                     </div>

@@ -135,7 +135,7 @@ export default function AgentPage() {
         <h1 className="text-lg font-semibold text-cd-text">接入Agent</h1>
         <button
           onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-cd-green text-white hover:bg-cd-green-dark transition-colors"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-2xl text-xs font-medium bg-cd-green text-white hover:bg-cd-green-dark transition-colors"
         >
           <Plus size={14} />
           添加推送
@@ -157,7 +157,7 @@ export default function AgentPage() {
         <button
           onClick={handleAutoPush}
           disabled={pushing}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-cd-green text-white hover:bg-cd-green-dark disabled:opacity-50 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-medium bg-cd-green text-white hover:bg-cd-green-dark disabled:opacity-50 transition-colors"
         >
           {pushing ? (
             <><Loader2 size={14} className="animate-spin" /> 正在生成并推送...</>
@@ -197,7 +197,7 @@ export default function AgentPage() {
                 type="time"
                 value={autoConfig.auto_time}
                 onChange={(e) => saveAutoConfig({ auto_time: e.target.value })}
-                className="bg-cd-card border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
+                className="bg-cd-card border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
               />
             </div>
             <div className="flex items-center gap-3">
@@ -244,12 +244,12 @@ export default function AgentPage() {
               return (
                 <div
                   key={wh.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                  className={`flex items-center gap-3 p-3 rounded-2xl border transition-colors ${
                     wh.enabled ? 'bg-cd-bg-secondary border-cd-border' : 'bg-cd-bg-secondary/50 border-cd-border opacity-60'
                   }`}
                 >
                   <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    className="w-8 h-8 rounded-2xl flex items-center justify-center text-white text-xs font-bold shrink-0"
                     style={{ background: info.color }}
                   >
                     {info.label[0]}
@@ -262,7 +262,7 @@ export default function AgentPage() {
                     <button
                       onClick={() => handleTest(wh.id)}
                       disabled={testingId === wh.id}
-                      className="p-1 rounded text-cd-text-tertiary hover:text-cd-text hover:bg-cd-hover transition-colors disabled:opacity-50"
+                      className="p-1 rounded-lg text-cd-text-tertiary hover:text-cd-text hover:bg-cd-hover transition-colors disabled:opacity-50"
                       title="测试连接"
                     >
                       {testingId === wh.id ? (
@@ -273,14 +273,14 @@ export default function AgentPage() {
                     </button>
                     <button
                       onClick={() => handleToggle(wh.id)}
-                      className="p-1 rounded text-cd-text-tertiary hover:text-cd-text hover:bg-cd-hover transition-colors"
+                      className="p-1 rounded-lg text-cd-text-tertiary hover:text-cd-text hover:bg-cd-hover transition-colors"
                       title={wh.enabled ? '禁用' : '启用'}
                     >
                       {wh.enabled ? <Power size={14} className="text-cd-green" /> : <PowerOff size={14} />}
                     </button>
                     <button
                       onClick={() => handleDelete(wh.id)}
-                      className="p-1 rounded text-cd-text-tertiary hover:text-cd-red hover:bg-cd-red-light transition-colors"
+                      className="p-1 rounded-lg text-cd-text-tertiary hover:text-cd-red hover:bg-cd-red-light transition-colors"
                       title="删除"
                     >
                       <Trash2 size={14} />
@@ -314,11 +314,11 @@ export default function AgentPage() {
           ].map(({ icon: Icon, title, desc, available }) => (
             <div
               key={title}
-              className={`flex items-start gap-2.5 p-3 rounded-lg ${
+              className={`flex items-start gap-2.5 p-3 rounded-2xl ${
                 available ? 'bg-cd-bg-secondary' : 'bg-cd-bg-secondary/50 opacity-50'
               }`}
             >
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+              <div className={`w-7 h-7 rounded-2xl flex items-center justify-center shrink-0 ${
                 available ? 'bg-cd-green-light text-cd-green' : 'bg-cd-bg text-cd-text-tertiary'
               }`}>
                 <Icon size={14} />

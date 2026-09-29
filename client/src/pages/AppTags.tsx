@@ -83,7 +83,7 @@ export default function AppTags() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索应用..."
-            className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors w-48"
+            className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors w-48"
           />
         </div>
       </div>
@@ -161,7 +161,7 @@ export default function AppTags() {
                 <div className="flex items-center justify-end gap-2 pt-1">
                   <button
                     onClick={() => setEditingApp(app)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border"
+                    className="px-3 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border"
                   >
                     编辑标签
                   </button>

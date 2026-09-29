@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChallengeDaily Web Tracker</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="brand">
+      <span class="logo">📊</span>
+      <span class="title">ChallengeDaily</span>
+    </div>
+    <span id="connStatus" class="status-badge disconnected">未连接</span>
+  </header>
+
+  <section class="card current-card">
+    <div class="card-label">当前活跃标签</div>
+    <div id="currentTitle" class="current-title">—</div>
+    <div id="currentDomain" class="current-domain">—</div>
+    <div class="current-meta">
+      <span id="currentCategory" class="chip">—</span>
+      <span id="currentDuration" class="chip muted">0s</span>
+    </div>
+  </section>
+
+  <section class="card stats-card">
+    <div class="card-label">
+      今日追踪
+      <span id="todayTotal" class="today-total">0 分钟</span>
+    </div>
+    <ul id="topList" class="top-list">
+      <li class="empty">暂无数据</li>
+    </ul>
+  </section>
+
+  <section class="controls">
+    <label class="switch">
+      <input type="checkbox" id="toggleTracking" checked />
+      <span class="slider"></span>
+      <span class="switch-label" id="toggleLabel">追踪中</span>
+    </label>
+    <button id="openOptions" class="btn-icon" title="设置">⚙️</button>
+  </section>
+
+  <footer class="footer">
+    <span id="pendingInfo" class="footer-text">待发送：0 条</span>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>

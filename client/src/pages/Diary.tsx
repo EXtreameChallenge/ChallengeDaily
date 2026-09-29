@@ -182,7 +182,7 @@ export default function Diary() {
     <div className="min-h-screen p-6 max-w-3xl mx-auto">
       {/* 顶部导航 */}
       <div className="flex items-center justify-between mb-6">
-        <button onClick={goPrev} className="p-2 rounded-lg bg-cd-bg-input border border-white/5 text-cd-text-secondary hover:bg-white/5 transition">
+        <button onClick={goPrev} className="p-2 rounded-2xl bg-cd-bg-input border border-white/5 text-cd-text-secondary hover:bg-white/5 transition">
           <ChevronLeft size={20} />
         </button>
         <div className="flex items-center gap-2">
@@ -190,7 +190,7 @@ export default function Diary() {
           <h1 className="text-xl font-bold text-cd-text">{formatDate(currentDate)}</h1>
           {hasDiary && <span className="w-2 h-2 rounded-full bg-green-500/60" title="已写日记" />}
         </div>
-        <button onClick={goNext} className="p-2 rounded-lg bg-cd-bg-input border border-white/5 text-cd-text-secondary hover:bg-white/5 transition">
+        <button onClick={goNext} className="p-2 rounded-2xl bg-cd-bg-input border border-white/5 text-cd-text-secondary hover:bg-white/5 transition">
           <ChevronRight size={20} />
         </button>
       </div>
@@ -201,7 +201,7 @@ export default function Diary() {
         <div className="flex gap-2 flex-wrap">
           {MOODS.map(m => (
             <button key={m.label} onClick={() => setMood(mood === m.label ? '' : m.label)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-sm border transition ${
                 mood === m.label ? `${m.color} bg-white/5 border-white/10` : 'text-cd-text-secondary bg-cd-bg-input border-white/5 hover:bg-white/5'
               }`}>
               <span className="text-base">{m.emoji}</span> {m.label}
@@ -228,15 +228,15 @@ export default function Diary() {
           {/* 多媒体工具栏 */}
           <div className="flex gap-1">
             <button onClick={() => imageInputRef.current?.click()} title="插入图片"
-              className="p-1.5 rounded-lg text-cd-text-tertiary hover:text-cd-accent hover:bg-white/5 transition">
+              className="p-1.5 rounded-2xl text-cd-text-tertiary hover:text-cd-accent hover:bg-white/5 transition">
               <ImageIcon size={15} />
             </button>
             <button onClick={handleRecordToggle} title="录音"
-              className={`p-1.5 rounded-lg transition ${recording ? 'text-red-400 bg-red-400/10' : 'text-cd-text-tertiary hover:text-cd-accent hover:bg-white/5'}`}>
+              className={`p-1.5 rounded-2xl transition ${recording ? 'text-red-400 bg-red-400/10' : 'text-cd-text-tertiary hover:text-cd-accent hover:bg-white/5'}`}>
               <Mic size={15} />
             </button>
             <button onClick={() => setShowLinkInput(!showLinkInput)} title="插入链接"
-              className="p-1.5 rounded-lg text-cd-text-tertiary hover:text-cd-accent hover:bg-white/5 transition">
+              className="p-1.5 rounded-2xl text-cd-text-tertiary hover:text-cd-accent hover:bg-white/5 transition">
               <Link2 size={15} />
             </button>
           </div>
@@ -249,9 +249,9 @@ export default function Diary() {
           <div className="flex gap-2 mb-2">
             <input type="url" value={linkInput} onChange={e => setLinkInput(e.target.value)}
               placeholder="粘贴链接 URL..."
-              className="flex-1 bg-cd-bg-input border border-white/5 rounded-lg px-3 py-1.5 text-xs text-cd-text" />
+              className="flex-1 bg-cd-bg-input border border-white/5 rounded-2xl px-3 py-1.5 text-xs text-cd-text" />
             <button onClick={() => { if (linkInput.trim()) { setMedia([...media, { type: 'link', url: linkInput.trim() }]); setLinkInput(''); setShowLinkInput(false) } }}
-              className="px-3 py-1.5 bg-cd-accent/20 text-cd-accent rounded-lg text-xs border border-cd-accent/30">
+              className="px-3 py-1.5 bg-cd-accent/20 text-cd-accent rounded-2xl text-xs border border-cd-accent/30">
               添加
             </button>
           </div>
@@ -263,16 +263,16 @@ export default function Diary() {
             {media.map((m, i) => (
               <div key={i} className="relative group">
                 {m.type === 'image' && (
-                  <img src={m.url} alt={m.title || ''} className="w-20 h-20 object-cover rounded-lg border border-white/10" />
+                  <img src={m.url} alt={m.title || ''} className="w-20 h-20 object-cover rounded-2xl border border-white/10" />
                 )}
                 {m.type === 'audio' && (
-                  <div className="w-20 h-20 flex flex-col items-center justify-center bg-cd-bg-input rounded-lg border border-white/10">
+                  <div className="w-20 h-20 flex flex-col items-center justify-center bg-cd-bg-input rounded-2xl border border-white/10">
                     <Mic size={20} className="text-cd-accent mb-1" />
                     <span className="text-[10px] text-cd-text-tertiary">{m.duration || 0}s</span>
                   </div>
                 )}
                 {m.type === 'link' && (
-                  <div className="w-20 h-20 flex flex-col items-center justify-center bg-cd-bg-input rounded-lg border border-white/10 p-1">
+                  <div className="w-20 h-20 flex flex-col items-center justify-center bg-cd-bg-input rounded-2xl border border-white/10 p-1">
                     <Link2 size={18} className="text-cd-accent mb-1" />
                     <span className="text-[9px] text-cd-text-tertiary truncate w-full text-center">{m.title || new URL(m.url).hostname}</span>
                   </div>
@@ -288,7 +288,7 @@ export default function Diary() {
 
         <textarea value={content} onChange={e => setContent(e.target.value)}
           placeholder="写下今天的故事..."
-          className="w-full bg-cd-bg-input border border-white/5 rounded-lg p-3 text-cd-text placeholder:text-cd-text-secondary min-h-[200px] resize-y focus:outline-none focus:border-cd-accent/40 text-base leading-[1.8]" />
+          className="w-full bg-cd-bg-input border border-white/5 rounded-2xl p-3 text-cd-text placeholder:text-cd-text-secondary min-h-[200px] resize-y focus:outline-none focus:border-cd-accent/40 text-base leading-[1.8]" />
       </div>
 
       {/* 亮点和感恩 */}
@@ -297,13 +297,13 @@ export default function Diary() {
           <div className="text-sm text-cd-text-secondary mb-2 flex items-center gap-1"><Sparkles size={14} className="text-gold" /> 今日亮点</div>
           <input type="text" value={highlights} onChange={e => setHighlights(e.target.value)}
             placeholder="今天最棒的事..."
-            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2 text-cd-text text-sm focus:outline-none focus:border-cd-accent/40" />
+            className="w-full bg-cd-bg-input border border-white/5 rounded-2xl px-3 py-2 text-cd-text text-sm focus:outline-none focus:border-cd-accent/40" />
         </div>
         <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
           <div className="text-sm text-cd-text-secondary mb-2">感恩的事</div>
           <input type="text" value={gratitude} onChange={e => setGratitude(e.target.value)}
             placeholder="今天感谢..."
-            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2 text-cd-text text-sm focus:outline-none focus:border-cd-accent/40" />
+            className="w-full bg-cd-bg-input border border-white/5 rounded-2xl px-3 py-2 text-cd-text text-sm focus:outline-none focus:border-cd-accent/40" />
         </div>
       </div>
 
@@ -312,7 +312,7 @@ export default function Diary() {
         <div className="text-sm text-cd-text-secondary mb-2">标签（逗号分隔）</div>
         <input type="text" value={tags} onChange={e => setTags(e.target.value)}
           placeholder="如：高效,开会,突破..."
-          className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2 text-cd-text text-sm focus:outline-none focus:border-cd-accent/40" />
+          className="w-full bg-cd-bg-input border border-white/5 rounded-2xl px-3 py-2 text-cd-text text-sm focus:outline-none focus:border-cd-accent/40" />
       </div>
 
       {/* 保存按钮 */}
@@ -328,7 +328,7 @@ export default function Diary() {
           <div className="flex gap-1 flex-wrap">
             {diaryDates.slice(0, 30).map(d => (
               <button key={d} onClick={() => setCurrentDate(d)}
-                className={`px-2 py-1 rounded text-xs transition ${d === currentDate ? 'bg-cd-accent/20 text-cd-accent' : 'bg-cd-bg-input text-cd-text-secondary hover:bg-white/5'}`}>
+                className={`px-2 py-1 rounded-lg text-xs transition ${d === currentDate ? 'bg-cd-accent/20 text-cd-accent' : 'bg-cd-bg-input text-cd-text-secondary hover:bg-white/5'}`}>
                 {d.substring(5)}
               </button>
             ))}
@@ -395,11 +395,11 @@ function TodayCompleteCard({
         {/* 操作按钮 */}
         <div className="flex gap-1.5 shrink-0">
           <button onClick={onInsert} title="插入到日记"
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-2xl text-xs bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
             <FileText size={12} /> 插入
           </button>
           <button onClick={onToggle} title={expanded ? '收起' : '展开'}
-            className="p-1.5 rounded-lg text-cd-text-tertiary hover:text-cd-text hover:bg-white/5 transition">
+            className="p-1.5 rounded-2xl text-cd-text-tertiary hover:text-cd-text hover:bg-white/5 transition">
             <ChevronDown size={14} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
           </button>
         </div>
@@ -415,7 +415,7 @@ function TodayCompleteCard({
               <div className="space-y-1">
                 {card.todos_completed.slice(0, 8).map(t => (
                   <div key={t.id} className="flex items-center gap-2 text-xs">
-                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-cd-bg-input text-cd-text-secondary">{t.category}</span>
+                    <span className="px-1.5 py-0.5 rounded-lg text-[10px] bg-cd-bg-input text-cd-text-secondary">{t.category}</span>
                     <span className="text-cd-text flex-1 truncate">{t.title}</span>
                   </div>
                 ))}
@@ -454,7 +454,7 @@ function TodayCompleteCard({
               </div>
               <div className="flex gap-1 flex-wrap">
                 {Object.entries(card.activity_categories).slice(0, 6).map(([cat, dur]) => (
-                  <span key={cat} className="px-2 py-0.5 rounded text-[10px] bg-cd-bg-input text-cd-text-secondary">
+                  <span key={cat} className="px-2 py-0.5 rounded-lg text-[10px] bg-cd-bg-input text-cd-text-secondary">
                     {cat} {dur}min
                   </span>
                 ))}
@@ -468,7 +468,7 @@ function TodayCompleteCard({
               <div className="text-[10px] font-medium text-cd-text-tertiary uppercase tracking-wider mb-1.5">🔥 习惯打卡</div>
               <div className="flex gap-1 flex-wrap">
                 {card.habits_logged.map(h => (
-                  <span key={h.habit_id} className="px-2 py-0.5 rounded text-[10px] bg-cd-bg-input text-cd-text-secondary">
+                  <span key={h.habit_id} className="px-2 py-0.5 rounded-lg text-[10px] bg-cd-bg-input text-cd-text-secondary">
                     {h.name} ×{h.count}
                   </span>
                 ))}

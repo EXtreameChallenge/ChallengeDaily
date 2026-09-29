@@ -547,7 +547,7 @@ export default function Settings() {
         <h1 className="text-lg font-semibold text-cd-text">设置</h1>
         <button
           onClick={handleResetDefaults}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border"
         >
           <RotateCcw size={12} />
           恢复默认
@@ -561,7 +561,7 @@ export default function Settings() {
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
           placeholder="搜索设置项...（外观/采集/AI/日报/数据/日历/人生/Git/幕布/备份/导入/隐私/关于）"
-          className="w-full px-3 py-2 pl-9 bg-cd-bg-secondary border border-cd-border rounded-lg text-sm text-cd-text focus:outline-none focus:ring-1 focus:ring-cd-green"
+          className="w-full px-3 py-2 pl-9 bg-cd-bg-secondary border border-cd-border rounded-2xl text-sm text-cd-text focus:outline-none focus:ring-1 focus:ring-cd-green"
         />
         <Search className="absolute left-3 top-2.5 w-4 h-4 text-cd-text-tertiary" />
       </div>
@@ -604,23 +604,23 @@ export default function Settings() {
                   >
                     {/* 迷你预览 */}
                     <div
-                      className="rounded-lg p-2 mb-2 h-14 flex gap-1.5 overflow-hidden"
+                      className="rounded-2xl p-2 mb-2 h-14 flex gap-1.5 overflow-hidden"
                       style={{ background: pBg, border: `1px solid ${pBorder}` }}
                     >
                       {/* sidebar 缩略 */}
                       <div
-                        className="w-3.5 rounded-sm flex flex-col gap-0.5 py-1 items-center"
+                        className="w-3.5 rounded-lg flex flex-col gap-0.5 py-1 items-center"
                         style={{ background: pSidebar }}
                       >
-                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#7B68EE' }} />
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--cd-accent)' }} />
                         <div className="w-1.5 h-1.5 rounded-full" style={{ background: pBorder }} />
                         <div className="w-1.5 h-1.5 rounded-full" style={{ background: pBorder }} />
                       </div>
                       {/* content 缩略 */}
                       <div className="flex-1 flex flex-col gap-1">
-                        <div className="h-1 rounded-full" style={{ background: '#7B68EE', width: '60%' }} />
+                        <div className="h-1 rounded-full" style={{ background: 'var(--cd-accent)', width: '60%' }} />
                         <div
-                          className="flex-1 rounded-sm flex flex-col gap-0.5 p-1"
+                          className="flex-1 rounded-lg flex flex-col gap-0.5 p-1"
                           style={{ background: pCard, border: `1px solid ${pBorder}` }}
                         >
                           <div className="h-0.5 rounded-full" style={{ background: pText, width: '70%' }} />
@@ -652,7 +652,7 @@ export default function Settings() {
               <Moon size={14} className="text-cd-text-tertiary" />
               <span className="text-sm text-cd-text">主题模式</span>
             </div>
-            <div className="flex items-center gap-1 bg-cd-bg-input rounded-lg p-0.5 border border-cd-border">
+            <div className="flex items-center gap-1 bg-cd-bg-input rounded-2xl p-0.5 border border-cd-border">
               {([
                 { key: 'light', label: '亮色' },
                 { key: 'dark', label: '深色' },
@@ -661,7 +661,7 @@ export default function Settings() {
                 <button
                   key={opt.key}
                   onClick={() => setThemeExplicit(opt.key)}
-                  className={`px-2.5 py-1 text-xs rounded-md transition ${
+                  className={`px-2.5 py-1 text-xs rounded-xl transition ${
                     theme === opt.key
                       ? 'bg-cd-green text-white shadow-sm'
                       : 'text-cd-text-secondary hover:text-cd-text'
@@ -738,7 +738,7 @@ export default function Settings() {
                 type="color"
                 value={customAccent || (effectiveTheme === 'dark' ? ACCENT_PRESETS[accentIndex].dark : ACCENT_PRESETS[accentIndex].light)}
                 onChange={(e) => setCustomAccent(e.target.value)}
-                className="w-7 h-7 rounded cursor-pointer border border-cd-border bg-transparent"
+                className="w-7 h-7 rounded-lg cursor-pointer border border-cd-border bg-transparent"
                 title="自定义主色"
               />
               <span className="text-[11px] text-cd-text-tertiary">自定义主色</span>
@@ -764,7 +764,7 @@ export default function Settings() {
                 <button
                   key={i}
                   onClick={() => setFontIndex(i)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border ${
+                  className={`px-3 py-1.5 rounded-2xl text-xs font-medium transition-all duration-150 border ${
                     i === fontIndex
                       ? 'bg-cd-green-light text-cd-green border-cd-green/30'
                       : 'bg-cd-bg-secondary text-cd-text-secondary border-cd-border hover:bg-cd-hover'
@@ -801,7 +801,7 @@ export default function Settings() {
                 <button
                   key={i}
                   onClick={() => setRadiusIndex(i)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border ${
+                  className={`px-3 py-1.5 rounded-2xl text-xs font-medium transition-all duration-150 border ${
                     i === radiusIndex
                       ? 'bg-cd-green-light text-cd-green border-cd-green/30'
                       : 'bg-cd-bg-secondary text-cd-text-secondary border-cd-border hover:bg-cd-hover'
@@ -824,7 +824,7 @@ export default function Settings() {
                 <button
                   key={i}
                   onClick={() => setShadowIndex(i)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border ${
+                  className={`px-3 py-1.5 rounded-2xl text-xs font-medium transition-all duration-150 border ${
                     i === shadowIndex
                       ? 'bg-cd-green-light text-cd-green border-cd-green/30'
                       : 'bg-cd-bg-secondary text-cd-text-secondary border-cd-border hover:bg-cd-hover'
@@ -847,7 +847,7 @@ export default function Settings() {
                 <button
                   key={i}
                   onClick={() => setOpacityIndex(i)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border ${
+                  className={`px-3 py-1.5 rounded-2xl text-xs font-medium transition-all duration-150 border ${
                     i === opacityIndex
                       ? 'bg-cd-green-light text-cd-green border-cd-green/30'
                       : 'bg-cd-bg-secondary text-cd-text-secondary border-cd-border hover:bg-cd-hover'
@@ -910,7 +910,7 @@ export default function Settings() {
                 onChange={(e) => setWorkStart(Number(e.target.value))}
                 min={0}
                 max={23}
-                className={`w-full bg-cd-bg-secondary text-cd-text border rounded-lg px-3 py-1.5 text-sm focus:outline-none transition-colors ${
+                className={`w-full bg-cd-bg-secondary text-cd-text border rounded-2xl px-3 py-1.5 text-sm focus:outline-none transition-colors ${
                   workStart >= workEnd ? 'border-cd-red focus:border-cd-red' : 'border-cd-border focus:border-cd-green'
                 }`}
               />
@@ -923,7 +923,7 @@ export default function Settings() {
                 onChange={(e) => setWorkEnd(Number(e.target.value))}
                 min={0}
                 max={23}
-                className={`w-full bg-cd-bg-secondary text-cd-text border rounded-lg px-3 py-1.5 text-sm focus:outline-none transition-colors ${
+                className={`w-full bg-cd-bg-secondary text-cd-text border rounded-2xl px-3 py-1.5 text-sm focus:outline-none transition-colors ${
                   workEnd <= workStart ? 'border-cd-red focus:border-cd-red' : 'border-cd-border focus:border-cd-green'
                 }`}
               />
@@ -965,7 +965,7 @@ export default function Settings() {
                 <button
                   key={opt.value}
                   onClick={() => setFocusStrictness(opt.value as any)}
-                  className={`p-3 rounded-lg border text-left transition ${
+                  className={`p-3 rounded-2xl border text-left transition ${
                     focusStrictness === opt.value
                       ? 'border-cd-accent bg-cd-accent/10'
                       : 'border-cd-border bg-cd-bg-secondary hover:border-cd-text-tertiary'
@@ -1001,7 +1001,7 @@ export default function Settings() {
             onChange={(e) => setExcludeApps(e.target.value)}
             rows={5}
             placeholder="WeChat&#10;飞书&#10;DingTalk&#10;outlook"
-            className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none font-mono"
+            className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none font-mono"
           />
         </div>
 
@@ -1036,7 +1036,7 @@ export default function Settings() {
                   type="text"
                   value={apiBase}
                   onChange={(e) => setApiBase(e.target.value)}
-                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
                 />
               </div>
 
@@ -1048,7 +1048,7 @@ export default function Settings() {
                     value={apiVisionModel}
                     onChange={(e) => setApiVisionModel(e.target.value)}
                     placeholder="glm-4v-flash"
-                    className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+                    className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
                   />
                 </div>
                 <div>
@@ -1058,7 +1058,7 @@ export default function Settings() {
                     value={apiTextModel}
                     onChange={(e) => setApiTextModel(e.target.value)}
                     placeholder="glm-4-flash"
-                    className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+                    className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
                   />
                 </div>
               </div>
@@ -1066,7 +1066,7 @@ export default function Settings() {
               <div>
                 <label className="text-xs text-cd-text-secondary block mb-1">API Key</label>
                 {apiKeySet && !showKeyInput ? (
-                  <div className="flex items-center justify-between bg-cd-green-light border border-cd-green/20 rounded-lg px-3 py-2">
+                  <div className="flex items-center justify-between bg-cd-green-light border border-cd-green/20 rounded-2xl px-3 py-2">
                     <div className="flex items-center gap-2 text-sm text-cd-green">
                       <CheckCircle size={14} />
                       <span>已配置（Windows 加密存储）</span>
@@ -1085,7 +1085,7 @@ export default function Settings() {
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
                       placeholder="sk-..."
-                      className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 pr-9 text-sm focus:outline-none focus:border-cd-green transition-colors"
+                      className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 pr-9 text-sm focus:outline-none focus:border-cd-green transition-colors"
                     />
                     <button
                       onClick={() => setShowKey(!showKey)}
@@ -1102,7 +1102,7 @@ export default function Settings() {
                 <button
                   onClick={() => handleTestAi('vision')}
                   disabled={!!aiTesting || !(apiKey || apiKeySet)}
-                  className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors disabled:opacity-40 border border-cd-border"
+                  className="flex items-center gap-2 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors disabled:opacity-40 border border-cd-border"
                 >
                   {aiTesting === 'vision' ? (
                     <><Loader2 size={12} className="animate-spin" /> 测试识图模型...</>
@@ -1113,7 +1113,7 @@ export default function Settings() {
                 <button
                   onClick={() => handleTestAi('text')}
                   disabled={!!aiTesting || !(apiKey || apiKeySet)}
-                  className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors disabled:opacity-40 border border-cd-border"
+                  className="flex items-center gap-2 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors disabled:opacity-40 border border-cd-border"
                 >
                   {aiTesting === 'text' ? (
                     <><Loader2 size={12} className="animate-spin" /> 测试文本模型...</>
@@ -1164,7 +1164,7 @@ export default function Settings() {
             onChange={(e) => setCustomInstr(e.target.value)}
             rows={3}
             placeholder="例如：重点关注开发相关活动，会议和沟通简要概括即可"
-            className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
+            className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
           />
         </div>
         <div className="text-xs text-cd-text-tertiary">
@@ -1182,7 +1182,7 @@ export default function Settings() {
               <select
                 value={autoDailyReportHour}
                 onChange={(e) => setAutoDailyReportHour(parseInt(e.target.value))}
-                className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded px-2 py-1 text-xs"
+                className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-2 py-1 text-xs"
               >
                 {Array.from({ length: 24 }, (_, i) => (
                   <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
@@ -1220,7 +1220,7 @@ export default function Settings() {
               type="date"
               value={exportStart}
               onChange={(e) => setExportStart(e.target.value)}
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
             />
           </div>
           <div>
@@ -1229,7 +1229,7 @@ export default function Settings() {
               type="date"
               value={exportEnd}
               onChange={(e) => setExportEnd(e.target.value)}
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
             />
           </div>
         </div>
@@ -1239,7 +1239,7 @@ export default function Settings() {
             onClick={async (e) => { e.preventDefault(); try { await downloadExportActivities(exportStart, exportEnd) } catch (err) { toast.error('导出失败') } }}
             href="#"
             download
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border cursor-pointer"
           >
             <Download size={12} />
             导出活动记录
@@ -1248,7 +1248,7 @@ export default function Settings() {
             onClick={async (e) => { e.preventDefault(); try { await downloadExportAppUsage(exportStart, exportEnd) } catch (err) { toast.error('导出失败') } }}
             href="#"
             download
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border cursor-pointer"
           >
             <Download size={12} />
             导出应用使用
@@ -1290,7 +1290,7 @@ export default function Settings() {
               type="date"
               value={birthday}
               onChange={(e) => setBirthday(e.target.value)}
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
             />
           </div>
           <div>
@@ -1301,7 +1301,7 @@ export default function Settings() {
               onChange={(e) => setLifeExpectancy(Number(e.target.value))}
               min={1}
               max={150}
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
             />
           </div>
         </div>
@@ -1336,7 +1336,7 @@ export default function Settings() {
                   value={profileForm.nickname}
                   onChange={(e) => setProfileForm({ ...profileForm, nickname: e.target.value })}
                   placeholder="怎么称呼你"
-                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
                 />
               </div>
               <div>
@@ -1346,7 +1346,7 @@ export default function Settings() {
                   value={profileForm.role}
                   onChange={(e) => setProfileForm({ ...profileForm, role: e.target.value })}
                   placeholder="如：前端工程师"
-                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
                 />
               </div>
               <div>
@@ -1356,7 +1356,7 @@ export default function Settings() {
                   value={profileForm.company}
                   onChange={(e) => setProfileForm({ ...profileForm, company: e.target.value })}
                   placeholder="所在公司或团队"
-                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
                 />
               </div>
               <div>
@@ -1366,7 +1366,7 @@ export default function Settings() {
                   value={profileForm.current_project}
                   onChange={(e) => setProfileForm({ ...profileForm, current_project: e.target.value })}
                   placeholder="正在做的项目"
-                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
                 />
               </div>
               <div>
@@ -1376,7 +1376,7 @@ export default function Settings() {
                   value={profileForm.industry}
                   onChange={(e) => setProfileForm({ ...profileForm, industry: e.target.value })}
                   placeholder="如：互联网/金融"
-                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
                 />
               </div>
               <div>
@@ -1387,7 +1387,7 @@ export default function Settings() {
                   onChange={(e) => setProfileForm({ ...profileForm, work_years: e.target.value === '' ? null : Number(e.target.value) })}
                   placeholder="如：5"
                   min={0}
-                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
                 />
               </div>
             </div>
@@ -1399,7 +1399,7 @@ export default function Settings() {
                 onChange={(e) => setProfileForm({ ...profileForm, responsibilities: e.target.value })}
                 rows={2}
                 placeholder="日常主要负责什么工作"
-                className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
+                className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
               />
             </div>
 
@@ -1410,7 +1410,7 @@ export default function Settings() {
                 onChange={(e) => setProfileForm({ ...profileForm, goals: e.target.value })}
                 rows={2}
                 placeholder="近期或长期想达成的目标"
-                className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
+                className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
               />
             </div>
 
@@ -1419,7 +1419,7 @@ export default function Settings() {
               <select
                 value={profileForm.report_style}
                 onChange={(e) => setProfileForm({ ...profileForm, report_style: e.target.value })}
-                className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+                className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
               >
                 <option value="">默认</option>
                 <option value="concise">简洁</option>
@@ -1433,7 +1433,7 @@ export default function Settings() {
               <button
                 onClick={handleSaveProfile}
                 disabled={profileSaving}
-                className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-accent text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+                className="flex items-center gap-2 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-accent text-white hover:opacity-90 transition-opacity disabled:opacity-40"
               >
                 {profileSaving ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
                 {profileSaving ? '保存中...' : '保存我的资料'}
@@ -1496,7 +1496,7 @@ export default function Settings() {
           <button
             onClick={handleMubuLogin}
             disabled={mubuLogging}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
           >
             {mubuLogging ? <Loader2 size={12} className="animate-spin" /> : <Cloud size={12} />}
             {mubuLogging ? '登录中...' : '登录幕布'}
@@ -1504,7 +1504,7 @@ export default function Settings() {
           <button
             onClick={handleMubuSync}
             disabled={mubuSyncing}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-green text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-green text-white hover:opacity-90 transition-opacity disabled:opacity-40"
           >
             {mubuSyncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
             {mubuSyncing ? '同步中...' : '立即同步'}
@@ -1520,7 +1520,7 @@ export default function Settings() {
               value={mubuSearchQuery}
               onChange={(e) => handleMubuSearch(e.target.value)}
               placeholder="输入关键词搜索..."
-              className="w-full px-3 py-1.5 pl-9 bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg text-sm focus:outline-none focus:border-cd-green transition-colors"
+              className="w-full px-3 py-1.5 pl-9 bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl text-sm focus:outline-none focus:border-cd-green transition-colors"
             />
             {mubuSearching ? (
               <Loader2 size={14} className="absolute left-2.5 top-2 animate-spin text-cd-text-tertiary" />
@@ -1548,12 +1548,12 @@ export default function Settings() {
                         href={doc.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs bg-cd-bg-secondary hover:bg-cd-hover transition-colors"
+                        className="flex items-center justify-between px-2.5 py-1.5 rounded-2xl text-xs bg-cd-bg-secondary hover:bg-cd-hover transition-colors"
                       >
                         {inner}
                       </a>
                     ) : (
-                      <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs bg-cd-bg-secondary">
+                      <div className="flex items-center justify-between px-2.5 py-1.5 rounded-2xl text-xs bg-cd-bg-secondary">
                         {inner}
                       </div>
                     )}
@@ -1581,7 +1581,7 @@ export default function Settings() {
 
           {/* OPML 文件导入 */}
           <div className="flex items-center gap-3 flex-wrap">
-            <label className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border cursor-pointer disabled:opacity-50">
+            <label className="flex items-center gap-1.5 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border cursor-pointer disabled:opacity-50">
               {opmlUploading ? <Loader2 size={12} className="animate-spin" /> : <FileUp size={12} />}
               {opmlUploading ? '导入中...' : '导入 OPML 文件'}
               <input
@@ -1595,7 +1595,7 @@ export default function Settings() {
             </label>
             <a
               href="#/memory"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-cd-green hover:bg-cd-green-light transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-medium text-cd-green hover:bg-cd-green-light transition-colors"
             >
               <Brain size={12} />
               管理记忆
@@ -1604,7 +1604,7 @@ export default function Settings() {
 
           {/* 向量化状态显示 */}
           {memoryStatus ? (
-            <div className="bg-cd-bg-secondary rounded-lg p-3 border border-cd-border space-y-2">
+            <div className="bg-cd-bg-secondary rounded-2xl p-3 border border-cd-border space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-cd-text-secondary">向量化进度</span>
                 <span className="font-medium text-cd-text">
@@ -1661,15 +1661,15 @@ export default function Settings() {
 
         {backupInfo && (
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-cd-bg-secondary rounded-lg p-3 text-center">
+            <div className="bg-cd-bg-secondary rounded-2xl p-3 text-center">
               <div className="text-sm font-bold text-cd-green">{backupInfo.db_size_mb} MB</div>
               <div className="text-[10px] text-cd-text-tertiary mt-0.5">数据库大小</div>
             </div>
-            <div className="bg-cd-bg-secondary rounded-lg p-3 text-center">
+            <div className="bg-cd-bg-secondary rounded-2xl p-3 text-center">
               <div className="text-sm font-bold text-cd-green">{backupInfo.activities_count}</div>
               <div className="text-[10px] text-cd-text-tertiary mt-0.5">活动记录</div>
             </div>
-            <div className="bg-cd-bg-secondary rounded-lg p-3 text-center">
+            <div className="bg-cd-bg-secondary rounded-2xl p-3 text-center">
               <div className="text-sm font-bold text-cd-green">{backupInfo.reports_count}</div>
               <div className="text-[10px] text-cd-text-tertiary mt-0.5">历史报告</div>
             </div>
@@ -1681,12 +1681,12 @@ export default function Settings() {
             onClick={async (e) => { e.preventDefault(); try { await downloadBackup() } catch (err) { toast.error('备份下载失败') } }}
             href="#"
             download
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border cursor-pointer"
           >
             <Download size={12} />
             创建备份
           </a>
-          <label className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border cursor-pointer disabled:opacity-50">
+          <label className="flex items-center gap-1.5 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border cursor-pointer disabled:opacity-50">
             {restoring ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
             {restoring ? '恢复中...' : '从备份恢复'}
             <input
@@ -1752,7 +1752,7 @@ export default function Settings() {
             {updateStatus === 'downloaded' ? (
               <button
                 onClick={() => window.electronAPI?.installUpdate()}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-green text-white hover:opacity-90 transition-opacity"
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-green text-white hover:opacity-90 transition-opacity"
               >
                 重启安装更新
               </button>
@@ -1767,7 +1767,7 @@ export default function Settings() {
               <button
                 onClick={handleCheckUpdate}
                 disabled={updateChecking}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
               >
                 {updateChecking ? (
                   <><Loader2 size={12} className="animate-spin" /> 检查中...</>
@@ -1788,7 +1788,7 @@ export default function Settings() {
       {/* ─── 保存按钮 ─────────────────────────── */}
       <button
         onClick={handleSave}
-        className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors ${
+        className={`w-full py-2.5 rounded-2xl text-sm font-medium transition-colors ${
           saved
             ? 'bg-cd-green-light text-cd-green'
             : 'bg-cd-green hover:bg-cd-green-dark text-white'
@@ -1872,7 +1872,7 @@ function DataImportSection({ toast, highlighted }: { toast: ReturnType<typeof us
       <div className="grid grid-cols-4 gap-2">
         {SOURCES.map(s => (
           <button key={s.value} onClick={() => setSource(s.value)}
-            className={`px-3 py-2 rounded-lg text-xs transition border ${
+            className={`px-3 py-2 rounded-2xl text-xs transition border ${
               source === s.value
                 ? 'bg-cd-accent/20 text-cd-accent border-cd-accent/30'
                 : 'bg-cd-bg-secondary text-cd-text-secondary border-transparent hover:bg-cd-hover'
@@ -1888,7 +1888,7 @@ function DataImportSection({ toast, highlighted }: { toast: ReturnType<typeof us
         <span className="text-xs text-cd-text-secondary">格式：</span>
         {(['csv', 'json'] as const).map(f => (
           <button key={f} onClick={() => setFormat(f)}
-            className={`px-3 py-1 rounded text-xs transition ${
+            className={`px-3 py-1 rounded-lg text-xs transition ${
               format === f ? 'bg-cd-accent/20 text-cd-accent' : 'bg-cd-bg-secondary text-cd-text-secondary'
             }`}>
             {f.toUpperCase()}
@@ -1906,24 +1906,24 @@ function DataImportSection({ toast, highlighted }: { toast: ReturnType<typeof us
         onChange={e => { setRawText(e.target.value); setPreview(null); setResult(null) }}
         rows={5}
         placeholder={`粘贴 ${format.toUpperCase()} 数据，或点击"上传文件"导入...\n\n示例 CSV:\ntitle,target_min,estimated_pomodoros,category\n完成项目A,25,2,开发\n阅读技术文档,25,1,学习`}
-        className="w-full px-3 py-2 rounded-lg bg-cd-bg-input border border-cd-border text-xs font-mono text-cd-text focus:border-cd-accent outline-none resize-y"
+        className="w-full px-3 py-2 rounded-2xl bg-cd-bg-input border border-cd-border text-xs font-mono text-cd-text focus:border-cd-accent outline-none resize-y"
       />
 
       {/* 操作按钮 */}
       <div className="flex gap-2">
         <button onClick={handlePreview} disabled={!rawText || previewing}
-          className="flex items-center gap-1 px-4 py-2 rounded-lg text-xs bg-cd-bg-secondary text-cd-text hover:bg-cd-hover disabled:opacity-40 transition">
+          className="flex items-center gap-1 px-4 py-2 rounded-2xl text-xs bg-cd-bg-secondary text-cd-text hover:bg-cd-hover disabled:opacity-40 transition">
           {previewing ? '解析中...' : '🔍 预览解析'}
         </button>
         <button onClick={handleImport} disabled={!rawText || importing}
-          className="flex items-center gap-1 px-4 py-2 rounded-lg text-xs bg-cd-accent text-white hover:opacity-90 disabled:opacity-40 transition">
+          className="flex items-center gap-1 px-4 py-2 rounded-2xl text-xs bg-cd-accent text-white hover:opacity-90 disabled:opacity-40 transition">
           {importing ? '导入中...' : '⬆ 执行导入'}
         </button>
       </div>
 
       {/* 预览结果 */}
       {preview && (
-        <div className="bg-cd-bg-secondary rounded-lg p-3 border border-cd-border">
+        <div className="bg-cd-bg-secondary rounded-2xl p-3 border border-cd-border">
           <div className="text-xs text-cd-text mb-2">
             ✅ 解析 <span className="font-bold text-cd-accent">{preview.total_rows}</span> 行 ·
             检测类型：<span className="font-bold text-cd-green">{preview.detected_type}</span>
@@ -1931,7 +1931,7 @@ function DataImportSection({ toast, highlighted }: { toast: ReturnType<typeof us
           {preview.sample.length > 0 && (
             <details className="text-[10px] text-cd-text-tertiary">
               <summary className="cursor-pointer hover:text-cd-text">查看样本（前3行）</summary>
-              <pre className="mt-1 p-2 bg-cd-bg rounded overflow-x-auto">{JSON.stringify(preview.sample, null, 2)}</pre>
+              <pre className="mt-1 p-2 bg-cd-bg rounded-lg overflow-x-auto">{JSON.stringify(preview.sample, null, 2)}</pre>
             </details>
           )}
         </div>
@@ -1939,7 +1939,7 @@ function DataImportSection({ toast, highlighted }: { toast: ReturnType<typeof us
 
       {/* 导入结果 */}
       {result && (
-        <div className="bg-cd-bg-secondary rounded-lg p-3 border border-cd-border">
+        <div className="bg-cd-bg-secondary rounded-2xl p-3 border border-cd-border">
           <div className="text-xs text-cd-text">
             导入结果：✅ 成功 <span className="font-bold text-cd-green">{result.imported}</span> 条 ·
             ⏭ 跳过 <span className="font-bold text-cd-text-tertiary">{result.skipped}</span> 条

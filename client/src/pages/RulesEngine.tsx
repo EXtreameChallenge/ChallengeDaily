@@ -60,7 +60,7 @@ export default function RulesEngine() {
           <p className="text-sm text-cd-text-secondary mt-1">IF-THEN 场景触发 · 从自动日报到主动教练</p>
         </div>
         <button onClick={handleEvaluate} disabled={evaluating}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
+          className="flex items-center gap-1 px-3 py-1.5 rounded-2xl text-xs bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
           <RefreshCw size={12} className={evaluating ? 'animate-spin' : ''} /> 立即评估
         </button>
       </div>
@@ -75,7 +75,7 @@ export default function RulesEngine() {
             {triggered.map((t, i) => {
               const Icon = ACTION_ICONS[t.action] || Bell
               return (
-                <div key={i} className="flex items-start gap-2 bg-orange-500/5 rounded-lg p-2">
+                <div key={i} className="flex items-start gap-2 bg-orange-500/5 rounded-2xl p-2">
                   <Icon size={14} className="text-orange-400 mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
                     <div className="text-sm text-cd-text">{t.message}</div>
@@ -102,10 +102,10 @@ export default function RulesEngine() {
             {rules.map(rule => {
               const Icon = ACTION_ICONS[rule.action_type] || Bell
               return (
-                <div key={rule.id} className={`flex items-center gap-3 p-3 rounded-lg ${
+                <div key={rule.id} className={`flex items-center gap-3 p-3 rounded-2xl ${
                   rule.enabled ? 'bg-cd-bg-input' : 'bg-cd-bg-input opacity-50'
                 }`}>
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  <div className={`w-8 h-8 rounded-2xl flex items-center justify-center ${
                     rule.enabled ? 'bg-cd-accent/10 text-cd-accent' : 'bg-white/5 text-cd-text-tertiary'
                   }`}>
                     <Icon size={16} />

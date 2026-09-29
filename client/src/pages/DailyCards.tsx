@@ -72,24 +72,24 @@ export default function DailyCards() {
     <div className="max-w-3xl mx-auto">
       {/* 顶部日期导航 */}
       <div className="flex items-center justify-between mb-6">
-        <button onClick={goPrev} className="p-2 rounded-lg bg-cd-bg-input border border-white/5 text-cd-text-secondary hover:bg-white/5 transition">
+        <button onClick={goPrev} className="p-2 rounded-2xl bg-cd-bg-input border border-white/5 text-cd-text-secondary hover:bg-white/5 transition">
           <ChevronLeft size={20} />
         </button>
         <div className="flex items-center gap-2">
           <Calendar size={18} className="text-cd-accent" />
           <h1 className="text-xl font-bold text-cd-text">{formatDate(currentDate)}</h1>
           {currentDate === getTodayStr() && (
-            <span className="px-2 py-0.5 rounded text-[10px] bg-cd-green/20 text-cd-green">今天</span>
+            <span className="px-2 py-0.5 rounded-lg text-[10px] bg-cd-green/20 text-cd-green">今天</span>
           )}
         </div>
-        <button onClick={goNext} disabled={currentDate >= getTodayStr()} className="p-2 rounded-lg bg-cd-bg-input border border-white/5 text-cd-text-secondary hover:bg-white/5 transition disabled:opacity-30">
+        <button onClick={goNext} disabled={currentDate >= getTodayStr()} className="p-2 rounded-2xl bg-cd-bg-input border border-white/5 text-cd-text-secondary hover:bg-white/5 transition disabled:opacity-30">
           <ChevronRight size={20} />
         </button>
       </div>
 
       {/* 快速跳转 */}
       <div className="flex items-center gap-2 mb-6">
-        <button onClick={goToday} className="px-3 py-1 rounded-lg text-xs bg-cd-bg-input text-cd-text-secondary hover:bg-white/5 transition">
+        <button onClick={goToday} className="px-3 py-1 rounded-2xl text-xs bg-cd-bg-input text-cd-text-secondary hover:bg-white/5 transition">
           回到今天
         </button>
         <input
@@ -97,11 +97,11 @@ export default function DailyCards() {
           value={currentDate}
           max={getTodayStr()}
           onChange={e => e.target.value && setCurrentDate(e.target.value)}
-          className="px-2 py-1 rounded-lg text-xs bg-cd-bg-input border border-white/5 text-cd-text"
+          className="px-2 py-1 rounded-2xl text-xs bg-cd-bg-input border border-white/5 text-cd-text"
         />
         {hasData && (
           <button onClick={handleCopyText} disabled={copying}
-            className="ml-auto flex items-center gap-1 px-3 py-1 rounded-lg text-xs bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-50">
+            className="ml-auto flex items-center gap-1 px-3 py-1 rounded-2xl text-xs bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-50">
             {copying ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
             复制卡片文本
           </button>
@@ -193,7 +193,7 @@ export default function DailyCards() {
                 <div className="space-y-1.5">
                   {card!.todos_completed.map(t => (
                     <div key={t.id} className="flex items-center gap-2 text-xs">
-                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-cd-bg-input text-cd-text-secondary shrink-0">{t.category}</span>
+                      <span className="px-1.5 py-0.5 rounded-lg text-[10px] bg-cd-bg-input text-cd-text-secondary shrink-0">{t.category}</span>
                       <span className="text-cd-text flex-1 truncate">{t.title}</span>
                     </div>
                   ))}
@@ -252,7 +252,7 @@ export default function DailyCards() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {card!.habits_logged.map(h => (
-                    <div key={h.habit_id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-cd-bg-input text-xs">
+                    <div key={h.habit_id} className="flex items-center gap-1.5 px-2 py-1 rounded-2xl bg-cd-bg-input text-xs">
                       {h.color && <span className="w-2 h-2 rounded-full" style={{ background: h.color }} />}
                       <span className="text-cd-text">{h.name}</span>
                       <span className="text-cd-text-tertiary">×{h.count}</span>
@@ -271,7 +271,7 @@ export default function DailyCards() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {card!.achievements_unlocked.map(a => (
-                    <div key={a.code} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cd-bg-input">
+                    <div key={a.code} className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-cd-bg-input">
                       <span className="text-lg">{a.icon}</span>
                       <div className="min-w-0">
                         <div className="text-xs font-medium text-cd-text">{a.name}</div>

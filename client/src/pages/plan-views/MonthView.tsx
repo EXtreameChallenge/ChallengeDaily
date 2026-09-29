@@ -75,7 +75,7 @@ export default function MonthView({
             本月暂无任务
           </div>
         ) : (
-          <div className="rounded-lg overflow-hidden" style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)' }}>
+          <div className="rounded-2xl overflow-hidden bg-cd-card border border-cd-border">
             {/* 周刻度 */}
             <TimeAxis mode="week" start={1} end={weekCount} cellWidth={CELL_W} height={26}
               highlightIndex={currentWeekIdx} />
@@ -93,7 +93,7 @@ export default function MonthView({
                 <div style={{
                   position: 'absolute', top: 0, bottom: 0,
                   left: currentWeekIdx * CELL_W, width: CELL_W,
-                  background: '#7B68EE08',
+                  background: 'var(--cd-accent)08',
                 }} />
               )}
               {/* 任务条 */}
@@ -167,7 +167,7 @@ export default function MonthView({
             onBlur={saveMonthGoal}
             placeholder="本月要达成的核心目标..."
             rows={3}
-            className="w-full px-2 py-1.5 rounded text-xs border border-cd-border resize-none"
+            className="w-full px-2 py-1.5 rounded-lg text-xs border border-cd-border resize-none"
             style={{ background: 'var(--cd-bg-input)', color: 'var(--cd-text)' }}
           />
         </div>

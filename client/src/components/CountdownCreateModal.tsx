@@ -77,7 +77,7 @@ export default function CountdownCreateModal({ open, onClose, onCreated }: Count
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
           placeholder="例如：项目上线"
-          className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
+          className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
         />
       </div>
 
@@ -88,7 +88,7 @@ export default function CountdownCreateModal({ open, onClose, onCreated }: Count
             type="date"
             value={targetDate}
             onChange={(e) => setTargetDate(e.target.value)}
-            className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
+            className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
           />
         </div>
         <div>

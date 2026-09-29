@@ -177,7 +177,7 @@ export default function Inspiration() {
                   >
                     <div className="flex items-start gap-3">
                       {/* 模板图标 */}
-                      <div className="w-10 h-10 rounded-lg bg-cd-bg-input flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-2xl bg-cd-bg-input flex items-center justify-center shrink-0">
                         <tpl.icon size={18} className="text-cd-accent" />
                       </div>
 
@@ -185,7 +185,7 @@ export default function Inspiration() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                           <span className="text-sm font-semibold text-cd-text">{tpl.title}</span>
-                          <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] ${TYPE_CONFIG[tpl.type].color} bg-cd-bg-input`}>
+                          <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-lg text-[10px] ${TYPE_CONFIG[tpl.type].color} bg-cd-bg-input`}>
                             <TypeIcon size={9} /> {TYPE_CONFIG[tpl.type].label}
                           </span>
                         </div>
@@ -195,21 +195,21 @@ export default function Inspiration() {
                         <div className="flex gap-1.5 flex-wrap">
                           {tpl.type === 'todo' && (
                             <>
-                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-cd-bg-input text-cd-text-secondary">{tpl.category}</span>
-                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-cd-bg-input text-cd-text-secondary">{tpl.target_min}min</span>
-                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-cd-bg-input text-cd-text-secondary">P{tpl.priority}</span>
+                              <span className="px-1.5 py-0.5 rounded-lg text-[10px] bg-cd-bg-input text-cd-text-secondary">{tpl.category}</span>
+                              <span className="px-1.5 py-0.5 rounded-lg text-[10px] bg-cd-bg-input text-cd-text-secondary">{tpl.target_min}min</span>
+                              <span className="px-1.5 py-0.5 rounded-lg text-[10px] bg-cd-bg-input text-cd-text-secondary">P{tpl.priority}</span>
                             </>
                           )}
                           {tpl.type === 'habit' && (
                             <>
-                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-cd-bg-input text-cd-text-secondary">每日 {tpl.target_count} 次</span>
+                              <span className="px-1.5 py-0.5 rounded-lg text-[10px] bg-cd-bg-input text-cd-text-secondary">每日 {tpl.target_count} 次</span>
                               <span className="w-2 h-2 rounded-full" style={{ background: tpl.color }} />
                             </>
                           )}
                           {tpl.type === 'goal' && (
                             <>
-                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-cd-bg-input text-cd-text-secondary">{tpl.category}</span>
-                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-cd-bg-input text-cd-text-secondary">
+                              <span className="px-1.5 py-0.5 rounded-lg text-[10px] bg-cd-bg-input text-cd-text-secondary">{tpl.category}</span>
+                              <span className="px-1.5 py-0.5 rounded-lg text-[10px] bg-cd-bg-input text-cd-text-secondary">
                                 {tpl.timeframe === 'yearly' ? '年度' : tpl.timeframe === 'quarterly' ? '季度' : '月度'}
                               </span>
                             </>
@@ -221,7 +221,7 @@ export default function Inspiration() {
                       <button
                         onClick={() => handleApply(tpl, idx)}
                         disabled={applied || isApplying}
-                        className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition ${
+                        className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-2xl text-xs transition ${
                           applied
                             ? 'bg-cd-green/20 text-cd-green cursor-default'
                             : isApplying

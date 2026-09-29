@@ -56,7 +56,7 @@ export default function CalendarView() {
           <CalendarDays className="text-cd-accent" size={24} /> 日历视图
         </h1>
         <button onClick={goToday}
-          className="px-3 py-1.5 text-sm bg-cd-bg-card border border-white/5 rounded-lg text-cd-text-secondary hover:text-cd-text transition">
+          className="px-3 py-1.5 text-sm bg-cd-bg-card border border-white/5 rounded-2xl text-cd-text-secondary hover:text-cd-text transition">
           回到今天
         </button>
       </div>
@@ -64,14 +64,14 @@ export default function CalendarView() {
       {/* 月份切换 */}
       <div className="flex items-center justify-between mb-4">
         <button onClick={prevMonth}
-          className="p-2 rounded-lg bg-cd-bg-card border border-white/5 text-cd-text-secondary hover:text-cd-text hover:bg-white/5 transition">
+          className="p-2 rounded-2xl bg-cd-bg-card border border-white/5 text-cd-text-secondary hover:text-cd-text hover:bg-white/5 transition">
           <ChevronLeft size={18} />
         </button>
         <div className="text-lg font-semibold text-cd-text tabular-nums">
           {month.format('YYYY 年 M 月')}
         </div>
         <button onClick={nextMonth}
-          className="p-2 rounded-lg bg-cd-bg-card border border-white/5 text-cd-text-secondary hover:text-cd-text hover:bg-white/5 transition">
+          className="p-2 rounded-2xl bg-cd-bg-card border border-white/5 text-cd-text-secondary hover:text-cd-text hover:bg-white/5 transition">
           <ChevronRight size={18} />
         </button>
       </div>
@@ -110,7 +110,7 @@ export default function CalendarView() {
             <div className="grid grid-cols-7 gap-2">
               {grid.map((d, i) => {
                 if (!d) {
-                  return <div key={i} className="aspect-square rounded-lg bg-transparent" />
+                  return <div key={i} className="aspect-square rounded-2xl bg-transparent" />
                 }
                 const dayData = dayMap[d.format('YYYY-MM-DD')]
                 const level = dayData?.level ?? 0
@@ -123,7 +123,7 @@ export default function CalendarView() {
                     key={i}
                     onMouseEnter={() => dayData && setHoverDay(dayData)}
                     onMouseLeave={() => setHoverDay(null)}
-                    className={`aspect-square rounded-lg border flex flex-col items-center justify-center cursor-default transition relative ${
+                    className={`aspect-square rounded-2xl border flex flex-col items-center justify-center cursor-default transition relative ${
                       isToday ? 'border-cd-accent/60 ring-1 ring-cd-accent/30' : 'border-white/5'
                     } ${inMonth ? '' : 'opacity-40'}`}
                     style={level > 0 ? {
@@ -160,7 +160,7 @@ export default function CalendarView() {
           <div className="flex flex-wrap gap-3">
             {data.legend.map(l => (
               <div key={l.cat} className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded" style={{ backgroundColor: l.color }} />
+                <span className="w-3 h-3 rounded-lg" style={{ backgroundColor: l.color }} />
                 <span className="text-xs text-cd-text-secondary">{l.cat}</span>
                 <span className="text-xs text-cd-text-tertiary">
                   {Math.floor((data.category_totals[l.cat] || 0) / 60)}h
@@ -173,7 +173,7 @@ export default function CalendarView() {
 
       {/* 悬浮详情 */}
       {hoverDay && (
-        <div className="fixed bottom-6 right-6 bg-cd-bg-card border border-white/10 rounded-lg p-3 shadow-xl max-w-xs z-30">
+        <div className="fixed bottom-6 right-6 bg-cd-bg-card border border-white/10 rounded-2xl p-3 shadow-xl max-w-xs z-30">
           <div className="text-sm font-medium text-cd-text mb-1">{hoverDay.date}</div>
           <div className="text-xs text-cd-text-secondary mb-2">
             总专注 {Math.floor(hoverDay.total_min / 60)}h {hoverDay.total_min % 60}m
@@ -181,7 +181,7 @@ export default function CalendarView() {
           {Object.entries(hoverDay.cats).sort((a, b) => b[1] - a[1]).map(([cat, min]) => (
             <div key={cat} className="flex items-center justify-between text-xs py-0.5">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded" style={{ backgroundColor: catColorMap[cat] || '#6b7280' }} />
+                <span className="w-2 h-2 rounded-lg" style={{ backgroundColor: catColorMap[cat] || '#6b7280' }} />
                 <span className="text-cd-text-secondary">{cat}</span>
               </span>
               <span className="text-cd-text-tertiary tabular-nums">{min}m</span>

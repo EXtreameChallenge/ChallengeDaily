@@ -263,7 +263,7 @@ export default function WhiteNoise({ autoPlay = false }: { autoPlay?: boolean })
       <div className="flex gap-2 flex-wrap mb-3">
         {SCENES.map(s => (
           <button key={s.key} onClick={() => applyScene(s)}
-            className={`px-3 py-1.5 rounded-lg text-xs transition border ${
+            className={`px-3 py-1.5 rounded-2xl text-xs transition border ${
               currentScene === s.key
                 ? 'bg-cd-accent/20 text-cd-accent border-cd-accent/30'
                 : 'bg-cd-bg-input text-cd-text-secondary border-white/5 hover:bg-white/5'
@@ -286,7 +286,7 @@ export default function WhiteNoise({ autoPlay = false }: { autoPlay?: boolean })
                 const isActive = activeMix.has(n.type)
                 return (
                   <button key={n.type} onClick={() => toggleSource(n.type)}
-                    className={`flex flex-col items-center gap-0.5 py-2 rounded-lg text-[10px] transition border ${
+                    className={`flex flex-col items-center gap-0.5 py-2 rounded-2xl text-[10px] transition border ${
                       isActive ? `${n.color} bg-white/5 border-white/10` : 'text-cd-text-secondary bg-cd-bg-input border-white/5 hover:bg-white/5'
                     }`}>
                     <Icon size={16} /> {n.label}
@@ -315,7 +315,7 @@ export default function WhiteNoise({ autoPlay = false }: { autoPlay?: boolean })
                     setActiveMix(next)
                     setSourceVol(type, v)
                   }}
-                  className="flex-1 h-1 bg-cd-bg-input rounded-lg appearance-none cursor-pointer accent-purple-500" />
+                  className="flex-1 h-1 bg-cd-bg-input rounded-2xl appearance-none cursor-pointer accent-purple-500" />
                 <span className="text-[10px] text-cd-text-tertiary w-7">{Math.round(vol * 100)}</span>
                 <button onClick={() => toggleSource(type)} className="text-cd-text-tertiary hover:text-red-400">
                   <VolumeX size={12} />
@@ -333,7 +333,7 @@ export default function WhiteNoise({ autoPlay = false }: { autoPlay?: boolean })
           <span className="text-[10px] text-cd-text-secondary">主音量</span>
           <input type="range" min="0" max="1" step="0.05" value={masterVol}
             onChange={e => setMasterVol(parseFloat(e.target.value))}
-            className="flex-1 h-1 bg-cd-bg-input rounded-lg appearance-none cursor-pointer accent-purple-500" />
+            className="flex-1 h-1 bg-cd-bg-input rounded-2xl appearance-none cursor-pointer accent-purple-500" />
           <span className="text-xs text-cd-text-secondary w-8">{Math.round(masterVol * 100)}%</span>
         </div>
       )}

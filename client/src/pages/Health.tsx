@@ -52,13 +52,13 @@ export default function Health() {
           value={selectedDate}
           max={dayjs().format('YYYY-MM-DD')}
           onChange={(e) => setSelectedDate(e.target.value)}
-          className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+          className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
         />
       </div>
 
       {/* ─── 首次进入引导卡片 ──────────────────── */}
       {guided && (
-        <div className="p-4 bg-cd-blue-light/10 border border-cd-blue/30 rounded-lg">
+        <div className="p-4 bg-cd-blue-light/10 border border-cd-blue/30 rounded-2xl">
           <h3 className="text-sm font-medium text-cd-text mb-2">📋 什么是数据校准？</h3>
           <p className="text-xs text-cd-text-secondary leading-relaxed">
             本页对比 Windows 系统事件日志（开机关机/登录）与采集数据，计算覆盖率与漏采时段，
@@ -116,7 +116,7 @@ function SystemUptimeCard({ coverage }: { coverage: HealthCoverage }) {
     <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-cd-text-tertiary">系统运行时长</span>
-        <span className="text-[10px] text-cd-text-tertiary bg-cd-bg px-2 py-0.5 rounded">
+        <span className="text-[10px] text-cd-text-tertiary bg-cd-bg px-2 py-0.5 rounded-lg">
           Windows 权威
         </span>
       </div>
@@ -158,7 +158,7 @@ function CollectedCard({ coverage }: { coverage: HealthCoverage }) {
     <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-cd-text-tertiary">应用采集时长</span>
-        <span className="text-[10px] text-cd-text-tertiary bg-cd-bg px-2 py-0.5 rounded">
+        <span className="text-[10px] text-cd-text-tertiary bg-cd-bg px-2 py-0.5 rounded-lg">
           ChallengeDaily
         </span>
       </div>
@@ -212,7 +212,7 @@ function CoverageCard({ coverage }: { coverage: HealthCoverage }) {
     <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-cd-text-tertiary">采集覆盖率</span>
-        <span className="text-[10px] text-cd-text-tertiary bg-cd-bg px-2 py-0.5 rounded">
+        <span className="text-[10px] text-cd-text-tertiary bg-cd-bg px-2 py-0.5 rounded-lg">
           核心校准
         </span>
       </div>
@@ -288,7 +288,7 @@ function SessionTimeline({ coverage }: { coverage: HealthCoverage }) {
       </div>
 
       {/* 时间条容器 */}
-      <div className="relative h-10 bg-cd-bg rounded-lg overflow-hidden border border-cd-border">
+      <div className="relative h-10 bg-cd-bg rounded-2xl overflow-hidden border border-cd-border">
         {sessions.map((s, i) => {
           const sStart = dayjs(s.start)
           const sEnd = dayjs(s.end)
@@ -341,7 +341,7 @@ function SessionRow({ session, index }: { session: SystemSession; index: number 
   const truncatedEnd = session.truncated_end ? '→ 截断到 24:00' : ''
 
   return (
-    <div className="flex items-center gap-3 text-[11px] py-1.5 px-2 rounded hover:bg-cd-hover transition-colors">
+    <div className="flex items-center gap-3 text-[11px] py-1.5 px-2 rounded-lg hover:bg-cd-hover transition-colors">
       <span className="text-cd-text-tertiary font-brand w-6">#{index + 1}</span>
       <span className="text-cd-green font-brand">
         {start.format('HH:mm')} → {end.format('HH:mm')}
@@ -349,7 +349,7 @@ function SessionRow({ session, index }: { session: SystemSession; index: number 
       <span className="text-cd-text-secondary font-brand">
         {formatDuration(durMin)}
       </span>
-      <span className="text-[9px] text-cd-text-tertiary bg-cd-bg px-1.5 py-0.5 rounded">
+      <span className="text-[9px] text-cd-text-tertiary bg-cd-bg px-1.5 py-0.5 rounded-lg">
         {session.type === 'boot_session' ? '开机会话' : '登录会话'}
       </span>
       {truncatedStart && <span className="text-[9px] text-cd-gold">{truncatedStart}</span>}
@@ -403,7 +403,7 @@ function MissingPeriodsCard({ coverage }: { coverage: HealthCoverage }) {
             return (
               <div
                 key={i}
-                className="flex items-center gap-3 text-[11px] py-1.5 px-2 rounded hover:bg-cd-hover transition-colors"
+                className="flex items-center gap-3 text-[11px] py-1.5 px-2 rounded-lg hover:bg-cd-hover transition-colors"
               >
                 <span className="text-cd-text-tertiary font-brand w-6">#{i + 1}</span>
                 <span className={`${color} font-brand`}>
@@ -412,7 +412,7 @@ function MissingPeriodsCard({ coverage }: { coverage: HealthCoverage }) {
                 <span className="text-cd-text-secondary font-brand">
                   {formatDuration(dur)}
                 </span>
-                <span className={`text-[9px] px-1.5 py-0.5 rounded bg-cd-bg ${color}`}>
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-lg bg-cd-bg ${color}`}>
                   {label}
                 </span>
               </div>
@@ -513,7 +513,7 @@ function SamplingDeviationCard({ sampling }: { sampling: SamplingDeviation }) {
 
 function StatBox({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="bg-cd-bg rounded-lg p-2 text-center">
+    <div className="bg-cd-bg rounded-2xl p-2 text-center">
       <div className={`text-sm font-bold font-brand ${highlight ? 'text-cd-green' : 'text-cd-text'}`}>
         {value}
       </div>
@@ -554,7 +554,7 @@ function SystemEventsCard({ events }: { events: HealthSystemEvents }) {
       </div>
 
       {/* 当前开机信息 */}
-      <div className="mb-3 px-3 py-2 bg-cd-bg rounded-lg text-[11px] flex items-center gap-4">
+      <div className="mb-3 px-3 py-2 bg-cd-bg rounded-2xl text-[11px] flex items-center gap-4">
         <span className="text-cd-text-tertiary">当前开机时间</span>
         <span className="text-cd-green font-brand">
           {events.current_boot_time ? dayjs(events.current_boot_time).format('YYYY-MM-DD HH:mm:ss') : '—'}
@@ -574,7 +574,7 @@ function SystemEventsCard({ events }: { events: HealthSystemEvents }) {
             return (
               <div
                 key={i}
-                className="flex items-center gap-3 text-[11px] py-1.5 px-2 rounded hover:bg-cd-hover transition-colors"
+                className="flex items-center gap-3 text-[11px] py-1.5 px-2 rounded-lg hover:bg-cd-hover transition-colors"
               >
                 <span className={`font-brand ${info.color}`}>{info.label}</span>
                 <span className="text-cd-text-secondary font-brand">

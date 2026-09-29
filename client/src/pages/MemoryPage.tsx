@@ -60,7 +60,7 @@ function HighlightText({ text, query }: { text: string; query: string }) {
     <>
       {parts.map((part, i) =>
         re.test(part) ? (
-          <mark key={i} className="bg-cd-green/20 text-cd-green rounded px-0.5">
+          <mark key={i} className="bg-cd-green/20 text-cd-green rounded-lg px-0.5">
             {part}
           </mark>
         ) : (
@@ -219,7 +219,7 @@ export default function MemoryPage() {
         <button
           onClick={refresh}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
         >
           <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
           刷新
@@ -251,15 +251,15 @@ export default function MemoryPage() {
           <>
             {/* 数字概览 */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="bg-cd-bg-secondary rounded-lg p-3 text-center">
+              <div className="bg-cd-bg-secondary rounded-2xl p-3 text-center">
                 <div className="text-sm font-bold text-cd-green">{indexed}</div>
                 <div className="text-[10px] text-cd-text-tertiary mt-0.5">已索引</div>
               </div>
-              <div className="bg-cd-bg-secondary rounded-lg p-3 text-center">
+              <div className="bg-cd-bg-secondary rounded-2xl p-3 text-center">
                 <div className="text-sm font-bold text-cd-orange">{pending}</div>
                 <div className="text-[10px] text-cd-text-tertiary mt-0.5">待索引</div>
               </div>
-              <div className="bg-cd-bg-secondary rounded-lg p-3 text-center">
+              <div className="bg-cd-bg-secondary rounded-2xl p-3 text-center">
                 <div className="text-sm font-bold text-cd-text">{total}</div>
                 <div className="text-[10px] text-cd-text-tertiary mt-0.5">总数</div>
               </div>
@@ -291,7 +291,7 @@ export default function MemoryPage() {
           <button
             onClick={handleIndex}
             disabled={indexing}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-green text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-green text-white hover:opacity-90 transition-opacity disabled:opacity-40"
           >
             {indexing ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
             {indexing ? '索引中...' : '手动索引'}
@@ -299,7 +299,7 @@ export default function MemoryPage() {
           <button
             onClick={handleExtract}
             disabled={extracting}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
           >
             {extracting ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
             {extracting ? '抽取中...' : '事实抽取'}
@@ -331,7 +331,7 @@ export default function MemoryPage() {
                 if (e.key === 'Enter') handleSearch()
               }}
               placeholder="输入关键词，按回车搜索记忆..."
-              className="w-full px-3 py-2 pl-9 bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg text-sm focus:outline-none focus:border-cd-green transition-colors"
+              className="w-full px-3 py-2 pl-9 bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl text-sm focus:outline-none focus:border-cd-green transition-colors"
             />
             {searching ? (
               <Loader2 size={14} className="absolute left-2.5 top-2.5 animate-spin text-cd-text-tertiary" />
@@ -342,7 +342,7 @@ export default function MemoryPage() {
           <button
             onClick={handleSearch}
             disabled={searching || !searchQuery.trim()}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-cd-green text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-medium bg-cd-green text-white hover:opacity-90 transition-opacity disabled:opacity-40"
           >
             搜索
           </button>
@@ -350,7 +350,7 @@ export default function MemoryPage() {
             <button
               onClick={handleClearSearch}
               disabled={searching}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
             >
               清除
             </button>
@@ -438,7 +438,7 @@ function SearchResultItem({
   const source = result.source || result.source_type
   const display = result.snippet || result.content
   return (
-    <div className="bg-cd-bg-secondary rounded-lg p-3 border border-cd-border hover:border-cd-green/30 transition-colors">
+    <div className="bg-cd-bg-secondary rounded-2xl p-3 border border-cd-border hover:border-cd-green/30 transition-colors">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           {result.title && (
@@ -451,13 +451,13 @@ function SearchResultItem({
           </div>
           <div className="flex items-center gap-2 mt-2 flex-wrap text-[10px] text-cd-text-tertiary">
             {source && (
-              <span className="flex items-center gap-1 bg-cd-bg px-1.5 py-0.5 rounded">
+              <span className="flex items-center gap-1 bg-cd-bg px-1.5 py-0.5 rounded-lg">
                 <Tag size={9} />
                 {sourceTypeLabel(source)}
               </span>
             )}
             {typeof result.score === 'number' && (
-              <span className="bg-cd-bg px-1.5 py-0.5 rounded">
+              <span className="bg-cd-bg px-1.5 py-0.5 rounded-lg">
                 相似度 {(result.score * 100).toFixed(1)}%
               </span>
             )}
@@ -490,7 +490,7 @@ function MemoryListItem({
   deleting: boolean
 }) {
   return (
-    <div className="bg-cd-bg-secondary rounded-lg p-3 border border-cd-border hover:border-cd-green/30 transition-colors">
+    <div className="bg-cd-bg-secondary rounded-2xl p-3 border border-cd-border hover:border-cd-green/30 transition-colors">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           {memory.title && (
@@ -503,7 +503,7 @@ function MemoryListItem({
           </div>
           <div className="flex items-center gap-2 mt-2 flex-wrap text-[10px] text-cd-text-tertiary">
             {memory.source_type && (
-              <span className="flex items-center gap-1 bg-cd-bg px-1.5 py-0.5 rounded">
+              <span className="flex items-center gap-1 bg-cd-bg px-1.5 py-0.5 rounded-lg">
                 <Tag size={9} />
                 {sourceTypeLabel(memory.source_type)}
               </span>

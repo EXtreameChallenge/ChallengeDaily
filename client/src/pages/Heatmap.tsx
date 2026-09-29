@@ -207,7 +207,7 @@ export default function Heatmap() {
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold text-cd-text">时段热力图</h1>
           {/* 子标签：热力图 / 排行榜 */}
-          <div className="flex items-center rounded-lg border border-cd-border overflow-hidden">
+          <div className="flex items-center rounded-2xl border border-cd-border overflow-hidden">
             {([['heatmap', '热力图'], ['ranking', '排行榜']] as [SubTab, string][]).map(([key, label]) => (
               <button
                 key={key}
@@ -226,7 +226,7 @@ export default function Heatmap() {
         {subTab === 'heatmap' ? (
         <div className="flex items-center gap-2 flex-wrap">
           {/* 范围切换器 */}
-          <div className="flex items-center rounded-lg border border-cd-border overflow-hidden">
+          <div className="flex items-center rounded-2xl border border-cd-border overflow-hidden">
             {(['week', 'month', 'year'] as HeatRange[]).map((r) => (
               <button
                 key={r}
@@ -243,7 +243,7 @@ export default function Heatmap() {
           </div>
           <button
             onClick={goPrevRange}
-            className="px-3 py-1 text-xs rounded-lg bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border"
+            className="px-3 py-1 text-xs rounded-2xl bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border"
           >
             {range === 'week' ? '上一周' : range === 'month' ? '上一月' : '上一年'}
           </button>
@@ -257,7 +257,7 @@ export default function Heatmap() {
                 ? weekOffset >= 0
                 : (range === 'month' ? !baseDate.isBefore(dayjs(), 'month') : !baseDate.isBefore(dayjs(), 'year'))
             }
-            className="px-3 py-1 text-xs rounded-lg bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
+            className="px-3 py-1 text-xs rounded-2xl bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
           >
             {range === 'week' ? '下一周' : range === 'month' ? '下一月' : '下一年'}
           </button>
@@ -355,7 +355,7 @@ export default function Heatmap() {
                         return (
                           <div
                             key={h}
-                            className="flex-1 aspect-square rounded-sm cursor-pointer heatmap-cell"
+                            className="flex-1 aspect-square rounded-lg cursor-pointer heatmap-cell"
                             style={{
                               background:
                                 val === 0
@@ -392,7 +392,7 @@ export default function Heatmap() {
                 {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
                   <div
                     key={i}
-                    className="w-4 h-4 rounded-sm"
+                    className="w-4 h-4 rounded-lg"
                     style={{
                       background: v === 0 ? 'var(--cd-bg-tertiary)' : `rgba(99,91,255,${0.15 + v * 0.75})`,
                     }}
@@ -448,7 +448,7 @@ export default function Heatmap() {
                       {monthYearCells.map((cell) => (
                         <div
                           key={cell.date}
-                          className="w-3 h-3 rounded-sm cursor-pointer transition-all hover:ring-1 hover:ring-cd-purple"
+                          className="w-3 h-3 rounded-lg cursor-pointer transition-all hover:ring-1 hover:ring-cd-purple"
                           style={{
                             backgroundColor: cellColor(cell.level),
                             outline: hoverCell?.date === cell.date ? '1.5px solid var(--cd-purple)' : 'none',
@@ -494,7 +494,7 @@ export default function Heatmap() {
                 {monthYearCells.map((cell) => (
                   <div
                     key={cell.date}
-                    className="aspect-square rounded-sm cursor-pointer hover:ring-1 hover:ring-cd-purple flex items-center justify-center text-[9px] transition-all"
+                    className="aspect-square rounded-lg cursor-pointer hover:ring-1 hover:ring-cd-purple flex items-center justify-center text-[9px] transition-all"
                     style={{
                       backgroundColor: cellColor(cell.level),
                       outline: hoverCell?.date === cell.date ? '1.5px solid var(--cd-purple)' : 'none',
@@ -529,7 +529,7 @@ export default function Heatmap() {
             {[0, 1, 2, 3, 4].map((lv) => (
               <div
                 key={lv}
-                className="w-4 h-4 rounded-sm"
+                className="w-4 h-4 rounded-lg"
                 style={{ backgroundColor: cellColor(lv) }}
               />
             ))}
@@ -620,7 +620,7 @@ function RankingView({ activities, totalMin }: { activities: Activity[]; totalMi
           <div className="space-y-2">
             {appRank.slice(0, 15).map((app, i) => (
               <div key={app.name} className="flex items-center gap-2">
-                <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                <span className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${
                   i < 3 ? 'bg-cd-green/20 text-cd-green' : 'bg-cd-bg-tertiary text-cd-text-tertiary'
                 }`}>{i + 1}</span>
                 <span className="text-xs text-cd-text flex-1 truncate">{app.name}</span>
@@ -647,7 +647,7 @@ function RankingView({ activities, totalMin }: { activities: Activity[]; totalMi
               const pct = totalMin > 0 ? (cat.min / totalMin) * 100 : 0
               return (
                 <div key={cat.name} className="flex items-center gap-2">
-                  <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                  <span className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${
                     i < 3 ? 'bg-cd-green/20 text-cd-green' : 'bg-cd-bg-tertiary text-cd-text-tertiary'
                   }`}>{i + 1}</span>
                   <span className="text-xs text-cd-text flex-1">{cat.name}</span>

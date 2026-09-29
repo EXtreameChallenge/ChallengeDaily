@@ -190,7 +190,7 @@ export default function Timeline() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-cd-green text-white hover:bg-cd-green-dark transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-2xl text-xs font-medium bg-cd-green text-white hover:bg-cd-green-dark transition-colors"
           >
             <Plus size={14} />
             手动补录
@@ -199,7 +199,7 @@ export default function Timeline() {
             type="date"
             value={selectedDate}
             onChange={(e) => handleDateChange(e.target.value)}
-            className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+            className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
           />
         </div>
       </div>
@@ -223,7 +223,7 @@ export default function Timeline() {
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             placeholder="搜索窗口标题或摘要..."
-            className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+            className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
           />
           {searchQuery && (
             <button
@@ -237,7 +237,7 @@ export default function Timeline() {
         <button
           onClick={handleSearch}
           disabled={isSearching}
-          className="px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-green text-white hover:bg-cd-green-dark disabled:opacity-50 transition-colors"
+          className="px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-green text-white hover:bg-cd-green-dark disabled:opacity-50 transition-colors"
         >
           {isSearching ? <Loader2 size={12} className="animate-spin" /> : '搜索'}
         </button>
@@ -294,7 +294,7 @@ function AppIcon({ name, iconUrl, size = 24 }: { name: string; iconUrl: string; 
   const displayIcon = iconUrl || defaultIcon
   return (
     <div
-      className="rounded-lg bg-cd-card border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden"
+      className="rounded-2xl bg-cd-card border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden"
       style={{ width: size + 8, height: size + 8 }}
       title={name}
     >
@@ -389,7 +389,7 @@ const TimelineEntry = memo(function TimelineEntry({
                   return (
                     <div
                       key={`${w.app_name}-${idx}`}
-                      className="flex items-start gap-3 rounded-lg px-3 py-2.5 border bg-cd-bg-secondary border-cd-border-light hover:bg-cd-hover transition-colors"
+                      className="flex items-start gap-3 rounded-2xl px-3 py-2.5 border bg-cd-bg-secondary border-cd-border-light hover:bg-cd-hover transition-colors"
                       title={w.window_title}
                     >
                       <AppIcon name={w.app_name} iconUrl={wicon} size={24} />
@@ -399,7 +399,7 @@ const TimelineEntry = memo(function TimelineEntry({
                             {getDisplayAppName(w.app_name)}
                           </span>
                           {w.is_foreground && (
-                            <span className="text-[9px] px-1 py-0 rounded bg-cd-green/10 text-cd-green">前台</span>
+                            <span className="text-[9px] px-1 py-0 rounded-lg bg-cd-green/10 text-cd-green">前台</span>
                           )}
                         </div>
                         <p className="text-xs text-cd-text-secondary mt-0.5 break-words">
@@ -420,7 +420,7 @@ const TimelineEntry = memo(function TimelineEntry({
 
           {/* 详细分析（直接展示，不折叠） */}
           {activity.ai_detail && (
-            <div className="mt-2 text-xs text-cd-text-secondary leading-relaxed bg-cd-bg-secondary rounded-lg px-3 py-2 break-words">
+            <div className="mt-2 text-xs text-cd-text-secondary leading-relaxed bg-cd-bg-secondary rounded-2xl px-3 py-2 break-words">
               {activity.ai_detail}
             </div>
           )}

@@ -16,7 +16,7 @@ export default function DistractionHeatmap() {
   }, [])
 
   return (
-    <div className="p-4 bg-cd-card rounded-lg border border-cd-border">
+    <div className="p-4 bg-cd-card rounded-2xl border border-cd-border">
       <h3 className="text-sm font-medium text-cd-text mb-3">📊 分心热点图（近7天）</h3>
       {loading ? (
         <div className="h-[200px] flex items-center justify-center text-xs text-cd-text-tertiary">加载中...</div>

@@ -115,14 +115,14 @@ export default function BenchmarkPanel() {
   const fmtPctile = (v: number) => `超过 ${Math.round(v)}%`
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* 职业类型选择 */}
       <div className="flex items-center gap-2">
-        <span className="text-xs text-cd-text-secondary flex-shrink-0">我的职业：</span>
+        <span className="text-[11px] text-cd-text-secondary flex-shrink-0">职业：</span>
         <select
           value={profile?.occupation || 'developer'}
           onChange={(e) => handleOccupationChange(e.target.value)}
-          className="flex-1 bg-cd-bg-secondary text-cd-text border border-cd-border rounded px-2 py-1 text-xs focus:outline-none focus:border-cd-green"
+          className="flex-1 bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-1.5 py-0.5 text-[11px] focus:outline-none focus:border-cd-green"
         >
           {occupations.map(o => (
             <option key={o.key} value={o.key}>{o.label}</option>
@@ -131,32 +131,33 @@ export default function BenchmarkPanel() {
         <button
           onClick={handleCompare}
           disabled={comparing}
-          className="px-2 py-1 bg-cd-green text-white rounded text-xs hover:opacity-90 disabled:opacity-40 flex items-center gap-1 flex-shrink-0"
+          className="px-2 py-0.5 bg-cd-green text-white rounded-lg text-[11px] hover:opacity-90 disabled:opacity-40 flex items-center gap-1 flex-shrink-0"
         >
-          {comparing ? <Loader2 size={11} className="animate-spin" /> : <TrendingUp size={11} />}
+          {comparing ? <Loader2 size={10} className="animate-spin" /> : <TrendingUp size={10} />}
           对比
         </button>
       </div>
 
       {/* 对比结果 */}
       {result && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {/* 总体百分位 */}
-          <div className="p-3 bg-gradient-to-br from-cd-green-light to-cd-bg-secondary border border-cd-green/30 rounded-lg">
-            <div className="flex items-center gap-1.5 text-xs text-cd-text-tertiary mb-1">
-              <Trophy size={11} className="text-cd-green" />
-              综合效率百分位
+          <div className="p-2 bg-gradient-to-br from-cd-green-light to-cd-bg-secondary border border-cd-green/30 rounded-2xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Trophy size={10} className="text-cd-green" />
+                <span className="text-[10px] text-cd-text-tertiary">综合效率百分位</span>
+              </div>
+              <span className="text-[10px] text-cd-text-secondary">{result.occupation_label}</span>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-cd-green">
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-xl font-bold text-cd-green">
                 {Math.round(result.overall_percentile)}
-                <span className="text-xs ml-0.5">%</span>
+                <span className="text-[10px] ml-0.5">%</span>
               </span>
-              <span className="text-xs text-cd-text-secondary">{result.occupation_label}</span>
             </div>
-            <div className="text-xs text-cd-text-secondary mt-1">{result.overall_summary}</div>
-            {/* 进度条 */}
-            <div className="mt-2 h-1.5 bg-cd-bg rounded-full overflow-hidden">
+            <div className="text-[10px] text-cd-text-secondary mt-0.5 leading-tight">{result.overall_summary}</div>
+            <div className="mt-1.5 h-1 bg-cd-bg rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-cd-green to-cd-purple rounded-full transition-all"
                 style={{ width: `${result.overall_percentile}%` }}
@@ -164,24 +165,24 @@ export default function BenchmarkPanel() {
             </div>
           </div>
 
-          {/* 各指标明细 */}
-          <div className="space-y-1.5">
+          {/* 各指标明细 - 2列紧凑布局 */}
+          <div className="grid grid-cols-2 gap-1">
             {result.metrics.map(m => (
-              <div key={m.key} className="flex items-center gap-2 text-xs">
-                <span className="text-cd-text-secondary w-20 flex-shrink-0">{m.label}</span>
-                <div className="flex-1 h-1.5 bg-cd-bg rounded-full overflow-hidden relative">
+              <div key={m.key} className="bg-cd-bg-secondary/50 rounded-lg px-1.5 py-1">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[10px] text-cd-text-secondary truncate">{m.label}</span>
+                  <span className="text-[10px] text-cd-text font-semibold flex-shrink-0 ml-1">
+                    {m.unit === '%' ? fmtPct(m.user_value) : m.user_value}
+                    <span className="text-cd-text-tertiary font-normal ml-0.5">{m.unit}</span>
+                  </span>
+                </div>
+                <div className="h-1 bg-cd-bg rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full ${m.percentile >= 75 ? 'bg-cd-green' : m.percentile >= 50 ? 'bg-cd-purple' : 'bg-cd-text-tertiary'}`}
                     style={{ width: `${m.percentile}%` }}
                   />
                 </div>
-                <span className="text-cd-text w-14 text-right flex-shrink-0">
-                  {m.unit === '%' ? fmtPct(m.user_value) : m.user_value}
-                  <span className="text-cd-text-tertiary ml-0.5">{m.unit}</span>
-                </span>
-                <span className="text-cd-text-tertiary w-20 text-right text-[10px] flex-shrink-0">
-                  {fmtPctile(m.percentile)}
-                </span>
+                <div className="text-[9px] text-cd-text-tertiary mt-0.5 text-right">{fmtPctile(m.percentile)}</div>
               </div>
             ))}
           </div>
@@ -189,85 +190,72 @@ export default function BenchmarkPanel() {
       )}
 
       {/* 群组排行 */}
-      <div className="pt-2 border-t border-cd-border space-y-2">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-cd-text">
-          <Users size={12} className="text-cd-green" />
+      <div className="pt-1.5 border-t border-cd-border space-y-1.5">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-cd-text">
+          <Users size={10} className="text-cd-green" />
           专注群组
         </div>
 
         {profile?.group_code && leaderboard ? (
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[10px]">
               <span className="text-cd-text">{leaderboard.name}</span>
-              <span className="text-cd-text-tertiary">代码：{leaderboard.code} · {leaderboard.members_count}人</span>
+              <span className="text-cd-text-tertiary">{leaderboard.members_count}人</span>
             </div>
             {leaderboard.leaderboard && leaderboard.leaderboard.length > 0 ? (
-              <div className="space-y-1">
-                {leaderboard.leaderboard.slice(0, 5).map((m: any, i: number) => (
-                  <div key={i} className={`flex items-center gap-2 p-1.5 rounded text-xs ${
+              <div className="space-y-0.5">
+                {leaderboard.leaderboard.slice(0, 3).map((m: any, i: number) => (
+                  <div key={i} className={`flex items-center gap-1.5 px-1.5 py-1 rounded-lg text-[10px] ${
                     i === 0 ? 'bg-cd-green-light' : 'bg-cd-bg-secondary'
                   }`}>
-                    <span className={`w-5 text-center font-bold flex-shrink-0 ${
+                    <span className={`w-4 text-center font-bold flex-shrink-0 ${
                       i === 0 ? 'text-cd-green' : i === 1 ? 'text-cd-purple' : 'text-cd-text-tertiary'
                     }`}>{i + 1}</span>
                     <span className="text-cd-text flex-1 truncate">{m.name}</span>
-                    <span className="text-cd-text-secondary flex-shrink-0">
-                      {Math.round(m.daily_focus_minutes)}m · 连续{m.streak_days}天
-                    </span>
                     <span className="text-cd-green font-semibold flex-shrink-0">{Math.round(m.score)}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-xs text-cd-text-tertiary">群组暂无成员数据</div>
+              <div className="text-[10px] text-cd-text-tertiary">群组暂无成员数据</div>
             )}
-            {/* 分享群组代码 */}
-            <div className="text-[10px] text-cd-text-tertiary">
-              分享代码 <span className="font-mono font-bold text-cd-text">{leaderboard.code}</span> 给朋友，让他们在下方输入加入
-            </div>
           </div>
         ) : (
-          <div className="space-y-2">
-            {/* 加入群组 */}
+          <div className="space-y-1.5">
             <div className="flex gap-1">
               <input
                 type="text" placeholder="输入群组代码" value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                 maxLength={8}
-                className="flex-1 bg-cd-bg-secondary text-cd-text border border-cd-border rounded px-2 py-1 text-xs font-mono"
+                className="flex-1 bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-1.5 py-0.5 text-[11px] font-mono"
               />
               <button onClick={handleJoinGroup}
-                className="px-2 py-1 bg-cd-bg-secondary border border-cd-border rounded text-xs text-cd-text hover:bg-cd-hover">
+                className="px-2 py-0.5 bg-cd-bg-secondary border border-cd-border rounded-lg text-[11px] text-cd-text hover:bg-cd-hover">
                 加入
               </button>
             </div>
-
-            {/* 创建群组 */}
             {showCreateGroup ? (
               <div className="flex gap-1">
                 <input
                   type="text" placeholder="群组名称" value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
-                  className="flex-1 bg-cd-bg-secondary text-cd-text border border-cd-border rounded px-2 py-1 text-xs"
+                  className="flex-1 bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-1.5 py-0.5 text-[11px]"
                 />
                 <button onClick={handleCreateGroup}
-                  className="px-2 py-1 bg-cd-green text-white rounded text-xs hover:opacity-90">
+                  className="px-2 py-0.5 bg-cd-green text-white rounded-lg text-[11px] hover:opacity-90">
                   创建
                 </button>
                 <button onClick={() => setShowCreateGroup(false)}
-                  className="px-2 py-1 text-cd-text-tertiary text-xs">
+                  className="px-1.5 py-0.5 text-cd-text-tertiary text-[11px]">
                   取消
                 </button>
               </div>
             ) : (
               <button onClick={() => setShowCreateGroup(true)}
-                className="text-xs text-cd-green hover:opacity-80 flex items-center gap-1">
-                <Plus size={11} /> 创建新群组
+                className="text-[11px] text-cd-green hover:opacity-80 flex items-center gap-1">
+                <Plus size={10} /> 创建新群组
               </button>
             )}
-            <p className="text-[10px] text-cd-text-tertiary">
-              群组采用本地存储 + 离线导入模式：成员间通过分享指标包（.cdg）同步，不依赖服务器
-            </p>
           </div>
         )}
       </div>

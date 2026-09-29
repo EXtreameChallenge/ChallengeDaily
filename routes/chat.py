@@ -1,4 +1,4 @@
-"""AI对话 API — 流式SSE + Function Calling + 工具函数
+﻿"""AI对话 API — 流式SSE + Function Calling + 工具函数
 
 核心设计：
 1. SSE流式输出——逐token推送到前端，不等AI完整生成
@@ -663,13 +663,18 @@ def ai_chat_stream():
             content = h['content']
             chat_messages.append({"role": role, "content": content})
 
-    system_content = SYSTEM_PROMPT_BASE + SYSTEM_PROMPT_SAFETY + context_hint + today_hint + extra_hint + memory_hint
-
-    messages = [{"role": "system", "content": system_content}] + chat_messages + [{"role": "user", "content": user_message}]
-
-    # 当前日期信息，供工具使用
+    # 当前日期信息——必须注入系统提示，否则 AI 调用工具时会瞎编日期
     from datetime import date
     _today = date.today().isoformat()
+    _weekday = ["周一","周二","周三","周四","周五","周六","周日"][date.today().weekday()]
+
+    system_content = (
+        f"【当前时间】今天是 {_today}（{_weekday}）。所有与日期相关的查询，如未指定日期，默认使用今天 {_today}。\n\n"
+        + SYSTEM_PROMPT_BASE + SYSTEM_PROMPT_SAFETY
+        + context_hint + today_hint + extra_hint + memory_hint
+    )
+
+    messages = [{"role": "system", "content": system_content}] + chat_messages + [{"role": "user", "content": user_message}]
 
     def generate():
         try:

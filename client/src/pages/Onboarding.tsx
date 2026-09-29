@@ -213,7 +213,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
           <button
             onClick={goPrev}
             disabled={stepIdx === 0}
-            className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm text-cd-text-secondary hover:bg-cd-hover transition-colors disabled:opacity-0"
+            className="flex items-center gap-1 px-4 py-2 rounded-2xl text-sm text-cd-text-secondary hover:bg-cd-hover transition-colors disabled:opacity-0"
           >
             <ChevronLeft size={16} />
             上一步
@@ -221,7 +221,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
           <button
             onClick={goNext}
-            className="flex items-center gap-1 px-6 py-2.5 rounded-lg text-sm font-medium bg-cd-green hover:bg-cd-green-dark text-white transition-colors"
+            className="flex items-center gap-1 px-6 py-2.5 rounded-2xl text-sm font-medium bg-cd-green hover:bg-cd-green-dark text-white transition-colors"
           >
             {step === 'done' ? '开始使用' : '下一步'}
             {step !== 'done' && <ChevronRight size={16} />}
@@ -253,7 +253,7 @@ function WelcomeStep() {
           { icon: Shield, title: '隐私优先', desc: '数据全部本地存储，截图分析后即删' },
         ].map(({ icon: Icon, title, desc }) => (
           <div key={title} className="card py-4 px-3">
-            <div className="w-8 h-8 rounded-lg bg-cd-green-light flex items-center justify-center mx-auto mb-2">
+            <div className="w-8 h-8 rounded-2xl bg-cd-green-light flex items-center justify-center mx-auto mb-2">
               <Icon size={16} className="text-cd-green" />
             </div>
             <div className="text-xs font-semibold text-cd-text mb-1">{title}</div>
@@ -326,7 +326,7 @@ function FeatureTourStep() {
         {groups.map(({ icon: Icon, label, desc, items }) => (
           <div key={label} className="card p-3">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-cd-green-light flex items-center justify-center shrink-0">
+              <div className="w-7 h-7 rounded-2xl bg-cd-green-light flex items-center justify-center shrink-0">
                 <Icon size={14} className="text-cd-green" />
               </div>
               <div className="flex-1 min-w-0">
@@ -426,7 +426,7 @@ function AIStep({
                 : 'border-cd-border bg-cd-bg-secondary hover:border-cd-green/30'
             }`}
           >
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
               useFreeModel ? 'bg-cd-green text-white' : 'bg-cd-bg text-cd-text-tertiary'
             }`}>
               <Zap size={20} />
@@ -449,7 +449,7 @@ function AIStep({
                 : 'border-cd-border bg-cd-bg-secondary hover:border-cd-green/30'
             }`}
           >
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
               !useFreeModel ? 'bg-cd-green text-white' : 'bg-cd-bg text-cd-text-tertiary'
             }`}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -473,7 +473,7 @@ function AIStep({
                   value={apiBase}
                   onChange={(e) => setApiBase(e.target.value)}
                   placeholder="https://api.openai.com/v1"
-                  className="w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
+                  className="w-full bg-cd-bg border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -484,7 +484,7 @@ function AIStep({
                     value={apiVisionModel}
                     onChange={(e) => setApiVisionModel(e.target.value)}
                     placeholder="glm-4v-flash"
-                    className="w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
+                    className="w-full bg-cd-bg border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
                   />
                 </div>
                 <div>
@@ -494,7 +494,7 @@ function AIStep({
                     value={apiTextModel}
                     onChange={(e) => setApiTextModel(e.target.value)}
                     placeholder="glm-4-flash"
-                    className="w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
+                    className="w-full bg-cd-bg border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green"
                   />
                 </div>
               </div>
@@ -506,7 +506,7 @@ function AIStep({
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder="sk-..."
-                    className="w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-1.5 pr-9 text-sm focus:outline-none focus:border-cd-green"
+                    className="w-full bg-cd-bg border border-cd-border rounded-2xl px-3 py-1.5 pr-9 text-sm focus:outline-none focus:border-cd-green"
                   />
                   <button
                     onClick={() => setShowKey(!showKey)}
@@ -533,7 +533,7 @@ function AIStep({
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder="在 open.bigmodel.cn 免费注册后获取"
-                    className="w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-1.5 pr-9 text-sm focus:outline-none focus:border-cd-green"
+                    className="w-full bg-cd-bg border border-cd-border rounded-2xl px-3 py-1.5 pr-9 text-sm focus:outline-none focus:border-cd-green"
                   />
                   <button
                     onClick={() => setShowKey(!showKey)}
@@ -552,7 +552,7 @@ function AIStep({
               <button
                 onClick={handleTestAi}
                 disabled={aiTesting}
-                className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
+                className="flex items-center gap-2 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
               >
                 {aiTesting ? (
                   <><Loader2 size={12} className="animate-spin" /> 正在测试...</>
@@ -574,7 +574,7 @@ function AIStep({
       )}
 
       {!aiEnabled && (
-        <div className="text-xs text-cd-text-tertiary bg-cd-bg-secondary rounded-lg p-3 mt-2">
+        <div className="text-xs text-cd-text-tertiary bg-cd-bg-secondary rounded-2xl p-3 mt-2">
           不启用 AI 时，将使用应用名称规则进行基础分类，无法生成智能摘要。
           你可以随时在设置中启用 AI。
         </div>
@@ -614,7 +614,7 @@ function WorkHoursStep({
             return (
               <div
                 key={h}
-                className={`flex-1 h-8 rounded-sm flex items-center justify-center text-[9px] transition-colors ${
+                className={`flex-1 h-8 rounded-lg flex items-center justify-center text-[9px] transition-colors ${
                   isWork ? 'bg-cd-green-light text-cd-green font-medium' : 'bg-cd-bg-secondary text-cd-text-tertiary'
                 }`}
               >
@@ -738,7 +738,7 @@ function PersonalizeStep({
           onChange={(e) => setNickname(e.target.value)}
           placeholder="如何称呼你？留空则用默认问候"
           maxLength={30}
-          className="w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green"
+          className="w-full bg-cd-bg border border-cd-border rounded-2xl px-3 py-2 text-sm focus:outline-none focus:border-cd-green"
         />
         <p className="text-[10px] text-cd-text-tertiary mt-1">用于 AI 生成的早安问候与日报称呼</p>
       </div>

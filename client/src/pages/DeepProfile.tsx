@@ -77,7 +77,7 @@ function EfficiencyTooltip({ active, payload }: { active?: boolean; payload?: Ar
   if (!active || !payload?.length) return null
   const item = payload[0].payload
   return (
-    <div className="bg-cd-card border border-cd-border rounded-lg px-3 py-2 shadow-sm">
+    <div className="bg-cd-card border border-cd-border rounded-2xl px-3 py-2 shadow-sm">
       <p className="text-xs text-cd-text-tertiary mb-0.5">{item.date}</p>
       <p className="text-sm text-cd-text font-medium">生产力：{item.raw || '未评级'}（{productivityLabel(item.value)}）</p>
     </div>
@@ -408,7 +408,7 @@ export default function DeepProfile() {
           <AlertCircle size={40} className="text-cd-red mx-auto mb-3" />
           <h2 className="text-lg font-semibold text-cd-text mb-2">加载失败</h2>
           <p className="text-sm text-cd-text-secondary mb-4">{error}</p>
-          <button onClick={refreshAll} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-cd-green text-white text-sm hover:opacity-90 transition">
+          <button onClick={refreshAll} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-cd-green text-white text-sm hover:opacity-90 transition">
             <RefreshCw size={14} /> 重试
           </button>
         </div>
@@ -431,7 +431,7 @@ export default function DeepProfile() {
         <button
           onClick={refreshAll}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cd-green/10 text-cd-green text-sm hover:bg-cd-green/20 transition disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-cd-green/10 text-cd-green text-sm hover:bg-cd-green/20 transition disabled:opacity-50"
         >
           {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
           刷新
@@ -447,7 +447,7 @@ export default function DeepProfile() {
               setActiveSection(i)
               document.getElementById(`section-${i}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-sm font-medium whitespace-nowrap transition-colors ${
               activeSection === i
                 ? 'bg-cd-green/10 text-cd-green border border-cd-green/20'
                 : 'bg-cd-bg-secondary text-cd-text-secondary border border-cd-border hover:bg-cd-hover'
@@ -524,7 +524,7 @@ export default function DeepProfile() {
               {commonSoftware.map((app, idx) => (
                 <div key={app.app_name} className="flex items-center gap-2">
                   <span className="w-5 text-center text-xs text-cd-text-tertiary font-mono shrink-0">{idx + 1}</span>
-                  <div className="w-7 h-7 rounded-md bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="w-7 h-7 rounded-xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
                     <img src={iconUrls[app.app_name] || DEFAULT_ICON} alt="" className="w-5 h-5 object-contain" onError={(e) => { e.currentTarget.src = DEFAULT_ICON }} />
                   </div>
                   <span className="flex-1 text-sm font-medium text-cd-text truncate">{app.app_name}</span>
@@ -564,7 +564,7 @@ export default function DeepProfile() {
             ) : (
               <div className="space-y-2">
                 {behaviorTags.map((tag, i) => (
-                  <div key={i} className="flex items-start gap-2 bg-cd-bg-secondary rounded-lg px-3 py-2">
+                  <div key={i} className="flex items-start gap-2 bg-cd-bg-secondary rounded-2xl px-3 py-2">
                     <span className="text-cd-green mt-0.5 text-sm">•</span>
                     <span className="text-sm text-cd-text">{tag}</span>
                   </div>
@@ -584,7 +584,7 @@ export default function DeepProfile() {
           ) : (
             <div className="space-y-2">
               {corrections.map((c) => (
-                <div key={c.id} className="flex items-center gap-3 bg-cd-bg-secondary rounded-lg px-3 py-2">
+                <div key={c.id} className="flex items-center gap-3 bg-cd-bg-secondary rounded-2xl px-3 py-2">
                   <span className="text-sm font-medium text-cd-text shrink-0">{c.app_name}</span>
                   <span className="text-cd-text-tertiary text-sm shrink-0">→</span>
                   <span className="text-sm text-cd-green font-medium shrink-0">{c.correct_category || '重新分类'}</span>
@@ -621,7 +621,7 @@ export default function DeepProfile() {
             <button
               onClick={handleTriggerAnalysis}
               disabled={analysisTriggering}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-400 text-sm font-medium hover:bg-purple-500/30 transition disabled:opacity-50 shrink-0"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-purple-500/20 text-purple-400 text-sm font-medium hover:bg-purple-500/30 transition disabled:opacity-50 shrink-0"
               title="触发 AI 自我认知分析"
             >
               {analysisTriggering ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
@@ -704,7 +704,7 @@ export default function DeepProfile() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {summary.findings.map((f, i) => (
-                    <div key={i} className={`flex items-start gap-2 p-3 rounded-lg border ${
+                    <div key={i} className={`flex items-start gap-2 p-3 rounded-2xl border ${
                       f.verdict === 'positive' ? 'bg-cd-green/5 border-cd-green/20' :
                       f.verdict === 'negative' ? 'bg-cd-red/5 border-cd-red/20' :
                       'bg-cd-bg-secondary border-cd-border'
@@ -760,7 +760,7 @@ export default function DeepProfile() {
                       onClick={() => setExpandedFw(isExpanded ? null : id)}
                       className="w-full flex items-center gap-3 p-4 hover:bg-cd-hover transition-colors text-left"
                     >
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}15`, color }}>
+                      <div className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${color}15`, color }}>
                         <Icon size={18} />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -790,7 +790,7 @@ export default function DeepProfile() {
                             <div className="text-xs text-cd-text-tertiary mb-1">心流时段</div>
                             <div className="space-y-1">
                               {(metrics.flow_segments_detail as Array<{category: string; duration_min: number; apps: string[]}>).map((seg, i) => (
-                                <div key={i} className="text-xs text-cd-text-secondary bg-cd-bg-secondary px-2 py-1 rounded">
+                                <div key={i} className="text-xs text-cd-text-secondary bg-cd-bg-secondary px-2 py-1 rounded-lg">
                                   {seg.category} · {seg.duration_min}分钟 · {seg.apps.join('、')}
                                 </div>
                               ))}
@@ -802,7 +802,7 @@ export default function DeepProfile() {
                             <div className="text-xs text-cd-text-tertiary mb-1">认知层级分布</div>
                             <div className="flex gap-2 flex-wrap">
                               {Object.entries(metrics.bloom_distribution as Record<string, number>).map(([level, min]) => (
-                                <span key={level} className="text-xs bg-cd-bg-secondary px-2 py-0.5 rounded">{level}: {min}分钟</span>
+                                <span key={level} className="text-xs bg-cd-bg-secondary px-2 py-0.5 rounded-lg">{level}: {min}分钟</span>
                               ))}
                             </div>
                           </div>
@@ -812,7 +812,7 @@ export default function DeepProfile() {
                             <div className="text-xs text-cd-text-tertiary mb-1">分类时间分布</div>
                             <div className="flex gap-2 flex-wrap">
                               {Object.entries(metrics.category_distribution as Record<string, number>).map(([cat, min]) => (
-                                <span key={cat} className="text-xs bg-cd-bg-secondary px-2 py-0.5 rounded">{cat}: {min}分钟</span>
+                                <span key={cat} className="text-xs bg-cd-bg-secondary px-2 py-0.5 rounded-lg">{cat}: {min}分钟</span>
                               ))}
                             </div>
                           </div>
@@ -822,7 +822,7 @@ export default function DeepProfile() {
                             <div className="text-xs text-cd-text-tertiary mb-1">检测到的模式</div>
                             <div className="space-y-1">
                               {(metrics.detected_patterns as Array<{hour: number; category: string; duration_min: number}>).map((p, i) => (
-                                <div key={i} className="text-xs text-cd-text-secondary bg-cd-bg-secondary px-2 py-1 rounded">
+                                <div key={i} className="text-xs text-cd-text-secondary bg-cd-bg-secondary px-2 py-1 rounded-lg">
                                   {p.hour}:00 → {p.category}（{p.duration_min}分钟）
                                 </div>
                               ))}
@@ -865,28 +865,28 @@ export default function DeepProfile() {
             <label className="text-xs text-cd-text-secondary block mb-1">角色 / 岗位描述</label>
             <textarea value={roleDesc} onChange={(e) => setRoleDesc(e.target.value)} rows={2}
               placeholder="例如：全栈开发工程师，主要负责后端服务与内部工具开发"
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
+              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
             />
           </div>
           <div>
             <label className="text-xs text-cd-text-secondary block mb-1">工作风格 / 作息</label>
             <textarea value={workStyle} onChange={(e) => setWorkStyle(e.target.value)} rows={2}
               placeholder="例如：上午 10 点到 12 点专注编码，下午开会较多，晚上 8 点后不处理工作"
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
+              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
             />
           </div>
           <div>
             <label className="text-xs text-cd-text-secondary block mb-1">常用软件实际用途</label>
             <textarea value={appOverrides} onChange={(e) => setAppOverrides(e.target.value)} rows={3}
               placeholder={`例如：\nCursor = 开发 IDE\nObsidian = 个人知识管理\nFigma = 产品原型设计`}
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
+              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
             />
           </div>
           <div>
             <label className="text-xs text-cd-text-secondary block mb-1">特定场景行为说明</label>
             <textarea value={habits} onChange={(e) => setHabits(e.target.value)} rows={3}
               placeholder="例如：看到我在微信和浏览器之间切换，通常是在查找资料或确认需求"
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
+              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
             />
           </div>
           <div>
@@ -895,7 +895,7 @@ export default function DeepProfile() {
             </label>
             <textarea value={customRules} onChange={(e) => setCustomRules(e.target.value)} rows={3}
               placeholder={`例如：请优先按「开发 / 会议 / 沟通 / 文档」归类；遇到无法判断的应用时，标记为「其他」并注明原因`}
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
+              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors resize-none"
             />
           </div>
 
@@ -908,7 +908,7 @@ export default function DeepProfile() {
           <button
             onClick={handleSaveHabits}
             disabled={profileSaving}
-            className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+            className={`w-full py-2.5 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
               profileSaved
                 ? 'bg-cd-green-light text-cd-green'
                 : 'bg-cd-green hover:bg-cd-green-dark text-white'
@@ -952,7 +952,7 @@ function SummaryCard({ icon: Icon, label, value }: { icon: React.ElementType<{ s
 
 function InfoBlock({ icon: Icon, label, value }: { icon: React.ElementType<{ size?: number | string; className?: string }>; label: string; value: string }) {
   return (
-    <div className="bg-cd-bg-secondary rounded-lg p-3 border border-cd-border/50">
+    <div className="bg-cd-bg-secondary rounded-2xl p-3 border border-cd-border/50">
       <div className="flex items-center gap-2 mb-1">
         <Icon size={14} className="text-cd-green" />
         <span className="text-sm text-cd-text-secondary">{label}</span>
@@ -964,7 +964,7 @@ function InfoBlock({ icon: Icon, label, value }: { icon: React.ElementType<{ siz
 
 function MetricCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="bg-cd-bg-secondary rounded-lg p-2.5 border border-cd-border/50">
+    <div className="bg-cd-bg-secondary rounded-2xl p-2.5 border border-cd-border/50">
       <div className="text-[10px] text-cd-text-tertiary mb-0.5">{label}</div>
       <div className="text-sm font-semibold text-cd-text" style={{ color }}>{value}</div>
     </div>
@@ -978,12 +978,12 @@ function CognitionCard({ icon: Icon, title, color, placeholder, content, confide
   return (
     <div className="bg-cd-bg-secondary/50 rounded-xl p-4 border border-cd-border/50">
       <div className="flex items-center gap-2 mb-2">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${color}20`, color }}>
+        <div className="w-7 h-7 rounded-2xl flex items-center justify-center" style={{ background: `${color}20`, color }}>
           <Icon size={14} />
         </div>
         <span className="text-sm font-semibold text-cd-text">{title}</span>
         {confidence !== undefined && confidence > 0 && (
-          <span className="ml-auto text-[10px] text-cd-text-tertiary bg-cd-bg-secondary px-1.5 py-0.5 rounded">
+          <span className="ml-auto text-[10px] text-cd-text-tertiary bg-cd-bg-secondary px-1.5 py-0.5 rounded-lg">
             {(confidence * 100).toFixed(0)}%
           </span>
         )}

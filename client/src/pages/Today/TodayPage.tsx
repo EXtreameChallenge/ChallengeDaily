@@ -290,7 +290,7 @@ export default function TodayPage() {
           {isPaused ? (
             <>
               <p className="text-base text-cd-text-secondary mb-6">采集器已暂停，点击开始自动记录。</p>
-              <button onClick={handleResume} className="inline-flex items-center gap-2 bg-cd-green text-white px-7 py-3 rounded-lg text-base font-medium hover:opacity-90 transition">
+              <button onClick={handleResume} className="btn-primary">
                 <Play size={18} /> 开始记录
               </button>
             </>
@@ -339,10 +339,10 @@ return (
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => handleStartPomodoro()} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-cd-green text-white hover:opacity-90 transition">
+          <button onClick={() => handleStartPomodoro()} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full bg-cd-accent text-white hover:opacity-90 transition">
             <Flame size={12} /> 专注
           </button>
-          <button onClick={() => navigate('/todos')} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-cd-border text-cd-text-secondary hover:text-cd-text hover:border-cd-green/50 transition">
+          <button onClick={() => navigate('/todos')} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full border border-cd-border text-cd-text-secondary hover:text-cd-text hover:border-cd-accent/50 transition">
             <Target size={12} /> 待办
           </button>
         </div>
@@ -356,8 +356,8 @@ return (
         <div className="flex-1 min-w-0">
           {summaryLoading ? (
             <div className="animate-pulse space-y-1.5">
-              <div className="h-3.5 bg-cd-bg-secondary rounded w-3/4" />
-              <div className="h-2.5 bg-cd-bg-secondary rounded w-1/2" />
+              <div className="h-3.5 bg-cd-bg-secondary rounded-lg w-3/4" />
+              <div className="h-2.5 bg-cd-bg-secondary rounded-lg w-1/2" />
             </div>
           ) : (
             <p className="text-sm text-cd-text leading-relaxed">
@@ -369,7 +369,7 @@ return (
           onClick={() => loadTodaySummary()}
           disabled={summaryRefreshing}
           title="刷新摘要"
-          className="shrink-0 p-1.5 rounded-md text-cd-text-tertiary hover:text-cd-green hover:bg-cd-bg-secondary transition disabled:opacity-50"
+          className="shrink-0 p-1.5 rounded-xl text-cd-text-tertiary hover:text-cd-green hover:bg-cd-bg-secondary transition disabled:opacity-50"
         >
           <RefreshCw size={13} className={summaryRefreshing ? 'animate-spin' : ''} />
         </button>
@@ -401,7 +401,7 @@ return (
                     <p className="text-[10px] text-cd-text-tertiary">专注中 · 25分钟</p>
                   </div>
                 </div>
-                <button onClick={handleEndPomodoro} className="px-2.5 py-1 rounded-lg text-[11px] bg-cd-red/10 text-cd-red hover:bg-cd-red/20 transition shrink-0">结束</button>
+                <button onClick={handleEndPomodoro} className="px-2.5 py-1 rounded-full text-[11px] bg-cd-red/10 text-cd-red hover:bg-cd-red/20 transition shrink-0">结束</button>
               </div>
             </div>
           ) : (
@@ -416,7 +416,7 @@ return (
                     <p className="text-[10px] text-cd-text-tertiary">今日 {pomodoroSessions.length || focusSessions} 个番茄</p>
                   </div>
                 </div>
-                <button onClick={() => handleStartPomodoro()} className="px-2.5 py-1 rounded-lg text-[11px] bg-cd-green text-white hover:opacity-90 transition flex items-center gap-1 shrink-0">
+                <button onClick={() => handleStartPomodoro()} className="px-2.5 py-1 rounded-full text-[11px] bg-cd-accent text-white hover:opacity-90 transition flex items-center gap-1 shrink-0">
                   <Play size={10} /> 开始
                 </button>
               </div>
@@ -501,7 +501,7 @@ return (
                 const defaultIcon = import.meta.env.DEV ? '/icon.png' : './icon.png'
                 return (
                   <div key={app.app_name} className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-md bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
+                    <div className="w-5 h-5 rounded-xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
                       <img src={iconUrl || defaultIcon} alt="" className="w-3.5 h-3.5 object-contain" onError={(e) => { e.currentTarget.src = defaultIcon }} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -602,7 +602,7 @@ return (
                       const intensity = maxHeatVal > 0 ? val / maxHeatVal : 0
                       const cellMin = Math.round(val * intervalSec / 60)
                       return (
-                        <div key={b} className="h-7 rounded-sm transition-all hover:scale-110 cursor-default"
+                        <div key={b} className="h-7 rounded-lg transition-all hover:scale-110 cursor-default"
                           style={{ background: val === 0 ? 'var(--cd-bg-tertiary)' : `rgba(99,91,255,${0.1 + intensity * 0.7})` }}
                           title={`${dayjs(day.date).format('MM/DD')} ${b * 2}:00-${b * 2 + 2}:00 · ${cellMin}分钟 · ${val}次活动`} />
                       )
@@ -616,7 +616,7 @@ return (
             <div className="flex items-center gap-1">
               <span className="text-[9px] text-cd-text-tertiary">Less</span>
               {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
-                <div key={i} className="w-3 h-2 rounded-sm" style={{ background: v === 0 ? 'var(--cd-bg-tertiary)' : `rgba(99,91,255,${0.1 + v * 0.7})` }} />
+                <div key={i} className="w-3 h-2 rounded-lg" style={{ background: v === 0 ? 'var(--cd-bg-tertiary)' : `rgba(99,91,255,${0.1 + v * 0.7})` }} />
               ))}
               <span className="text-[9px] text-cd-text-tertiary">More</span>
             </div>
@@ -646,7 +646,7 @@ return (
               const peakHour = maxIdx >= 0 && day.cells[maxIdx] > 0 ? `${maxIdx * 2}:00-${maxIdx * 2 + 2}:00` : '--'
               const intensity = maxHeatVal > 0 ? Math.max(...day.cells) / maxHeatVal : 0
               return (
-                <div key={day.date} className="flex items-center gap-2 text-[10px] bg-cd-bg-secondary/40 rounded px-2 py-1">
+                <div key={day.date} className="flex items-center gap-2 text-[10px] bg-cd-bg-secondary/40 rounded-lg px-2 py-1">
                   <span className="text-cd-text-tertiary w-8 shrink-0">{dayLabel}</span>
                   <div className="flex-1 flex items-center gap-1">
                     <span className="text-cd-text font-semibold">{totalMin >= 60 ? `${(totalMin/60).toFixed(1)}h` : `${totalMin}m`}</span>

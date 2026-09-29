@@ -108,7 +108,7 @@ export default function SmartCoachPanel() {
             return (
               <div
                 key={idx}
-                className={`relative rounded-lg border ${priorityColor} p-3 pl-9 transition-all hover:shadow-sm`}
+                className={`relative rounded-2xl border ${priorityColor} p-3 pl-9 transition-all hover:shadow-sm`}
               >
                 <span className="absolute left-3 top-3 text-base">{s.icon}</span>
                 <button

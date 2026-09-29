@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, lazy, Suspense, type ReactNode } from 'rea
 import { HashRouter, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import TitleBar from './components/TitleBar'
+import TopBar from './components/TopBar'
+import ThemeToggle from './components/ThemeToggle'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ToastProvider } from './components/Toast'
 import { ThemeProvider } from './components/ThemeContext'
@@ -217,8 +219,7 @@ export default function App() {
         <ErrorBoundary>
           {/* 应用级隐私锁：启动锁 + 闲置锁 */}
           {locked && <LockScreen onUnlock={unlock} />}
-          <div className="flex flex-col h-screen bg-cd-bg">
-            <TitleBar />
+          <div className="flex flex-col h-screen">
           <BackendStatusBar />
           {/* ── 全局更新提示条 ── */}
           {updateInfo && !updateDismissed && !updateDownloaded && (
@@ -253,7 +254,7 @@ export default function App() {
               </span>
               <button
                 onClick={handleInstallUpdate}
-                className="bg-cd-green text-white px-3.5 py-1.5 rounded-md text-sm font-medium hover:opacity-90"
+                className="bg-cd-green text-white px-3.5 py-1.5 rounded-xl text-sm font-medium hover:opacity-90"
               >
                 立即重启安装
               </button>
@@ -277,7 +278,7 @@ export default function App() {
                 <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
                 <ElectronNavigationBridge />
                 <Sidebar />
-                <main className="flex-1 overflow-auto bg-cd-bg p-6">
+                <main className="flex-1 overflow-auto p-6 pt-14 pb-24">
                   <RouteErrorBoundary>
                     <Suspense fallback={<PageSpinner />}>
                       <Routes>
@@ -321,11 +322,15 @@ export default function App() {
                   </RouteErrorBoundary>
                 </main>
                 <RelayCardContainer />
-                <AIDock currentPage="today" />
+                <AIDockGate />
                 </RelayEngineProvider>
               </HashRouter>
             )}
           </div>
+          {/* 悬浮控件层（全部 position:fixed，不占布局空间） */}
+          <TitleBar />
+          <TopBar />
+          <ThemeToggle />
         </div>
       </ErrorBoundary>
     </ToastProvider>
@@ -339,6 +344,13 @@ function PageSpinner() {
       <div className="w-6 h-6 border-3 border-cd-green border-t-transparent rounded-full animate-spin" />
     </div>
   )
+}
+
+/** AI 坞：在完整对话页 /ai-chat 时隐藏，避免与页内输入框重复 */
+function AIDockGate() {
+  const location = useLocation()
+  if (location.pathname === '/ai-chat') return null
+  return <AIDock currentPage="today" />
 }
 
 /** P13-4：监听来自 Electron 主进程的导航/快捷键事件 */
@@ -444,7 +456,7 @@ function ErrorScreen() {
         <button
           onClick={handleRetry}
           disabled={retrying}
-          className="bg-cd-green text-white px-4 py-2 rounded-lg text-sm hover:opacity-90 disabled:opacity-50"
+          className="bg-cd-green text-white px-4 py-2 rounded-2xl text-sm hover:opacity-90 disabled:opacity-50"
         >
           {retrying ? '正在重连...' : '手动重连'}
         </button>

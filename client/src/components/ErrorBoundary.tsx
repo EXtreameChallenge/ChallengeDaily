@@ -50,14 +50,14 @@ export class ErrorBoundary extends Component<Props, State> {
           {this.state.error && (
             <details className="mt-3 text-left max-w-md">
               <summary className="text-xs text-cd-text-tertiary cursor-pointer">错误详情</summary>
-              <pre className="mt-1 text-xs text-cd-red bg-cd-red-light p-3 rounded-lg overflow-auto max-h-40">
+              <pre className="mt-1 text-xs text-cd-red bg-cd-red-light p-3 rounded-2xl overflow-auto max-h-40">
                 {this.state.error.message}
               </pre>
             </details>
           )}
           <button
             onClick={this.handleReload}
-            className="mt-5 flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium bg-cd-green text-white hover:bg-cd-green-dark transition-colors"
+            className="mt-5 flex items-center gap-2 px-5 py-2 rounded-2xl text-sm font-medium bg-cd-green text-white hover:bg-cd-green-dark transition-colors"
           >
             <RotateCcw size={14} />
             重新加载

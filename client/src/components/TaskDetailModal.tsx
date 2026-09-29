@@ -172,7 +172,7 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
       <div className="flex gap-1 mb-3">
         {[1, 2, 3, 4, 5].map(p => (
           <button key={p} onClick={() => handlePriority(p)}
-            className="flex-1 py-1.5 text-xs rounded transition"
+            className="flex-1 py-1.5 text-xs rounded-lg transition"
             style={{
               background: priority === p ? PRIORITY_COLORS[p - 1] + '22' : 'transparent',
               color: priority === p ? PRIORITY_COLORS[p - 1] : 'var(--cd-text-tertiary)',
@@ -184,11 +184,11 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
       {/* category & mode */}
       <div className="flex gap-2 mb-3">
         <select value={category} onChange={e => handleCategory(e.target.value)}
-          className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50">
+          className="flex-1 bg-cd-bg-input border border-cd-border rounded-2xl px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50">
           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <select value={mode} onChange={e => handleMode(e.target.value as 'timer' | 'goal' | 'habit')}
-          className="bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50">
+          className="bg-cd-bg-input border border-cd-border rounded-2xl px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50">
           {Object.entries(MODE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
@@ -199,7 +199,7 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
         <select
           value={goalId ?? ''}
           onChange={e => handleGoal(e.target.value ? Number(e.target.value) : null)}
-          className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50"
+          className="flex-1 bg-cd-bg-input border border-cd-border rounded-2xl px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50"
         >
           <option value="">不关联长期目标</option>
           {goals.map(g => (
@@ -213,7 +213,7 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
       {/* move date + button */}
       <div className="flex gap-2">
         <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)}
-          className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50" />
+          className="flex-1 bg-cd-bg-input border border-cd-border rounded-2xl px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50" />
         <button onClick={handleMove}
           className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-xl bg-cd-bg-input text-cd-text-secondary border border-cd-border hover:bg-cd-hover transition">
           <Calendar size={12} /> 移至
@@ -235,7 +235,7 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
             }
             onUpdate()
           }}
-          className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50"
+          className="flex-1 bg-cd-bg-input border border-cd-border rounded-2xl px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50"
         />
         <span className="flex items-center text-[10px] text-cd-text-tertiary">甘特图时间</span>
       </div>

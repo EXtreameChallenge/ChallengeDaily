@@ -282,18 +282,18 @@ export default function Sidebar() {
 
   return (
     <nav
-      className="w-56 border-r border-cd-border flex flex-col shrink-0 select-none"
-      style={{
-        background: sidebarTranslucent ? 'var(--cd-sidebar-bg, var(--cd-sidebar))' : 'var(--cd-sidebar)',
-        backdropFilter: sidebarTranslucent ? 'var(--cd-sidebar-blur)' : 'none',
-        WebkitBackdropFilter: sidebarTranslucent ? 'var(--cd-sidebar-blur)' : 'none',
-      }}
+      className="w-56 m-3 rounded-2xl glass flex flex-col shrink-0 select-none overflow-hidden"
     >
+      {/* ─── 品牌标识 ───────────────── */}
+      <div className="px-5 pt-4 pb-2">
+        <span className="text-base font-bold text-cd-accent font-brand tracking-tight">ChallengeDaily</span>
+      </div>
+
       {/* ─── 顶部状态 ───────────────── */}
-      <div className="px-5 pt-5 pb-4">
+      <div className="px-5 pb-4">
         <button
           onClick={handleToggleCollector}
-          className={`flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg transition-colors ${
+          className={`flex items-center gap-2 w-full px-2.5 py-1.5 rounded-2xl transition-colors ${
             status !== null && !status?.running
               ? 'bg-cd-red/8 hover:bg-cd-red/15 border border-cd-red/15'
               : 'hover:bg-cd-hover'
@@ -316,8 +316,8 @@ export default function Sidebar() {
           )}
         </button>
         <WorkTimeDisplay stats={todayStats} />
-        <div className="flex items-center gap-2 mt-2 px-2.5 py-2 rounded-lg bg-cd-bg-secondary">
-          <span className="shrink-0 text-[10px] font-bold text-cd-green bg-cd-green/15 rounded px-1.5 py-0.5">
+        <div className="flex items-center gap-2 mt-2 px-2.5 py-2 rounded-2xl bg-cd-bg-secondary">
+          <span className="shrink-0 text-[10px] font-bold text-cd-green bg-cd-green/15 rounded-lg px-1.5 py-0.5">
             Lv.{level}
           </span>
           <div className="flex-1 h-1.5 rounded-full bg-cd-border overflow-hidden">
@@ -350,7 +350,7 @@ export default function Sidebar() {
                       to={parent.to}
                       end={parent.to === '/'}
                       className={({ isActive }) =>
-                        `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${
+                        `flex items-center gap-2.5 px-3 py-2 rounded-2xl text-[13px] transition-colors ${
                           isActive
                             ? 'bg-cd-green-light text-cd-green font-medium nav-item-active'
                             : 'text-cd-text-secondary hover:bg-cd-hover hover:text-cd-text'
@@ -372,7 +372,7 @@ export default function Sidebar() {
                   <div key={parent.to}>
                     <button
                       onClick={() => toggleExpand(parent.to)}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] w-full transition-colors ${
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-2xl text-[13px] w-full transition-colors ${
                         hasActiveChild && isExpanded
                           ? 'text-cd-text font-medium'
                           : 'text-cd-text-secondary hover:bg-cd-hover hover:text-cd-text'
@@ -394,7 +394,7 @@ export default function Sidebar() {
                             to={child.to}
                             end={child.to === '/focus'}
                             className={({ isActive }) =>
-                              `flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] transition-colors ${
+                              `flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-[12px] transition-colors ${
                                 isActive
                                   ? 'bg-cd-green-light text-cd-green font-medium nav-item-active'
                                   : 'text-cd-text-tertiary hover:bg-cd-hover hover:text-cd-text'
@@ -425,7 +425,7 @@ export default function Sidebar() {
                 key={to + label}
                 to={to}
                 className={({ isActive }) =>
-                  `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${
+                  `flex items-center gap-2.5 px-3 py-2 rounded-2xl text-[13px] transition-colors ${
                     isActive
                       ? 'bg-cd-green-light text-cd-green font-medium nav-item-active'
                       : 'text-cd-text-secondary hover:bg-cd-hover hover:text-cd-text'
@@ -471,7 +471,7 @@ function WorkTimeDisplay({ stats }: { stats: TodayStats | null }) {
   const offset = circumference - (pct / 100) * circumference
 
   return (
-    <div className="flex items-center gap-3 mt-2 px-2.5 py-2 rounded-lg bg-cd-bg-secondary">
+    <div className="flex items-center gap-3 mt-2 px-2.5 py-2 rounded-2xl bg-cd-bg-secondary">
       <svg width="44" height="44" viewBox="0 0 44 44" className="shrink-0">
         <circle
           cx="22" cy="22" r={radius}

@@ -128,19 +128,19 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
               onChange={e => { setPassword(e.target.value); setError('') }}
               onKeyDown={e => e.key === 'Enter' && submit()}
               placeholder="输入密码"
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-cd-accent/40 pr-10" />
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-cd-accent/40 pr-10" />
             <button onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70">
               {show ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
           {error && <div className="text-xs text-red-400 text-center">{error}</div>}
           <button onClick={submit} disabled={!password}
-            className="w-full py-3 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-40">
+            className="w-full py-3 bg-cd-accent/20 text-cd-accent rounded-2xl border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-40">
             解锁
           </button>
           {cfg.useHello && (
             <button onClick={tryHello}
-              className="w-full py-3 bg-white/5 text-white/70 rounded-lg border border-white/10 hover:bg-white/10 transition flex items-center justify-center gap-2">
+              className="w-full py-3 bg-white/5 text-white/70 rounded-2xl border border-white/10 hover:bg-white/10 transition flex items-center justify-center gap-2">
               <Fingerprint size={18} /> Windows Hello
             </button>
           )}
@@ -183,7 +183,7 @@ export function AppLockSettings() {
       <div className="flex items-center gap-2">
         <ShieldCheck size={18} className="text-cd-accent" />
         <h3 className="text-sm text-cd-text font-medium">应用级隐私锁</h3>
-        <span className={`ml-auto text-xs px-2 py-0.5 rounded ${cfg.enabled ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-cd-text-tertiary'}`}>
+        <span className={`ml-auto text-xs px-2 py-0.5 rounded-lg ${cfg.enabled ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-cd-text-tertiary'}`}>
           {cfg.enabled ? '已启用' : '未启用'}
         </span>
       </div>
@@ -192,12 +192,12 @@ export function AppLockSettings() {
         <div className="space-y-2">
           <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)}
             placeholder="设置密码（至少4位）"
-            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2 text-sm text-cd-text" />
+            className="w-full bg-cd-bg-input border border-white/5 rounded-2xl px-3 py-2 text-sm text-cd-text" />
           <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
             placeholder="确认密码"
-            className="w-full bg-cd-bg-input border border-white/5 rounded-lg px-3 py-2 text-sm text-cd-text" />
+            className="w-full bg-cd-bg-input border border-white/5 rounded-2xl px-3 py-2 text-sm text-cd-text" />
           <button onClick={setPassword}
-            className="w-full py-2 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 text-sm">
+            className="w-full py-2 bg-cd-accent/20 text-cd-accent rounded-2xl border border-cd-accent/30 hover:bg-cd-accent/30 text-sm">
             启用应用锁
           </button>
         </div>
@@ -215,7 +215,7 @@ export function AppLockSettings() {
           <div className="flex items-center justify-between">
             <span className="text-sm text-cd-text">闲置自动锁</span>
             <select value={cfg.idleMinutes} onChange={e => update({ idleMinutes: parseInt(e.target.value) })}
-              className="bg-cd-bg-input border border-white/5 rounded px-2 py-1 text-xs text-cd-text">
+              className="bg-cd-bg-input border border-white/5 rounded-lg px-2 py-1 text-xs text-cd-text">
               <option value={0}>不自动锁</option>
               <option value={5}>5 分钟</option>
               <option value={10}>10 分钟</option>
@@ -239,7 +239,7 @@ export function AppLockSettings() {
             ))}
           </div>
           <button onClick={disable}
-            className="w-full py-2 bg-red-500/10 text-red-400 rounded-lg border border-red-400/20 hover:bg-red-500/20 text-sm">
+            className="w-full py-2 bg-red-500/10 text-red-400 rounded-2xl border border-red-400/20 hover:bg-red-500/20 text-sm">
             关闭应用锁
           </button>
         </div>

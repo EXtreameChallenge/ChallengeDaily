@@ -20,7 +20,7 @@ export default function QuoteBar() {
   if (!quote) return null
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/5 to-gold/5 rounded-lg border border-purple-400/10">
+    <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/5 to-gold/5 rounded-2xl border border-purple-400/10">
       <Quote size={14} className="text-purple-400 shrink-0" />
       <p className="text-sm text-cd-text-secondary italic">{quote}</p>
     </div>

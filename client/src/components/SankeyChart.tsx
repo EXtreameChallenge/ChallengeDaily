@@ -116,7 +116,7 @@ export default function SankeyChart({ date }: { date?: string }) {
       <div className="mt-3 flex flex-wrap gap-2 justify-center">
         {data!.nodes.map(n => (
           <div key={n} className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-sm" style={{ background: CAT_COLORS[n] || '#7B68EE' }} />
+            <span className="w-2.5 h-2.5 rounded-lg" style={{ background: CAT_COLORS[n] || 'var(--cd-accent)' }} />
             <span className="text-[10px] text-cd-text-tertiary">{n}</span>
           </div>
         ))}

@@ -38,7 +38,7 @@ export function RelayCardView({ card }: RelayCardViewProps) {
           {card.dismissible && (
             <button
               onClick={() => dismissCard(card.id)}
-              className="p-1 rounded hover:bg-cd-hover transition shrink-0"
+              className="p-1 rounded-lg hover:bg-cd-hover transition shrink-0"
               title="关闭"
             >
               <X size={14} className="text-cd-text-tertiary" />
@@ -57,7 +57,7 @@ export function RelayCardView({ card }: RelayCardViewProps) {
             <button
               key={idx}
               onClick={() => executeAction(card.id, idx)}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-2xl text-xs font-medium transition ${
                 action.primary
                   ? 'bg-cd-green text-white hover:opacity-90'
                   : 'border border-cd-border text-cd-text-secondary hover:bg-cd-hover hover:text-cd-text'

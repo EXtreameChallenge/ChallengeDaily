@@ -110,7 +110,7 @@ export default function EveningRitual() {
 
       {!collapsed && (
         <div className="px-4 pb-4 space-y-4">
-          <div className="flex items-center gap-4 bg-cd-bg-secondary rounded-lg px-4 py-3">
+          <div className="flex items-center gap-4 bg-cd-bg-secondary rounded-2xl px-4 py-3">
             <div className="text-center shrink-0">
               <div className={'text-2xl font-bold ' + scoreColor}>
                 {score}
@@ -148,7 +148,7 @@ export default function EveningRitual() {
                   key={r.key}
                   onClick={() => setReflection(r.key)}
                   className={
-                    'flex-1 flex flex-col items-center gap-1 py-2 rounded-lg border transition-colors ' +
+                    'flex-1 flex flex-col items-center gap-1 py-2 rounded-2xl border transition-colors ' +
                     (reflection === r.key
                       ? 'bg-cd-accent/15 border-cd-accent/40'
                       : 'bg-cd-bg-secondary border-cd-border hover:border-cd-text-tertiary')
@@ -164,7 +164,7 @@ export default function EveningRitual() {
               onChange={(e) => setNote(e.target.value)}
               placeholder="今天有什么想记录的..."
               rows={2}
-              className="mt-2 w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-xs text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50 resize-none"
+              className="mt-2 w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-xs text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50 resize-none"
             />
           </div>
 
@@ -172,14 +172,14 @@ export default function EveningRitual() {
             <button
               onClick={handleGenerateReport}
               disabled={submitting}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-cd-accent/15 text-cd-accent rounded-lg border border-cd-accent/25 hover:bg-cd-accent/25 transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-cd-accent/15 text-cd-accent rounded-2xl border border-cd-accent/25 hover:bg-cd-accent/25 transition-colors disabled:opacity-50"
             >
               <FileText size={14} /> 生成今日日报
             </button>
             <button
               onClick={() => setDismissed(true)}
               disabled={submitting}
-              className="flex-1 px-3 py-2 text-xs text-cd-text-secondary bg-cd-bg-secondary rounded-lg border border-cd-border hover:text-cd-text transition-colors disabled:opacity-50"
+              className="flex-1 px-3 py-2 text-xs text-cd-text-secondary bg-cd-bg-secondary rounded-2xl border border-cd-border hover:text-cd-text transition-colors disabled:opacity-50"
             >
               明天再说
             </button>

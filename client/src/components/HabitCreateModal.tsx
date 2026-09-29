@@ -77,23 +77,23 @@ export default function HabitCreateModal({ open, onClose, onCreated }: HabitCrea
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
           placeholder="例如：每天喝水 8 杯"
-          className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
+          className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
         />
       </div>
 
       <div>
         <label className="block text-xs font-medium text-cd-text-secondary mb-1.5">每日目标次数</label>
-        <div className="flex items-center gap-1 bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5 w-32">
+        <div className="flex items-center gap-1 bg-cd-bg-input border border-cd-border rounded-2xl px-2 py-1.5 w-32">
           <button
             onClick={() => setTargetCount(Math.max(1, targetCount - 1))}
-            className="w-6 h-6 flex items-center justify-center rounded bg-cd-hover text-cd-text hover:bg-cd-accent/20 transition text-sm font-bold"
+            className="w-6 h-6 flex items-center justify-center rounded-lg bg-cd-hover text-cd-text hover:bg-cd-accent/20 transition text-sm font-bold"
           >
             −
           </button>
           <span className="flex-1 text-center text-lg font-bold text-cd-text tabular-nums">{targetCount}</span>
           <button
             onClick={() => setTargetCount(Math.min(10, targetCount + 1))}
-            className="w-6 h-6 flex items-center justify-center rounded bg-cd-hover text-cd-text hover:bg-cd-accent/20 transition text-sm font-bold"
+            className="w-6 h-6 flex items-center justify-center rounded-lg bg-cd-hover text-cd-text hover:bg-cd-accent/20 transition text-sm font-bold"
           >
             +
           </button>

@@ -110,19 +110,19 @@ export default function MorningRitual() {
             <div>
               <div className="text-xs text-cd-text-secondary mb-2">昨日回顾</div>
               <div className="grid grid-cols-3 gap-2">
-                <div className="bg-cd-bg-secondary rounded-lg px-3 py-2 text-center">
+                <div className="bg-cd-bg-secondary rounded-2xl px-3 py-2 text-center">
                   <div className="text-base font-semibold text-cd-text">
                     {data.yesterday.total_focus_min || 0}
                   </div>
                   <div className="text-[10px] text-cd-text-tertiary">专注分钟</div>
                 </div>
-                <div className="bg-cd-bg-secondary rounded-lg px-3 py-2 text-center">
+                <div className="bg-cd-bg-secondary rounded-2xl px-3 py-2 text-center">
                   <div className="text-base font-semibold text-cd-text">
                     {data.yesterday.tasks_done || 0}
                   </div>
                   <div className="text-[10px] text-cd-text-tertiary">完成任务</div>
                 </div>
-                <div className="bg-cd-bg-secondary rounded-lg px-3 py-2 text-center">
+                <div className="bg-cd-bg-secondary rounded-2xl px-3 py-2 text-center">
                   <div className="text-base font-semibold text-cd-text">
                     {data.yesterday.sessions || 0}
                   </div>
@@ -139,7 +139,7 @@ export default function MorningRitual() {
                 {data.pending_tasks.map((task) => (
                   <div
                     key={task.id}
-                    className="flex items-center justify-between bg-cd-bg-secondary rounded-lg px-3 py-2"
+                    className="flex items-center justify-between bg-cd-bg-secondary rounded-2xl px-3 py-2"
                   >
                     <span className="text-xs text-cd-text flex-1 min-w-0 truncate">
                       {task.title}
@@ -148,7 +148,7 @@ export default function MorningRitual() {
                       <button
                         onClick={() => setTaskAction(task.id, 'carry')}
                         className={
-                          'px-2 py-0.5 text-[10px] rounded border transition-colors ' +
+                          'px-2 py-0.5 text-[10px] rounded-lg border transition-colors ' +
                           (taskActions[task.id] === 'carry'
                             ? 'bg-cd-green/20 text-cd-green border-cd-green/40'
                             : 'text-cd-text-secondary border-cd-border hover:text-cd-text')
@@ -159,7 +159,7 @@ export default function MorningRitual() {
                       <button
                         onClick={() => setTaskAction(task.id, 'drop')}
                         className={
-                          'px-2 py-0.5 text-[10px] rounded border transition-colors ' +
+                          'px-2 py-0.5 text-[10px] rounded-lg border transition-colors ' +
                           (taskActions[task.id] === 'drop'
                             ? 'bg-red-500/20 text-red-400 border-red-500/40'
                             : 'text-cd-text-secondary border-cd-border hover:text-cd-text')
@@ -177,7 +177,7 @@ export default function MorningRitual() {
           <div>
             <div className="text-xs text-cd-text-secondary mb-2">AI 建议</div>
             {data.ai_suggestion ? (
-              <div className="bg-cd-bg-secondary rounded-lg px-3 py-2.5 text-xs text-cd-text leading-relaxed">
+              <div className="bg-cd-bg-secondary rounded-2xl px-3 py-2.5 text-xs text-cd-text leading-relaxed">
                 {data.ai_suggestion}
               </div>
             ) : (
@@ -192,7 +192,7 @@ export default function MorningRitual() {
               value={intention}
               onChange={(e) => setIntention(e.target.value)}
               placeholder="今天最重要的一件事..."
-              className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-xs text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-green/50"
+              className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-xs text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-green/50"
             />
           </div>
 
@@ -203,7 +203,7 @@ export default function MorningRitual() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setFocusGoal((g) => Math.max(1, g - 1))}
-                className="w-7 h-7 flex items-center justify-center rounded-lg bg-cd-bg-secondary border border-cd-border text-cd-text-secondary hover:text-cd-text transition-colors"
+                className="w-7 h-7 flex items-center justify-center rounded-2xl bg-cd-bg-secondary border border-cd-border text-cd-text-secondary hover:text-cd-text transition-colors"
               >
                 -
               </button>
@@ -214,7 +214,7 @@ export default function MorningRitual() {
               </div>
               <button
                 onClick={() => setFocusGoal((g) => Math.min(12, g + 1))}
-                className="w-7 h-7 flex items-center justify-center rounded-lg bg-cd-bg-secondary border border-cd-border text-cd-text-secondary hover:text-cd-text transition-colors"
+                className="w-7 h-7 flex items-center justify-center rounded-2xl bg-cd-bg-secondary border border-cd-border text-cd-text-secondary hover:text-cd-text transition-colors"
               >
                 +
               </button>
@@ -225,14 +225,14 @@ export default function MorningRitual() {
             <button
               onClick={() => handleSubmit(true)}
               disabled={submitting}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-cd-green/15 text-cd-green rounded-lg border border-cd-green/25 hover:bg-cd-green/25 transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-cd-green/15 text-cd-green rounded-2xl border border-cd-green/25 hover:bg-cd-green/25 transition-colors disabled:opacity-50"
             >
               <Check size={14} /> 采纳安排
             </button>
             <button
               onClick={() => handleSubmit(false)}
               disabled={submitting}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-cd-text-secondary bg-cd-bg-secondary rounded-lg border border-cd-border hover:text-cd-text transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-cd-text-secondary bg-cd-bg-secondary rounded-2xl border border-cd-border hover:text-cd-text transition-colors disabled:opacity-50"
             >
               <X size={14} /> 跳过规划
             </button>

@@ -58,7 +58,7 @@ export default function AppRecords() {
           type="date"
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
-          className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+          className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
         />
       </div>
 
@@ -93,9 +93,9 @@ export default function AppRecords() {
               const hasContents = (app.contents?.length || 0) > 0
               const defaultIcon = import.meta.env.DEV ? '/icon.png' : './icon.png'
               return (
-                <div key={app.app_name} className="rounded-lg transition-colors">
+                <div key={app.app_name} className="rounded-2xl transition-colors">
                   <div
-                    className={`flex items-center gap-4 group px-2 py-2 rounded-lg cursor-pointer ${isExpanded ? 'bg-cd-bg-secondary' : 'hover:bg-cd-bg-secondary/50'}`}
+                    className={`flex items-center gap-4 group px-2 py-2 rounded-2xl cursor-pointer ${isExpanded ? 'bg-cd-bg-secondary' : 'hover:bg-cd-bg-secondary/50'}`}
                     onClick={() => hasContents && setExpandedApp(isExpanded ? null : app.app_name_raw)}
                   >
                     {/* 排名 */}

@@ -224,7 +224,7 @@ export default function Achievements() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleShare}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-purple-500/15 text-purple-400 rounded-lg border border-purple-500/25 hover:bg-purple-500/25 transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-purple-500/15 text-purple-400 rounded-2xl border border-purple-500/25 hover:bg-purple-500/25 transition"
           >
             <Share2 size={14} /> 生成分享卡片
           </button>
@@ -310,11 +310,11 @@ export default function Achievements() {
 
           {/* P13-3：赛季历史展示 */}
           {showHistory && seasonHistory.length > 0 && (
-            <div className="mb-4 bg-cd-bg-input/50 rounded-lg p-3 border border-white/5">
+            <div className="mb-4 bg-cd-bg-input/50 rounded-2xl p-3 border border-white/5">
               <div className="text-xs text-cd-text-tertiary mb-2">近 {seasonHistory.length} 个月赛季回顾</div>
               <div className="flex flex-wrap gap-2">
                 {seasonHistory.map(h => (
-                  <div key={h.season_key} className="rounded-md px-3 py-1.5 bg-cd-bg-secondary border border-white/5 text-xs">
+                  <div key={h.season_key} className="rounded-xl px-3 py-1.5 bg-cd-bg-secondary border border-white/5 text-xs">
                     <span className="text-cd-text-secondary">{h.season_key}</span>
                     <span className="text-cd-text-tertiary mx-1">·</span>
                     <span className="text-gold">{h.unlocked_count}/{h.total_count}</span>
@@ -326,7 +326,7 @@ export default function Achievements() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {season.achievements.map(a => (
-              <div key={a.key} className={`rounded-lg p-3 border transition ${
+              <div key={a.key} className={`rounded-2xl p-3 border transition ${
                 a.unlocked
                   ? 'bg-gold/10 border-gold/30'
                   : 'bg-cd-bg-input border-white/5'
@@ -342,7 +342,7 @@ export default function Achievements() {
                     </div>
                   </div>
                   {a.unlocked && (
-                    <span className="text-[10px] text-gold bg-gold/10 px-2 py-0.5 rounded">已解锁</span>
+                    <span className="text-[10px] text-gold bg-gold/10 px-2 py-0.5 rounded-lg">已解锁</span>
                   )}
                 </div>
                 {/* 进度条 */}
@@ -401,12 +401,12 @@ export default function Achievements() {
                 <img
                   src={shareImg}
                   alt="成就分享卡片"
-                  className="w-full rounded-lg border border-white/5"
+                  className="w-full rounded-2xl border border-white/5"
                 />
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={handleDownloadShare}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-cd-green text-white rounded-lg text-sm font-medium hover:opacity-90 transition"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-cd-green text-white rounded-2xl text-sm font-medium hover:opacity-90 transition"
                   >
                     <Download size={14} /> 保存图片
                   </button>
@@ -423,7 +423,7 @@ export default function Achievements() {
                         handleDownloadShare()
                       }
                     }}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-500/15 text-purple-400 rounded-lg text-sm font-medium border border-purple-500/25 hover:bg-purple-500/25 transition"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-500/15 text-purple-400 rounded-2xl text-sm font-medium border border-purple-500/25 hover:bg-purple-500/25 transition"
                   >
                     <Share2 size={14} /> 分享
                   </button>

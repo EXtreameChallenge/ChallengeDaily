@@ -161,7 +161,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             placeholder="搜索页面或功能... (↑↓ 选择, Enter 跳转, Esc 关闭)"
             className="flex-1 bg-transparent text-sm text-cd-text placeholder-cd-text-tertiary outline-none"
           />
-          <kbd className="text-[10px] text-cd-text-tertiary bg-cd-bg-secondary px-1.5 py-0.5 rounded border border-cd-border">ESC</kbd>
+          <kbd className="text-[10px] text-cd-text-tertiary bg-cd-bg-secondary px-1.5 py-0.5 rounded-lg border border-cd-border">ESC</kbd>
         </div>
 
         {/* 命令列表 */}

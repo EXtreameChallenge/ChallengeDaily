@@ -108,7 +108,7 @@ export default function ClipboardHistory() {
         {items.length > 0 && (
           <button
             onClick={handleClear}
-            className="flex items-center gap-2 px-4 py-2 text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg hover:bg-red-400/20 transition"
+            className="flex items-center gap-2 px-4 py-2 text-red-400 bg-red-400/10 border border-red-400/20 rounded-2xl hover:bg-red-400/20 transition"
           >
             <Trash2 size={16} /> 清空历史
           </button>
@@ -123,7 +123,7 @@ export default function ClipboardHistory() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="搜索剪贴板内容..."
-            className="w-full pl-9 pr-4 py-2.5 bg-cd-bg-card border border-white/10 rounded-lg text-cd-text placeholder:text-cd-text-secondary/50 focus:outline-none focus:border-cd-accent/50 transition"
+            className="w-full pl-9 pr-4 py-2.5 bg-cd-bg-card border border-white/10 rounded-2xl text-cd-text placeholder:text-cd-text-secondary/50 focus:outline-none focus:border-cd-accent/50 transition"
           />
         </div>
       )}
@@ -157,7 +157,7 @@ export default function ClipboardHistory() {
                 </div>
                 <button
                   onClick={() => handleCopy(item)}
-                  className="shrink-0 p-2 rounded-lg text-cd-text-secondary hover:text-cd-accent hover:bg-cd-accent/10 transition opacity-0 group-hover:opacity-100"
+                  className="shrink-0 p-2 rounded-2xl text-cd-text-secondary hover:text-cd-accent hover:bg-cd-accent/10 transition opacity-0 group-hover:opacity-100"
                   title="复制内容"
                 >
                   {copiedId === item.id ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}

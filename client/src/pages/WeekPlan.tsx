@@ -305,7 +305,7 @@ export default function WeekPlan() {
     if (!weekStats) return null
     const chartData = weekStats.daily_focus.map(d => ({ date: d.date, focus: d.focus_min, label: fmtDate(d.date).split('/')[1] }))
     return (
-      <div className="flex items-center gap-4 px-4 border-t border-cd-border" style={{ height: 56, background: 'var(--cd-card)' }}>
+      <div className="flex items-center gap-4 px-4 border-t border-cd-border bg-cd-bg-secondary rounded-b-xl" style={{ height: 56 }}>
         <div style={{ width: 120, height: 40 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
@@ -341,10 +341,10 @@ export default function WeekPlan() {
           <div className="flex items-center gap-3">
             <Calendar size={18} className="text-cd-accent" />
             {/* 四级视图 Tab */}
-            <div className="flex bg-cd-bg-input rounded-lg p-0.5">
+            <div className="flex bg-cd-bg-input rounded-2xl p-0.5">
               {VIEW_TABS.map(v => (
                 <button key={v.key} onClick={() => setViewMode(v.key)}
-                  className={`px-2.5 py-1 text-xs rounded-md transition ${viewMode === v.key ? 'bg-cd-accent/20 text-cd-accent' : 'text-cd-text-secondary hover:text-cd-text'}`}>
+                  className={`px-2.5 py-1 text-xs rounded-xl transition ${viewMode === v.key ? 'bg-cd-accent/20 text-cd-accent' : 'text-cd-text-secondary hover:text-cd-text'}`}>
                   {v.emoji} {v.label}
                 </button>
               ))}
@@ -352,25 +352,25 @@ export default function WeekPlan() {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => viewMode === 'year' ? shiftYear(-1) : viewMode === 'month' ? shiftMonth(-1) : shiftWeek(-1)}
-              className="p-1.5 rounded-lg hover:bg-cd-hover text-cd-text-secondary transition">
+              className="p-1.5 rounded-2xl hover:bg-cd-hover text-cd-text-secondary transition">
               <ChevronLeft size={16} />
             </button>
             <span className="text-xs text-cd-text-secondary min-w-[160px] text-center tabular-nums">{rangeLabel}</span>
             <button onClick={() => viewMode === 'year' ? shiftYear(1) : viewMode === 'month' ? shiftMonth(1) : shiftWeek(1)}
-              className="p-1.5 rounded-lg hover:bg-cd-hover text-cd-text-secondary transition">
+              className="p-1.5 rounded-2xl hover:bg-cd-hover text-cd-text-secondary transition">
               <ChevronRight size={16} />
             </button>
             <button onClick={goToday}
-              className="px-2 py-1 text-xs rounded-lg bg-cd-bg-input text-cd-text-secondary hover:bg-cd-hover transition">
+              className="px-2 py-1 text-xs rounded-2xl bg-cd-bg-input text-cd-text-secondary hover:bg-cd-hover transition">
               今天
             </button>
             <button onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
+              className="flex items-center gap-1 px-3 py-1 text-xs rounded-2xl bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition">
               <Plus size={12} /> 新建
             </button>
             <button
               onClick={() => setSplitDraft([])}
-              className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-cd-purple/20 text-cd-purple border border-cd-purple/30 hover:bg-cd-purple/30 transition"
+              className="flex items-center gap-1 px-3 py-1 text-xs rounded-2xl bg-cd-purple/20 text-cd-purple border border-cd-purple/30 hover:bg-cd-purple/30 transition"
               title="AI 拆解月目标为周待办草案"
             >
               🤖 AI 拆解
@@ -468,7 +468,7 @@ export default function WeekPlan() {
       {/* AI 拆解草案弹窗 */}
       {splitDraft !== null && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="rounded-lg max-w-2xl w-full max-h-[85vh] overflow-auto flex flex-col" style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)' }}>
+          <div className="rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-auto flex flex-col bg-cd-card border border-cd-border">
             <div className="flex items-center justify-between px-5 py-3 border-b border-cd-border">
               <h3 className="text-sm font-semibold text-cd-text">🤖 AI 拆解目标为周待办</h3>
               <button onClick={() => { setSplitDraft(null); setSplitGoalTitle(''); setSplitGoalDesc('') }} className="text-cd-text-tertiary hover:text-cd-text">
@@ -485,7 +485,7 @@ export default function WeekPlan() {
                     value={splitGoalTitle}
                     onChange={e => setSplitGoalTitle(e.target.value)}
                     placeholder="例如：完成 v3.1.0 版本开发"
-                    className="w-full px-3 py-2 rounded text-sm border border-cd-border"
+                    className="w-full px-3 py-2 rounded-lg text-sm border border-cd-border"
                     style={{ background: 'var(--cd-bg-input)', color: 'var(--cd-text)' }}
                   />
                 </div>
@@ -496,7 +496,7 @@ export default function WeekPlan() {
                     onChange={e => setSplitGoalDesc(e.target.value)}
                     placeholder="补充目标细节、验收标准等"
                     rows={3}
-                    className="w-full px-3 py-2 rounded text-sm border border-cd-border resize-none"
+                    className="w-full px-3 py-2 rounded-lg text-sm border border-cd-border resize-none"
                     style={{ background: 'var(--cd-bg-input)', color: 'var(--cd-text)' }}
                   />
                 </div>
@@ -511,7 +511,7 @@ export default function WeekPlan() {
                   <button
                     onClick={handleAutoSplit}
                     disabled={splitLoading || !splitGoalTitle.trim()}
-                    className="px-4 py-2 text-xs rounded text-white disabled:opacity-50"
+                    className="px-4 py-2 text-xs rounded-lg text-white disabled:opacity-50"
                     style={{ background: 'var(--cd-purple)' }}
                   >
                     {splitLoading ? '🤖 拆解中...' : '🤖 开始拆解'}
@@ -528,24 +528,24 @@ export default function WeekPlan() {
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-2">
                   {splitDraft.map((task, i) => (
-                    <div key={i} className="flex items-center gap-2 p-2 rounded" style={{ background: 'var(--cd-bg-tertiary)' }}>
+                    <div key={i} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'var(--cd-bg-tertiary)' }}>
                       <input
                         type="checkbox"
                         checked={task._checked !== false}
                         onChange={() => toggleSplitTask(i)}
-                        className="rounded"
+                        className="rounded-lg"
                       />
                       <input
                         value={task.title}
                         onChange={e => updateSplitTask(i, 'title', e.target.value)}
-                        className="flex-1 px-2 py-1 rounded text-sm border border-cd-border"
+                        className="flex-1 px-2 py-1 rounded-lg text-sm border border-cd-border"
                         style={{ background: 'var(--cd-bg-input)', color: 'var(--cd-text)' }}
                       />
                       <input
                         type="number"
                         value={task.target_min}
                         onChange={e => updateSplitTask(i, 'target_min', Number(e.target.value))}
-                        className="w-16 px-2 py-1 rounded text-xs text-center border border-cd-border"
+                        className="w-16 px-2 py-1 rounded-lg text-xs text-center border border-cd-border"
                         style={{ background: 'var(--cd-bg-input)', color: 'var(--cd-text)' }}
                         title="预计分钟数"
                       />
@@ -553,7 +553,7 @@ export default function WeekPlan() {
                       <select
                         value={task.day || 1}
                         onChange={e => updateSplitTask(i, 'day', Number(e.target.value))}
-                        className="px-1 py-1 rounded text-[10px] border border-cd-border"
+                        className="px-1 py-1 rounded-lg text-[10px] border border-cd-border"
                         style={{ background: 'var(--cd-bg-input)', color: 'var(--cd-text)' }}
                       >
                         {[1, 2, 3, 4, 5].map(d => <option key={d} value={d}>周{['一', '二', '三', '四', '五'][d - 1]}</option>)}
@@ -577,7 +577,7 @@ export default function WeekPlan() {
                   </button>
                   <button
                     onClick={confirmSplit}
-                    className="px-4 py-2 text-xs rounded text-white"
+                    className="px-4 py-2 text-xs rounded-lg text-white"
                     style={{ background: 'var(--cd-green)' }}
                   >
                     确认创建（{splitDraft.filter(t => t._checked !== false).length}）

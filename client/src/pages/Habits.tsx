@@ -137,7 +137,7 @@ export default function Habits() {
         </h1>
         <div className="flex items-center gap-2">
           <button onClick={handleLoadSuggestions}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border transition text-sm ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border transition text-sm ${
               showSuggest
                 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
                 : 'bg-amber-500/15 text-amber-400 border-amber-500/25 hover:bg-amber-500/25'
@@ -145,11 +145,11 @@ export default function Habits() {
             <Lightbulb size={16} /> {suggestLoading ? '推荐中...' : '智能推荐'}
           </button>
           <button onClick={handleAutoCheck} disabled={autoChecking}
-            className="flex items-center gap-1.5 px-3 py-2 bg-purple-500/15 text-purple-400 rounded-lg border border-purple-500/25 hover:bg-purple-500/25 transition text-sm disabled:opacity-50">
+            className="flex items-center gap-1.5 px-3 py-2 bg-purple-500/15 text-purple-400 rounded-2xl border border-purple-500/25 hover:bg-purple-500/25 transition text-sm disabled:opacity-50">
             <Zap size={16} /> {autoChecking ? '检查中...' : '自动打卡'}
           </button>
           <button onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-cd-accent/20 text-cd-accent rounded-lg border border-cd-accent/30 hover:bg-cd-accent/30 transition">
+            className="flex items-center gap-2 px-4 py-2 bg-cd-accent/20 text-cd-accent rounded-2xl border border-cd-accent/30 hover:bg-cd-accent/30 transition">
             <Plus size={18} /> 新建习惯
           </button>
         </div>
@@ -178,19 +178,19 @@ export default function Habits() {
           ) : (
             <div className="space-y-2">
               {suggestions.map(s => (
-                <div key={s.name} className="flex items-center gap-3 bg-cd-bg-card/60 rounded-lg p-3 border border-white/5">
+                <div key={s.name} className="flex items-center gap-3 bg-cd-bg-card/60 rounded-2xl p-3 border border-white/5">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-cd-text">{s.name}</span>
-                      <span className="text-[10px] text-cd-text-tertiary bg-cd-bg-input px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] text-cd-text-tertiary bg-cd-bg-input px-1.5 py-0.5 rounded-lg">
                         每日 {s.target_count} 次
                       </span>
                       {s.auto_category && (
-                        <span className="text-[10px] text-purple-400 flex items-center gap-0.5 bg-purple-500/10 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] text-purple-400 flex items-center gap-0.5 bg-purple-500/10 px-1.5 py-0.5 rounded-lg">
                           <Link2 size={10} />{s.auto_category}
                         </span>
                       )}
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-lg ${
                         s.source === 'behavior' ? 'text-amber-400 bg-amber-500/10' : 'text-cd-text-tertiary bg-cd-bg-input'
                       }`}>
                         {s.source === 'behavior' ? '行为驱动' : '经典推荐'}
@@ -201,7 +201,7 @@ export default function Habits() {
                   <button
                     onClick={() => handleAdopt(s)}
                     disabled={adoptingName === s.name}
-                    className="shrink-0 px-3 py-1.5 text-xs bg-cd-green/20 text-cd-green rounded-md border border-cd-green/30 hover:bg-cd-green/30 transition disabled:opacity-50"
+                    className="shrink-0 px-3 py-1.5 text-xs bg-cd-green/20 text-cd-green rounded-xl border border-cd-green/30 hover:bg-cd-green/30 transition disabled:opacity-50"
                   >
                     {adoptingName === s.name ? '采纳中...' : '采纳'}
                   </button>
@@ -232,7 +232,7 @@ export default function Habits() {
                       <span className="text-cd-text font-medium">{habit.name}</span>
                       {streak > 0 && <span className="text-xs text-orange-400 flex items-center gap-1"><Flame size={12} />{streak}天</span>}
                       {habit.auto_category && (
-                        <span className="text-[10px] text-purple-400 flex items-center gap-0.5 bg-purple-500/10 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] text-purple-400 flex items-center gap-0.5 bg-purple-500/10 px-1.5 py-0.5 rounded-lg">
                           <Link2 size={10} />{habit.auto_category}
                         </span>
                       )}
@@ -246,7 +246,7 @@ export default function Habits() {
                       value={habit.auto_category || ''}
                       onChange={e => handleSetAutoCategory(habit.id, e.target.value)}
                       onBlur={() => setEditingCat(null)}
-                      className="text-xs bg-cd-bg-input border border-cd-border rounded px-1.5 py-1 text-cd-text focus:outline-none focus:border-cd-accent/50"
+                      className="text-xs bg-cd-bg-input border border-cd-border rounded-lg px-1.5 py-1 text-cd-text focus:outline-none focus:border-cd-accent/50"
                     >
                       <option value="">取消关联</option>
                       {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}

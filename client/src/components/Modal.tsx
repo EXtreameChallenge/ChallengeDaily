@@ -19,8 +19,8 @@ export default function Modal({ open, onClose, title, children, footer, maxWidth
       onClick={onClose}
     >
       <div
-        className={`flex flex-col rounded-2xl w-full ${maxWidth} shadow-2xl overflow-hidden`}
-        style={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)', maxHeight: '90vh' }}
+        className={`glass-strong flex flex-col rounded-2xl w-full ${maxWidth} overflow-hidden`}
+        style={{ maxHeight: '90vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 标题栏 */}
@@ -28,7 +28,7 @@ export default function Modal({ open, onClose, title, children, footer, maxWidth
           <h2 className="text-base font-bold text-cd-text">{title}</h2>
           <button
             onClick={onClose}
-            className="text-cd-text-secondary hover:text-cd-text transition p-1 rounded hover:bg-cd-hover"
+            className="text-cd-text-secondary hover:text-cd-text transition p-1 rounded-lg hover:bg-cd-hover"
           >
             <X size={18} />
           </button>

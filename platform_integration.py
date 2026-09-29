@@ -175,20 +175,24 @@ def get_registered_protocols() -> list:
 
 
 # ─── P95: 剪贴板历史 ──────────────────────────
-_CLIPBOARD_HISTORY: deque = deque(maxlen=50)
+_CLIPBOARD_HISTORY: deque = deque(maxlen=100)
 _CLIPBOARD_LOCK = threading.Lock()
+_CLIPBOARD_ID_COUNTER = 0
 
 
 def add_clipboard_item(content: str, content_type: str = "text") -> dict:
-    """添加剪贴板历史项"""
-    item = {
-        "id": f"c_{int(time.time() * 1000)}",
-        "content": content[:2000],  # 限制长度
-        "type": content_type,
-        "length": len(content),
-        "timestamp": datetime.now().isoformat()
-    }
+    """添加剪贴板历史项（供 ClipboardMonitor 回调和 API 调用）"""
+    global _CLIPBOARD_ID_COUNTER
     with _CLIPBOARD_LOCK:
+        _CLIPBOARD_ID_COUNTER += 1
+        item = {
+            "id": _CLIPBOARD_ID_COUNTER,
+            "content": content[:2000],
+            "kind": content_type,
+            "type": content_type,  # 兼容旧字段
+            "length": len(content),
+            "timestamp": datetime.now().isoformat()
+        }
         # 去重：相同内容不重复添加
         for existing in _CLIPBOARD_HISTORY:
             if existing["content"] == item["content"]:

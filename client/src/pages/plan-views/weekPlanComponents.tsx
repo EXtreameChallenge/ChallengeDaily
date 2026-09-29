@@ -40,7 +40,7 @@ export function TaskCard({ todo, compact, onClick, onDragStart, onDragEnd, expan
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onClick={onClick}
-      className="relative rounded-md cursor-grab active:cursor-grabbing transition hover:brightness-110 overflow-hidden"
+      className="relative rounded-xl cursor-grab active:cursor-grabbing transition hover:brightness-110 overflow-hidden"
       style={{
         background: compact ? 'var(--cd-bg-tertiary)' : 'var(--cd-bg-secondary)',
         borderLeft: `3px solid ${pc}`,
@@ -73,7 +73,7 @@ export function TaskCard({ todo, compact, onClick, onDragStart, onDragEnd, expan
         </span>
       </div>
       {!todo.assigned_date && (
-        <div style={{ fontSize: 9, color: '#F0C040' }} className="mt-0.5">⬚ 未安排</div>
+        <div style={{ fontSize: 9, color: 'var(--cd-gold)' }} className="mt-0.5">⬚ 未安排</div>
       )}
       {/* 展开详情 */}
       {expanded && (
@@ -120,7 +120,7 @@ export function MonthProgressBar({ month, rate, total, completed }: { month: str
         <div style={{ width: `${pct}%`, height: '100%', background: pct > 0 ? 'var(--cd-green)' : 'transparent', transition: 'width 0.5s' }} />
       </div>
       <span className="w-16 text-right tabular-nums text-cd-text-secondary">{completed}/{total}</span>
-      <span className="w-10 text-right tabular-nums" style={{ color: pct >= 60 ? '#10b981' : pct >= 30 ? '#F0C040' : 'var(--cd-text-tertiary)' }}>{pct}%</span>
+      <span className="w-10 text-right tabular-nums" style={{ color: pct >= 60 ? '#10b981' : pct >= 30 ? 'var(--cd-gold)' : 'var(--cd-text-tertiary)' }}>{pct}%</span>
     </div>
   )
 }

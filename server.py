@@ -255,6 +255,13 @@ def start_server():
     except Exception as e:
         logger.warning(f"自动日报调度器启动失败: {e}")
 
+    # 启动 Obsidian 定时同步调度器（幕布→Obsidian→项目，增量同步）
+    try:
+        from obsidian_scheduler import init_obsidian_scheduler
+        init_obsidian_scheduler()
+    except Exception as e:
+        logger.warning(f"Obsidian 定时同步调度器启动失败: {e}")
+
     # 本地桌面应用场景：使用 Flask 内置 threaded 服务器
     # 原因：waitress 不支持 SSE 流式响应（/api/events/stream），会返回 500
     # Flask threaded 服务器支持 streaming generator，且对单用户桌面应用足够稳定

@@ -66,7 +66,7 @@ function ProgressCard({
 }) {
   const rate = total > 0 ? (completed / total) * 100 : 0
   return (
-    <div className="bg-cd-bg-card rounded-xl border border-white/5 p-4 flex flex-col gap-3">
+    <div className="bg-cd-card rounded-xl border border-white/5 p-4 flex flex-col gap-3">
       <div className="flex items-center gap-2 text-cd-text-secondary">
         <Icon size={15} style={{ color }} />
         <span className="text-xs font-medium">{label}</span>
@@ -303,7 +303,7 @@ export default function Dashboard() {
       {/* 中部：燃尽图 + Streak/深度工作 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* 燃尽图 */}
-        <div className="lg:col-span-2 bg-cd-bg-card rounded-xl border border-white/5 p-4">
+        <div className="lg:col-span-2 bg-cd-card rounded-xl border border-white/5 p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-cd-text flex items-center gap-1.5">
               本周燃尽图
@@ -336,7 +336,7 @@ export default function Dashboard() {
         </div>
 
         {/* Streak + 深度工作趋势 */}
-        <div className="bg-cd-bg-card rounded-xl border border-white/5 p-4 flex flex-col">
+        <div className="bg-cd-card rounded-xl border border-white/5 p-4 flex flex-col">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-cd-text flex items-center gap-1.5">
               连续专注
@@ -376,7 +376,7 @@ export default function Dashboard() {
       </div>
 
       {/* 底部：分类时间分布饼图 */}
-      <div className="bg-cd-bg-card rounded-xl border border-white/5 p-4">
+      <div className="bg-cd-card rounded-xl border border-white/5 p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-cd-text flex items-center gap-1.5">
             本周分类时间分布
@@ -429,7 +429,7 @@ export default function Dashboard() {
                 const pct = total > 0 ? (c.value / total) * 100 : 0
                 return (
                   <div key={c.name} className="flex items-center gap-2 text-xs">
-                    <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: c.color }} />
+                    <span className="w-2.5 h-2.5 rounded-lg shrink-0" style={{ background: c.color }} />
                     <span className="text-cd-text flex-1 truncate">{c.name}</span>
                     <span className="text-cd-text-secondary tabular-nums">{c.value}m</span>
                     <span className="text-cd-text-tertiary tabular-nums w-10 text-right">{pct.toFixed(0)}%</span>
@@ -445,7 +445,7 @@ export default function Dashboard() {
       <SankeyChart date={todayStr} />
 
       {/* P5-5：长期目标进度穿透卡片 */}
-      <div className="bg-cd-bg-card rounded-xl border border-white/5 p-4">
+      <div className="bg-cd-card rounded-xl border border-white/5 p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-cd-text flex items-center gap-1.5">
             <Target size={14} className="text-cd-accent" /> 长期目标进度
@@ -470,12 +470,12 @@ export default function Dashboard() {
                 <a
                   key={g.id}
                   href="#/goals"
-                  className="block bg-cd-bg-input/50 rounded-lg border border-cd-border p-3 hover:border-cd-accent/40 transition group"
+                  className="block bg-cd-bg-input/50 rounded-2xl border border-cd-border p-3 hover:border-cd-accent/40 transition group"
                 >
                   <div className="flex items-start gap-2 mb-2">
                     <span
                       className="w-2 h-2 rounded-full mt-1.5 shrink-0"
-                      style={{ background: g.color || '#7B68EE' }}
+                      style={{ background: g.color || 'var(--cd-accent)' }}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-cd-text truncate group-hover:text-cd-accent transition">

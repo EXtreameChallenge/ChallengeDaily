@@ -8,10 +8,10 @@ export default function Legal({ onAccept }: { onAccept: () => void }) {
     <div className="flex-1 flex items-center justify-center bg-cd-bg p-4">
       <div className="w-full max-w-xl">
         {/* Tab Switcher */}
-        <div className="flex gap-1 bg-cd-bg-secondary rounded-lg p-1 mb-4">
+        <div className="flex gap-1 bg-cd-bg-secondary rounded-2xl p-1 mb-4">
           <button
             onClick={() => setTab('privacy')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm transition-colors ${
               tab === 'privacy' ? 'bg-cd-card text-cd-green font-medium shadow-sm' : 'text-cd-text-secondary hover:text-cd-text'
             }`}
           >
@@ -20,7 +20,7 @@ export default function Legal({ onAccept }: { onAccept: () => void }) {
           </button>
           <button
             onClick={() => setTab('terms')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm transition-colors ${
               tab === 'terms' ? 'bg-cd-card text-cd-green font-medium shadow-sm' : 'text-cd-text-secondary hover:text-cd-text'
             }`}
           >
@@ -38,7 +38,7 @@ export default function Legal({ onAccept }: { onAccept: () => void }) {
         <div className="mt-4 flex justify-end">
           <button
             onClick={onAccept}
-            className="flex items-center gap-2 bg-cd-green text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2 bg-cd-green text-white px-6 py-2.5 rounded-2xl text-sm font-medium hover:opacity-90 transition-opacity"
           >
             我已阅读并同意
             <ChevronRight size={16} />

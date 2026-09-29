@@ -12,7 +12,7 @@ function ToolCard({ icon: Icon, title, accentColor, children }: {
     <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-5 hover:border-cd-green/30 transition-colors">
       <div className="flex items-center gap-3 mb-4">
         <div
-          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+          className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0"
           style={{ background: `${accentColor}22`, color: accentColor }}
         >
           <Icon size={18} />
@@ -42,9 +42,9 @@ function CopyBtn({ value }: { value: string }) {
 
 // ── Input style ──
 const inputCls =
-  'w-full bg-cd-bg border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-green transition'
+  'w-full bg-cd-bg border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-green transition'
 const btnCls =
-  'px-3 py-1.5 rounded-lg text-xs font-medium transition border border-cd-border bg-cd-bg-secondary text-cd-text-secondary hover:text-cd-text hover:border-cd-green/40'
+  'px-3 py-1.5 rounded-2xl text-xs font-medium transition border border-cd-border bg-cd-bg-secondary text-cd-text-secondary hover:text-cd-text hover:border-cd-green/40'
 const labelCls = 'block text-[11px] text-cd-text-tertiary mb-1'
 
 // ═══════════════════════════════════════════════════
@@ -97,7 +97,7 @@ function TimeCalculator() {
           现在到 18:00 还有多久？
         </button>
         {diff && (
-          <div className="bg-cd-bg rounded-lg p-3 border border-cd-border">
+          <div className="bg-cd-bg rounded-2xl p-3 border border-cd-border">
             <div className="text-2xl font-bold text-cd-text tabular-nums">
               {diff.hours}<span className="text-sm font-normal text-cd-text-tertiary ml-1">时</span>
               {' '}
@@ -166,7 +166,7 @@ function TextProcessor() {
             { label: '行数', value: stats.lines },
             { label: '词数', value: stats.words },
           ].map(s => (
-            <div key={s.label} className="bg-cd-bg rounded-lg p-2 border border-cd-border">
+            <div key={s.label} className="bg-cd-bg rounded-2xl p-2 border border-cd-border">
               <div className="text-lg font-bold text-cd-text tabular-nums">{s.value}</div>
               <div className="text-[10px] text-cd-text-tertiary">{s.label}</div>
             </div>
@@ -231,7 +231,7 @@ function ColorPicker() {
       <div className="space-y-3">
         <div className="flex items-center gap-3">
           <div
-            className="w-12 h-12 rounded-lg border border-cd-border cursor-pointer shrink-0"
+            className="w-12 h-12 rounded-2xl border border-cd-border cursor-pointer shrink-0"
             style={{ backgroundColor: hex }}
             onClick={() => colorRef.current?.click()}
           />
@@ -262,14 +262,14 @@ function ColorPicker() {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="bg-cd-bg rounded-lg p-2 border border-cd-border">
+          <div className="bg-cd-bg rounded-2xl p-2 border border-cd-border">
             <div className="text-[10px] text-cd-text-tertiary mb-0.5">RGB</div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono text-cd-text">{rgbStr || '—'}</span>
               {rgbStr && <CopyBtn value={rgbStr} />}
             </div>
           </div>
-          <div className="bg-cd-bg rounded-lg p-2 border border-cd-border">
+          <div className="bg-cd-bg rounded-2xl p-2 border border-cd-border">
             <div className="text-[10px] text-cd-text-tertiary mb-0.5">HSL</div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono text-cd-text">{hslStr || '—'}</span>
@@ -362,7 +362,7 @@ function CountdownTimer() {
                 <button
                   key={m}
                   onClick={() => setMinutes(m)}
-                  className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium border transition ${
+                  className={`flex-1 px-2 py-1.5 rounded-2xl text-xs font-medium border transition ${
                     minutes === m
                       ? 'bg-cd-green/15 text-cd-green border-cd-green/30'
                       : 'border-cd-border text-cd-text-secondary hover:text-cd-text hover:border-cd-green/40'
@@ -372,7 +372,7 @@ function CountdownTimer() {
                 </button>
               ))}
             </div>
-            <button onClick={startTimer} className="w-full px-4 py-2 bg-cd-green text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+            <button onClick={startTimer} className="w-full px-4 py-2 bg-cd-green text-white rounded-2xl text-sm font-medium hover:opacity-90 transition">
               开始倒计时
             </button>
           </>
@@ -392,11 +392,11 @@ function CountdownTimer() {
             </div>
             <div className="flex gap-2">
               {!done && (
-                <button onClick={pauseResume} className="flex-1 px-4 py-2 bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg text-sm hover:text-cd-text transition">
+                <button onClick={pauseResume} className="flex-1 px-4 py-2 bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl text-sm hover:text-cd-text transition">
                   {running ? '暂停' : '继续'}
                 </button>
               )}
-              <button onClick={reset} className="flex-1 px-4 py-2 bg-cd-bg-secondary text-cd-text-secondary border border-cd-border rounded-lg text-sm hover:text-cd-text transition">
+              <button onClick={reset} className="flex-1 px-4 py-2 bg-cd-bg-secondary text-cd-text-secondary border border-cd-border rounded-2xl text-sm hover:text-cd-text transition">
                 重置
               </button>
             </div>

@@ -81,7 +81,7 @@ export default function LocalModelConfigPanel() {
   return (
     <div className="space-y-3">
       {/* Ollama 状态 */}
-      <div className={`flex items-center gap-2 p-2 rounded text-xs ${
+      <div className={`flex items-center gap-2 p-2 rounded-lg text-xs ${
         ollamaAvailable
           ? 'bg-cd-green-light text-cd-green'
           : 'bg-cd-bg-secondary text-cd-text-tertiary'
@@ -97,7 +97,7 @@ export default function LocalModelConfigPanel() {
       </div>
 
       {!ollamaAvailable && (
-        <div className="text-[10px] text-cd-text-tertiary p-2 bg-cd-bg-secondary rounded">
+        <div className="text-[10px] text-cd-text-tertiary p-2 bg-cd-bg-secondary rounded-lg">
           安装 Ollama：访问 <span className="text-cd-green">ollama.com</span> 下载安装，
           然后运行 <code className="text-cd-text">ollama pull qwen2.5:7b</code> 拉取模型
         </div>
@@ -125,7 +125,7 @@ export default function LocalModelConfigPanel() {
               value={config?.base_url || 'http://127.0.0.1:11434'}
               onChange={(e) => handleUpdate({ base_url: e.target.value })}
               placeholder="http://127.0.0.1:11434"
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded px-2 py-1 text-xs focus:outline-none focus:border-cd-green"
+              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-cd-green"
             />
           </div>
 
@@ -137,7 +137,7 @@ export default function LocalModelConfigPanel() {
                 <select
                   value={config?.vision_model || 'llava'}
                   onChange={(e) => handleUpdate({ vision_model: e.target.value })}
-                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded px-2 py-1 text-xs focus:outline-none focus:border-cd-green"
+                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-cd-green"
                 >
                   <option value="llava">llava（默认）</option>
                   {models.filter(m => /vl|llava|vision/i.test(m.name)).map(m => (
@@ -152,7 +152,7 @@ export default function LocalModelConfigPanel() {
                   value={config?.vision_model || 'llava'}
                   onChange={(e) => handleUpdate({ vision_model: e.target.value })}
                   placeholder="llava"
-                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded px-2 py-1 text-xs focus:outline-none focus:border-cd-green"
+                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-cd-green"
                 />
               )}
             </div>
@@ -162,7 +162,7 @@ export default function LocalModelConfigPanel() {
                 <select
                   value={config?.text_model || 'qwen2.5:7b'}
                   onChange={(e) => handleUpdate({ text_model: e.target.value })}
-                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded px-2 py-1 text-xs focus:outline-none focus:border-cd-green"
+                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-cd-green"
                 >
                   <option value="qwen2.5:7b">qwen2.5:7b（默认）</option>
                   {models.map(m => (
@@ -177,7 +177,7 @@ export default function LocalModelConfigPanel() {
                   value={config?.text_model || 'qwen2.5:7b'}
                   onChange={(e) => handleUpdate({ text_model: e.target.value })}
                   placeholder="qwen2.5:7b"
-                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded px-2 py-1 text-xs focus:outline-none focus:border-cd-green"
+                  className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-cd-green"
                 />
               )}
             </div>
@@ -225,7 +225,7 @@ export default function LocalModelConfigPanel() {
             <button
               onClick={handleTest}
               disabled={testing || !ollamaAvailable}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover border border-cd-border disabled:opacity-40"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover border border-cd-border disabled:opacity-40"
             >
               {testing ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
               测试本地模型

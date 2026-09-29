@@ -74,7 +74,7 @@ export default function GitRepoManager() {
     <div className="space-y-3">
       {/* 今日代码产出概览 */}
       {report && report.total_commits > 0 && (
-        <div className="p-3 bg-cd-bg-secondary border border-cd-border rounded-lg space-y-2">
+        <div className="p-3 bg-cd-bg-secondary border border-cd-border rounded-2xl space-y-2">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-cd-text">
             <TrendingUp size={12} className="text-cd-green" />
             今日代码产出
@@ -139,15 +139,15 @@ export default function GitRepoManager() {
         </div>
 
         {showAdd && (
-          <div className="p-3 bg-cd-bg-secondary border border-cd-border rounded-lg space-y-2">
+          <div className="p-3 bg-cd-bg-secondary border border-cd-border rounded-2xl space-y-2">
             <div className="flex gap-1">
               <input
                 type="text" placeholder="仓库路径（如 D:\Project\MyRepo）" value={newPath}
                 onChange={(e) => setNewPath(e.target.value)}
-                className="flex-1 bg-cd-bg text-cd-text border border-cd-border rounded px-2 py-1 text-xs"
+                className="flex-1 bg-cd-bg text-cd-text border border-cd-border rounded-lg px-2 py-1 text-xs"
               />
               <button onClick={handleSelectFolder}
-                className="px-2 py-1 bg-cd-bg border border-cd-border rounded text-cd-text-secondary hover:bg-cd-hover text-xs"
+                className="px-2 py-1 bg-cd-bg border border-cd-border rounded-lg text-cd-text-secondary hover:bg-cd-hover text-xs"
                 title="选择文件夹">
                 <FolderPlus size={12} />
               </button>
@@ -155,11 +155,11 @@ export default function GitRepoManager() {
             <input
               type="text" placeholder="显示名称（可选，默认为文件夹名）" value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="w-full bg-cd-bg text-cd-text border border-cd-border rounded px-2 py-1 text-xs"
+              className="w-full bg-cd-bg text-cd-text border border-cd-border rounded-lg px-2 py-1 text-xs"
             />
             <div className="flex gap-1.5">
               <button onClick={handleAdd}
-                className="ml-auto px-3 py-1 bg-cd-green text-white rounded text-xs hover:opacity-90">
+                className="ml-auto px-3 py-1 bg-cd-green text-white rounded-lg text-xs hover:opacity-90">
                 添加
               </button>
               <button onClick={() => setShowAdd(false)}
@@ -178,7 +178,7 @@ export default function GitRepoManager() {
           </div>
         ) : (
           repos.map((r) => (
-            <div key={r.path} className="flex items-center gap-2 p-2 bg-cd-bg-secondary rounded text-xs">
+            <div key={r.path} className="flex items-center gap-2 p-2 bg-cd-bg-secondary rounded-lg text-xs">
               <GitBranch size={12} className={
                 r.status === 'ok' ? 'text-cd-green' :
                 r.status === 'missing' ? 'text-cd-red' : 'text-cd-text-tertiary'

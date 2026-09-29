@@ -86,7 +86,7 @@ export default function ActivityCreateModal({ open, onClose, onCreated }: Activi
             type="datetime-local"
             value={time}
             onChange={(e) => setTime(e.target.value)}
-            className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
+            className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
           />
         </div>
         <div>
@@ -97,7 +97,7 @@ export default function ActivityCreateModal({ open, onClose, onCreated }: Activi
             onChange={(e) => setDuration(Math.max(5, parseInt(e.target.value) || 30))}
             min={5}
             max={480}
-            className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
+            className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
           />
         </div>
       </div>
@@ -108,7 +108,7 @@ export default function ActivityCreateModal({ open, onClose, onCreated }: Activi
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
+            className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
           >
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
@@ -124,7 +124,7 @@ export default function ActivityCreateModal({ open, onClose, onCreated }: Activi
             value={appName}
             onChange={(e) => setAppName(e.target.value)}
             placeholder="如：微信、邮件..."
-            className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
+            className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
           />
         </div>
       </div>
@@ -135,7 +135,7 @@ export default function ActivityCreateModal({ open, onClose, onCreated }: Activi
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
           rows={3}
-          className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50 resize-none"
+          className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50 resize-none"
           placeholder="描述你在这段时间做了什么..."
         />
       </div>

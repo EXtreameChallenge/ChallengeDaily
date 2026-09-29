@@ -167,7 +167,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleCreate()}
           placeholder="这次要做什么？"
-          className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
+          className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
         />
       </div>
 
@@ -183,7 +183,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
             <button
               key={m.key}
               onClick={() => setMode(m.key)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm transition border ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-2xl text-sm transition border ${
                 mode === m.key
                   ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30'
                   : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
@@ -204,7 +204,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
             <button
               key={c.value}
               onClick={() => setCategory(c.value)}
-              className={`px-2.5 py-1 rounded-md text-xs transition border ${
+              className={`px-2.5 py-1 rounded-xl text-xs transition border ${
                 category === c.value
                   ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30 font-medium'
                   : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
@@ -224,7 +224,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
             <button
               key={p}
               onClick={() => setPriority(p)}
-              className="flex-1 py-1.5 rounded-md text-xs font-bold transition border"
+              className="flex-1 py-1.5 rounded-xl text-xs font-bold transition border"
               style={{
                 background: priority === p ? PRIORITY_COLORS[p - 1] + '25' : 'var(--cd-bg-input)',
                 color: priority === p ? PRIORITY_COLORS[p - 1] : 'var(--cd-text)',
@@ -241,15 +241,15 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
       <div className="flex gap-3">
         <div className="flex-1">
           <label className="block text-xs font-medium text-cd-text-secondary mb-1.5">预估番茄数</label>
-          <div className="flex items-center gap-1 bg-cd-bg-input border border-cd-border rounded-lg px-2 py-1.5">
+          <div className="flex items-center gap-1 bg-cd-bg-input border border-cd-border rounded-2xl px-2 py-1.5">
             <button
               onClick={() => setEstimatedPomodoros(Math.max(1, estimatedPomodoros - 1))}
-              className="w-6 h-6 flex items-center justify-center rounded bg-cd-hover text-cd-text hover:bg-cd-accent/20 transition text-sm font-bold"
+              className="w-6 h-6 flex items-center justify-center rounded-lg bg-cd-hover text-cd-text hover:bg-cd-accent/20 transition text-sm font-bold"
             >−</button>
             <span className="flex-1 text-center text-lg font-bold text-cd-text tabular-nums">{estimatedPomodoros}</span>
             <button
               onClick={() => setEstimatedPomodoros(Math.min(12, estimatedPomodoros + 1))}
-              className="w-6 h-6 flex items-center justify-center rounded bg-cd-hover text-cd-text hover:bg-cd-accent/20 transition text-sm font-bold"
+              className="w-6 h-6 flex items-center justify-center rounded-lg bg-cd-hover text-cd-text hover:bg-cd-accent/20 transition text-sm font-bold"
             >+</button>
           </div>
         </div>
@@ -262,7 +262,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
                 <button
                   key={s}
                   onClick={() => setPomodoroSize(s)}
-                  className={`flex-1 py-2 rounded-lg text-sm transition border ${
+                  className={`flex-1 py-2 rounded-2xl text-sm transition border ${
                     pomodoroSize === s
                       ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30 font-medium'
                       : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
@@ -278,7 +278,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
       </div>
 
       {/* 时间预估摘要 */}
-      <div className="rounded-lg px-3 py-2 text-xs text-cd-text-secondary" style={{ background: 'var(--cd-bg-input)', border: '1px solid var(--cd-border)' }}>
+      <div className="rounded-2xl px-3 py-2 text-xs text-cd-text-secondary" style={{ background: 'var(--cd-bg-input)', border: '1px solid var(--cd-border)' }}>
         约 <span className="text-cd-accent font-bold">{totalMinutes}</span> 分钟专注
         {estimatedPomodoros > 1 && (
           <> + <span className="font-bold" style={{ color: '#34d399' }}>{breakMinutes}</span> 分钟休息（含长休息）</>
@@ -309,7 +309,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
                 <button
                   key={l.key}
                   onClick={() => setTaskLevel(l.key)}
-                  className={`flex-1 py-2 rounded-lg text-sm transition border ${
+                  className={`flex-1 py-2 rounded-2xl text-sm transition border ${
                     taskLevel === l.key
                       ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30 font-medium'
                       : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
@@ -338,7 +338,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
                 setTargetMinOverride(isNaN(v) ? 0 : Math.max(0, Math.min(480, v)))
               }}
               placeholder={`默认 ${derivedMinutes} 分钟`}
-              className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
+              className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50"
             />
           </div>
 
@@ -349,7 +349,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
             <select
               value={goalId ?? ''}
               onChange={e => setGoalId(e.target.value ? Number(e.target.value) : null)}
-              className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
+              className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
             >
               <option value="">不关联长期目标</option>
               {goals.map(g => (
@@ -366,7 +366,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
               type="date"
               value={dueDate}
               onChange={e => setDueDate(e.target.value)}
-              className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
+              className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
             />
           </div>
           <div>
@@ -374,7 +374,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
             <div className="flex gap-2">
               <button
                 onClick={() => setAssignedDate(formatLocalDate(new Date()))}
-                className={`px-3 py-1.5 rounded-lg text-xs transition border ${
+                className={`px-3 py-1.5 rounded-2xl text-xs transition border ${
                   assignedDate === formatLocalDate(new Date())
                     ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30 font-medium'
                     : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
@@ -384,11 +384,11 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
                 type="date"
                 value={assignedDate}
                 onChange={e => setAssignedDate(e.target.value)}
-                className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
+                className="flex-1 bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
               />
               <button
                 onClick={() => setAssignedDate('')}
-                className={`px-3 py-1.5 rounded-lg text-xs transition border ${
+                className={`px-3 py-1.5 rounded-2xl text-xs transition border ${
                   !assignedDate
                     ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30 font-medium'
                     : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
@@ -404,15 +404,15 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
                 type="time"
                 value={planStartTime}
                 onChange={e => setPlanStartTime(e.target.value)}
-                className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
+                className="flex-1 bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
               />
               <button
                 onClick={() => setPlanStartTime('09:00')}
-                className="px-3 py-1.5 rounded-lg text-xs bg-cd-bg-input text-cd-text border border-cd-border hover:bg-cd-hover transition"
+                className="px-3 py-1.5 rounded-2xl text-xs bg-cd-bg-input text-cd-text border border-cd-border hover:bg-cd-hover transition"
               >9:00</button>
               <button
                 onClick={() => setPlanStartTime('')}
-                className="px-3 py-1.5 rounded-lg text-xs bg-cd-bg-input text-cd-text border border-cd-border hover:bg-cd-hover transition"
+                className="px-3 py-1.5 rounded-2xl text-xs bg-cd-bg-input text-cd-text border border-cd-border hover:bg-cd-hover transition"
               >自动</button>
             </div>
           </div>
@@ -424,7 +424,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
                 type="time"
                 value={planEndTime}
                 onChange={e => setPlanEndTime(e.target.value)}
-                className="flex-1 bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
+                className="flex-1 bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
               />
               <button
                 onClick={() => {
@@ -436,11 +436,11 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
                     setPlanEndTime('18:00')
                   }
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs bg-cd-bg-input text-cd-text border border-cd-border hover:bg-cd-hover transition"
+                className="px-3 py-1.5 rounded-2xl text-xs bg-cd-bg-input text-cd-text border border-cd-border hover:bg-cd-hover transition"
               >+2h</button>
               <button
                 onClick={() => setPlanEndTime('')}
-                className="px-3 py-1.5 rounded-lg text-xs bg-cd-bg-input text-cd-text border border-cd-border hover:bg-cd-hover transition"
+                className="px-3 py-1.5 rounded-2xl text-xs bg-cd-bg-input text-cd-text border border-cd-border hover:bg-cd-hover transition"
               >不设</button>
             </div>
             {planStartTime && planEndTime && (() => {

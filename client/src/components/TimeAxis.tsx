@@ -92,9 +92,9 @@ const TimeAxis: React.FC<TimeAxisProps> = ({
             justifyContent: 'center',
             fontSize: 10,
             fontWeight: i === highlightIndex ? 700 : 400,
-            color: i === highlightIndex ? '#7B68EE' : 'var(--cd-text-secondary, #aaa)',
+            color: i === highlightIndex ? 'var(--cd-accent)' : 'var(--cd-text-secondary, #aaa)',
             borderLeft: i === 0 ? 'none' : '1px solid var(--cd-border, #33322)',
-            background: i === highlightIndex ? '#7B68EE12' : 'transparent',
+            background: i === highlightIndex ? 'var(--cd-accent)12' : 'transparent',
             userSelect: 'none',
           }}
         >

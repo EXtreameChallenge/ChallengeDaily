@@ -70,7 +70,7 @@ export default function ActivityEditModal({ open, onClose, activity, onSaved }: 
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
+          className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text focus:outline-none focus:border-cd-accent/50"
         >
           {CATEGORIES.map((c) => (
             <option key={c} value={c}>
@@ -86,7 +86,7 @@ export default function ActivityEditModal({ open, onClose, activity, onSaved }: 
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
           rows={4}
-          className="w-full bg-cd-bg-input border border-cd-border rounded-lg px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50 resize-none"
+          className="w-full bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-sm text-cd-text placeholder:text-cd-text-tertiary focus:outline-none focus:border-cd-accent/50 resize-none"
           placeholder="输入工作摘要..."
         />
       </div>

@@ -99,7 +99,7 @@ class ClipboardMonitor:
             pass  # 剪贴板被占用等场景静默跳过
 
     def _handle_text(self, text: str) -> None:
-        """处理剪贴板文本：判定 URL 或普通文本，去重后入队"""
+        """处理剪贴板文本：判定 URL 或普通文本，去重后入队，并写入 platform_integration 供 API 查询"""
         text = text.strip()
         if not text or len(text) > 2000:  # 过长内容忽略（可能是大段复制）
             return
@@ -119,6 +119,12 @@ class ClipboardMonitor:
                     r.ts = now
                     return
             self._records.append(ClipboardRecord(kind, content, now))
+        # 同步写入 platform_integration，供 /api/platform/clipboard 查询
+        try:
+            from platform_integration import add_clipboard_item
+            add_clipboard_item(content, kind)
+        except Exception as e:
+            logger.debug(f"剪贴板写入 platform_integration 失败: {e}")
 
     def get_recent_context(self, max_items: int = 3) -> str:
         """获取近期剪贴板上下文，供 AI prompt 注入使用。

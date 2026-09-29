@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChallengeDaily Web Tracker 设置</title>
+  <style>
+    :root {
+      --purple: #6d4aff;
+      --orange: #ff8a3d;
+      --bg: #f7f7fb;
+      --card: #ffffff;
+      --text: #1f1f2e;
+      --muted: #8a8a9b;
+      --border: #ececf3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 24px;
+      font-size: 14px;
+    }
+    h1 {
+      font-size: 20px;
+      margin: 0 0 4px;
+      background: linear-gradient(135deg, var(--purple), var(--orange));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 13px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      max-width: 640px;
+    }
+    .card h2 { font-size: 15px; margin: 0 0 14px; }
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+    .field .hint { color: var(--muted); font-size: 11px; margin-top: 4px; }
+    .field input[type="text"],
+    .field input[type="password"],
+    .field select,
+    .field textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      border-color: var(--purple);
+    }
+    .field textarea { min-height: 80px; resize: vertical; font-family: monospace; }
+    .row { display: flex; gap: 12px; }
+    .row .field { flex: 1; }
+    .actions { display: flex; gap: 10px; align-items: center; max-width: 640px; }
+    button {
+      padding: 8px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-primary {
+      background: var(--purple);
+      color: #fff;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-secondary {
+      background: var(--border);
+      color: var(--text);
+    }
+    .toast {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      padding: 10px 16px;
+      background: #22c55e;
+      color: #fff;
+      border-radius: 8px;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .toast.error { background: #ef4444; }
+  </style>
+</head>
+<body>
+  <h1>ChallengeDaily Web Tracker 设置</h1>
+  <div class="subtitle">配置后端连接、追踪精度与分类规则</div>
+
+  <div class="card">
+    <h2>连接配置</h2>
+    <div class="field">
+      <label for="backendUrl">后端地址</label>
+      <input type="text" id="backendUrl" placeholder="http://127.0.0.1:58888" />
+      <div class="hint">ChallengeDaily 后端服务地址，默认 http://127.0.0.1:58888</div>
+    </div>
+    <div class="field">
+      <label for="apiToken">API Token（可选）</label>
+      <input type="password" id="apiToken" placeholder="留空表示不校验" />
+      <div class="hint">仅当后端设置了 CHALLENGE_WEB_TOKEN 环境变量时才需要填写</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>追踪配置</h2>
+    <div class="row">
+      <div class="field">
+        <label for="flushInterval">追踪精度（发送间隔）</label>
+        <select id="flushInterval">
+          <option value="10">10 秒（高精度）</option>
+          <option value="30">30 秒（推荐）</option>
+          <option value="60">60 秒（省电）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="idleThreshold">空闲判定阈值</label>
+        <select id="idleThreshold">
+          <option value="15">15 秒</option>
+          <option value="30">30 秒</option>
+          <option value="60">60 秒</option>
+          <option value="300">5 分钟</option>
+        </select>
+        <div class="hint">超过此时长无操作则停止计时（AFK）</div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="excludeDomains">域名排除列表</label>
+      <textarea id="excludeDomains" placeholder="每行一个域名关键字，如&#10;127.0.0.1&#10;localhost&#10;chrome.com"></textarea>
+      <div class="hint">每行一个，匹配域名包含该关键字的页面将不被追踪</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>自定义域名分类规则</h2>
+    <div class="field">
+      <label for="customRules">分类规则（JSON 格式）</label>
+      <textarea id="customRules" placeholder='{"github.com": "开发", "bilibili.com": "娱乐"}'></textarea>
+      <div class="hint">JSON 对象，键为域名关键字，值为分类。优先级高于内置规则。内置规则：github/gitlab→开发，stackoverflow→学习，gmail/outlook→沟通，notion/docs.google→文档，youtube/bilibili→娱乐</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>数据管理</h2>
+    <div class="actions">
+      <button id="exportData" class="btn-secondary">导出缓存数据</button>
+      <button id="clearData" class="btn-secondary">清空本地缓存</button>
+    </div>
+    <div class="hint" style="margin-top:10px">导出 chrome.storage.local 中的待发送队列与离线缓存（不含后端已存储数据）</div>
+  </div>
+
+  <div class="actions">
+    <button id="save" class="btn-primary">保存设置</button>
+    <button id="testConn" class="btn-secondary">测试连接</button>
+    <span id="testResult" style="font-size:12px;color:var(--muted)"></span>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="options.js"></script>
+</body>
+</html>

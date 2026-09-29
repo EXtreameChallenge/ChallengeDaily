@@ -88,7 +88,7 @@ export default function InfoTooltip({ text, content, size = 12, title }: InfoToo
       {show && (
         <div
           ref={tooltipRef}
-          className="fixed z-50 w-[280px] max-h-[200px] overflow-y-auto bg-cd-bg-card border border-cd-border rounded-lg shadow-xl p-3 text-xs text-cd-text leading-relaxed animate-[fadeIn_0.15s_ease]"
+          className="fixed z-50 w-[280px] max-h-[200px] overflow-y-auto bg-cd-bg-card border border-cd-border rounded-2xl shadow-xl p-3 text-xs text-cd-text leading-relaxed animate-[fadeIn_0.15s_ease]"
           style={{ top: position.top, left: position.left }}
           onMouseEnter={() => setShow(true)}
           onMouseLeave={() => setShow(false)}

@@ -381,7 +381,7 @@ export default function Report() {
               <button
                 key={t.value}
                 onClick={() => setReportType(t.value)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm transition-colors ${
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm transition-colors ${
                   reportType === t.value
                     ? 'bg-cd-green text-white'
                     : 'bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover'
@@ -402,7 +402,7 @@ export default function Report() {
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+              className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
             />
           </div>
         )}
@@ -416,7 +416,7 @@ export default function Report() {
                 <button
                   key={t.value}
                   onClick={() => setTemplate(t.value)}
-                  className={`px-3 py-2.5 rounded-lg text-left transition-colors border ${
+                  className={`px-3 py-2.5 rounded-2xl text-left transition-colors border ${
                     template === t.value
                       ? 'bg-cd-green-light border-cd-green text-cd-green'
                       : 'bg-cd-bg-secondary border-cd-border text-cd-text-secondary hover:bg-cd-hover'
@@ -437,7 +437,7 @@ export default function Report() {
             <select
               value={customTemplateId ?? ''}
               onChange={(e) => setCustomTemplateId(e.target.value ? Number(e.target.value) : null)}
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
+              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-sm focus:outline-none focus:border-cd-green transition-colors"
             >
               <option value="">默认内置</option>
               {tplList.map(t => (
@@ -451,7 +451,7 @@ export default function Report() {
         <button
           onClick={handleGenerate}
           disabled={generating}
-          className="flex items-center gap-2 px-6 py-2.5 bg-cd-green hover:bg-cd-green-dark text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-6 py-2.5 bg-cd-green hover:bg-cd-green-dark text-white rounded-2xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Sparkles size={16} className={generating ? 'animate-spin' : ''} />
           {generating ? 'AI 生成中...' : '一键生成'}
@@ -467,19 +467,19 @@ export default function Report() {
           </h3>
           <button
             onClick={openCreateEditor}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-md text-xs bg-cd-green hover:bg-cd-green-dark text-white transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs bg-cd-green hover:bg-cd-green-dark text-white transition-colors"
           >
             <Plus size={12} /> 新建模板
           </button>
         </div>
         <div className="space-y-2">
           {tplList.map(tpl => (
-            <div key={tpl.id} className="flex items-center gap-2 bg-cd-bg-secondary rounded-lg px-3 py-2 border border-cd-border">
+            <div key={tpl.id} className="flex items-center gap-2 bg-cd-bg-secondary rounded-2xl px-3 py-2 border border-cd-border">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-cd-text truncate">{tpl.name}</span>
                   {tpl.is_default && (
-                    <span className="flex items-center gap-0.5 text-[10px] text-cd-gold bg-cd-gold/15 px-1.5 py-0.5 rounded">
+                    <span className="flex items-center gap-0.5 text-[10px] text-cd-gold bg-cd-gold/15 px-1.5 py-0.5 rounded-lg">
                       <Star size={10} /> 默认
                     </span>
                   )}
@@ -523,7 +523,7 @@ export default function Report() {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleDownload}
-                className="flex items-center gap-1 px-3 py-1 rounded-md text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border"
+                className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border"
               >
                 <Download size={12} />
                 下载
@@ -531,7 +531,7 @@ export default function Report() {
               <button
                 onClick={handleExportObsidian}
                 disabled={obsidianExporting || !content}
-                className="flex items-center gap-1 px-3 py-1 rounded-md text-xs bg-cd-purple/15 hover:bg-cd-purple/25 text-cd-purple transition-colors border border-cd-purple/30 disabled:opacity-40"
+                className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs bg-cd-purple/15 hover:bg-cd-purple/25 text-cd-purple transition-colors border border-cd-purple/30 disabled:opacity-40"
                 title="导出为 Obsidian Dataview 双向链接格式"
               >
                 <BookMarked size={12} />
@@ -539,7 +539,7 @@ export default function Report() {
               </button>
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-1 px-3 py-1 rounded-md text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border"
+                className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border"
               >
                 {copied ? <Check size={12} /> : <Copy size={12} />}
                 {copied ? '已复制' : '复制'}
@@ -547,7 +547,7 @@ export default function Report() {
               <button
                 onClick={handleSubmit}
                 disabled={!content || submitting}
-                className="flex items-center gap-1 px-3 py-1 rounded-md text-xs bg-cd-accent/20 hover:bg-cd-accent/30 text-cd-accent transition-colors border border-cd-accent/30 disabled:opacity-40"
+                className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs bg-cd-accent/20 hover:bg-cd-accent/30 text-cd-accent transition-colors border border-cd-accent/30 disabled:opacity-40"
                 title="一键提交到飞书/钉钉/邮件"
               >
                 <Send size={12} />
@@ -556,7 +556,7 @@ export default function Report() {
               <button
                 onClick={handleScore}
                 disabled={!content || scoring}
-                className="flex items-center gap-1 px-3 py-1 rounded-md text-xs bg-cd-purple/20 hover:bg-cd-purple/30 text-cd-purple transition-colors border border-cd-purple/30 disabled:opacity-40"
+                className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs bg-cd-purple/20 hover:bg-cd-purple/30 text-cd-purple transition-colors border border-cd-purple/30 disabled:opacity-40"
                 title="日报质量4维评分"
               >
                 <Gauge size={12} />
@@ -565,7 +565,7 @@ export default function Report() {
               <button
                 onClick={() => setShowSaveModal(true)}
                 disabled={!content}
-                className="flex items-center gap-1 px-3 py-1 rounded-md text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border disabled:opacity-40"
+                className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border disabled:opacity-40"
               >
                 <Save size={12} />
                 存为模板
@@ -582,10 +582,10 @@ export default function Report() {
             prose-li:text-cd-text-secondary prose-li:my-1
             prose-ul:my-3 prose-ol:my-3
             prose-blockquote:border-l-4 prose-blockquote:border-cd-green prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-cd-text-secondary prose-blockquote:bg-cd-bg-secondary/50 prose-blockquote:py-2 prose-blockquote:pr-4 prose-blockquote:rounded-r-lg
-            prose-code:bg-cd-bg-secondary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-cd-green prose-code:text-xs prose-code:before:content-none prose-code:after:content-none
+            prose-code:bg-cd-bg-secondary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-lg prose-code:text-cd-green prose-code:text-xs prose-code:before:content-none prose-code:after:content-none
             prose-hr:border-cd-border prose-hr:my-6
             prose-table:text-sm prose-table:border-collapse prose-th:bg-cd-bg-secondary prose-th:text-cd-text prose-th:font-semibold prose-th:p-2 prose-th:border prose-th:border-cd-border prose-td:text-cd-text-secondary prose-td:p-2 prose-td:border prose-td:border-cd-border prose-tr:nth-child(even):bg-cd-bg-secondary/30
-            prose-img:rounded-lg prose-img:shadow-md
+            prose-img:rounded-2xl prose-img:shadow-md
             prose-a:text-cd-green prose-a:no-underline hover:prose-a:underline
           ">
             <ReactMarkdown
@@ -620,7 +620,7 @@ export default function Report() {
             </h3>
             <div className="flex items-center gap-3">
               <span className="text-3xl font-bold text-cd-text">{qualityResult.total}</span>
-              <span className={`text-2xl font-bold px-3 py-1 rounded-lg ${
+              <span className={`text-2xl font-bold px-3 py-1 rounded-2xl ${
                 qualityResult.grade === 'S' ? 'text-yellow-400 bg-yellow-400/10' :
                 qualityResult.grade === 'A' ? 'text-green-400 bg-green-400/10' :
                 qualityResult.grade === 'B' ? 'text-blue-400 bg-blue-400/10' :
@@ -660,7 +660,7 @@ export default function Report() {
           </div>
 
           {/* 综合建议 */}
-          <div className="text-xs text-cd-text-secondary bg-cd-bg-secondary rounded-lg p-3 border border-cd-border">
+          <div className="text-xs text-cd-text-secondary bg-cd-bg-secondary rounded-2xl p-3 border border-cd-border">
             {qualityResult.overall_suggestion}
           </div>
         </div>
@@ -724,7 +724,7 @@ export default function Report() {
         <div className="card p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-cd-text">📊 数据可信度证明</h3>
-            <span className={`px-2 py-0.5 rounded text-xs ${
+            <span className={`px-2 py-0.5 rounded-lg text-xs ${
               credibility.level === 'high' ? 'bg-cd-green-light text-cd-green' :
               credibility.level === 'medium' ? 'bg-cd-gold/20 text-cd-gold' :
               'bg-cd-red-light text-cd-red'
@@ -761,7 +761,7 @@ export default function Report() {
           </h3>
           <div className="space-y-2">
             {customTemplates.map((tpl) => (
-              <div key={tpl.id} className="flex items-center justify-between bg-cd-bg-secondary rounded-lg px-3 py-2 border border-cd-border">
+              <div key={tpl.id} className="flex items-center justify-between bg-cd-bg-secondary rounded-2xl px-3 py-2 border border-cd-border">
                 <button onClick={() => handleLoadTemplate(tpl)}
                   className="flex-1 text-left text-sm text-cd-text hover:text-cd-green transition-colors truncate">
                   {tpl.name}
@@ -780,7 +780,7 @@ export default function Report() {
       {/* ─── 保存模板弹窗 ────────────── */}
       {showSaveModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowSaveModal(false)}>
-          <div className="bg-cd-card p-6 rounded-lg border border-cd-border max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-cd-card p-6 rounded-2xl border border-cd-border max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-medium text-cd-text mb-4">保存为我的模板</h3>
             <input
               type="text"
@@ -790,13 +790,13 @@ export default function Report() {
               maxLength={50}
               autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter') handleSaveTemplate() }}
-              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors mb-4"
+              className="w-full bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-2 text-sm focus:outline-none focus:border-cd-green transition-colors mb-4"
             />
             <div className="flex gap-3 justify-end">
               <button onClick={() => { setShowSaveModal(false); setTemplateName('') }}
                 className="px-4 py-2 text-sm text-cd-text-tertiary hover:text-cd-text">取消</button>
               <button onClick={handleSaveTemplate}
-                className="px-4 py-2 text-sm bg-cd-green text-white rounded hover:opacity-90">保存</button>
+                className="px-4 py-2 text-sm bg-cd-green text-white rounded-lg hover:opacity-90">保存</button>
             </div>
           </div>
         </div>
@@ -805,7 +805,7 @@ export default function Report() {
       {/* ─── P0-3: 模板编辑器弹窗 ────────────── */}
       {editorOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setEditorOpen(false)}>
-          <div className="bg-cd-card rounded-lg border border-cd-border w-[90vw] max-w-5xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-cd-card rounded-2xl border border-cd-border w-[90vw] max-w-5xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-3 border-b border-cd-border">
               <h3 className="text-base font-medium text-cd-text">{editingId ? '编辑模板' : '新建模板'}</h3>
               <button onClick={() => setEditorOpen(false)} className="p-1 text-cd-text-tertiary hover:text-cd-text"><X size={16} /></button>
@@ -819,7 +819,7 @@ export default function Report() {
                   onChange={(e) => setEditName(e.target.value)}
                   placeholder="模板名称（如：周报-技术向）"
                   maxLength={50}
-                  className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green"
+                  className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-2 text-sm focus:outline-none focus:border-cd-green"
                 />
                 <input
                   type="text"
@@ -827,7 +827,7 @@ export default function Report() {
                   onChange={(e) => setEditDesc(e.target.value)}
                   placeholder="描述（可选）"
                   maxLength={100}
-                  className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cd-green"
+                  className="bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-2 text-sm focus:outline-none focus:border-cd-green"
                 />
               </div>
 
@@ -837,7 +837,7 @@ export default function Report() {
                 <div className="flex flex-wrap gap-1.5">
                   {PLACEHOLDERS.map(ph => (
                     <button key={ph} onClick={() => insertPlaceholder(ph)}
-                      className="px-2 py-0.5 rounded text-[11px] font-mono bg-cd-purple/15 text-cd-purple hover:bg-cd-purple/25 border border-cd-purple/30 transition-colors">
+                      className="px-2 py-0.5 rounded-lg text-[11px] font-mono bg-cd-purple/15 text-cd-purple hover:bg-cd-purple/25 border border-cd-purple/30 transition-colors">
                       {'{{' + ph + '}}'}
                     </button>
                   ))}
@@ -852,14 +852,14 @@ export default function Report() {
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
                     spellCheck={false}
-                    className="flex-1 min-h-[340px] bg-cd-bg-secondary text-cd-text border border-cd-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-cd-green resize-none"
+                    className="flex-1 min-h-[340px] bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-cd-green resize-none"
                   />
                 </div>
                 <div className="flex flex-col">
                   <div className="text-xs text-cd-text-secondary mb-1 flex items-center gap-1">
                     <Eye size={12} /> 实时预览
                   </div>
-                  <div className="flex-1 min-h-[340px] overflow-auto bg-cd-bg-secondary border border-cd-border rounded-lg px-3 py-2">
+                  <div className="flex-1 min-h-[340px] overflow-auto bg-cd-bg-secondary border border-cd-border rounded-2xl px-3 py-2">
                     {previewMd ? (
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{previewMd}</ReactMarkdown>
                     ) : (
@@ -874,7 +874,7 @@ export default function Report() {
               <button onClick={() => setEditorOpen(false)}
                 className="px-4 py-2 text-sm text-cd-text-tertiary hover:text-cd-text">取消</button>
               <button onClick={handleSaveTpl} disabled={savingTpl}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-cd-green text-white rounded hover:opacity-90 disabled:opacity-50">
+                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-cd-green text-white rounded-lg hover:opacity-90 disabled:opacity-50">
                 <CheckCircle2 size={14} /> {savingTpl ? '保存中…' : '保存'}
               </button>
             </div>
