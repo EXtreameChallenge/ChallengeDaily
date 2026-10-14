@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, Calendar, Star } from 'lucide-react'
 import { getCountdowns, deleteCountdown, type Countdown } from '../api/client'
 import { useToast } from '../components/Toast'
@@ -66,7 +66,7 @@ export default function Countdowns() {
             const isPast = days < 0
             const isToday = days === 0
             return (
-              <div key={cd.id} className="bg-cd-bg-card rounded-xl p-4 border border-white/5 relative overflow-hidden">
+              <div key={cd.id} className="bg-cd-bg-card rounded-2xl p-4 border border-white/5 relative overflow-hidden">
                 <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: cd.color }} />
                 <div className="flex items-center justify-between pl-3">
                   <div>

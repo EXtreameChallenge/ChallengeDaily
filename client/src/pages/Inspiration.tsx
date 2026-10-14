@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Lightbulb, CheckSquare, Flame, Target, Plus, Check, Loader2,
@@ -146,7 +146,7 @@ export default function Inspiration() {
     <div className="max-w-4xl mx-auto">
       {/* 顶部 */}
       <div className="flex items-center gap-2 mb-1">
-        <div className="w-9 h-9 rounded-xl bg-cd-accent/20 flex items-center justify-center">
+        <div className="w-9 h-9 rounded-2xl bg-cd-accent/20 flex items-center justify-center">
           <Lightbulb size={20} className="text-cd-accent" />
         </div>
         <div>
@@ -173,7 +173,7 @@ export default function Inspiration() {
                 return (
                   <div
                     key={key}
-                    className="bg-cd-bg-card rounded-xl p-4 border border-white/5 hover:border-cd-accent/30 transition group"
+                    className="bg-cd-bg-card rounded-2xl p-4 border border-white/5 hover:border-cd-accent/30 transition group"
                   >
                     <div className="flex items-start gap-3">
                       {/* 模板图标 */}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Shield, FileText, ChevronRight } from 'lucide-react'
 
 export default function Legal({ onAccept }: { onAccept: () => void }) {
@@ -11,7 +11,7 @@ export default function Legal({ onAccept }: { onAccept: () => void }) {
         <div className="flex gap-1 bg-cd-bg-secondary rounded-2xl p-1 mb-4">
           <button
             onClick={() => setTab('privacy')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-2xl text-sm transition-colors ${
               tab === 'privacy' ? 'bg-cd-card text-cd-green font-medium shadow-sm' : 'text-cd-text-secondary hover:text-cd-text'
             }`}
           >
@@ -20,7 +20,7 @@ export default function Legal({ onAccept }: { onAccept: () => void }) {
           </button>
           <button
             onClick={() => setTab('terms')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-2xl text-sm transition-colors ${
               tab === 'terms' ? 'bg-cd-card text-cd-green font-medium shadow-sm' : 'text-cd-text-secondary hover:text-cd-text'
             }`}
           >
@@ -30,7 +30,7 @@ export default function Legal({ onAccept }: { onAccept: () => void }) {
         </div>
 
         {/* Content */}
-        <div className="bg-cd-card rounded-xl border border-cd-border p-5 max-h-[50vh] overflow-y-auto text-sm text-cd-text-secondary leading-relaxed">
+        <div className="bg-cd-card rounded-2xl border border-cd-border p-5 max-h-[50vh] overflow-y-auto text-sm text-cd-text-secondary leading-relaxed">
           {tab === 'privacy' ? <PrivacyContent /> : <TermsContent />}
         </div>
 

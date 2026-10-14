@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+﻿import { useState, useRef, useEffect } from 'react'
 import { HelpCircle } from 'lucide-react'
 
 /**
@@ -62,7 +62,7 @@ export function EmptyStateHint({ dayCount, feature, hint }: EmptyStateHintProps)
   // 前 3 天显示新手鼓励
   if (dayCount <= 3) {
     return (
-      <div className="rounded-xl p-4 bg-gradient-to-br from-cd-green/8 to-cd-accent/5 border border-cd-green/15">
+      <div className="rounded-2xl p-4 bg-gradient-to-br from-cd-green/8 to-cd-accent/5 border border-cd-green/15">
         <div className="text-xs text-cd-green font-medium mb-1">新手引导</div>
         <div className="text-sm text-cd-text">{feature}</div>
         <div className="text-xs text-cd-text-secondary mt-1 leading-relaxed">{hint}</div>

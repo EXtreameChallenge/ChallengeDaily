@@ -18,6 +18,14 @@ from datetime import date, datetime, timedelta
 import config
 from ai_client import _cb_check, _cb_record_success, _cb_record_failure, _get_client, _rate_limit_check
 
+# Agent 引擎（agno/classic 可切换）。导入失败不影响现有 classic 逻辑。
+try:
+    import agent_engine
+except Exception as _agent_imp_err:  # pragma: no cover
+    agent_engine = None
+    logger = logging.getLogger(__name__)
+    logger.warning(f"agent_engine 导入失败，将回退到内置 classic 逻辑: {_agent_imp_err}")
+
 bp = Blueprint('chat', __name__, url_prefix='/api/ai')
 logger = logging.getLogger(__name__)
 
@@ -678,6 +686,29 @@ def ai_chat_stream():
 
     def generate():
         try:
+            # ── Agent 引擎模式切换 ──
+            # config.AGENT_ENGINE == "classic" 时走下方原有手动 function calling 循环；
+            # 否则尝试用 agent_engine（agno），带 34 个工具/安全护栏/记忆/上下文压缩。
+            # 引擎任何异常都会回退到下方 classic 逻辑，保证不破坏现有功能。
+            _engine_mode = getattr(config, "AGENT_ENGINE", "classic")
+            if _engine_mode != "classic" and agent_engine is not None:
+                try:
+                    eng = agent_engine.get_engine(_engine_mode)
+                    for evt in eng.stream_chat(
+                        user_message=user_message,
+                        history=chat_messages,
+                        context_hints={
+                            "system_content": system_content,
+                            "today": _today,
+                            "memory_injected": True,  # 外层已注入 memory_hint，引擎不重复检索
+                        },
+                    ):
+                        yield f"data: {json.dumps(evt, ensure_ascii=False)}\n\n"
+                    return  # 引擎路径已自行保存 assistant 回复，不重复保存
+                except Exception as _eng_err:
+                    logger.warning(f"Agent 引擎失败，回退内置 classic: {_eng_err}")
+                    # 继续走下方原有 classic 逻辑
+
             client = _get_client()
             # 最多允许3轮 Function Calling（防止死循环）
             for _round in range(3):
@@ -847,6 +878,73 @@ def execute_action():
                 tags=action_data.get('tags', ''),
             )
             return jsonify({"status": "ok", "message": "日记已保存"})
+
+        # ── Agent 新工具确认后落地（P0）──
+        elif action == 'create_goal':
+            gid = db.create_goal(
+                title=action_data.get('title', ''),
+                description=action_data.get('description', ''),
+                category=action_data.get('category', 'personal'),
+                timeframe=action_data.get('timeframe', 'yearly'),
+                target_date=action_data.get('target_date') or None,
+            )
+            return jsonify({"status": "ok", "message": "目标已创建", "goal_id": gid})
+
+        elif action == 'update_goal':
+            kwargs = {}
+            if action_data.get('progress', -1) >= 0:
+                kwargs['progress'] = action_data['progress']
+            if action_data.get('status'):
+                kwargs['status'] = action_data['status']
+            if action_data.get('title'):
+                kwargs['title'] = action_data['title']
+            db.update_goal(action_data.get('goal_id'), **kwargs)
+            return jsonify({"status": "ok", "message": "目标已更新"})
+
+        elif action == 'create_plan_item':
+            tid = db.insert_todo(
+                title=action_data.get('title', ''),
+                category=action_data.get('category', '开发'),
+                task_level='day',
+                assigned_date=action_data.get('assigned_date'),
+            )
+            return jsonify({"status": "ok", "message": "计划项已创建", "todo_id": tid})
+
+        elif action == 'create_habit':
+            hid = db.insert_habit(
+                name=action_data.get('name', ''),
+                target_count=action_data.get('target_count', 1),
+                period=action_data.get('period', 'daily'),
+            )
+            return jsonify({"status": "ok", "message": "习惯已创建", "habit_id": hid})
+
+        elif action == 'update_setting':
+            # 危险操作：修改全局设置（读-改-存，保留其它字段）
+            cur = config.load_settings()
+            cur[action_data.get('key', '')] = action_data.get('value', '')
+            config.save_settings(cur)
+            return jsonify({"status": "ok", "message": f"设置 {action_data.get('key')} 已更新"})
+
+        elif action == 'create_reminder':
+            # 轻量落地：追加到 data/reminders.json
+            reminders_path = config.DATA_DIR / "reminders.json"
+            try:
+                old = json.loads(reminders_path.read_text(encoding="utf-8")) if reminders_path.exists() else []
+            except Exception:
+                old = []
+            old.append({"text": action_data.get('text', ''),
+                        "remind_at": action_data.get('remind_at', ''),
+                        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+            reminders_path.write_text(json.dumps(old, ensure_ascii=False, indent=2), encoding="utf-8")
+            return jsonify({"status": "ok", "message": "提醒已创建"})
+
+        # ── Agent 新工具确认后落地（P1：外部集成，best-effort）──
+        elif action in ('mubu_create_doc', 'mubu_update_doc', 'obsidian_sync',
+                        'generate_report', 'export_data', 'trigger_workflow'):
+            # 外部系统类操作：模块可能未配置，统一返回友好占位结果，不报错
+            return jsonify({"status": "ok",
+                            "message": f"操作 {action} 已触发（外部模块集成待接入，此处为占位执行）",
+                            "action": action})
 
         else:
             return jsonify({"error": f"未知操作: {action}"}), 400

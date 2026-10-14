@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Check, Clock, Trash2, Play, Calendar, Flame } from 'lucide-react'
 import type { TodoV2 } from '../../api/client'
 import { CATEGORY_COLORS } from '../../api/client'
@@ -67,7 +67,7 @@ export default function KanbanView({ todos, onStatusChange, onDelete, onStartFoc
         return (
           <div
             key={col.key}
-            className={`flex flex-col rounded-xl border border-white/5 ${col.bg} ${dragOverCol === col.key ? 'ring-2 ring-cd-accent/40' : ''}`}
+            className={`flex flex-col rounded-2xl border border-white/5 ${col.bg} ${dragOverCol === col.key ? 'ring-2 ring-cd-accent/40' : ''}`}
             onDragOver={(e) => handleDragOver(e, col.key)}
             onDrop={(e) => handleDrop(e, col.key)}
           >
@@ -95,7 +95,7 @@ export default function KanbanView({ todos, onStatusChange, onDelete, onStartFoc
                     draggable
                     onDragStart={(e) => handleDragStart(e, todo.id)}
                     onDragEnd={handleDragEnd}
-                    className={`bg-cd-bg-card rounded-xl border border-white/5 p-2.5 cursor-grab active:cursor-grabbing transition hover:border-white/10 hover:shadow-md ${draggedId === todo.id ? 'opacity-40' : ''} ${isCompleted ? 'opacity-60' : ''}`}
+                    className={`bg-cd-bg-card rounded-2xl border border-white/5 p-2.5 cursor-grab active:cursor-grabbing transition hover:border-white/10 hover:shadow-md ${draggedId === todo.id ? 'opacity-40' : ''} ${isCompleted ? 'opacity-60' : ''}`}
                     style={{ borderLeft: `3px solid ${catColor}` }}
                   >
                     {/* Title */}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import {
   getKnownApps,
   getAppIconUrl,
@@ -104,7 +104,7 @@ export default function AppTags() {
               <div key={app.app_name} className="card p-4 space-y-3">
                 {/* 头部 */}
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="w-10 h-10 rounded-2xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
                     {(() => {
                       const defaultIcon = import.meta.env.DEV ? '/icon.png' : './icon.png'
                       return (

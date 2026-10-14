@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { Lock, Unlock, Fingerprint, Eye, EyeOff, ShieldCheck } from 'lucide-react'
 
 // 应用级隐私锁：密码 + Windows Hello + 闲置自动锁 + 模块级锁
@@ -179,7 +179,7 @@ export function AppLockSettings() {
   }
 
   return (
-    <div className="bg-cd-bg-card rounded-xl p-5 border border-white/5 space-y-4">
+    <div className="bg-cd-bg-card rounded-2xl p-5 border border-white/5 space-y-4">
       <div className="flex items-center gap-2">
         <ShieldCheck size={18} className="text-cd-accent" />
         <h3 className="text-sm text-cd-text font-medium">应用级隐私锁</h3>

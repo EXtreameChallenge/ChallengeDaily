@@ -1,4 +1,4 @@
-/**
+﻿/**
  * HabitHeatmap — 习惯独立热力图（参考 Loop Habit Tracker）
  *
  * - GitHub 风格方块矩阵：7 行（周一到周日）× N 列（天数）
@@ -149,7 +149,7 @@ export default function HabitHeatmap({
 
   return (
     <div
-      className={`bg-cd-bg-card rounded-xl border border-cd-border-light overflow-hidden ${className}`}
+      className={`bg-cd-bg-card rounded-2xl border border-cd-border-light overflow-hidden ${className}`}
     >
       {/* 头部：标题 + 切换天数 + 折叠 */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-cd-border-light">

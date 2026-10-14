@@ -21,7 +21,7 @@ export default function TopBar() {
   const showViewToggle = ['/dashboard', '/todos', '/apps', '/timeline'].some(p => currentPath.startsWith(p))
 
   return (
-    <div className="fixed top-3 left-[248px] z-40 flex items-center gap-2 no-drag">
+    <div className="fixed top-3 left-[248px] z-40 flex items-center gap-3 no-drag">
       {/* 后退/前进（一组玻璃胶囊） */}
       <div className="glass-pill flex items-center p-1 h-10">
         <button

@@ -1,4 +1,4 @@
-import { useRelayEngine, type RelayCard } from './RelayEngine'
+﻿import { useRelayEngine, type RelayCard } from './RelayEngine'
 import { X, ChevronRight } from 'lucide-react'
 
 /**
@@ -24,7 +24,7 @@ export function RelayCardView({ card }: RelayCardViewProps) {
   const { dismissCard, executeAction } = useRelayEngine()
 
   return (
-    <div className="bg-cd-card border border-cd-green/30 rounded-xl shadow-lg shadow-cd-green/5 overflow-hidden animate-slide-in-right">
+    <div className="bg-cd-card border border-cd-green/30 rounded-2xl shadow-lg shadow-cd-green/5 overflow-hidden animate-slide-in-right">
       {/* 顶部色条 */}
       <div className="h-1 bg-gradient-to-r from-cd-green to-cd-purple" />
 

@@ -40,7 +40,7 @@ export function TaskCard({ todo, compact, onClick, onDragStart, onDragEnd, expan
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onClick={onClick}
-      className="relative rounded-xl cursor-grab active:cursor-grabbing transition hover:brightness-110 overflow-hidden"
+      className="relative rounded-2xl cursor-grab active:cursor-grabbing transition hover:brightness-110 overflow-hidden"
       style={{
         background: compact ? 'var(--cd-bg-tertiary)' : 'var(--cd-bg-secondary)',
         borderLeft: `3px solid ${pc}`,

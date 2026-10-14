@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useCallback, useRef, type CSSProperties } from 'react'
+﻿import { useEffect, useReducer, useCallback, useRef, type CSSProperties } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEventStream } from '../hooks/useEventStream'
 import { useGrowthStore, type ItemRarity, type PetStage } from '../stores/growthStore'
@@ -164,7 +164,7 @@ function NotificationCard({ item, onDismiss }: CardProps) {
       exit={{ opacity: 0, x: 360, scale: 0.85 }}
       transition={{ type: 'spring', stiffness: 320, damping: 28 }}
       onClick={onDismiss}
-      className="pointer-events-auto cursor-pointer rounded-xl overflow-hidden relative"
+      className="pointer-events-auto cursor-pointer rounded-2xl overflow-hidden relative"
       style={getCardStyle(item)}
       role="status"
     >

@@ -254,7 +254,7 @@ export default function App() {
               </span>
               <button
                 onClick={handleInstallUpdate}
-                className="bg-cd-green text-white px-3.5 py-1.5 rounded-xl text-sm font-medium hover:opacity-90"
+                className="bg-cd-green text-white px-3.5 py-1.5 rounded-2xl text-sm font-medium hover:opacity-90"
               >
                 立即重启安装
               </button>
@@ -278,7 +278,7 @@ export default function App() {
                 <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
                 <ElectronNavigationBridge />
                 <Sidebar />
-                <main className="flex-1 overflow-auto p-6 pt-16 pb-24">
+                <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pt-12 pb-24">
                   <RouteErrorBoundary>
                     <Suspense fallback={<PageSpinner />}>
                       <Routes>

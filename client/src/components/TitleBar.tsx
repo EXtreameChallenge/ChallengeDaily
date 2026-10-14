@@ -5,7 +5,7 @@
  */
 export default function TitleBar() {
   return (
-    <div className="titlebar fixed top-5 right-3 z-50 no-drag">
+    <div className="titlebar fixed top-3 right-3 z-50 no-drag">
       <div className="win-controls">
         <button
           className="win-minimize"

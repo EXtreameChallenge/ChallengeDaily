@@ -225,12 +225,12 @@ export default function AIDock() {
 
   return (
     <div
-      className="ai-dock-float fixed bottom-5 z-40 w-[min(620px,58%)]"
+      className="ai-dock-float fixed bottom-3 z-40 w-[min(620px,58%)]"
       style={{ left: 'calc(50% + 124px)', transform: 'translateX(-50%)' }}
     >
       {/* ── 展开的对话面板 ── */}
       {expanded && (
-        <div className="glass-strong rounded-2xl mb-2 flex flex-col max-h-[60vh] overflow-hidden animate-slide-up">
+        <div className="glass-strong rounded-2xl mb-3 flex flex-col max-h-[60vh] overflow-hidden animate-slide-up">
           {/* 头部 */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-cd-border/50 shrink-0">
             <div className="flex items-center gap-2">
@@ -358,8 +358,8 @@ export default function AIDock() {
         </div>
       )}
 
-      {/* ── 悬浮玻璃输入条（与顶部搜索框完全一致：glass-pill + h-10 + 999px圆角）── */}
-      <div className="glass-pill topbar-search flex items-center gap-2 px-3 h-10 shrink-0" style={{ height: '40px', minHeight: '40px' }}>
+      {/* ── 悬浮玻璃输入条（h-11=44px，发送按钮上下右边距均为8px）── */}
+      <div className="glass-pill topbar-search flex items-center gap-2 pl-3 pr-2 h-11 shrink-0" style={{ height: '44px', minHeight: '44px' }}>
         <Bot size={15} className="text-cd-accent shrink-0" />
         <input
           ref={inputRef}

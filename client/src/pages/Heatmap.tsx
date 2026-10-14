@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
+﻿import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getActivities, CATEGORY_COLORS, request, type Activity } from '../api/client'
 import { useAsyncData, ApiErrorDisplay } from '../components/shared'
@@ -612,7 +612,7 @@ function RankingView({ activities, totalMin }: { activities: Activity[]; totalMi
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* 应用使用排行 */}
-      <div className="bg-cd-bg-card rounded-xl p-4 border border-cd-border">
+      <div className="bg-cd-bg-card rounded-2xl p-4 border border-cd-border">
         <h3 className="text-sm font-medium text-cd-text mb-3">应用使用排行</h3>
         {appRank.length === 0 ? (
           <p className="text-xs text-cd-text-tertiary text-center py-8">暂无数据</p>
@@ -637,7 +637,7 @@ function RankingView({ activities, totalMin }: { activities: Activity[]; totalMi
       </div>
 
       {/* 分类时长排行 */}
-      <div className="bg-cd-bg-card rounded-xl p-4 border border-cd-border">
+      <div className="bg-cd-bg-card rounded-2xl p-4 border border-cd-border">
         <h3 className="text-sm font-medium text-cd-text mb-3">分类时长排行</h3>
         {catRank.length === 0 ? (
           <p className="text-xs text-cd-text-tertiary text-center py-8">暂无数据</p>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { request } from '../api/client'
 
 interface WordItem { text: string; value: number }
@@ -73,7 +73,7 @@ export default function WordCloud() {
   if (words.length === 0) return null
 
   return (
-    <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
+    <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5">
       <h3 className="text-sm text-cd-text-secondary mb-2">工作关键词</h3>
       <canvas ref={canvasRef} className="w-full h-40" />
     </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { Plus, X, Trash2, Save } from 'lucide-react'
 import Modal from './Modal'
 import { useToast } from './Toast'
@@ -128,7 +128,7 @@ export default function AppTagEditModal({ open, onClose, app, onSaved }: AppTagE
         <div className="flex items-center justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm text-cd-text-secondary border border-cd-border hover:bg-cd-hover transition"
+            className="px-4 py-2 rounded-2xl text-sm text-cd-text-secondary border border-cd-border hover:bg-cd-hover transition"
           >
             取消
           </button>
@@ -136,7 +136,7 @@ export default function AppTagEditModal({ open, onClose, app, onSaved }: AppTagE
             <button
               onClick={handleDelete}
               disabled={saving}
-              className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-medium text-cd-red hover:bg-cd-red/10 transition disabled:opacity-40"
+              className="flex items-center gap-1 px-4 py-2 rounded-2xl text-sm font-medium text-cd-red hover:bg-cd-red/10 transition disabled:opacity-40"
             >
               <Trash2 size={14} /> 删除
             </button>
@@ -144,7 +144,7 @@ export default function AppTagEditModal({ open, onClose, app, onSaved }: AppTagE
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-medium bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-40"
+            className="flex items-center gap-1 px-4 py-2 rounded-2xl text-sm font-medium bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-40"
           >
             <Save size={14} /> {saving ? '保存中...' : '保存'}
           </button>

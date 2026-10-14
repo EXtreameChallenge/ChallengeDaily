@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Save, Calendar, Sparkles, Image as ImageIcon, Mic, Link2, X, CheckCircle, Flame, Timer, BarChart3, Trophy, ChevronDown, FileText } from 'lucide-react'
 import { getDiary, saveDiary, getDiaries, getDailyCard, getDailyCardText, getTodayStr, formatLocalDate, type Diary as DiaryType, type DiaryMedia, type DailyCardData } from '../api/client'
 import { useToast } from '../components/Toast'
@@ -196,7 +196,7 @@ export default function Diary() {
       </div>
 
       {/* 心情选择 */}
-      <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5 mb-4">
+      <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5 mb-4">
         <div className="text-sm text-cd-text-secondary mb-3">今天的心情</div>
         <div className="flex gap-2 flex-wrap">
           {MOODS.map(m => (
@@ -222,7 +222,7 @@ export default function Diary() {
       )}
 
       {/* 日记内容 */}
-      <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5 mb-4">
+      <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5 mb-4">
         <div className="flex items-center justify-between mb-2">
           <div className="text-sm text-cd-text-secondary">日记 · 一日一页</div>
           {/* 多媒体工具栏 */}
@@ -293,13 +293,13 @@ export default function Diary() {
 
       {/* 亮点和感恩 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
+        <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5">
           <div className="text-sm text-cd-text-secondary mb-2 flex items-center gap-1"><Sparkles size={14} className="text-gold" /> 今日亮点</div>
           <input type="text" value={highlights} onChange={e => setHighlights(e.target.value)}
             placeholder="今天最棒的事..."
             className="w-full bg-cd-bg-input border border-white/5 rounded-2xl px-3 py-2 text-cd-text text-sm focus:outline-none focus:border-cd-accent/40" />
         </div>
-        <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
+        <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5">
           <div className="text-sm text-cd-text-secondary mb-2">感恩的事</div>
           <input type="text" value={gratitude} onChange={e => setGratitude(e.target.value)}
             placeholder="今天感谢..."
@@ -308,7 +308,7 @@ export default function Diary() {
       </div>
 
       {/* 标签 */}
-      <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5 mb-4">
+      <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5 mb-4">
         <div className="text-sm text-cd-text-secondary mb-2">标签（逗号分隔）</div>
         <input type="text" value={tags} onChange={e => setTags(e.target.value)}
           placeholder="如：高效,开会,突破..."
@@ -317,7 +317,7 @@ export default function Diary() {
 
       {/* 保存按钮 */}
       <button onClick={handleSave} disabled={saving}
-        className="w-full py-3 bg-cd-accent/20 text-cd-accent rounded-xl border border-cd-accent/30 hover:bg-cd-accent/30 transition font-medium flex items-center justify-center gap-2 disabled:opacity-50">
+        className="w-full py-3 bg-cd-accent/20 text-cd-accent rounded-2xl border border-cd-accent/30 hover:bg-cd-accent/30 transition font-medium flex items-center justify-center gap-2 disabled:opacity-50">
         <Save size={18} /> {saving ? '保存中...' : savedFlash ? '已保存 ✓' : '保存日记'}
       </button>
 
@@ -360,7 +360,7 @@ function TodayCompleteCard({
   const gradeColor = GRADE_COLORS[s.grade] || 'text-cd-text'
 
   return (
-    <div className="bg-gradient-to-br from-cd-bg-card to-cd-bg-card/80 rounded-xl border border-cd-accent/20 mb-4 overflow-hidden">
+    <div className="bg-gradient-to-br from-cd-bg-card to-cd-bg-card/80 rounded-2xl border border-cd-accent/20 mb-4 overflow-hidden">
       {/* 概览栏 */}
       <div className="flex items-center gap-3 p-4">
         {/* 评分圆环 */}

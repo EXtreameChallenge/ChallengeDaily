@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+﻿import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
   FileText,
@@ -394,7 +394,7 @@ export default function Sidebar() {
                             to={child.to}
                             end={child.to === '/focus'}
                             className={({ isActive }) =>
-                              `flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-[12px] transition-colors ${
+                              `flex items-center gap-2 px-2.5 py-1.5 rounded-2xl text-[12px] transition-colors ${
                                 isActive
                                   ? 'bg-cd-green-light text-cd-green font-medium nav-item-active'
                                   : 'text-cd-text-tertiary hover:bg-cd-hover hover:text-cd-text'

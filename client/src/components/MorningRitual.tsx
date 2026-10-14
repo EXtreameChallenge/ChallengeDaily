@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { request } from '../api/client'
 import { Sunrise, ChevronDown, ChevronUp, Check, X } from 'lucide-react'
 import SchedulePanel from './SchedulePanel'
@@ -54,7 +54,7 @@ export default function MorningRitual() {
   if (!inWindow) return null
   if (loading) {
     return (
-      <div className="bg-cd-bg-card border border-cd-border rounded-xl p-4 text-xs text-cd-text-tertiary">
+      <div className="bg-cd-bg-card border border-cd-border rounded-2xl p-4 text-xs text-cd-text-tertiary">
         加载晨间规划...
       </div>
     )
@@ -88,7 +88,7 @@ export default function MorningRitual() {
   }
 
   return (
-    <div className="bg-cd-bg-card border border-cd-border rounded-xl overflow-hidden">
+    <div className="bg-cd-bg-card border border-cd-border rounded-2xl overflow-hidden">
       <button
         onClick={() => setCollapsed((c) => !c)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-cd-hover transition-colors"

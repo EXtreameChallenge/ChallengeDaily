@@ -16,10 +16,10 @@ export const ACCENT_PRESETS = [
 ]
 
 export const FONT_PRESETS = [
-  { name: 'Golden Time (默认)', value: "'Fraunces', 'FZQingKeBenYueSong', 'Microsoft YaHei', 'PingFang SC', ui-serif, serif" },
-  { name: '苹方', value: "'PingFang SC', 'Microsoft YaHei', sans-serif" },
-  { name: '微软雅黑', value: "'Microsoft YaHei', 'PingFang SC', sans-serif" },
-  { name: '思源黑体', value: "'Noto Sans SC', 'Source Han Sans SC', 'Microsoft YaHei', sans-serif" },
+  { name: 'Golden Time (默认)', value: "'Anthropic Sans', 'Fraunces', 'FZQingKeBenYueSong', 'Microsoft YaHei', 'PingFang SC', ui-serif, serif" },
+  { name: '苹方', value: "'Anthropic Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif" },
+  { name: '微软雅黑', value: "'Anthropic Sans', 'Microsoft YaHei', 'PingFang SC', sans-serif" },
+  { name: '思源黑体', value: "'Anthropic Sans', 'Noto Sans SC', 'Source Han Sans SC', 'Microsoft YaHei', sans-serif" },
   { name: '等宽极客', value: "'Anthropic Mono', 'JetBrains Mono', 'Fira Code', Consolas, monospace" },
 ]
 

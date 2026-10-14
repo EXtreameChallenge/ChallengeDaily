@@ -1,4 +1,4 @@
-/**
+﻿/**
  * GanttTimeline — Gantt 式时间线（参考 ActivityWatch）
  *
  * - 24 小时水平时间轴（0:00 - 24:00）
@@ -154,7 +154,7 @@ export default function GanttTimeline({
   return (
     <div
       ref={containerRef}
-      className={`bg-cd-bg-card rounded-xl border border-cd-border-light overflow-hidden ${className}`}
+      className={`bg-cd-bg-card rounded-2xl border border-cd-border-light overflow-hidden ${className}`}
     >
       {/* 头部 */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-cd-border-light flex-wrap gap-2">

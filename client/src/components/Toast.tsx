@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
+﻿import { useState, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
 import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react'
 
 type ToastType = 'success' | 'error' | 'warning' | 'info'
@@ -87,7 +87,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           return (
             <div
               key={t.id}
-              className="animate-slide-in pointer-events-auto flex items-start gap-2.5 px-4 py-3 rounded-xl shadow-lg border bg-cd-card"
+              className="animate-slide-in pointer-events-auto flex items-start gap-2.5 px-4 py-3 rounded-2xl shadow-lg border bg-cd-card"
               style={{ borderColor: COLOR_MAP[t.type] + '30' }}
             >
               <Icon size={16} className="shrink-0 mt-0.5" style={{ color: COLOR_MAP[t.type] }} />

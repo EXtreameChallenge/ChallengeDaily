@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, Flame, Check, Zap, Link2, Lightbulb, X } from 'lucide-react'
 import { getHabits, logHabit, deleteHabit, updateHabit, autoCheckHabits, createHabit, getHabitRecommendations, getTodayStr, type Habit, type HabitLog, type HabitSuggestion } from '../api/client'
 import { useToast } from '../components/Toast'
@@ -159,7 +159,7 @@ export default function Habits() {
 
       {/* P14-2：智能推荐面板 */}
       {showSuggest && (
-        <div className="mb-6 bg-gradient-to-br from-amber-500/10 to-orange-500/5 rounded-xl border border-amber-500/20 p-4">
+        <div className="mb-6 bg-gradient-to-br from-amber-500/10 to-orange-500/5 rounded-2xl border border-amber-500/20 p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-cd-text flex items-center gap-1.5">
               <Lightbulb size={14} className="text-amber-400" /> 智能习惯推荐
@@ -201,7 +201,7 @@ export default function Habits() {
                   <button
                     onClick={() => handleAdopt(s)}
                     disabled={adoptingName === s.name}
-                    className="shrink-0 px-3 py-1.5 text-xs bg-cd-green/20 text-cd-green rounded-xl border border-cd-green/30 hover:bg-cd-green/30 transition disabled:opacity-50"
+                    className="shrink-0 px-3 py-1.5 text-xs bg-cd-green/20 text-cd-green rounded-2xl border border-cd-green/30 hover:bg-cd-green/30 transition disabled:opacity-50"
                   >
                     {adoptingName === s.name ? '采纳中...' : '采纳'}
                   </button>
@@ -224,7 +224,7 @@ export default function Habits() {
             const streak = getStreak(habit.id)
             const completed = todayCount >= habit.target_count
             return (
-              <div key={habit.id} className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
+              <div key={habit.id} className="bg-cd-bg-card rounded-2xl p-4 border border-white/5">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: habit.color }} />
                   <div className="flex-1">

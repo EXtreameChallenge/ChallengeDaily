@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import Modal from './Modal'
 import { useToast } from './Toast'
 import { addWebhook } from '../api/client'
@@ -64,14 +64,14 @@ export default function WebhookCreateModal({ open, onClose, onCreated }: Webhook
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 py-2 rounded-xl text-sm text-cd-text-secondary border border-cd-border hover:bg-cd-hover transition"
+            className="flex-1 py-2 rounded-2xl text-sm text-cd-text-secondary border border-cd-border hover:bg-cd-hover transition"
           >
             取消
           </button>
           <button
             onClick={handleCreate}
             disabled={!url.trim() || saving}
-            className="flex-1 py-2 rounded-xl text-sm font-medium bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 py-2 rounded-2xl text-sm font-medium bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {saving ? '添加中...' : '添加推送'}
           </button>

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Play, Check, Trash2, Calendar, Target } from 'lucide-react'
+﻿import { useState, useEffect } from 'react'
+import { Play, Check, Trash2, Calendar, Target, Clock, Timer, Flame } from 'lucide-react'
 import Modal from './Modal'
 import { updateTodo, deleteTodo, assignTodo, unassignTodo, updateTaskTime, getGoals, type TodoV2, type Goal } from '../api/client'
 import { useToast } from './Toast'
@@ -45,7 +45,7 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
 
   if (!todo) return null
 
-  const radius = 18
+  const radius = 22
   const circumference = 2 * Math.PI * radius
   const progressPct = todo.target_min > 0 ? Math.min(100, (todo.progress_min / todo.target_min) * 100) : 0
   const offset = circumference - (progressPct / 100) * circumference
@@ -104,6 +104,9 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
     onClose()
   }
 
+  // 通用 select 样式
+  const selectCls = "flex-1 appearance-none bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-xs text-cd-text focus:outline-none focus:border-cd-accent/60 focus:ring-1 focus:ring-cd-accent/30 transition cursor-pointer"
+
   return (
     <Modal
       open={!!todo}
@@ -111,133 +114,184 @@ export default function TaskDetailModal({ todo, onClose, onUpdate }: Props) {
       title="任务详情"
       maxWidth="max-w-md"
       footer={
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2.5">
           <button
             onClick={startFocus}
-            className="flex items-center justify-center gap-1 py-2 text-xs rounded-xl bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition"
+            className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold rounded-2xl text-white shadow-md hover:shadow-lg hover:brightness-110 active:scale-[0.98] transition-all"
+            style={{ background: 'var(--cd-gradient-primary)' }}
           >
-            <Play size={12} /> 专注
+            <Play size={13} fill="currentColor" /> 开始专注
           </button>
           <button
             onClick={handleComplete}
-            className="flex items-center justify-center gap-1 py-2 text-xs rounded-xl bg-cd-green/20 text-cd-green border border-cd-green/30 hover:bg-cd-green/30 transition"
+            className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium rounded-2xl bg-cd-accent/15 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/25 active:scale-[0.98] transition-all"
           >
-            <Check size={12} /> 完成
+            <Check size={13} strokeWidth={2.5} /> 完成
           </button>
           <button
             onClick={handleDelete}
-            className="flex items-center justify-center gap-1 py-2 text-xs rounded-xl bg-cd-red/20 text-cd-red border border-cd-red/30 hover:bg-cd-red/30 transition"
+            className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium rounded-2xl bg-cd-red/10 text-cd-red border border-cd-red/25 hover:bg-cd-red/20 active:scale-[0.98] transition-all"
           >
-            <Trash2 size={12} /> 删除
+            <Trash2 size={13} /> 删除
           </button>
         </div>
       }
     >
-      {/* title (editable) */}
+      {/* ===== 标题 ===== */}
       <input
         value={title}
         onChange={e => setTitle(e.target.value)}
         onBlur={handleTitleBlur}
         onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-        className="w-full bg-transparent border-b border-cd-border focus:border-cd-accent/50 outline-none text-base text-cd-text py-1.5 mb-4"
+        className="w-full bg-transparent border-b-2 border-cd-border focus:border-cd-accent outline-none text-lg font-bold text-cd-text pb-2 mb-1 transition-colors"
+        placeholder="任务标题..."
       />
 
-      {/* progress ring + stats */}
-      <div className="flex items-center gap-4 mb-4">
-        <svg width="60" height="60" viewBox="0 0 60 60" className="shrink-0">
-          <circle cx="30" cy="30" r={radius} fill="none" stroke="var(--cd-border)" strokeWidth="4" />
-          <circle cx="30" cy="30" r={radius} fill="none" stroke="#7B68EE" strokeWidth="4"
-            strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-            transform="rotate(-90 30 30)" className="transition-all duration-700" />
-          <text x="30" y="30" textAnchor="middle" dominantBaseline="central"
-            className="text-[10px] font-bold" fill="var(--cd-text)">{Math.round(progressPct)}%</text>
-        </svg>
-        <div className="flex-1 space-y-1.5">
-          <div className="flex justify-between text-xs">
-            <span className="text-cd-text-tertiary">已专注</span>
-            <span className="text-cd-text tabular-nums">{todo.progress_min}/{todo.target_min} 分钟</span>
+      {/* ===== 进度概览卡片 ===== */}
+      <div className="glass-card p-4 mb-1">
+        <div className="flex items-center gap-4">
+          {/* 进度环 */}
+          <div className="relative shrink-0">
+            <svg width="72" height="72" viewBox="0 0 72 72" className="drop-shadow-sm">
+              <defs>
+                <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="var(--cd-accent)" />
+                  <stop offset="100%" stopColor="var(--cd-accent-light)" />
+                </linearGradient>
+              </defs>
+              <circle cx="36" cy="36" r={radius} fill="none" stroke="var(--cd-border)" strokeWidth="5" opacity="0.5" />
+              <circle cx="36" cy="36" r={radius} fill="none" stroke="url(#progressGrad)" strokeWidth="5"
+                strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+                transform="rotate(-90 36 36)" className="transition-all duration-700 ease-out"
+                style={{ filter: 'drop-shadow(0 0 4px var(--cd-accent))' }} />
+              <text x="36" y="34" textAnchor="middle" dominantBaseline="central"
+                className="text-sm font-extrabold" fill="var(--cd-text)">{Math.round(progressPct)}%</text>
+              <text x="36" y="46" textAnchor="middle" dominantBaseline="central"
+                className="text-[8px]" fill="var(--cd-text-tertiary)">完成度</text>
+            </svg>
           </div>
-          <div className="flex justify-between text-xs">
-            <span className="text-cd-text-tertiary">番茄钟</span>
-            <span className="text-purple-400 tabular-nums">🍅 × {todo.pomodoro_count}</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span className="text-cd-text-tertiary">优先级</span>
-            <span style={{ color: PRIORITY_COLORS[priority - 1] }}>{PRIORITY_LABELS[priority - 1]}</span>
+
+          {/* 统计数据 */}
+          <div className="flex-1 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Timer size={12} className="text-cd-accent" />
+                <span className="text-xs text-cd-text-secondary">已专注</span>
+              </div>
+              <span className="text-xs font-bold text-cd-text tabular-nums">
+                {todo.progress_min}<span className="text-cd-text-tertiary font-normal">/{todo.target_min} 分钟</span>
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Flame size={12} className="text-orange-400" />
+                <span className="text-xs text-cd-text-secondary">番茄钟</span>
+              </div>
+              <span className="text-xs font-bold text-cd-text tabular-nums">
+                🍅 <span className="text-orange-400">× {todo.pomodoro_count}</span>
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full" style={{ background: PRIORITY_COLORS[priority - 1] }} />
+                <span className="text-xs text-cd-text-secondary">优先级</span>
+              </div>
+              <span className="text-xs font-bold" style={{ color: PRIORITY_COLORS[priority - 1] }}>
+                {PRIORITY_LABELS[priority - 1]}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* priority selector */}
-      <div className="flex gap-1 mb-3">
-        {[1, 2, 3, 4, 5].map(p => (
-          <button key={p} onClick={() => handlePriority(p)}
-            className="flex-1 py-1.5 text-xs rounded-lg transition"
-            style={{
-              background: priority === p ? PRIORITY_COLORS[p - 1] + '22' : 'transparent',
-              color: priority === p ? PRIORITY_COLORS[p - 1] : 'var(--cd-text-tertiary)',
-              border: `1px solid ${priority === p ? PRIORITY_COLORS[p - 1] + '88' : 'transparent'}`,
-            }}>P{p}</button>
-        ))}
-      </div>
-
-      {/* category & mode */}
-      <div className="flex gap-2 mb-3">
-        <select value={category} onChange={e => handleCategory(e.target.value)}
-          className="flex-1 bg-cd-bg-input border border-cd-border rounded-2xl px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50">
-          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select value={mode} onChange={e => handleMode(e.target.value as 'timer' | 'goal' | 'habit')}
-          className="bg-cd-bg-input border border-cd-border rounded-2xl px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50">
-          {Object.entries(MODE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-      </div>
-
-      {/* goal 关联选择器（P5：长期目标联动） */}
-      <div className="flex items-center gap-2 mb-3">
-        <Target size={12} className="text-cd-text-tertiary shrink-0" />
-        <select
-          value={goalId ?? ''}
-          onChange={e => handleGoal(e.target.value ? Number(e.target.value) : null)}
-          className="flex-1 bg-cd-bg-input border border-cd-border rounded-2xl px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50"
-        >
-          <option value="">不关联长期目标</option>
-          {goals.map(g => (
-            <option key={g.id} value={g.id}>
-              {g.title}（{g.timeframe === 'yearly' ? '年度' : g.timeframe === 'quarterly' ? '季度' : '月度'} · {g.progress}%）
-            </option>
+      {/* ===== 优先级选择 ===== */}
+      <div>
+        <div className="text-[10px] font-semibold text-cd-text-tertiary uppercase tracking-wider mb-1.5 px-0.5">优先级</div>
+        <div className="flex gap-1.5">
+          {[1, 2, 3, 4, 5].map(p => (
+            <button key={p} onClick={() => handlePriority(p)}
+              className="flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all active:scale-95"
+              style={{
+                background: priority === p ? PRIORITY_COLORS[p - 1] : 'var(--cd-bg-input)',
+                color: priority === p ? '#fff' : 'var(--cd-text-tertiary)',
+                border: `1px solid ${priority === p ? PRIORITY_COLORS[p - 1] : 'var(--cd-border)'}`,
+                boxShadow: priority === p ? `0 2px 8px ${PRIORITY_COLORS[p - 1]}55` : 'none',
+              }}>P{p}</button>
           ))}
-        </select>
+        </div>
       </div>
 
-      {/* move date + button */}
-      <div className="flex gap-2">
-        <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)}
-          className="flex-1 bg-cd-bg-input border border-cd-border rounded-2xl px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50" />
-        <button onClick={handleMove}
-          className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-xl bg-cd-bg-input text-cd-text-secondary border border-cd-border hover:bg-cd-hover transition">
-          <Calendar size={12} /> 移至
-        </button>
+      {/* ===== 分类与模式 ===== */}
+      <div>
+        <div className="text-[10px] font-semibold text-cd-text-tertiary uppercase tracking-wider mb-1.5 px-0.5">任务属性</div>
+        <div className="flex gap-2">
+          <select value={category} onChange={e => handleCategory(e.target.value)} className={selectCls}>
+            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select value={mode} onChange={e => handleMode(e.target.value as 'timer' | 'goal' | 'habit')}
+            className="w-20 appearance-none bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-2 text-xs text-cd-text focus:outline-none focus:border-cd-accent/60 focus:ring-1 focus:ring-cd-accent/30 transition cursor-pointer text-center">
+            {Object.entries(MODE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>
       </div>
 
-      {/* 计划开始时间（甘特图） */}
-      <div className="flex gap-2 mt-2">
-        <input
-          type="time"
-          value={todo.plan_start_min != null ? `${String(Math.floor(todo.plan_start_min / 60)).padStart(2, '0')}:${String(todo.plan_start_min % 60).padStart(2, '0')}` : ''}
-          onChange={async e => {
-            const val = e.target.value
-            if (val) {
-              const [h, m] = val.split(':').map(Number)
-              await updateTaskTime(todo.id, h * 60 + m)
-            } else {
-              await updateTaskTime(todo.id, null)
-            }
-            onUpdate()
-          }}
-          className="flex-1 bg-cd-bg-input border border-cd-border rounded-2xl px-2 py-1.5 text-xs text-cd-text focus:outline-none focus:border-cd-accent/50"
-        />
-        <span className="flex items-center text-[10px] text-cd-text-tertiary">甘特图时间</span>
+      {/* ===== 目标关联 ===== */}
+      <div>
+        <div className="text-[10px] font-semibold text-cd-text-tertiary uppercase tracking-wider mb-1.5 px-0.5">关联目标</div>
+        <div className="flex items-center gap-2">
+          <Target size={13} className="text-cd-accent shrink-0" />
+          <select
+            value={goalId ?? ''}
+            onChange={e => handleGoal(e.target.value ? Number(e.target.value) : null)}
+            className={selectCls}
+          >
+            <option value="">不关联长期目标</option>
+            {goals.map(g => (
+              <option key={g.id} value={g.id}>
+                {g.title}（{g.timeframe === 'yearly' ? '年度' : g.timeframe === 'quarterly' ? '季度' : '月度'} · {g.progress}%）
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* ===== 时间安排 ===== */}
+      <div>
+        <div className="text-[10px] font-semibold text-cd-text-tertiary uppercase tracking-wider mb-1.5 px-0.5">时间安排</div>
+        <div className="space-y-2">
+          {/* 日期移动 */}
+          <div className="flex gap-2">
+            <div className="flex-1 flex items-center gap-2 bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-1.5 focus-within:border-cd-accent/60 focus-within:ring-1 focus-within:ring-cd-accent/30 transition">
+              <Calendar size={13} className="text-cd-text-tertiary shrink-0" />
+              <input type="date" value={moveDate} onChange={e => setMoveDate(e.target.value)}
+                className="flex-1 bg-transparent text-xs text-cd-text outline-none" />
+            </div>
+            <button onClick={handleMove}
+              className="flex items-center gap-1 px-3.5 py-1.5 text-xs font-medium rounded-2xl bg-cd-accent/15 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/25 active:scale-95 transition-all">
+              移至
+            </button>
+          </div>
+          {/* 甘特图时间 */}
+          <div className="flex items-center gap-2 bg-cd-bg-input border border-cd-border rounded-2xl px-3 py-1.5 focus-within:border-cd-accent/60 focus-within:ring-1 focus-within:ring-cd-accent/30 transition">
+            <Clock size={13} className="text-cd-text-tertiary shrink-0" />
+            <input
+              type="time"
+              value={todo.plan_start_min != null ? `${String(Math.floor(todo.plan_start_min / 60)).padStart(2, '0')}:${String(todo.plan_start_min % 60).padStart(2, '0')}` : ''}
+              onChange={async e => {
+                const val = e.target.value
+                if (val) {
+                  const [h, m] = val.split(':').map(Number)
+                  await updateTaskTime(todo.id, h * 60 + m)
+                } else {
+                  await updateTaskTime(todo.id, null)
+                }
+                onUpdate()
+              }}
+              className="flex-1 bg-transparent text-xs text-cd-text outline-none"
+            />
+            <span className="text-[10px] text-cd-text-tertiary shrink-0">甘特图开始时间</span>
+          </div>
+        </div>
       </div>
     </Modal>
   )

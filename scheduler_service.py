@@ -18,9 +18,9 @@ def compute_energy_curve(days: int = 14) -> list:
         cutoff = (date.today() - timedelta(days=days)).isoformat()
         with db.get_conn() as conn:
             rows = conn.execute(
-                "SELECT strftime('%H', start_time) as hour, category, "
-                "COALESCE(SUM(duration_min),0) as total "
-                "FROM activities WHERE date(start_time) >= ? "
+                "SELECT strftime('%H', timestamp) as hour, category, "
+                "COALESCE(SUM(interval_sec) / 60.0, 0) as total "
+                "FROM activities WHERE date(timestamp) >= ? "
                 "GROUP BY hour, category",
                 (cutoff,)
             ).fetchall()

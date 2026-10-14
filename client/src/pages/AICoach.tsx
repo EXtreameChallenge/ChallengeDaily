@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import {
   Sparkles,
   FileText,
@@ -276,7 +276,7 @@ export default function AICoach() {
                   <button
                     key={lv}
                     onClick={() => setGoalLevel(lv)}
-                    className={`px-3 py-1 rounded-xl text-xs transition-colors ${
+                    className={`px-3 py-1 rounded-2xl text-xs transition-colors ${
                       goalLevel === lv
                         ? 'bg-cd-green text-white'
                         : 'text-cd-text-secondary hover:text-cd-text'

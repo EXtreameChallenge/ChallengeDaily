@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import { ClipboardList, Search, Trash2, Copy, Check, FileText, Link2, Image } from 'lucide-react'
 import { request } from '../api/core'
 import { useToast } from '../components/Toast'
@@ -143,7 +143,7 @@ export default function ClipboardHistory() {
           {filtered.map(item => (
             <div
               key={item.id}
-              className="bg-cd-bg-card rounded-xl p-4 border border-white/5 hover:border-white/10 transition group"
+              className="bg-cd-bg-card rounded-2xl p-4 border border-white/5 hover:border-white/10 transition group"
             >
               <div className="flex items-start gap-3">
                 <KindIcon kind={item.kind} />

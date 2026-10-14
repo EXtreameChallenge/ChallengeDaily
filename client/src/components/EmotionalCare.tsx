@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { Sparkles, Heart, PartyPopper, Coffee, Quote, Sunrise } from 'lucide-react'
 import { getQuote, getTodayStats, getTrendStats, getMorningInsights, type MorningInsight } from '../api/client'
 
@@ -155,7 +155,7 @@ export default function EmotionalCare() {
             return (
               <div
                 key={i}
-                className="flex items-start gap-2 px-4 py-2.5 rounded-xl border"
+                className="flex items-start gap-2 px-4 py-2.5 rounded-2xl border"
                 style={{
                   background: colorMap[ins.type] || colorMap.suggestion,
                   borderColor: borderMap[ins.type] || borderMap.suggestion,
@@ -174,7 +174,7 @@ export default function EmotionalCare() {
 
       {/* 每日一句 */}
       {quote && (
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-purple-400/20 bg-gradient-to-r from-purple-500/8 via-pink-500/5 to-amber-500/8">
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-purple-400/20 bg-gradient-to-r from-purple-500/8 via-pink-500/5 to-amber-500/8">
           <Quote size={14} className="text-purple-400 shrink-0" />
           <p className="text-sm text-cd-text-secondary italic flex-1 truncate">{quote}</p>
         </div>
@@ -183,7 +183,7 @@ export default function EmotionalCare() {
       {/* 里程碑庆祝 */}
       {milestone && (
         <div
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-transparent transition-all"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-transparent transition-all"
           style={{
             background: milestone.color,
             borderColor: milestone.color.replace(/0\.18\)/, '0.35)'),
@@ -197,7 +197,7 @@ export default function EmotionalCare() {
 
       {/* 低谷关怀 */}
       {lowpointMsg && !milestone && (
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-400/20 bg-gradient-to-r from-amber-500/8 to-orange-500/8">
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-amber-400/20 bg-gradient-to-r from-amber-500/8 to-orange-500/8">
           <Coffee size={14} className="text-amber-500 shrink-0" />
           <p className="text-sm text-cd-text-secondary flex-1">{lowpointMsg}</p>
         </div>

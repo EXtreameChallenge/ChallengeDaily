@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+﻿import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Plus, Check, Trash2, Clock, Target, Repeat, ListChecks, Play, Calendar, Flame, ChevronRight, GitBranch, Wand2, Loader2 } from 'lucide-react'
 import { getTodos, updateTodo, deleteTodo, getTodayTodos, CATEGORY_COLORS, type TodoV2, formatLocalDate } from '../api/client'
 import { useToast } from '../components/Toast'
@@ -219,7 +219,7 @@ export default function Todos() {
     return (
       <div
         key={todo.id}
-        className={`relative bg-cd-bg-card rounded-xl border border-white/5 overflow-hidden transition hover:border-white/10 ${isCompleted ? 'opacity-60' : ''} ${isChild ? 'ml-6 border-l-2' : ''}`}
+        className={`relative bg-cd-bg-card rounded-2xl border border-white/5 overflow-hidden transition hover:border-white/10 ${isCompleted ? 'opacity-60' : ''} ${isChild ? 'ml-6 border-l-2' : ''}`}
         style={{ borderLeft: isChild ? `2px solid ${catColor}40` : `3px solid ${catColor}` }}
       >
         {/* 卡片头部：标题 + 操作按钮 */}
@@ -443,7 +443,7 @@ export default function Todos() {
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-2.5 py-1 rounded-xl text-xs transition ${
+                className={`px-2.5 py-1 rounded-2xl text-xs transition ${
                   filter === f ? 'bg-cd-accent/20 text-cd-accent' : 'text-cd-text-secondary hover:text-cd-text'
                 }`}
               >

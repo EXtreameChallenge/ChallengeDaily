@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+﻿import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ResponsiveContainer, Tooltip,
@@ -349,7 +349,7 @@ return (
       </div>
 
       {/* P0-4: 今日一句话 AI 摘要卡片 */}
-      <div className="mb-3 card-gradient-border rounded-xl p-4 flex items-center gap-3">
+      <div className="mb-3 card-gradient-border rounded-2xl p-4 flex items-center gap-3">
         <div className="w-8 h-8 rounded-full bg-cd-purple/10 flex items-center justify-center shrink-0">
           <Sparkles size={15} className="text-cd-purple" />
         </div>
@@ -369,7 +369,7 @@ return (
           onClick={() => loadTodaySummary()}
           disabled={summaryRefreshing}
           title="刷新摘要"
-          className="shrink-0 p-1.5 rounded-xl text-cd-text-tertiary hover:text-cd-green hover:bg-cd-bg-secondary transition disabled:opacity-50"
+          className="shrink-0 p-1.5 rounded-2xl text-cd-text-tertiary hover:text-cd-green hover:bg-cd-bg-secondary transition disabled:opacity-50"
         >
           <RefreshCw size={13} className={summaryRefreshing ? 'animate-spin' : ''} />
         </button>
@@ -383,14 +383,14 @@ return (
         {/* 今日时间线 */}
         <div className="col-span-2">
           <CardHeader title="今日时间线" linkTo="/timeline" onNavigate={navigate} />
-          <div className="min-h-[380px]"><TodayTimeline activities={activities} todos={todos} onStartPomodoro={handleStartPomodoro} onCompleteTodo={handleCompleteTodo} /></div>
+          <div><TodayTimeline activities={activities} todos={todos} onStartPomodoro={handleStartPomodoro} onCompleteTodo={handleCompleteTodo} /></div>
         </div>
 
         {/* 右侧快捷面板堆叠 */}
         <div className="space-y-2">
           {/* 番茄钟 */}
           {activePomodoro ? (
-            <div className="bg-cd-card border border-cd-green/30 rounded-xl p-2.5">
+            <div className="bg-cd-card border border-cd-green/30 rounded-2xl p-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-cd-green/10 flex items-center justify-center">
@@ -405,7 +405,7 @@ return (
               </div>
             </div>
           ) : (
-            <div className="bg-cd-card border border-cd-border rounded-xl p-2.5">
+            <div className="bg-cd-card border border-cd-border rounded-2xl p-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-cd-purple/10 flex items-center justify-center">
@@ -425,7 +425,7 @@ return (
 
           {/* 待办 */}
           {todos.length > 0 && (
-            <div className="bg-cd-card border border-cd-border rounded-xl p-2.5">
+            <div className="bg-cd-card border border-cd-border rounded-2xl p-2.5">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
                   <Target size={11} className="text-cd-green" />
@@ -451,7 +451,7 @@ return (
           )}
 
           {/* 时间分布 */}
-          <div className="bg-cd-card border border-cd-border rounded-xl p-2.5">
+          <div className="bg-cd-card border border-cd-border rounded-2xl p-2.5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-cd-text">时间都去哪了</span>
               <button onClick={() => navigate('/timeline')} className="text-[10px] text-cd-text-tertiary hover:text-cd-green transition">更多 →</button>
@@ -488,7 +488,7 @@ return (
       {/* ── 第二行：应用使用 + 效率趋势 + 个人节奏 ── */}
       <div className="grid grid-cols-3 gap-3 mb-3">
         {/* 应用使用 */}
-        <div className="bg-cd-card border border-cd-border rounded-xl p-2.5">
+        <div className="bg-cd-card border border-cd-border rounded-2xl p-2.5">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-cd-text">应用使用</span>
             <button onClick={() => navigate('/apps')} className="text-[10px] text-cd-text-tertiary hover:text-cd-green transition">更多 →</button>
@@ -501,7 +501,7 @@ return (
                 const defaultIcon = import.meta.env.DEV ? '/icon.png' : './icon.png'
                 return (
                   <div key={app.app_name} className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
+                    <div className="w-5 h-5 rounded-2xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
                       <img src={iconUrl || defaultIcon} alt="" className="w-3.5 h-3.5 object-contain" onError={(e) => { e.currentTarget.src = defaultIcon }} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -521,7 +521,7 @@ return (
         </div>
 
         {/* 效率趋势 */}
-        <div className="bg-cd-card border border-cd-border rounded-xl p-2.5">
+        <div className="bg-cd-card border border-cd-border rounded-2xl p-2.5">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-cd-text">效率趋势 <span className="text-cd-text-tertiary font-normal text-[10px]">7d</span></span>
             <button onClick={() => navigate('/timeline')} className="text-[10px] text-cd-text-tertiary hover:text-cd-green transition">更多 →</button>
@@ -547,7 +547,7 @@ return (
         </div>
 
         {/* 个人节奏 */}
-        <div className="bg-cd-card border border-cd-border rounded-xl p-2.5">
+        <div className="bg-cd-card border border-cd-border rounded-2xl p-2.5">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-cd-text">个人节奏</span>
             <button onClick={() => navigate('/heatmap')} className="text-[10px] text-cd-text-tertiary hover:text-cd-green transition">更多 →</button>
@@ -581,7 +581,7 @@ return (
       {/* ── 第三行：热力图(左2) + 行业基准(右1) ── */}
       <div className="grid grid-cols-3 gap-3 mb-3">
         {/* 近三天热力图 */}
-        <div className="col-span-2 bg-cd-card border border-cd-border rounded-xl p-2.5">
+        <div className="col-span-2 bg-cd-card border border-cd-border rounded-2xl p-2.5">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-cd-text">近三天热力图</span>
             <button onClick={() => navigate('/heatmap')} className="text-[10px] text-cd-text-tertiary hover:text-cd-green transition">更多 →</button>
@@ -664,7 +664,7 @@ return (
         </div>
 
         {/* 行业基准 */}
-        <div className="bg-cd-card border border-cd-border rounded-xl p-2.5">
+        <div className="bg-cd-card border border-cd-border rounded-2xl p-2.5">
           <div className="flex items-center gap-1.5 mb-2">
             <Trophy size={11} className="text-cd-green" />
             <span className="text-xs font-semibold text-cd-text">行业基准</span>
@@ -677,7 +677,7 @@ return (
       {(timeOfDay === 'morning' || timeOfDay === 'forenoon') && morningInsights.length > 0 && (
         <div className="mb-3">
           <CardHeader title="AI 晨报洞察" linkTo="/report" onNavigate={navigate} />
-          <div className="bg-cd-card border border-cd-border rounded-xl p-2.5 space-y-2">
+          <div className="bg-cd-card border border-cd-border rounded-2xl p-2.5 space-y-2">
             {morningInsights.slice(0, 3).map((insight, i) => (
               <div key={i} className="flex items-start gap-2">
                 <Sparkles size={12} className="text-cd-purple mt-0.5 shrink-0" />

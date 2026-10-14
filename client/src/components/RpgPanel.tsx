@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react'
+﻿import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Coins, Heart, Sparkles, Package, ChevronRight, X, Utensils } from 'lucide-react'
 import { useGrowthStore, type EquipSlot, type EquippedItem, type PetStage } from '../stores/growthStore'
@@ -148,7 +148,7 @@ export default function RpgPanel({ compact = false }: RpgPanelProps) {
       {/* ─── 金币 + 背包按钮 ──────────────────── */}
       <div className="flex items-center gap-1.5 mt-2">
         <div
-          className="flex items-center gap-1 px-2 py-1 rounded-xl flex-1"
+          className="flex items-center gap-1 px-2 py-1 rounded-2xl flex-1"
           style={{
             background: 'linear-gradient(90deg, rgba(251,191,36,0.12), rgba(255,149,0,0.08))',
             border: '1px solid rgba(251,191,36,0.25)',
@@ -160,7 +160,7 @@ export default function RpgPanel({ compact = false }: RpgPanelProps) {
         </div>
         <button
           onClick={handleOpenInventory}
-          className="flex items-center gap-1 px-2 py-1 rounded-xl text-[11px] text-cd-text-secondary hover:text-cd-text transition-colors"
+          className="flex items-center gap-1 px-2 py-1 rounded-2xl text-[11px] text-cd-text-secondary hover:text-cd-text transition-colors"
           style={{
             background: 'var(--cd-bg-secondary)',
             border: '1px solid var(--cd-border)',
@@ -185,7 +185,7 @@ export default function RpgPanel({ compact = false }: RpgPanelProps) {
                 key={slot}
                 onClick={() => handleSlotClick(slot)}
                 title={`${cfg.label}：${eq ? eq.name : '空'}`}
-                className="relative aspect-square rounded-xl flex items-center justify-center transition-all hover:scale-105"
+                className="relative aspect-square rounded-2xl flex items-center justify-center transition-all hover:scale-105"
                 style={{
                   background: eq ? 'rgba(175,82,222,0.1)' : 'var(--cd-bg-secondary)',
                   border: `1px solid ${eq ? 'rgba(175,82,222,0.4)' : 'var(--cd-border)'}`,
@@ -205,7 +205,7 @@ export default function RpgPanel({ compact = false }: RpgPanelProps) {
       </div>
 
       {/* ─── 宠物状态 ──────────────────────────── */}
-      <div className="mt-2 px-2 py-1.5 rounded-xl" style={{
+      <div className="mt-2 px-2 py-1.5 rounded-2xl" style={{
         background: 'rgba(175,82,222,0.06)',
         border: '1px solid rgba(175,82,222,0.18)',
       }}>
@@ -385,7 +385,7 @@ function SlotPicker({ slot, equipped, candidates, onClose, onOpenInventory }: Sl
     >
       <motion.div
         ref={pickerRef}
-        className="rounded-xl shadow-2xl w-72 overflow-hidden bg-cd-card border border-cd-border"
+        className="rounded-2xl shadow-2xl w-72 overflow-hidden bg-cd-card border border-cd-border"
         initial={{ scale: 0.9, opacity: 0, y: 10 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.9, opacity: 0, y: 10 }}
@@ -410,7 +410,7 @@ function SlotPicker({ slot, equipped, candidates, onClose, onOpenInventory }: Sl
           {equipped && (
             <div className="mb-2">
               <div className="text-[10px] text-cd-text-tertiary px-1 mb-1">当前装备</div>
-              <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl" style={{
+              <div className="flex items-center gap-2 px-2 py-1.5 rounded-2xl" style={{
                 background: 'rgba(175,82,222,0.08)',
                 border: '1px solid rgba(175,82,222,0.3)',
               }}>
@@ -445,7 +445,7 @@ function SlotPicker({ slot, equipped, candidates, onClose, onOpenInventory }: Sl
                   key={item.item_key}
                   onClick={() => handleEquip(item.item_key)}
                   disabled={loading}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-cd-hover disabled:opacity-50 text-left transition-colors"
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-2xl hover:bg-cd-hover disabled:opacity-50 text-left transition-colors"
                 >
                   <span className="text-lg">{item.icon || cfg.icon}</span>
                   <div className="flex-1 min-w-0">
@@ -460,7 +460,7 @@ function SlotPicker({ slot, equipped, candidates, onClose, onOpenInventory }: Sl
 
           <button
             onClick={onOpenInventory}
-            className="mt-2 w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] text-cd-purple hover:bg-cd-purple/10"
+            className="mt-2 w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-2xl text-[11px] text-cd-purple hover:bg-cd-purple/10"
           >
             <Package size={11} />
             打开完整背包

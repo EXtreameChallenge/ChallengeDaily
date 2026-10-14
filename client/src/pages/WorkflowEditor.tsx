@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+﻿import { useState, useCallback, useEffect } from 'react'
 import { Zap, Plus, Trash2, Play, Bell, Brain, FileText, Clock, Activity, AlertTriangle } from 'lucide-react'
 import { getRules, createRule, deleteRule, toggleRule, evaluateRules, type Rule, type RuleEvalResult } from '../api/client'
 import { RULE_TEMPLATES, type RuleTemplate } from '../data/ruleTemplates'
@@ -134,7 +134,7 @@ export default function WorkflowEditor() {
 
       {/* Template Panel */}
       {showTemplates && (
-        <div className="bg-cd-bg-card rounded-xl p-5 border border-cd-accent/20 mb-6">
+        <div className="bg-cd-bg-card rounded-2xl p-5 border border-cd-accent/20 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-cd-text">规则模板库</h2>
             <button onClick={() => setShowTemplates(false)}
@@ -170,7 +170,7 @@ export default function WorkflowEditor() {
 
       {/* Triggered Rules */}
       {triggered.length > 0 && (
-        <div className="bg-orange-500/10 border border-orange-400/20 rounded-xl p-4 mb-6">
+        <div className="bg-orange-500/10 border border-orange-400/20 rounded-2xl p-4 mb-6">
           <h2 className="text-sm font-semibold text-orange-400 mb-2 flex items-center gap-2">
             <Bell size={14} /> 刚刚触发的规则
           </h2>
@@ -194,7 +194,7 @@ export default function WorkflowEditor() {
       )}
 
       {/* Rules Canvas */}
-      <div className="bg-cd-bg-card rounded-xl p-5 border border-white/5">
+      <div className="bg-cd-bg-card rounded-2xl p-5 border border-white/5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-cd-text">规则画布</h2>
           <span className="text-xs text-cd-text-tertiary">{rules.length} 条规则</span>

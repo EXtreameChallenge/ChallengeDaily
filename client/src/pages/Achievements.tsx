@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import { Trophy, Lock, Sparkles, Crown, Calendar, History, Share2, Download, X } from 'lucide-react'
 import { getAchievements, checkAchievements, getQuote, getSeason, getSeasonHistory, type Achievement, type SeasonData, type SeasonHistoryItem } from '../api/client'
 import { useToast } from '../components/Toast'
@@ -234,14 +234,14 @@ export default function Achievements() {
 
       {/* 格言 */}
       {quote && (
-        <div className="bg-gradient-to-r from-cd-accent/10 to-gold/10 rounded-xl p-4 border border-cd-accent/20 mb-6">
+        <div className="bg-gradient-to-r from-cd-accent/10 to-gold/10 rounded-2xl p-4 border border-cd-accent/20 mb-6">
           <p className="text-base text-cd-text italic leading-relaxed">{quote}</p>
         </div>
       )}
 
       {/* 新解锁通知 */}
       {newlyUnlocked.length > 0 && (
-        <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-6">
+        <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-4 mb-6">
           <div className="flex items-center gap-2 text-green-400 font-medium mb-1">
             <Sparkles size={18} /> 新成就解锁！
           </div>
@@ -264,7 +264,7 @@ export default function Achievements() {
                 const unlocked = unlockedCodes.has(badge.code)
                 const isHidden = badge.hidden && !unlocked
                 return (
-                  <div key={badge.code} className={`rounded-xl p-4 border text-center transition ${
+                  <div key={badge.code} className={`rounded-2xl p-4 border text-center transition ${
                     unlocked ? 'bg-cd-bg-card border-gold/20' : isHidden ? 'bg-cd-bg-card border-white/5 opacity-30' : 'bg-cd-bg-card border-white/5 opacity-40'
                   }`}>
                     <div className="text-4xl mb-2">{unlocked ? badge.icon : isHidden ? '❓' : '🔒'}</div>
@@ -282,7 +282,7 @@ export default function Achievements() {
 
       {/* P10-4：本月赛季成就 */}
       {season && (
-        <div className="mt-8 bg-gradient-to-br from-purple-500/10 to-gold/5 rounded-xl p-5 border border-purple-400/20">
+        <div className="mt-8 bg-gradient-to-br from-purple-500/10 to-gold/5 rounded-2xl p-5 border border-purple-400/20">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-cd-text flex items-center gap-2">
               <Crown size={20} className="text-gold" /> 本月赛季
@@ -314,7 +314,7 @@ export default function Achievements() {
               <div className="text-xs text-cd-text-tertiary mb-2">近 {seasonHistory.length} 个月赛季回顾</div>
               <div className="flex flex-wrap gap-2">
                 {seasonHistory.map(h => (
-                  <div key={h.season_key} className="rounded-xl px-3 py-1.5 bg-cd-bg-secondary border border-white/5 text-xs">
+                  <div key={h.season_key} className="rounded-2xl px-3 py-1.5 bg-cd-bg-secondary border border-white/5 text-xs">
                     <span className="text-cd-text-secondary">{h.season_key}</span>
                     <span className="text-cd-text-tertiary mx-1">·</span>
                     <span className="text-gold">{h.unlocked_count}/{h.total_count}</span>

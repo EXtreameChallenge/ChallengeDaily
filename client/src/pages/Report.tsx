@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import {
   generateDailyReport,
   generateWeeklyReport,
@@ -467,7 +467,7 @@ export default function Report() {
           </h3>
           <button
             onClick={openCreateEditor}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs bg-cd-green hover:bg-cd-green-dark text-white transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-2xl text-xs bg-cd-green hover:bg-cd-green-dark text-white transition-colors"
           >
             <Plus size={12} /> 新建模板
           </button>
@@ -523,7 +523,7 @@ export default function Report() {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleDownload}
-                className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border"
+                className="flex items-center gap-1 px-3 py-1 rounded-2xl text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border"
               >
                 <Download size={12} />
                 下载
@@ -531,7 +531,7 @@ export default function Report() {
               <button
                 onClick={handleExportObsidian}
                 disabled={obsidianExporting || !content}
-                className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs bg-cd-purple/15 hover:bg-cd-purple/25 text-cd-purple transition-colors border border-cd-purple/30 disabled:opacity-40"
+                className="flex items-center gap-1 px-3 py-1 rounded-2xl text-xs bg-cd-purple/15 hover:bg-cd-purple/25 text-cd-purple transition-colors border border-cd-purple/30 disabled:opacity-40"
                 title="导出为 Obsidian Dataview 双向链接格式"
               >
                 <BookMarked size={12} />
@@ -539,7 +539,7 @@ export default function Report() {
               </button>
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border"
+                className="flex items-center gap-1 px-3 py-1 rounded-2xl text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border"
               >
                 {copied ? <Check size={12} /> : <Copy size={12} />}
                 {copied ? '已复制' : '复制'}
@@ -547,7 +547,7 @@ export default function Report() {
               <button
                 onClick={handleSubmit}
                 disabled={!content || submitting}
-                className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs bg-cd-accent/20 hover:bg-cd-accent/30 text-cd-accent transition-colors border border-cd-accent/30 disabled:opacity-40"
+                className="flex items-center gap-1 px-3 py-1 rounded-2xl text-xs bg-cd-accent/20 hover:bg-cd-accent/30 text-cd-accent transition-colors border border-cd-accent/30 disabled:opacity-40"
                 title="一键提交到飞书/钉钉/邮件"
               >
                 <Send size={12} />
@@ -556,7 +556,7 @@ export default function Report() {
               <button
                 onClick={handleScore}
                 disabled={!content || scoring}
-                className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs bg-cd-purple/20 hover:bg-cd-purple/30 text-cd-purple transition-colors border border-cd-purple/30 disabled:opacity-40"
+                className="flex items-center gap-1 px-3 py-1 rounded-2xl text-xs bg-cd-purple/20 hover:bg-cd-purple/30 text-cd-purple transition-colors border border-cd-purple/30 disabled:opacity-40"
                 title="日报质量4维评分"
               >
                 <Gauge size={12} />
@@ -565,7 +565,7 @@ export default function Report() {
               <button
                 onClick={() => setShowSaveModal(true)}
                 disabled={!content}
-                className="flex items-center gap-1 px-3 py-1 rounded-xl text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border disabled:opacity-40"
+                className="flex items-center gap-1 px-3 py-1 rounded-2xl text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border disabled:opacity-40"
               >
                 <Save size={12} />
                 存为模板

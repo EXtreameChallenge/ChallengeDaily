@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import dayjs from 'dayjs'
 import {
   getHealthCoverage,
@@ -113,7 +113,7 @@ function SystemUptimeCard({ coverage }: { coverage: HealthCoverage }) {
   const currentUptimeM = Math.floor((sys.current_uptime_sec % 3600) / 60)
 
   return (
-    <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-4">
+    <div className="bg-cd-bg-secondary border border-cd-border rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-cd-text-tertiary">系统运行时长</span>
         <span className="text-[10px] text-cd-text-tertiary bg-cd-bg px-2 py-0.5 rounded-lg">
@@ -155,7 +155,7 @@ function SystemUptimeCard({ coverage }: { coverage: HealthCoverage }) {
 function CollectedCard({ coverage }: { coverage: HealthCoverage }) {
   const c = coverage.collected
   return (
-    <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-4">
+    <div className="bg-cd-bg-secondary border border-cd-border rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-cd-text-tertiary">应用采集时长</span>
         <span className="text-[10px] text-cd-text-tertiary bg-cd-bg px-2 py-0.5 rounded-lg">
@@ -209,7 +209,7 @@ function CoverageCard({ coverage }: { coverage: HealthCoverage }) {
   const offset = circ - (pct / 100) * circ
 
   return (
-    <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-4">
+    <div className="bg-cd-bg-secondary border border-cd-border rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-cd-text-tertiary">采集覆盖率</span>
         <span className="text-[10px] text-cd-text-tertiary bg-cd-bg px-2 py-0.5 rounded-lg">
@@ -266,7 +266,7 @@ function SessionTimeline({ coverage }: { coverage: HealthCoverage }) {
   const sessions = coverage.system.sessions
   if (sessions.length === 0) {
     return (
-      <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-4">
+      <div className="bg-cd-bg-secondary border border-cd-border rounded-2xl p-4">
         <h2 className="text-sm font-semibold text-cd-text mb-2">系统会话段</h2>
         <div className="text-[11px] text-cd-text-tertiary">当天无系统会话记录</div>
       </div>
@@ -279,7 +279,7 @@ function SessionTimeline({ coverage }: { coverage: HealthCoverage }) {
   const dayRangeSec = 24 * 3600
 
   return (
-    <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-4">
+    <div className="bg-cd-bg-secondary border border-cd-border rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-cd-text">系统会话时间条</h2>
         <span className="text-[10px] text-cd-text-tertiary">
@@ -380,7 +380,7 @@ function MissingPeriodsCard({ coverage }: { coverage: HealthCoverage }) {
   const periods = coverage.gap.missing_periods
 
   return (
-    <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-4">
+    <div className="bg-cd-bg-secondary border border-cd-border rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-cd-text">漏采时段</h2>
         <span className="text-[10px] text-cd-text-tertiary">
@@ -452,7 +452,7 @@ function SamplingDeviationCard({ sampling }: { sampling: SamplingDeviation }) {
   const maxBucket = Math.max(1, ...buckets.map((b) => b.count))
 
   return (
-    <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-4">
+    <div className="bg-cd-bg-secondary border border-cd-border rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-cd-text">采样间隔分布</h2>
         <span className="text-[10px] text-cd-text-tertiary">
@@ -545,7 +545,7 @@ function SystemEventsCard({ events }: { events: HealthSystemEvents }) {
   const uptimeM = Math.floor((events.uptime_sec % 3600) / 60)
 
   return (
-    <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-4">
+    <div className="bg-cd-bg-secondary border border-cd-border rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-cd-text">系统事件原始日志</h2>
         <span className="text-[10px] text-cd-text-tertiary">

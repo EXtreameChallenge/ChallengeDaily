@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import { getStatus, getSettings, updateSettings, testAiConnection, downloadExportActivities, downloadExportAppUsage, getBackupInfo, downloadBackup, restoreBackup, previewImport, executeImport, request, getMemoryStatus, uploadOpmlFile, type CollectorStatus, type BackendSettings, type MemoryStatus } from '../api/client'
 import { ToggleSwitch, useTimeout, useAsyncData, ApiErrorDisplay } from '../components/shared'
 import { useToast } from '../components/Toast'
@@ -596,7 +596,7 @@ export default function Settings() {
                   <button
                     key={i}
                     onClick={() => setSkinIndex(i)}
-                    className={`relative rounded-xl border-2 p-2.5 transition-all duration-150 ${
+                    className={`relative rounded-2xl border-2 p-2.5 transition-all duration-150 ${
                       i === skinIndex
                         ? 'border-cd-green'
                         : 'border-cd-border hover:border-cd-text-tertiary'
@@ -661,7 +661,7 @@ export default function Settings() {
                 <button
                   key={opt.key}
                   onClick={() => setThemeExplicit(opt.key)}
-                  className={`px-2.5 py-1 text-xs rounded-xl transition ${
+                  className={`px-2.5 py-1 text-xs rounded-2xl transition ${
                     theme === opt.key
                       ? 'bg-cd-green text-white shadow-sm'
                       : 'text-cd-text-secondary hover:text-cd-text'

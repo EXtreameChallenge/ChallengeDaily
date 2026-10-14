@@ -1,4 +1,4 @@
-/**
+﻿/**
  * DeepProfile — 深度画像统一页面
  * 整合原个人画像 + 深度洞察 + 个人习惯配置
  * 5个区块：基础画像 → 行为画像 → AI自我认知 → 学术框架分析 → 个人习惯配置
@@ -404,7 +404,7 @@ export default function DeepProfile() {
   if (error) {
     return (
       <div className="animate-fade-in max-w-4xl mx-auto">
-        <div className="bg-cd-card border border-cd-border rounded-xl p-8 text-center">
+        <div className="bg-cd-card border border-cd-border rounded-2xl p-8 text-center">
           <AlertCircle size={40} className="text-cd-red mx-auto mb-3" />
           <h2 className="text-lg font-semibold text-cd-text mb-2">加载失败</h2>
           <p className="text-sm text-cd-text-secondary mb-4">{error}</p>
@@ -471,7 +471,7 @@ export default function DeepProfile() {
           <SummaryCard icon={Zap} label="效率模式" value={workHabits?.efficiency_pattern || '暂无数据'} />
         </div>
 
-        <section className="bg-cd-card border border-cd-border rounded-xl p-5">
+        <section className="bg-cd-card border border-cd-border rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-cd-text mb-4 flex items-center gap-2">
             <Clock size={16} className="text-cd-green" /> 工作习惯
           </h3>
@@ -513,7 +513,7 @@ export default function DeepProfile() {
         <SectionHeader icon={Activity} title="行为画像" subtitle="软件、内容与行为模式" />
 
         {/* 常用软件 */}
-        <section className="bg-cd-card border border-cd-border rounded-xl p-3.5">
+        <section className="bg-cd-card border border-cd-border rounded-2xl p-3.5">
           <h3 className="text-sm font-semibold text-cd-text mb-2.5 flex items-center gap-2">
             <Monitor size={16} className="text-cd-green" /> 常用软件
           </h3>
@@ -524,7 +524,7 @@ export default function DeepProfile() {
               {commonSoftware.map((app, idx) => (
                 <div key={app.app_name} className="flex items-center gap-2">
                   <span className="w-5 text-center text-xs text-cd-text-tertiary font-mono shrink-0">{idx + 1}</span>
-                  <div className="w-7 h-7 rounded-xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="w-7 h-7 rounded-2xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center shrink-0 overflow-hidden">
                     <img src={iconUrls[app.app_name] || DEFAULT_ICON} alt="" className="w-5 h-5 object-contain" onError={(e) => { e.currentTarget.src = DEFAULT_ICON }} />
                   </div>
                   <span className="flex-1 text-sm font-medium text-cd-text truncate">{app.app_name}</span>
@@ -540,7 +540,7 @@ export default function DeepProfile() {
 
         {/* 工作内容类型 + 行为模式 双栏 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <section className="bg-cd-card border border-cd-border rounded-xl p-5">
+          <section className="bg-cd-card border border-cd-border rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-cd-text mb-3 flex items-center gap-2">
               <Tag size={16} className="text-cd-green" /> 工作内容类型
             </h3>
@@ -555,7 +555,7 @@ export default function DeepProfile() {
             )}
           </section>
 
-          <section className="bg-cd-card border border-cd-border rounded-xl p-5">
+          <section className="bg-cd-card border border-cd-border rounded-2xl p-5">
             <h3 className="text-sm font-semibold text-cd-text mb-3 flex items-center gap-2">
               <Activity size={16} className="text-cd-green" /> 行为模式特征
             </h3>
@@ -575,7 +575,7 @@ export default function DeepProfile() {
         </div>
 
         {/* 分类纠正 */}
-        <section className="bg-cd-card border border-cd-border rounded-xl p-5">
+        <section className="bg-cd-card border border-cd-border rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-cd-text mb-3 flex items-center gap-2">
             <Wrench size={16} className="text-cd-green" /> 分类纠正记录
           </h3>
@@ -605,9 +605,9 @@ export default function DeepProfile() {
       <div id="section-2" className="space-y-4">
         <SectionHeader icon={Fingerprint} title="AI 自我认知" subtitle="基于累积数据的心理学推断，越用越懂你" />
 
-        <div className="bg-gradient-to-br from-purple-500/10 via-indigo-500/10 to-blue-500/10 dark:from-[#1E1E2E] dark:to-[#252538] border border-cd-border rounded-xl p-6">
+        <div className="bg-gradient-to-br from-purple-500/10 via-indigo-500/10 to-blue-500/10 dark:from-[#1E1E2E] dark:to-[#252538] border border-cd-border rounded-2xl p-6">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center shrink-0">
               <Fingerprint size={24} className="text-purple-400" />
             </div>
             <div className="flex-1">
@@ -690,7 +690,7 @@ export default function DeepProfile() {
         <SectionHeader icon={Brain} title="学术框架分析" subtitle="14 大心理学/教育学/社会学框架量化指标" />
 
         {insight?.status === 'no_data' ? (
-          <div className="bg-cd-card border border-cd-border rounded-xl p-8 text-center">
+          <div className="bg-cd-card border border-cd-border rounded-2xl p-8 text-center">
             <Brain size={40} className="text-cd-text-tertiary mx-auto mb-3" />
             <p className="text-sm text-cd-text-secondary">今天还没有活动记录，开始工作后即可查看深度洞察分析</p>
           </div>
@@ -698,7 +698,7 @@ export default function DeepProfile() {
           <>
             {/* 综合发现 */}
             {summary && summary.findings && summary.findings.length > 0 && (
-              <div className="bg-cd-card rounded-xl border border-cd-border p-5">
+              <div className="bg-cd-card rounded-2xl border border-cd-border p-5">
                 <h3 className="text-sm font-semibold text-cd-text mb-3 flex items-center gap-2">
                   <Award size={16} className="text-cd-gold" /> 综合发现
                 </h3>
@@ -724,7 +724,7 @@ export default function DeepProfile() {
 
             {/* 雷达图 */}
             {radarData.length >= 3 && (
-              <div className="bg-cd-card rounded-xl border border-cd-border p-5">
+              <div className="bg-cd-card rounded-2xl border border-cd-border p-5">
                 <h3 className="text-sm font-semibold text-cd-text mb-4 flex items-center gap-2">
                   <Info size={16} className="text-cd-blue" /> 全维度雷达图
                 </h3>
@@ -755,7 +755,7 @@ export default function DeepProfile() {
                 const metricEntries = Object.entries(metrics).filter(([, v]) => typeof v === 'number' || typeof v === 'string')
 
                 return (
-                  <div key={id} className="bg-cd-card rounded-xl border border-cd-border overflow-hidden transition-all">
+                  <div key={id} className="bg-cd-card rounded-2xl border border-cd-border overflow-hidden transition-all">
                     <button
                       onClick={() => setExpandedFw(isExpanded ? null : id)}
                       className="w-full flex items-center gap-3 p-4 hover:bg-cd-hover transition-colors text-left"
@@ -837,7 +837,7 @@ export default function DeepProfile() {
             </div>
 
             {/* 学术引用 */}
-            <div className="bg-cd-card rounded-xl border border-cd-border p-5">
+            <div className="bg-cd-card rounded-2xl border border-cd-border p-5">
               <h3 className="text-sm font-semibold text-cd-text mb-3 flex items-center gap-2">
                 <BookOpen size={16} className="text-cd-purple" /> 学术引用
               </h3>
@@ -860,7 +860,7 @@ export default function DeepProfile() {
       <div id="section-4" className="space-y-4">
         <SectionHeader icon={Wrench} title="个人习惯配置" subtitle="帮助 AI 更理解你的工作方式，仅保存在本地" />
 
-        <div className="bg-cd-card border border-cd-border rounded-xl p-5 space-y-4">
+        <div className="bg-cd-card border border-cd-border rounded-2xl p-5 space-y-4">
           <div>
             <label className="text-xs text-cd-text-secondary block mb-1">角色 / 岗位描述</label>
             <textarea value={roleDesc} onChange={(e) => setRoleDesc(e.target.value)} rows={2}
@@ -940,7 +940,7 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
 
 function SummaryCard({ icon: Icon, label, value }: { icon: React.ElementType<{ size?: number | string; className?: string }>; label: string; value: string }) {
   return (
-    <div className="bg-cd-card border border-cd-border rounded-xl p-4">
+    <div className="bg-cd-card border border-cd-border rounded-2xl p-4">
       <div className="flex items-center gap-2 mb-2">
         <Icon size={16} className="text-cd-green" />
         <span className="text-sm text-cd-text-secondary">{label}</span>
@@ -976,7 +976,7 @@ function CognitionCard({ icon: Icon, title, color, placeholder, content, confide
   confidence?: number; dataPoints?: number; updatedAt?: string;
 }) {
   return (
-    <div className="bg-cd-bg-secondary/50 rounded-xl p-4 border border-cd-border/50">
+    <div className="bg-cd-bg-secondary/50 rounded-2xl p-4 border border-cd-border/50">
       <div className="flex items-center gap-2 mb-2">
         <div className="w-7 h-7 rounded-2xl flex items-center justify-center" style={{ background: `${color}20`, color }}>
           <Icon size={14} />

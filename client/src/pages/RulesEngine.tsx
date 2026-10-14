@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { Zap, RefreshCw, Bell, Brain, FileText, Play } from 'lucide-react'
 import { getRules, toggleRule, evaluateRules, type Rule, type RuleEvalResult } from '../api/client'
 import { useToast } from '../components/Toast'
@@ -67,7 +67,7 @@ export default function RulesEngine() {
 
       {/* 触发的规则 */}
       {triggered.length > 0 && (
-        <div className="bg-orange-500/10 border border-orange-400/20 rounded-xl p-4 mb-6">
+        <div className="bg-orange-500/10 border border-orange-400/20 rounded-2xl p-4 mb-6">
           <h2 className="text-sm font-semibold text-orange-400 mb-2 flex items-center gap-2">
             <Bell size={14} /> 刚刚触发的规则
           </h2>
@@ -91,7 +91,7 @@ export default function RulesEngine() {
       )}
 
       {/* 规则列表 */}
-      <div className="bg-cd-bg-card rounded-xl p-5 border border-white/5">
+      <div className="bg-cd-bg-card rounded-2xl p-5 border border-white/5">
         <h2 className="text-sm font-semibold text-cd-text mb-4">已配置规则</h2>
         {rules.length === 0 ? (
           <div className="text-center py-8 text-cd-text-tertiary text-sm">

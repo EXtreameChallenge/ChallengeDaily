@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react'
+﻿import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { Edit3, Check, RotateCcw, GripVertical } from 'lucide-react'
 
 export interface WidgetConfig {
@@ -161,7 +161,7 @@ export default function WidgetGrid({ storageKey, widgets, renderWidget }: Widget
                 onDragOver={(e) => editMode && handleDragOver(e, id)}
                 onDrop={(e) => editMode && handleDrop(e, id)}
                 onDragEnd={() => { setDraggedId(null); setDragOverId(null) }}
-                className={`relative transition ${isDragged ? 'opacity-40' : ''} ${isDragOver ? 'ring-2 ring-cd-green/40 rounded-xl' : ''} ${editMode ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                className={`relative transition ${isDragged ? 'opacity-40' : ''} ${isDragOver ? 'ring-2 ring-cd-green/40 rounded-2xl' : ''} ${editMode ? 'cursor-grab active:cursor-grabbing' : ''}`}
               >
                 {/* Edit mode overlay */}
                 {editMode && (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+﻿import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Calendar, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, Cell as RechartsCell, ResponsiveContainer, Tooltip,
@@ -305,7 +305,7 @@ export default function WeekPlan() {
     if (!weekStats) return null
     const chartData = weekStats.daily_focus.map(d => ({ date: d.date, focus: d.focus_min, label: fmtDate(d.date).split('/')[1] }))
     return (
-      <div className="flex items-center gap-4 px-4 border-t border-cd-border bg-cd-bg-secondary rounded-b-xl" style={{ height: 56 }}>
+      <div className="flex items-center gap-4 px-4 border-t border-cd-border bg-cd-bg-secondary rounded-b-2xl" style={{ height: 56 }}>
         <div style={{ width: 120, height: 40 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
@@ -468,7 +468,7 @@ export default function WeekPlan() {
       {/* AI 拆解草案弹窗 */}
       {splitDraft !== null && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="rounded-xl max-w-2xl w-full max-h-[85vh] overflow-auto flex flex-col bg-cd-card border border-cd-border">
+          <div className="rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-auto flex flex-col bg-cd-card border border-cd-border">
             <div className="flex items-center justify-between px-5 py-3 border-b border-cd-border">
               <h3 className="text-sm font-semibold text-cd-text">🤖 AI 拆解目标为周待办</h3>
               <button onClick={() => { setSplitDraft(null); setSplitGoalTitle(''); setSplitGoalDesc('') }} className="text-cd-text-tertiary hover:text-cd-text">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import {
   ChevronLeft, ChevronRight, Calendar, Loader2, CheckCircle, Flame, Timer,
   BarChart3, Trophy, Sparkles, FileText, TrendingUp,
@@ -124,7 +124,7 @@ export default function DailyCards() {
       ) : (
         <div className="space-y-4">
           {/* 评分卡 */}
-          <div className="bg-gradient-to-br from-cd-bg-card to-cd-bg-card/80 rounded-xl border border-cd-accent/20 p-6">
+          <div className="bg-gradient-to-br from-cd-bg-card to-cd-bg-card/80 rounded-2xl border border-cd-accent/20 p-6">
             <div className="flex items-center gap-4">
               {/* 评分圆环 */}
               <div className="relative w-20 h-20 shrink-0">
@@ -185,7 +185,7 @@ export default function DailyCards() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* 待办完成 */}
             {card!.todos_completed.length > 0 && (
-              <div className="bg-cd-bg-card rounded-xl border border-white/5 p-4">
+              <div className="bg-cd-bg-card rounded-2xl border border-white/5 p-4">
                 <div className="text-sm font-semibold text-cd-text mb-3 flex items-center gap-1.5">
                   <CheckCircle size={14} className="text-cd-green" /> 已完成待办
                   <span className="text-xs text-cd-text-tertiary font-normal">({card!.todos_count})</span>
@@ -203,7 +203,7 @@ export default function DailyCards() {
 
             {/* 专注会话 */}
             {card!.pomodoro_sessions.length > 0 && (
-              <div className="bg-cd-bg-card rounded-xl border border-white/5 p-4">
+              <div className="bg-cd-bg-card rounded-2xl border border-white/5 p-4">
                 <div className="text-sm font-semibold text-cd-text mb-3 flex items-center gap-1.5">
                   <Timer size={14} className="text-cd-accent" /> 专注会话
                   <span className="text-xs text-cd-text-tertiary font-normal">({card!.pomodoro_count}次 / {card!.pomodoro_total_min}min)</span>
@@ -221,7 +221,7 @@ export default function DailyCards() {
 
             {/* 工作分布 */}
             {Object.keys(card!.activity_categories).length > 0 && (
-              <div className="bg-cd-bg-card rounded-xl border border-white/5 p-4">
+              <div className="bg-cd-bg-card rounded-2xl border border-white/5 p-4">
                 <div className="text-sm font-semibold text-cd-text mb-3 flex items-center gap-1.5">
                   <TrendingUp size={14} className="text-blue-400" /> 工作分布
                   <span className="text-xs text-cd-text-tertiary font-normal">({card!.activity_total_min}min)</span>
@@ -245,7 +245,7 @@ export default function DailyCards() {
 
             {/* 习惯打卡 */}
             {card!.habits_logged.length > 0 && (
-              <div className="bg-cd-bg-card rounded-xl border border-white/5 p-4">
+              <div className="bg-cd-bg-card rounded-2xl border border-white/5 p-4">
                 <div className="text-sm font-semibold text-cd-text mb-3 flex items-center gap-1.5">
                   <Flame size={14} className="text-orange-400" /> 习惯打卡
                   <span className="text-xs text-cd-text-tertiary font-normal">({card!.habits_count})</span>
@@ -264,7 +264,7 @@ export default function DailyCards() {
 
             {/* 成就解锁 */}
             {card!.achievements_unlocked.length > 0 && (
-              <div className="bg-cd-bg-card rounded-xl border border-white/5 p-4 md:col-span-2">
+              <div className="bg-cd-bg-card rounded-2xl border border-white/5 p-4 md:col-span-2">
                 <div className="text-sm font-semibold text-cd-text mb-3 flex items-center gap-1.5">
                   <Trophy size={14} className="text-yellow-400" /> 解锁成就
                   <span className="text-xs text-cd-text-tertiary font-normal">({card!.achievements_count})</span>

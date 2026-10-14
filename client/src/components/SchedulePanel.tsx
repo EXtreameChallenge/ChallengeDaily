@@ -27,6 +27,7 @@ export default function SchedulePanel({ initialSchedule }: Props) {
   const [loading, setLoading] = useState(false)
   const [adopted, setAdopted] = useState(false)
   const [error, setError] = useState('')
+  const [hasFetched, setHasFetched] = useState(false)
 
   const fetchSchedule = useCallback(async () => {
     setLoading(true)
@@ -34,6 +35,7 @@ export default function SchedulePanel({ initialSchedule }: Props) {
     try {
       const data = await request('/api/scheduler/suggest') as { schedule?: ScheduleBlock[] }
       setSchedule(data.schedule || [])
+      setHasFetched(true)
     } catch {
       setError('获取排程建议失败')
     } finally {
@@ -58,6 +60,19 @@ export default function SchedulePanel({ initialSchedule }: Props) {
   }
 
   if (!schedule.length && !loading) {
+    if (hasFetched) {
+      return (
+        <div className="text-center py-4 space-y-2">
+          <p className="text-xs text-cd-text-tertiary">暂无待办任务，先去待办清单添加任务吧</p>
+          <button
+            onClick={fetchSchedule}
+            className="text-xs text-cd-green hover:text-cd-green/80 font-medium transition-colors"
+          >
+            重新获取
+          </button>
+        </div>
+      )
+    }
     return (
       <div className="text-center py-4">
         <button

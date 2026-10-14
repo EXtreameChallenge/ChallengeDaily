@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+﻿import { useEffect } from 'react'
 import { X, Command, Keyboard } from 'lucide-react'
 
 const SHORTCUT_GROUPS = [
@@ -52,7 +52,7 @@ export function ShortcutHelp({ open, onClose }: { open: boolean; onClose: () => 
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg mx-4 bg-cd-bg-card rounded-xl border border-cd-border shadow-2xl overflow-hidden"
+        className="w-full max-w-lg mx-4 bg-cd-bg-card rounded-2xl border border-cd-border shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* 标题 */}

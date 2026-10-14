@@ -114,7 +114,7 @@ export default function DayView({
               当日无任务
             </div>
           ) : (
-            <div className="rounded-xl overflow-hidden bg-cd-card border border-cd-border">
+            <div className="rounded-2xl overflow-hidden bg-cd-card border border-cd-border">
               {/* 时间刻度 */}
               <TimeAxis mode="hour" start={8} end={22} cellWidth={60} labelOffset={LEFT_LABEL_W} height={24}
                 highlightIndex={isToday ? now.getHours() - 8 : -1} />
@@ -214,7 +214,7 @@ export default function DayView({
         {/* 右侧：习惯清单 */}
         {habitTasks.length > 0 && (
           <div className="w-52 shrink-0">
-            <div className="rounded-xl p-3 bg-cd-card border border-cd-border">
+            <div className="rounded-2xl p-3 bg-cd-card border border-cd-border">
               <h3 className="text-xs font-semibold text-cd-text mb-2 flex items-center gap-1">
                 <Flame size={12} className="text-cd-green" /> 每日习惯
               </h3>

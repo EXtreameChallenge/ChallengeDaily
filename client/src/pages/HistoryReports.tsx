@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+﻿import { useState, useRef, useEffect } from 'react'
 import { getReportByDate, generateDailyReport, searchReports, type ReportContent, type ReportSearchResult } from '../api/client'
 import { FileText, Calendar, ChevronRight, Sparkles, Copy, Check, Search, X, Loader2 } from 'lucide-react'
 import dayjs from 'dayjs'
@@ -214,7 +214,7 @@ export default function HistoryReports() {
               <button
                 key={report.date}
                 onClick={() => setSelectedReport(report)}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-colors border ${
+                className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-colors border ${
                   selectedReport?.date === report.date
                     ? 'bg-cd-green-light border-cd-green'
                     : 'bg-cd-card border-cd-border hover:bg-cd-hover'
@@ -259,7 +259,7 @@ export default function HistoryReports() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handleCopy}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-2xl text-xs bg-cd-bg-secondary hover:bg-cd-hover text-cd-text-secondary transition-colors border border-cd-border"
                     >
                       {copied ? <Check size={11} /> : <Copy size={11} />}
                       {copied ? '已复制' : '复制'}

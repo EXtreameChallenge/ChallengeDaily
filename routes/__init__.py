@@ -95,6 +95,7 @@ from routes.ai_today_summary import bp as ai_today_summary_bp
 from routes.user_profile_routes import bp as user_profile_bp
 from routes.todo_extraction import bp as todo_extraction_bp
 from routes.report_templates import bp as report_templates_bp
+from routes.agent_routes import bp as agent_routes_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -194,4 +195,5 @@ ALL_BLUEPRINTS = [
     user_profile_bp,
     todo_extraction_bp,
     report_templates_bp,
+    agent_routes_bp,
 ]

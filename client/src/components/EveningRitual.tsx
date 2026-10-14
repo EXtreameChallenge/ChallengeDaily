@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { request } from '../api/client'
 import { Moon, ChevronDown, ChevronUp, FileText } from 'lucide-react'
@@ -55,7 +55,7 @@ export default function EveningRitual() {
   if (!inWindow || dismissed) return null
   if (loading) {
     return (
-      <div className="bg-cd-bg-card border border-cd-border rounded-xl p-4 text-xs text-cd-text-tertiary">
+      <div className="bg-cd-bg-card border border-cd-border rounded-2xl p-4 text-xs text-cd-text-tertiary">
         加载晚间回顾...
       </div>
     )
@@ -92,7 +92,7 @@ export default function EveningRitual() {
         : 'text-red-400'
 
   return (
-    <div className="bg-cd-bg-card border border-cd-border rounded-xl overflow-hidden">
+    <div className="bg-cd-bg-card border border-cd-border rounded-2xl overflow-hidden">
       <button
         onClick={() => setCollapsed((c) => !c)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-cd-hover transition-colors"

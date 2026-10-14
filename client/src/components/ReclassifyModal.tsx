@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { Eye, Play, Loader2, AlertTriangle, CheckCircle2, History } from 'lucide-react'
 import Modal from './Modal'
 import { useToast } from './Toast'
@@ -142,7 +142,7 @@ export default function ReclassifyModal({ open, onClose, defaultAppName, onRecla
         <button
           onClick={handleClose}
           disabled={busy}
-          className="px-4 py-2 rounded-xl text-sm text-cd-text-secondary border border-cd-border hover:bg-cd-hover transition disabled:opacity-40"
+          className="px-4 py-2 rounded-2xl text-sm text-cd-text-secondary border border-cd-border hover:bg-cd-hover transition disabled:opacity-40"
         >
           {phase === 'done' ? '关闭' : '取消'}
         </button>
@@ -150,7 +150,7 @@ export default function ReclassifyModal({ open, onClose, defaultAppName, onRecla
           <button
             onClick={handlePreview}
             disabled={busy}
-            className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-medium bg-cd-bg-secondary text-cd-text border border-cd-border hover:bg-cd-hover transition disabled:opacity-40"
+            className="flex items-center gap-1 px-4 py-2 rounded-2xl text-sm font-medium bg-cd-bg-secondary text-cd-text border border-cd-border hover:bg-cd-hover transition disabled:opacity-40"
           >
             {phase === 'previewing' ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
             预览
@@ -160,7 +160,7 @@ export default function ReclassifyModal({ open, onClose, defaultAppName, onRecla
           <button
             onClick={handleExecute}
             disabled={busy || phase === 'idle'}
-            className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-medium bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-40"
+            className="flex items-center gap-1 px-4 py-2 rounded-2xl text-sm font-medium bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-40"
             title={phase === 'idle' ? '请先预览确认' : '执行重分类'}
           >
             {phase === 'executing' ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}

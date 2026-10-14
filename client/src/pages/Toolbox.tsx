@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { Clock, Type, Palette, Timer, Copy, Check, ArrowRight } from 'lucide-react'
 
 // ── ToolCard shell ──
@@ -9,7 +9,7 @@ function ToolCard({ icon: Icon, title, accentColor, children }: {
   children: React.ReactNode
 }) {
   return (
-    <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-5 hover:border-cd-green/30 transition-colors">
+    <div className="bg-cd-bg-secondary border border-cd-border rounded-2xl p-5 hover:border-cd-green/30 transition-colors">
       <div className="flex items-center gap-3 mb-4">
         <div
           className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0"

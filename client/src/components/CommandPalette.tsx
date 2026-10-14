@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, Home, Calendar, CheckSquare, Timer, FileText, BookOpen,
@@ -147,7 +147,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       onKeyDown={handleKeyDown}
     >
       <div
-        className="w-full max-w-xl mx-4 bg-cd-bg-card rounded-xl border border-cd-border shadow-2xl overflow-hidden"
+        className="w-full max-w-xl mx-4 bg-cd-bg-card rounded-2xl border border-cd-border shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* 搜索输入 */}

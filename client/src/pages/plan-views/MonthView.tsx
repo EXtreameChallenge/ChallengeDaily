@@ -75,7 +75,7 @@ export default function MonthView({
             本月暂无任务
           </div>
         ) : (
-          <div className="rounded-xl overflow-hidden bg-cd-card border border-cd-border">
+          <div className="rounded-2xl overflow-hidden bg-cd-card border border-cd-border">
             {/* 周刻度 */}
             <TimeAxis mode="week" start={1} end={weekCount} cellWidth={CELL_W} height={26}
               highlightIndex={currentWeekIdx} />

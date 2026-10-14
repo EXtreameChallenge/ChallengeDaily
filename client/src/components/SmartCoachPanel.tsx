@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { Sparkles, RefreshCw, Loader2, TrendingUp, Clock, X } from 'lucide-react'
 import { getChronotype, getSmartSuggestions, type Chronotype, type SmartSuggestion } from '../api/client'
 
@@ -56,7 +56,7 @@ export default function SmartCoachPanel() {
     <div className="space-y-3">
       {/* 生物钟卡片 */}
       {chrono && (
-        <div className="rounded-xl bg-gradient-to-br from-indigo-500/8 via-purple-500/8 to-blue-500/8 dark:from-indigo-500/10 dark:via-purple-500/10 dark:to-blue-500/10 border border-indigo-200/30 dark:border-indigo-500/15 p-4">
+        <div className="rounded-2xl bg-gradient-to-br from-indigo-500/8 via-purple-500/8 to-blue-500/8 dark:from-indigo-500/10 dark:via-purple-500/10 dark:to-blue-500/10 border border-indigo-200/30 dark:border-indigo-500/15 p-4">
           <div className="flex items-start gap-3">
             <span className="text-2xl shrink-0 leading-none mt-0.5">{chrono.icon}</span>
             <div className="flex-1 min-w-0">

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+﻿import { useState, useRef } from 'react'
 import { BarChart3, TrendingUp, Calendar, Database, Download, Loader2, CheckCircle, FileText, ListTree, Upload, AlertCircle, Trash2, AlertTriangle } from 'lucide-react'
 import { getApiToken, getBaseUrl, ensureBaseUrl, importTogglCsv, importRescueTimeCsv, wipeAllData, type WipeResult } from '../api/client'
 import { useToast } from '../components/Toast'
@@ -96,7 +96,7 @@ interface ExportCardProps {
 
 function ExportCard({ icon: Icon, title, description, accentColor, children }: ExportCardProps) {
   return (
-    <div className="bg-cd-bg-secondary border border-cd-border rounded-xl p-5 hover:border-cd-green/30 transition-colors">
+    <div className="bg-cd-bg-secondary border border-cd-border rounded-2xl p-5 hover:border-cd-green/30 transition-colors">
       <div className="flex items-start gap-3 mb-4">
         <div
           className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
@@ -484,7 +484,7 @@ function ImportSection() {
   }
 
   return (
-    <div className="mt-6 bg-cd-bg-card border border-white/5 rounded-xl p-5">
+    <div className="mt-6 bg-cd-bg-card border border-white/5 rounded-2xl p-5">
       <h2 className="text-lg font-bold text-cd-text flex items-center gap-2 mb-1">
         <Upload size={18} className="text-cd-accent" /> 数据导入
       </h2>
@@ -571,7 +571,7 @@ function WipeSection() {
 
   if (step === 'idle') {
     return (
-      <div className="mt-6 bg-red-500/5 border border-red-500/20 rounded-xl p-5">
+      <div className="mt-6 bg-red-500/5 border border-red-500/20 rounded-2xl p-5">
         <h2 className="text-lg font-bold text-cd-text flex items-center gap-2 mb-1">
           <Trash2 size={18} className="text-red-400" /> 数据自毁
         </h2>
@@ -596,7 +596,7 @@ function WipeSection() {
 
   if (step === 'confirm') {
     return (
-      <div className="mt-6 bg-red-500/10 border border-red-500/30 rounded-xl p-5">
+      <div className="mt-6 bg-red-500/10 border border-red-500/30 rounded-2xl p-5">
         <h2 className="text-lg font-bold text-red-400 flex items-center gap-2 mb-2">
           <AlertTriangle size={18} /> 最终确认
         </h2>
@@ -635,7 +635,7 @@ function WipeSection() {
 
   if (step === 'wiping') {
     return (
-      <div className="mt-6 bg-red-500/10 border border-red-500/30 rounded-xl p-8">
+      <div className="mt-6 bg-red-500/10 border border-red-500/30 rounded-2xl p-8">
         <div className="flex flex-col items-center">
           <Loader2 size={32} className="text-red-400 animate-spin mb-3" />
           <p className="text-sm text-cd-text">正在永久删除数据...</p>
@@ -650,7 +650,7 @@ function WipeSection() {
   const reports = wipeResult?.deleted?.reports || 0
   const tableCount = Object.values(wipeResult?.deleted?.db_tables || {}).filter(v => v >= 0).length
   return (
-    <div className="mt-6 bg-green-500/10 border border-green-500/30 rounded-xl p-5">
+    <div className="mt-6 bg-green-500/10 border border-green-500/30 rounded-2xl p-5">
       <h2 className="text-lg font-bold text-green-400 flex items-center gap-2 mb-3">
         <CheckCircle size={18} /> 数据已永久删除
       </h2>

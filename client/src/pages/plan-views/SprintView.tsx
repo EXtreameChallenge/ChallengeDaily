@@ -76,7 +76,7 @@ export default function SprintView({ weekStart }: SprintViewProps) {
   const renderSprintGoal = () => {
     if (goalEditing) {
       return (
-        <div className="bg-cd-bg-card rounded-xl p-4 border border-cd-accent/20 mb-4">
+        <div className="bg-cd-bg-card rounded-2xl p-4 border border-cd-accent/20 mb-4">
           <div className="flex items-center gap-2 mb-2">
             <Target size={14} className="text-cd-accent" />
             <span className="text-sm font-semibold text-cd-text">Sprint 目标</span>
@@ -103,7 +103,7 @@ export default function SprintView({ weekStart }: SprintViewProps) {
       )
     }
     return (
-      <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5 mb-4 group">
+      <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5 mb-4 group">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-2 flex-1 min-w-0">
             <Target size={14} className="text-cd-accent mt-0.5 shrink-0" />
@@ -150,28 +150,28 @@ export default function SprintView({ weekStart }: SprintViewProps) {
 
       {/* Sprint 概要卡片 */}
       <div className="grid grid-cols-4 gap-3">
-        <div className={`rounded-xl p-4 border ${rateBg}`}>
+        <div className={`rounded-2xl p-4 border ${rateBg}`}>
           <div className="flex items-center gap-2 mb-1">
             <Flame size={14} className="text-cd-accent" />
             <span className="text-xs text-cd-text-tertiary">完成率</span>
           </div>
           <div className={`text-2xl font-bold ${rateColor}`}>{rate.toFixed(1)}%</div>
         </div>
-        <div className="rounded-xl p-4 border border-white/5 bg-cd-bg-card">
+        <div className="rounded-2xl p-4 border border-white/5 bg-cd-bg-card">
           <div className="flex items-center gap-2 mb-1">
             <CheckCircle size={14} className="text-green-400" />
             <span className="text-xs text-cd-text-tertiary">已完成</span>
           </div>
           <div className="text-2xl font-bold text-cd-text">{data.completed_tasks}</div>
         </div>
-        <div className="rounded-xl p-4 border border-white/5 bg-cd-bg-card">
+        <div className="rounded-2xl p-4 border border-white/5 bg-cd-bg-card">
           <div className="flex items-center gap-2 mb-1">
             <Clock size={14} className="text-yellow-400" />
             <span className="text-xs text-cd-text-tertiary">剩余</span>
           </div>
           <div className="text-2xl font-bold text-cd-text">{data.remaining_tasks}</div>
         </div>
-        <div className="rounded-xl p-4 border border-white/5 bg-cd-bg-card">
+        <div className="rounded-2xl p-4 border border-white/5 bg-cd-bg-card">
           <div className="flex items-center gap-2 mb-1">
             <TrendingDown size={14} className="text-blue-400" />
             <span className="text-xs text-cd-text-tertiary">总任务</span>
@@ -181,7 +181,7 @@ export default function SprintView({ weekStart }: SprintViewProps) {
       </div>
 
       {/* 燃尽图 */}
-      <div className="bg-cd-bg-card rounded-xl p-5 border border-white/5">
+      <div className="bg-cd-bg-card rounded-2xl p-5 border border-white/5">
         <h3 className="text-sm font-semibold text-cd-text mb-4">燃尽图 (Burndown Chart)</h3>
         <ResponsiveContainer width="100%" height={240}>
           <LineChart data={burndownData}>
@@ -204,7 +204,7 @@ export default function SprintView({ weekStart }: SprintViewProps) {
       </div>
 
       {/* 每日完成分布 */}
-      <div className="bg-cd-bg-card rounded-xl p-5 border border-white/5">
+      <div className="bg-cd-bg-card rounded-2xl p-5 border border-white/5">
         <h3 className="text-sm font-semibold text-cd-text mb-4">每日任务完成分布</h3>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={dailyData}>
@@ -227,7 +227,7 @@ export default function SprintView({ weekStart }: SprintViewProps) {
       </div>
 
       {/* 进度条 */}
-      <div className="bg-cd-bg-card rounded-xl p-5 border border-white/5">
+      <div className="bg-cd-bg-card rounded-2xl p-5 border border-white/5">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-cd-text-secondary">Sprint 进度</span>
           <span className="text-sm font-semibold text-cd-text">{data.completed_tasks}/{data.total_tasks}</span>

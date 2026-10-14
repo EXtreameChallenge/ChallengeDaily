@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { request } from '../api/client'
 import { FileText, Minus, Code2, Target, Sparkles, Brain } from 'lucide-react'
 
@@ -79,7 +79,7 @@ export default function ReportTemplateSelector({ onSelect, selected }: ReportTem
           <button
             key={t.value}
             onClick={() => onSelect(t.value)}
-            className={`group flex flex-col gap-2 rounded-xl border-2 p-4 text-left transition-all ${
+            className={`group flex flex-col gap-2 rounded-2xl border-2 p-4 text-left transition-all ${
               isActive
                 ? 'border-cd-green bg-cd-green/5 shadow-sm shadow-cd-green/10'
                 : 'border-cd-border bg-cd-bg-secondary hover:border-cd-text-tertiary hover:bg-cd-hover'

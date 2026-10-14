@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { getAnomalies, type AnomalyItem } from '../api/client'
 import { AlertTriangle, AlertCircle, Info, X } from 'lucide-react'
 import { safeText } from '../utils/helpers'
@@ -66,7 +66,7 @@ export default function AnomalyAlert() {
         const Icon = config.icon
         return (
           <div key={`${anomaly.type}-${i}`}
-            className={`flex items-start gap-3 p-3 rounded-xl border ${config.bg} ${config.border}`}>
+            className={`flex items-start gap-3 p-3 rounded-2xl border ${config.bg} ${config.border}`}>
             <Icon size={18} className={`shrink-0 mt-0.5 ${config.color}`} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">

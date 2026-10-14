@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { Target, Plus, Trash2, CheckCircle2, Circle, Calendar, TrendingUp, X, Smile } from 'lucide-react'
 import { getGoals, createGoal, updateGoal, deleteGoal, getMoodHeatmap, type Goal, type MoodEntry } from '../api/client'
 import { useToast } from '../components/Toast'
@@ -160,7 +160,7 @@ export default function Goals() {
             const isCompleted = goal.status === 'completed'
             return (
               <div key={goal.id}
-                className={`bg-cd-bg-card rounded-xl p-4 border transition ${
+                className={`bg-cd-bg-card rounded-2xl p-4 border transition ${
                   isCompleted ? 'border-cd-green/30 opacity-75' : 'border-white/5 hover:border-white/10'
                 }`}>
                 {/* 顶部行 */}
@@ -248,7 +248,7 @@ export default function Goals() {
 
       {/* 心情热力图 */}
       {moodData.length > 0 && (
-        <div className="mt-8 bg-cd-bg-card rounded-xl p-5 border border-white/5">
+        <div className="mt-8 bg-cd-bg-card rounded-2xl p-5 border border-white/5">
           <h2 className="text-sm font-semibold text-cd-text mb-4 flex items-center gap-2">
             <Smile size={16} className="text-pink-400" /> 心情趋势
           </h2>
@@ -279,7 +279,7 @@ export default function Goals() {
       {/* 新建目标弹窗 */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowModal(false)}>
-          <div className="bg-cd-bg-card rounded-xl p-6 w-full max-w-md border border-cd-border" onClick={e => e.stopPropagation()}>
+          <div className="bg-cd-bg-card rounded-2xl p-6 w-full max-w-md border border-cd-border" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-cd-text">新建长期目标</h2>
               <button onClick={() => setShowModal(false)} className="text-cd-text-tertiary hover:text-cd-text">

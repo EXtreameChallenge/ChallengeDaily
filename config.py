@@ -169,6 +169,17 @@ def get_ai_params(preset: str) -> dict:
         preset_params = AI_PARAMS["chat"]
     return dict(preset_params)
 
+# ── Agent 引擎配置 ──────────────────────────────────────────
+# 控制 Agent 后端行为：引擎选择、工具轮次上限、上下文窗口、记忆/MCP/团队开关。
+# 全部可用环境变量覆盖，未配置时给安全默认值。
+AGENT_ENGINE = os.getenv("AGENT_ENGINE", "agno")  # "agno" | "classic"（agno 不可用时自动降级 classic）
+AGENT_MAX_TOOL_ROUNDS = int(os.getenv("AGENT_MAX_TOOL_ROUNDS", "5"))
+AGENT_CONTEXT_MAX_TOKENS = int(os.getenv("AGENT_CONTEXT_MAX_TOKENS", "8000"))
+AGENT_MEMORY_ENABLED = os.getenv("AGENT_MEMORY_ENABLED", "1") == "1"
+AGENT_MCP_ENABLED = os.getenv("AGENT_MCP_ENABLED", "0") == "1"
+AGENT_CODE_AGENT_ENABLED = os.getenv("AGENT_CODE_AGENT_ENABLED", "1") == "1"
+AGENT_TEAM_ENABLED = os.getenv("AGENT_TEAM_ENABLED", "1") == "1"
+
 # ── 数据保留天数 ──
 RETENTION_DAYS = int(os.getenv("RETENTION_DAYS", "7"))
 
@@ -206,6 +217,7 @@ _DEFAULT_SETTINGS = {
     "auto_daily_report": False,
     "auto_daily_report_hour": 18,
     "auto_daily_report_template": "standard",
+    "agent_engine": "agno",
 }
 
 # ── settings 缓存（避免每次 API 请求都读磁盘）──

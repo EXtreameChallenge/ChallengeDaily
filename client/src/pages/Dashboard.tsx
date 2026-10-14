@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+﻿import { useState, useEffect, useMemo } from 'react'
 import {
   ResponsiveContainer, Tooltip,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Legend,
@@ -66,7 +66,7 @@ function ProgressCard({
 }) {
   const rate = total > 0 ? (completed / total) * 100 : 0
   return (
-    <div className="bg-cd-card rounded-xl border border-white/5 p-4 flex flex-col gap-3">
+    <div className="bg-cd-card rounded-2xl border border-white/5 p-4 flex flex-col gap-3">
       <div className="flex items-center gap-2 text-cd-text-secondary">
         <Icon size={15} style={{ color }} />
         <span className="text-xs font-medium">{label}</span>
@@ -303,7 +303,7 @@ export default function Dashboard() {
       {/* 中部：燃尽图 + Streak/深度工作 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* 燃尽图 */}
-        <div className="lg:col-span-2 bg-cd-card rounded-xl border border-white/5 p-4">
+        <div className="lg:col-span-2 bg-cd-card rounded-2xl border border-white/5 p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-cd-text flex items-center gap-1.5">
               本周燃尽图
@@ -336,7 +336,7 @@ export default function Dashboard() {
         </div>
 
         {/* Streak + 深度工作趋势 */}
-        <div className="bg-cd-card rounded-xl border border-white/5 p-4 flex flex-col">
+        <div className="bg-cd-card rounded-2xl border border-white/5 p-4 flex flex-col">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-cd-text flex items-center gap-1.5">
               连续专注
@@ -376,7 +376,7 @@ export default function Dashboard() {
       </div>
 
       {/* 底部：分类时间分布饼图 */}
-      <div className="bg-cd-card rounded-xl border border-white/5 p-4">
+      <div className="bg-cd-card rounded-2xl border border-white/5 p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-cd-text flex items-center gap-1.5">
             本周分类时间分布
@@ -445,7 +445,7 @@ export default function Dashboard() {
       <SankeyChart date={todayStr} />
 
       {/* P5-5：长期目标进度穿透卡片 */}
-      <div className="bg-cd-card rounded-xl border border-white/5 p-4">
+      <div className="bg-cd-card rounded-2xl border border-white/5 p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-cd-text flex items-center gap-1.5">
             <Target size={14} className="text-cd-accent" /> 长期目标进度

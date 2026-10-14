@@ -1,4 +1,4 @@
-/**
+﻿/**
  * TaskCreateModal — 统一任务创建弹窗
  * 基于 Modal 组件，保持全局弹窗风格一致
  */
@@ -143,14 +143,14 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 py-2 rounded-xl text-sm text-cd-text-secondary border border-cd-border hover:bg-cd-hover transition"
+            className="flex-1 py-2 rounded-2xl text-sm text-cd-text-secondary border border-cd-border hover:bg-cd-hover transition"
           >
             取消
           </button>
           <button
             onClick={handleCreate}
             disabled={!title.trim() || saving}
-            className="flex-1 py-2 rounded-xl text-sm font-medium bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 py-2 rounded-2xl text-sm font-medium bg-cd-accent/20 text-cd-accent border border-cd-accent/30 hover:bg-cd-accent/30 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {saving ? '创建中...' : '创建任务'}
           </button>
@@ -204,7 +204,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
             <button
               key={c.value}
               onClick={() => setCategory(c.value)}
-              className={`px-2.5 py-1 rounded-xl text-xs transition border ${
+              className={`px-2.5 py-1 rounded-2xl text-xs transition border ${
                 category === c.value
                   ? 'bg-cd-accent/15 text-cd-accent border-cd-accent/30 font-medium'
                   : 'bg-cd-bg-input text-cd-text border-cd-border hover:bg-cd-hover'
@@ -224,7 +224,7 @@ export default function TaskCreateModal({ open, onClose, onCreated, defaults }: 
             <button
               key={p}
               onClick={() => setPriority(p)}
-              className="flex-1 py-1.5 rounded-xl text-xs font-bold transition border"
+              className="flex-1 py-1.5 rounded-2xl text-xs font-bold transition border"
               style={{
                 background: priority === p ? PRIORITY_COLORS[p - 1] + '25' : 'var(--cd-bg-input)',
                 color: priority === p ? PRIORITY_COLORS[p - 1] : 'var(--cd-text)',

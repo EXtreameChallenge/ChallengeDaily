@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { getCalendarView, type CalendarViewData, type CalendarDay } from '../api/client'
 import dayjs from 'dayjs'
@@ -78,22 +78,22 @@ export default function CalendarView() {
 
       {/* 月度总览 */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
+        <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5">
           <div className="text-2xl font-bold text-gold">{Math.floor(totalMin / 60)}<span className="text-sm font-normal text-cd-text-tertiary ml-1">小时</span></div>
           <div className="text-sm text-cd-text-secondary mt-1">本月专注</div>
         </div>
-        <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
+        <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5">
           <div className="text-2xl font-bold text-cd-accent">{activeDays}<span className="text-sm font-normal text-cd-text-tertiary ml-1">天</span></div>
           <div className="text-sm text-cd-text-secondary mt-1">活跃天数</div>
         </div>
-        <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
+        <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5">
           <div className="text-2xl font-bold text-green-400">{avgMin}<span className="text-sm font-normal text-cd-text-tertiary ml-1">分钟</span></div>
           <div className="text-sm text-cd-text-secondary mt-1">日均专注</div>
         </div>
       </div>
 
       {/* 日历网格 */}
-      <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5 mb-4">
+      <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5 mb-4">
         {loading ? (
           <div className="text-center py-16 text-cd-text-secondary text-sm">加载中…</div>
         ) : error ? (
@@ -155,7 +155,7 @@ export default function CalendarView() {
 
       {/* 图例 */}
       {data && data.legend.length > 0 && (
-        <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5 mb-4">
+        <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5 mb-4">
           <h3 className="text-sm text-cd-text-secondary mb-3">分类图例</h3>
           <div className="flex flex-wrap gap-3">
             {data.legend.map(l => (

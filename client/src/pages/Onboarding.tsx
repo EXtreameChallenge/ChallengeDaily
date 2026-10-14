@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { updateSettings, testAiConnection, updatePreferences } from '../api/client'
 import {
   Sparkles,
@@ -420,7 +420,7 @@ function AIStep({
           {/* 一键免费配置 */}
           <button
             onClick={handleUseFreeModel}
-            className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
+            className={`w-full flex items-center gap-3 p-3 rounded-2xl border-2 transition-all ${
               useFreeModel
                 ? 'border-cd-green bg-cd-green-light'
                 : 'border-cd-border bg-cd-bg-secondary hover:border-cd-green/30'
@@ -443,7 +443,7 @@ function AIStep({
           {/* 自定义配置 */}
           <button
             onClick={() => setUseFreeModel(false)}
-            className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
+            className={`w-full flex items-center gap-3 p-3 rounded-2xl border-2 transition-all ${
               !useFreeModel
                 ? 'border-cd-green bg-cd-green-light'
                 : 'border-cd-border bg-cd-bg-secondary hover:border-cd-green/30'
@@ -465,7 +465,7 @@ function AIStep({
 
           {/* 自定义配置表单 */}
           {!useFreeModel && (
-            <div className="space-y-3 animate-fade-in border border-cd-border rounded-xl p-4 bg-cd-bg-secondary">
+            <div className="space-y-3 animate-fade-in border border-cd-border rounded-2xl p-4 bg-cd-bg-secondary">
               <div>
                 <label className="text-xs text-cd-text-secondary block mb-1">API Base URL</label>
                 <input
@@ -521,7 +521,7 @@ function AIStep({
 
           {/* 免费模型需要的 API Key */}
           {useFreeModel && (
-            <div className="space-y-3 animate-fade-in border border-cd-border rounded-xl p-4 bg-cd-bg-secondary">
+            <div className="space-y-3 animate-fade-in border border-cd-border rounded-2xl p-4 bg-cd-bg-secondary">
               <div>
                 <label className="text-xs text-cd-text-secondary block mb-1">
                   智谱 API Key
@@ -751,7 +751,7 @@ function PersonalizeStep({
             <button
               key={s.value}
               onClick={() => setReportStyle(s.value)}
-              className={`p-3 rounded-xl border-2 transition-all text-center ${
+              className={`p-3 rounded-2xl border-2 transition-all text-center ${
                 reportStyle === s.value
                   ? 'border-cd-green bg-cd-green-light'
                   : 'border-cd-border bg-cd-bg-secondary hover:border-cd-green/30'
@@ -774,7 +774,7 @@ function PersonalizeStep({
             <button
               key={l.value}
               onClick={() => setEncouragementLevel(l.value)}
-              className={`p-3 rounded-xl border-2 transition-all text-center ${
+              className={`p-3 rounded-2xl border-2 transition-all text-center ${
                 encouragementLevel === l.value
                   ? 'border-cd-green bg-cd-green-light'
                   : 'border-cd-border bg-cd-bg-secondary hover:border-cd-green/30'

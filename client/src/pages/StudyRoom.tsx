@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+﻿import { useState, useEffect, useCallback } from 'react'
 import { Users, Wifi, RefreshCw, Trophy, Brain, Coffee, Monitor } from 'lucide-react'
 import { getStudyRoomStatus, broadcastStudyRoom, type StudyRoomMember } from '../api/client'
 import { useToast } from '../components/Toast'
@@ -74,15 +74,15 @@ export default function StudyRoom() {
 
       {/* 状态概览 */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
+        <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5">
           <div className="text-2xl font-bold text-cd-accent">{members.length}</div>
           <div className="text-sm text-cd-text-secondary mt-1">在线成员</div>
         </div>
-        <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
+        <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5">
           <div className="text-2xl font-bold text-purple-400">{focusingCount}</div>
           <div className="text-sm text-cd-text-secondary mt-1">正在专注</div>
         </div>
-        <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
+        <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5">
           <div className="text-2xl font-bold text-orange-400">
             {members.reduce((sum, m) => sum + m.today_min, 0)}
           </div>
@@ -91,7 +91,7 @@ export default function StudyRoom() {
       </div>
 
       {/* 排行榜 */}
-      <div className="bg-cd-bg-card rounded-xl p-5 border border-white/5">
+      <div className="bg-cd-bg-card rounded-2xl p-5 border border-white/5">
         <h2 className="text-sm font-semibold text-cd-text mb-4 flex items-center gap-2">
           <Trophy size={16} className="text-yellow-400" /> 今日专注排行榜
         </h2>

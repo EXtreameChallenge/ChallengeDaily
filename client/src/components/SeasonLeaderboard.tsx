@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 赛季排行榜组件 — 基于匿名 benchmark 的群组对比
  * 参考 Habitica 赛季排名，隐私优先设计
  */
@@ -222,7 +222,7 @@ export default function SeasonLeaderboard({ open, onClose }: Props) {
                     <button
                       key={m.key}
                       onClick={() => setMetric(m.key)}
-                      className={`px-2.5 py-1 text-xs rounded-xl transition ${
+                      className={`px-2.5 py-1 text-xs rounded-2xl transition ${
                         metric === m.key ? 'bg-cd-purple text-white' : 'text-cd-text-secondary hover:text-cd-text'
                       }`}
                     >
@@ -286,7 +286,7 @@ function MyRankCard({ data, summary }: { data: SeasonLeaderboardData; summary: S
 
   return (
     <div
-      className="rounded-xl p-5 relative overflow-hidden"
+      className="rounded-2xl p-5 relative overflow-hidden"
       style={{
         background: 'linear-gradient(135deg, rgba(123,104,238,0.12) 0%, rgba(240,160,48,0.08) 100%)',
         border: '2px solid transparent',

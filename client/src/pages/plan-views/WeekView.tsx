@@ -50,7 +50,7 @@ export default function WeekView({
   const ROW_H = 42
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full gap-3">
       {/* 左侧：待分配清单 */}
       <div
         onDragOver={handleDragOver('unassigned')}
@@ -61,6 +61,7 @@ export default function WeekView({
           width: 240, background: 'var(--cd-bg-tertiary)',
           border: '1.5px dashed',
           borderColor: dragOverCol === 'unassigned' ? 'var(--cd-accent)' : 'var(--cd-gold)66',
+          borderRadius: 16,
           transition: 'border-color 0.15s',
         }}
       >
@@ -107,7 +108,7 @@ export default function WeekView({
       </div>
 
       {/* 右侧：横向甘特图 */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-cd-card rounded-xl">
+      <div className="flex-1 flex flex-col overflow-hidden bg-cd-card rounded-2xl">
         {/* 表头：日期列 + 7天负载 */}
         <div className="flex shrink-0" style={{ borderBottom: '1.5px solid var(--cd-border)' }}>
           <div className="flex items-center px-3 shrink-0" style={{ width: LABEL_W, borderRight: '1px solid var(--cd-border)' }}>
@@ -224,7 +225,7 @@ export default function WeekView({
                       onDragStart={handleDragStart(t)}
                       onDragEnd={handleDragEnd}
                       onClick={() => openDetail(t)}
-                      className="absolute rounded-xl cursor-grab active:cursor-grabbing hover:brightness-110 transition flex items-center px-2 overflow-hidden"
+                      className="absolute rounded-2xl cursor-grab active:cursor-grabbing hover:brightness-110 transition flex items-center px-2 overflow-hidden"
                       style={{
                         left: 4, right: 4, top: (ROW_H - 26) / 2, height: 26,
                         background: `repeating-linear-gradient(135deg, ${catColor}22 0px, ${catColor}22 6px, ${catColor}0D 6px, ${catColor}0D 12px)`,
@@ -243,7 +244,7 @@ export default function WeekView({
                       onDragStart={handleDragStart(t)}
                       onDragEnd={handleDragEnd}
                       onClick={() => openDetail(t)}
-                      className="absolute rounded-xl cursor-grab active:cursor-grabbing hover:brightness-110 transition overflow-hidden flex items-center"
+                      className="absolute rounded-2xl cursor-grab active:cursor-grabbing hover:brightness-110 transition overflow-hidden flex items-center"
                       style={{
                         left: `calc(${(dateIdx * 100 / 7).toFixed(3)}% + 3px)`,
                         width: `${(barWidthPct / 7).toFixed(2)}%`,

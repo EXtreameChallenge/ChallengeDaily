@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+﻿import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { getAppUsage, getTodayStats, getAppIconUrl, CATEGORY_COLORS, type AppUsage, type TodayStats } from '../api/client'
 import { CategoryFilter, formatDuration, useAsyncData, ApiErrorDisplay } from '../components/shared'
@@ -104,7 +104,7 @@ export default function AppRecords() {
                     </div>
 
                     {/* 应用图标 */}
-                    <div className="w-10 h-10 rounded-xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center text-sm font-medium text-cd-text-secondary shrink-0 overflow-hidden">
+                    <div className="w-10 h-10 rounded-2xl bg-cd-bg-secondary border border-cd-border-light flex items-center justify-center text-sm font-medium text-cd-text-secondary shrink-0 overflow-hidden">
                       <img
                         src={iconUrl || defaultIcon}
                         alt=""
@@ -223,7 +223,7 @@ export default function AppRecords() {
                 return (
                   <div
                     key={cat}
-                    className="flex items-center gap-3 bg-cd-bg-secondary rounded-xl p-3"
+                    className="flex items-center gap-3 bg-cd-bg-secondary rounded-2xl p-3"
                   >
                     <span
                       className="w-3 h-3 rounded-full shrink-0"

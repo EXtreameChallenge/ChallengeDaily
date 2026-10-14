@@ -166,7 +166,7 @@ export default function TodayTimeline({
             </div>
           )}
 
-          {items.map((item, idx) => {
+          {items.slice(0, 4).map((item, idx) => {
             const isExpanded = expandedId === item.id
             const isCurrent = item.status === 'doing' ||
               (currentActivity && item.id === `act-${currentActivity.id}`)

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+﻿import { useState, useRef, useEffect, useCallback } from 'react'
 import { Volume2, VolumeX, Cloud, Flame, Droplets, Wind, Waves, Trees, Coffee, Keyboard, Library, Music, Layers } from 'lucide-react'
 
 // 专业版白噪音：20+ 音源 + 混音器 + 场景预设
@@ -247,7 +247,7 @@ export default function WhiteNoise({ autoPlay = false }: { autoPlay?: boolean })
   const noiseByCat = (cat: string) => NOISES.filter(n => n.category === cat)
 
   return (
-    <div className="bg-cd-bg-card rounded-xl p-4 border border-white/5">
+    <div className="bg-cd-bg-card rounded-2xl p-4 border border-white/5">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm text-cd-text-secondary flex items-center gap-1.5">
           <Music size={14} /> 白噪音工作室 · 多源混音
