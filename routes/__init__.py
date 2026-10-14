@@ -98,6 +98,7 @@ from routes.report_templates import bp as report_templates_bp
 from routes.agent_routes import bp as agent_routes_bp
 from routes.keyboard_routes import keyboard_bp
 from routes.tools_routes import tools_bp
+from routes.enterprise_routes import enterprise_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -200,4 +201,5 @@ ALL_BLUEPRINTS = [
     agent_routes_bp,
     keyboard_bp,
     tools_bp,
+    enterprise_bp,
 ]
