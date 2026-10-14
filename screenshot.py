@@ -18,6 +18,12 @@ from config import SCREENSHOT_DIR, SCREENSHOT_QUALITY, SCREENSHOT_MAX_WIDTH
 _last_phash: int | None = None
 _phash_lock = threading.Lock()
 
+# 连续重复帧计数 + 上一次保存的截图路径（重复帧复用，节省磁盘）
+_consecutive_duplicates: int = 0
+_last_saved_filepath: str = ""
+_last_saved_filename: str = ""
+_DEDUP_SKIP_SAVE_THRESHOLD = 1  # 连续1次重复即跳保存（0=不跳过，1=重复就跳，3=连续3次才跳）
+
 # ── MSS 上下文复用（避免每 60 秒创建/销毁 GDI 资源）──
 _mss_instance = None
 _mss_lock = threading.Lock()
@@ -76,15 +82,21 @@ def is_screen_duplicate(img: Image.Image, threshold: int = 5) -> bool:
     返回 True 表示画面重复。
     线程安全：通过 _phash_lock 保护全局 _last_phash。
     """
-    global _last_phash
+    global _last_phash, _consecutive_duplicates
     current_hash = _compute_phash(img)
     with _phash_lock:
         if _last_phash is None:
             _last_phash = current_hash
+            _consecutive_duplicates = 0
             return False
         dist = _phash_distance(_last_phash, current_hash)
         _last_phash = current_hash
-        return dist <= threshold
+        if dist <= threshold:
+            _consecutive_duplicates += 1
+            return True
+        else:
+            _consecutive_duplicates = 0
+            return False
 
 
 def get_active_monitor_index() -> int:
@@ -147,40 +159,53 @@ def take_screenshot(monitor_index: int = 0, app_name: str = "") -> tuple[str, st
         # 画面去重检测
         is_duplicate = is_screen_duplicate(img)
 
-        # P17-3: 截图质量分级 — IDE/编辑器用高质量保留代码细节
-        quality = _get_screenshot_quality(app_name)
-        max_width = _get_screenshot_max_width(app_name)
+        # 连续重复帧：跳保存文件，复用上一张截图路径（节省磁盘）
+        skip_save = is_duplicate and _consecutive_duplicates >= _DEDUP_SKIP_SAVE_THRESHOLD
 
-        # 等比缩放（使用 BILINEAR 替代 LANCZOS，截图缩放质量差异可忽略，
-        # 但 CPU 开销显著降低）
-        w, h = img.size
-        if w > max_width:
-            ratio = max_width / w
-            new_h = int(h * ratio)
-            resized = img.resize((max_width, new_h), Image.BILINEAR)
-            img.close()  # 关闭原图
-            img = resized
+        if skip_save and _last_saved_filepath:
+            # 复用上一张截图路径，不重复保存
+            filename = _last_saved_filename
+            filepath = _last_saved_filepath
+        else:
+            # P17-3: 截图质量分级 — IDE/编辑器用高质量保留代码细节
+            quality = _get_screenshot_quality(app_name)
+            max_width = _get_screenshot_max_width(app_name)
 
-        # 生成文件名
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        filename = f"screenshot_{ts}.jpg"
-        filepath = SCREENSHOT_DIR / filename
+            # 等比缩放（使用 BILINEAR 替代 LANCZOS，截图缩放质量差异可忽略，
+            # 但 CPU 开销显著降低）
+            w, h = img.size
+            if w > max_width:
+                ratio = max_width / w
+                new_h = int(h * ratio)
+                resized = img.resize((max_width, new_h), Image.BILINEAR)
+                img.close()  # 关闭原图
+                img = resized
 
-        # P17-1: 加密保存（JPEG 字节先序列化到内存，加密后落盘）
-        try:
-            import io
-            buf = io.BytesIO()
-            # P24: progressive JPEG + optimize 减小文件体积 ~15-20%
-            img.save(buf, "JPEG", quality=quality, progressive=True, optimize=True)
-            img_bytes = buf.getvalue()
-            buf.close()
-            from screenshot_crypto import save_encrypted_jpeg
-            save_encrypted_jpeg(img_bytes, str(filepath))
-        except Exception as e:
-            # 降级为明文保存
-            import logging
-            logging.getLogger(__name__).warning(f"加密保存失败，降级明文: {e}")
-            img.save(str(filepath), "JPEG", quality=quality, progressive=True, optimize=True)
+            # 生成文件名
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            filename = f"screenshot_{ts}.jpg"
+            filepath = SCREENSHOT_DIR / filename
+
+            # P17-1: 加密保存（JPEG 字节先序列化到内存，加密后落盘）
+            try:
+                import io
+                buf = io.BytesIO()
+                # P24: progressive JPEG + optimize 减小文件体积 ~15-20%
+                img.save(buf, "JPEG", quality=quality, progressive=True, optimize=True)
+                img_bytes = buf.getvalue()
+                buf.close()
+                from screenshot_crypto import save_encrypted_jpeg
+                save_encrypted_jpeg(img_bytes, str(filepath))
+            except Exception as e:
+                # 降级为明文保存
+                import logging
+                logging.getLogger(__name__).warning(f"加密保存失败，降级明文: {e}")
+                img.save(str(filepath), "JPEG", quality=quality, progressive=True, optimize=True)
+
+            # 记录本次保存的路径
+            global _last_saved_filepath, _last_saved_filename
+            _last_saved_filepath = str(filepath)
+            _last_saved_filename = filename
 
         return filename, str(filepath), is_duplicate
     finally:
