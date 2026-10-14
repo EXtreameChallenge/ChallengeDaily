@@ -30,6 +30,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 窗口拖拽（宠物窗口专用）
   petWindowDrag: (dx, dy) => ipcRenderer.send('pet-window-drag', { mouseX: dx, mouseY: dy }),
 
+  // 待办浮窗控制
+  todoFloating: {
+    getState: () => ipcRenderer.invoke('todo-floating:get-state'),
+    enable: () => ipcRenderer.invoke('todo-floating:enable'),
+    disable: () => ipcRenderer.invoke('todo-floating:disable'),
+    expand: () => ipcRenderer.invoke('todo-floating:expand'),
+    collapse: () => ipcRenderer.invoke('todo-floating:collapse'),
+    setAlwaysOnTop: (onTop) => ipcRenderer.invoke('todo-floating:set-always-on-top', { onTop }),
+    openMainTodo: () => ipcRenderer.invoke('todo-floating:open-main-todo'),
+    dragStart: (offset) => ipcRenderer.send('todo-floating:drag-start', offset),
+    dragMove: (offset) => ipcRenderer.send('todo-floating:drag-move', offset),
+    dragEnd: () => ipcRenderer.send('todo-floating:drag-end'),
+  },
+
   // 后端端口
   getBackendPort: () => ipcRenderer.invoke('get-backend-port'),
 

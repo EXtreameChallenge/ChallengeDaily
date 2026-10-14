@@ -57,6 +57,7 @@ console.log('[Main] main.cjs loaded, log file:', mainLogFile)
 let mainWindow = null
 let petWindow = null
 let pomodoroWidget = null
+let todoFloatingWindow = null
 let widgetDismissed = false     // 用户手动关闭过：当前番茄内不再强行弹出
 let widgetLastPhase = 'idle'    // 上一次 tick 的阶段，用于识别新番茄开始
 let tray = null
@@ -660,6 +661,50 @@ function createPetWindow() {
   })
 }
 
+// ─── 待办桌面浮窗 ────────────────────────────────────
+// 借鉴小黑日报助手 todoFloating：桌面悬浮待办窗，可拖拽/展开折叠/置顶
+function createTodoFloatingWindow() {
+  if (todoFloatingWindow && !todoFloatingWindow.isDestroyed()) {
+    return todoFloatingWindow
+  }
+  const { width: screenWidth } = screen.getPrimaryDisplay().workAreaSize
+  todoFloatingWindow = new BrowserWindow({
+    width: 240,
+    height: 60,
+    x: screenWidth - 260,
+    y: 350,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    hasShadow: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      preload: path.join(__dirname, 'preload.cjs'),
+    },
+    show: false,
+  })
+  todoFloatingWindow.setAlwaysOnTop(true, 'normal')
+  todoFloatingWindow.setFocusable(false)
+  todoFloatingWindow.setBackgroundColor('#00000000')
+  applyCSPToSession(todoFloatingWindow.webContents.session)
+  if (isDev) {
+    todoFloatingWindow.loadURL('http://localhost:5173/todo-floating.html')
+  } else {
+    todoFloatingWindow.loadFile(path.join(__dirname, '..', 'dist', 'todo-floating.html'))
+  }
+  todoFloatingWindow.once('ready-to-show', () => {
+    todoFloatingWindow?.show()
+  })
+  todoFloatingWindow.on('closed', () => {
+    todoFloatingWindow = null
+  })
+  return todoFloatingWindow
+}
+
 // ─── 番茄钟悬浮计时窗口 ────────────────────────────────
 // 类似"番茄土豆"的置顶小窗口，迷你显示倒计时/任务/阶段
 // 番茄钟运行时自动弹出，可拖拽，点击跳回主界面
@@ -883,6 +928,49 @@ function setupIPC() {
   })
   // renderer 请求当前 pet 可见状态
   ipcMain.handle('pet-get-visible', () => petWindow?.isVisible() ?? false)
+
+  // ── 待办浮窗控制 ──
+  ipcMain.handle('todo-floating:get-state', () => ({
+    visible: todoFloatingWindow?.isVisible() ?? false,
+  }))
+  ipcMain.handle('todo-floating:enable', () => {
+    createTodoFloatingWindow()
+    return { ok: true }
+  })
+  ipcMain.handle('todo-floating:disable', () => {
+    if (todoFloatingWindow && !todoFloatingWindow.isDestroyed()) {
+      todoFloatingWindow.destroy()
+      todoFloatingWindow = null
+    }
+    return { ok: true }
+  })
+  ipcMain.handle('todo-floating:expand', () => {
+    todoFloatingWindow?.setSize(280, 360)
+    return { ok: true }
+  })
+  ipcMain.handle('todo-floating:collapse', () => {
+    todoFloatingWindow?.setSize(240, 60)
+    return { ok: true }
+  })
+  ipcMain.handle('todo-floating:set-always-on-top', (_e, { onTop }) => {
+    todoFloatingWindow?.setAlwaysOnTop(!!onTop, 'normal')
+    return { ok: true }
+  })
+  ipcMain.handle('todo-floating:open-main-todo', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.show()
+      mainWindow.focus()
+    }
+    return { ok: true }
+  })
+  ipcMain.on('todo-floating:drag-start', () => {})
+  ipcMain.on('todo-floating:drag-move', (_e, { mouseX, mouseY }) => {
+    if (!todoFloatingWindow || todoFloatingWindow.isDestroyed()) return
+    const [x, y] = todoFloatingWindow.getPosition()
+    todoFloatingWindow.setPosition(x + mouseX, y + mouseY)
+  })
+  ipcMain.on('todo-floating:drag-end', () => {})
 
   // ── 幕布文档同步 IPC ──
   // 弹出登录窗口（用户点"登录幕布"按钮时触发）

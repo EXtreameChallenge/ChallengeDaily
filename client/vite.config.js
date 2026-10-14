@@ -36,6 +36,7 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         pet: path.resolve(__dirname, 'pet.html'),
+        todoFloating: path.resolve(__dirname, 'todo-floating.html'),
       },
       output: {
         manualChunks: {
