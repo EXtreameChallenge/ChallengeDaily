@@ -154,3 +154,74 @@ def track_event():
 @enterprise_bp.route('/telemetry/events', methods=['GET'])
 def list_telemetry_events():
     return jsonify(telemetry.get_events())
+
+
+# ── 应用锁（含恢复词） ──
+@enterprise_bp.route('/app-lock/status', methods=['GET'])
+def app_lock_status():
+    from app_lock import get_status
+    return jsonify(get_status())
+
+@enterprise_bp.route('/app-lock/setup', methods=['POST'])
+def app_lock_setup():
+    from app_lock import setup_lock
+    data = request.get_json(silent=True) or {}
+    return jsonify(setup_lock(data.get('password', ''), data.get('recoveryWord', '')))
+
+@enterprise_bp.route('/app-lock/verify', methods=['POST'])
+def app_lock_verify():
+    from app_lock import verify_password
+    data = request.get_json(silent=True) or {}
+    return jsonify({"ok": verify_password(data.get('password', ''))})
+
+@enterprise_bp.route('/app-lock/recovery', methods=['POST'])
+def app_lock_recovery():
+    from app_lock import verify_recovery
+    data = request.get_json(silent=True) or {}
+    return jsonify(verify_recovery(data.get('recoveryWord', '')))
+
+@enterprise_bp.route('/app-lock/reset', methods=['POST'])
+def app_lock_reset():
+    from app_lock import reset_password
+    data = request.get_json(silent=True) or {}
+    return jsonify(reset_password(data.get('newPassword', '')))
+
+@enterprise_bp.route('/app-lock/disable', methods=['POST'])
+def app_lock_disable():
+    from app_lock import disable_lock
+    return jsonify(disable_lock())
+
+
+# ── 朋友协作 ──
+@enterprise_bp.route('/friends/list', methods=['GET'])
+def list_friends():
+    from friends import list_friends
+    return jsonify(list_friends())
+
+@enterprise_bp.route('/friends/add', methods=['POST'])
+def add_friend():
+    from friends import add_friend
+    data = request.get_json(silent=True) or {}
+    return jsonify(add_friend(data.get('name', ''), data.get('email', '')))
+
+@enterprise_bp.route('/friends/invitations', methods=['GET'])
+def list_invitations():
+    from friends import list_invitations
+    return jsonify(list_invitations())
+
+@enterprise_bp.route('/friends/invite', methods=['POST'])
+def send_invite():
+    from friends import send_invitation
+    data = request.get_json(silent=True) or {}
+    return jsonify(send_invitation(data.get('friendId', ''), data.get('todoId', ''), data.get('message', '')))
+
+@enterprise_bp.route('/friends/accept', methods=['POST'])
+def accept_invite():
+    from friends import accept_invitation
+    data = request.get_json(silent=True) or {}
+    return jsonify(accept_invitation(data.get('inviteId', '')))
+
+@enterprise_bp.route('/friends/shared-todos', methods=['GET'])
+def shared_todos():
+    from friends import list_shared_todos
+    return jsonify(list_shared_todos())

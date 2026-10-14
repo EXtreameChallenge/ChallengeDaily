@@ -1389,6 +1389,17 @@ try {
 
   autoUpdater.on('error', (err) => {
     console.error('[Updater] Error:', err.message)
+    // 完善更新：向渲染进程发送错误事件，前端可显示重试按钮
+    mainWindow?.webContents?.send('update-error', {
+      message: err.message || '更新检查失败',
+      canRetry: true,
+    })
+  })
+
+  // 完善更新：重试计数器（借鉴小黑日报助手的更新状态机）
+  let _updateRetryCount = 0
+  autoUpdater.on('update-not-available', () => {
+    _updateRetryCount = 0
   })
 } catch (e) {
   console.warn('[Updater] electron-updater not available:', e.message)
@@ -1396,13 +1407,24 @@ try {
 
 function checkForUpdates() {
   if (autoUpdater && app.isPackaged) {
-    autoUpdater.checkForUpdates().catch(() => {})
+    autoUpdater.checkForUpdates().catch((err) => {
+      // 完善更新：失败时通知前端可重试
+      mainWindow?.webContents?.send('update-error', {
+        message: err?.message || '网络异常，无法检查更新',
+        canRetry: true,
+      })
+    })
   }
 }
 
 function downloadUpdate() {
   if (autoUpdater) {
-    autoUpdater.downloadUpdate().catch(() => {})
+    autoUpdater.downloadUpdate().catch((err) => {
+      mainWindow?.webContents?.send('update-error', {
+        message: err?.message || '下载失败',
+        canRetry: true,
+      })
+    })
   }
 }
 
