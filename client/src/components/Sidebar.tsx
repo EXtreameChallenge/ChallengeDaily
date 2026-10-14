@@ -39,6 +39,7 @@ import {
   Bell,
   Building2,
   Mic,
+  Cat,
   type LucideIcon,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -209,6 +210,7 @@ const MORE_NAV = [
   { to: '/app-tags',  icon: Tags,         label: '应用标签' },
   { to: '/clipboard', icon: ClipboardList, label: '剪贴板' },
   { to: '/toolbox',   icon: Wrench,        label: '工具箱' },
+  { to: '/xiaohei-hub', icon: Cat,        label: '小黑集成' },
   { to: '/keyboard-heatmap', icon: Keyboard, label: '键盘热力' },
   { to: '/tools-hub', icon: Bell,         label: '工具中心' },
   { to: '/enterprise-hub', icon: Building2, label: '企业功能' },

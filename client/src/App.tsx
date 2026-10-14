@@ -54,6 +54,7 @@ const Toolbox = lazy(() => import('./pages/Toolbox'))
 const KeyboardHeatmap = lazy(() => import('./pages/KeyboardHeatmap'))
 const ToolsHub = lazy(() => import('./pages/ToolsHub'))
 const EnterpriseHub = lazy(() => import('./pages/EnterpriseHub'))
+const XiaoheiHub = lazy(() => import('./pages/XiaoheiHub'))
 
 // 首次启动流程：法律协议 → 新手引导 → 主界面
 type FirstLaunchPhase = 'legal' | 'onboarding' | 'done'
@@ -322,6 +323,7 @@ export default function App() {
                         <Route path="/keyboard-heatmap" element={<KeyboardHeatmap />} />
                         <Route path="/tools-hub" element={<ToolsHub />} />
                         <Route path="/enterprise-hub" element={<EnterpriseHub />} />
+                        <Route path="/xiaohei-hub" element={<XiaoheiHub />} />
                         <Route path="*" element={<NotFoundPage />} />
                       </Routes>
                     </Suspense>
