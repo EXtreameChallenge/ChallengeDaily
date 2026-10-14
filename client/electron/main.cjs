@@ -880,6 +880,13 @@ function setupIPC() {
     'check-for-updates', 'download-update', 'install-update', 'get-app-version',
     'get-auto-start', 'set-auto-start',
     'get-windows-location', 'windows-hello',
+    // 待办浮窗（借鉴小黑日报助手）
+    'todo-floating:get-state', 'todo-floating:enable', 'todo-floating:disable',
+    'todo-floating:expand', 'todo-floating:collapse', 'todo-floating:set-always-on-top',
+    'todo-floating:open-main-todo',
+    'todo-floating:drag-start', 'todo-floating:drag-move', 'todo-floating:drag-end',
+    'pomodoro-widget-click',
+    'mubu:login', 'mubu:sync-now', 'mubu:sync-status',
   ])
   const _origOn = ipcMain.on.bind(ipcMain)
   const _origHandle = ipcMain.handle.bind(ipcMain)

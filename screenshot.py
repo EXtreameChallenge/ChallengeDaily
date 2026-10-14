@@ -144,6 +144,8 @@ def take_screenshot(monitor_index: int = 0, app_name: str = "") -> tuple[str, st
     sct = _get_mss()
     monitors = _get_monitors()
 
+    global _last_saved_filepath, _last_saved_filename
+
     # 选择截图区域
     if monitor_index < len(monitors):
         monitor = monitors[monitor_index]
@@ -203,7 +205,6 @@ def take_screenshot(monitor_index: int = 0, app_name: str = "") -> tuple[str, st
                 img.save(str(filepath), "JPEG", quality=quality, progressive=True, optimize=True)
 
             # 记录本次保存的路径
-            global _last_saved_filepath, _last_saved_filename
             _last_saved_filepath = str(filepath)
             _last_saved_filename = filename
 
