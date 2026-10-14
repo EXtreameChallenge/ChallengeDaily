@@ -96,6 +96,7 @@ from routes.user_profile_routes import bp as user_profile_bp
 from routes.todo_extraction import bp as todo_extraction_bp
 from routes.report_templates import bp as report_templates_bp
 from routes.agent_routes import bp as agent_routes_bp
+from routes.keyboard_routes import keyboard_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -196,4 +197,5 @@ ALL_BLUEPRINTS = [
     todo_extraction_bp,
     report_templates_bp,
     agent_routes_bp,
+    keyboard_bp,
 ]
