@@ -60,7 +60,7 @@ function deactivate() {
 function getConfig() {
     const cfg = vscode.workspace.getConfiguration('challengedaily');
     return {
-        apiUrl: cfg.get('apiUrl', 'http://127.0.0.1:58888'),
+        apiUrl: cfg.get('apiUrl', 'http://127.0.0.1:59300'),
         apiToken: cfg.get('apiToken', ''),
         refreshSec: cfg.get('refreshIntervalSec', 30),
     };

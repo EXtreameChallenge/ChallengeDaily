@@ -5,8 +5,8 @@
   "description": "追踪网页活动（URL/域名/标题/停留时长）并发送到 ChallengeDaily 后端。",
   "permissions": ["tabs", "activeTab", "storage", "idle", "alarms"],
   "host_permissions": [
-    "http://127.0.0.1:58888/*",
-    "http://localhost:58888/*"
+    "http://127.0.0.1:59300/*",
+    "http://localhost:59300/*"
   ],
   "background": {
     "service_worker": "background.js"

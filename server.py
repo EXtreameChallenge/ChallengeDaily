@@ -25,8 +25,8 @@ app = Flask(__name__)
 _ALLOWED_ORIGINS = {
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://localhost:58888",
-    "http://127.0.0.1:58888",
+    "http://localhost:59300",
+    "http://127.0.0.1:59300",
     "null",  # Electron file:// 协议下 Origin 为 "null"，必须允许
 }
 

@@ -190,7 +190,7 @@ cd client && npm install && npm run build && cd ..
 python main.py
 ```
 
-打开 `http://127.0.0.1:58888`，数据已经在采了。
+打开 `http://127.0.0.1:59300`，数据已经在采了。
 
 > 📦 打包版去 [Releases](https://github.com/EXtreameChallenge/ChallengeDaily/releases) 下载 `Setup.exe` | 需 Python 3.10+
 >

@@ -12,7 +12,7 @@ const http = require('http')
 const { app } = require('electron')
 
 const BACKEND_HOST = '127.0.0.1'
-const BACKEND_PORT = 58888
+const BACKEND_PORT = 59300
 const SSE_PATH = '/api/events/stream'
 const RECONNECT_MS = 5000
 

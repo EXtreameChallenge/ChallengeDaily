@@ -3,7 +3,7 @@
  */
 (function () {
   const DEFAULT_SETTINGS = {
-    backendUrl: 'http://127.0.0.1:58888',
+    backendUrl: 'http://127.0.0.1:59300',
     apiToken: '',
     trackingEnabled: true,
     flushIntervalSec: 30,

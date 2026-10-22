@@ -66,7 +66,7 @@ export async function startupHealthCheck(): Promise<boolean> {
     const timeoutId = setTimeout(() => controller.abort(), 5000)
     const port = window.electronAPI?.getBackendPort
       ? await window.electronAPI.getBackendPort()
-      : 58888
+      : 59300
     const res = await fetch(`http://127.0.0.1:${port}/api/health?quick=1`, {
       signal: controller.signal,
     })

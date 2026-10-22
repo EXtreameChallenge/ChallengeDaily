@@ -102,7 +102,7 @@ SCREENSHOT_QUALITY = int(os.getenv("SCREENSHOT_QUALITY", "70"))
 SCREENSHOT_MAX_WIDTH = int(os.getenv("SCREENSHOT_MAX_WIDTH", "1920"))
 
 # ── HTTP API 端口 ──
-HTTP_PORT = int(os.getenv("PORT", os.getenv("HTTP_PORT", "58888")))
+HTTP_PORT = int(os.getenv("PORT", os.getenv("HTTP_PORT", "59300")))
 
 # ── HTTP 绑定地址 ──
 # 默认 0.0.0.0：自习室"扫描局域网"需要让同网段设备能访问本机 /api/study-room/heartbeat。

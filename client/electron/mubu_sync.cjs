@@ -30,7 +30,7 @@ let _isSyncing = false
 let _onStatusChange = null  // 状态变化回调（通知前端）
 
 // 后端 HTTP 配置（与 main.cjs 共享）
-const BACKEND_PORT = 58888
+const BACKEND_PORT = 59300
 const BACKEND_HOST = '127.0.0.1'
 
 // ─── 读取后端 token（用于推数据给 Flask）────────────

@@ -1,7 +1,7 @@
 // ── API 核心基础设施：BASE_URL、请求层、Token 管理、后端状态 ──
 
 // 后端 API 基础 URL：优先从 Electron 主进程获取端口，兼容非 Electron 环境
-let BASE_URL = 'http://127.0.0.1:58888'
+let BASE_URL = 'http://127.0.0.1:59300'
 
 // 异步初始化 BASE_URL 的 Promise（避免启动初期竞态：模块加载时端口尚未就绪）
 let _baseUrlPromise: Promise<void> | null = null
@@ -196,6 +196,20 @@ async function _requestImpl(endpoint: string, options?: RequestInit, timeoutMs =
   } finally {
     clearTimeout(timeoutId)
   }
+}
+
+/** GET 快捷方法：无请求体，供页面直接调用 */
+export async function get(endpoint: string, timeoutMs = 10000): Promise<unknown> {
+  return request(endpoint, undefined, timeoutMs)
+}
+
+/** POST 快捷方法：自动 JSON 序列化请求体，body 缺省时不发送请求体 */
+export async function post(endpoint: string, body?: unknown, timeoutMs = 10000): Promise<unknown> {
+  return request(
+    endpoint,
+    { method: 'POST', ...(body !== undefined ? { body: JSON.stringify(body) } : {}) },
+    timeoutMs,
+  )
 }
 
 /** 通用 Blob 下载触发器 */

@@ -2,7 +2,7 @@
 // 所有现有 `from '../api/client'` 导入无需修改
 
 // ── 核心基础设施 ──
-export { request, getBaseUrl, getApiToken, ensureBaseUrl, getBackendState, onBackendStateChange, _triggerDownload } from './core'
+export { request, get, post, getBaseUrl, getApiToken, ensureBaseUrl, getBackendState, onBackendStateChange, _triggerDownload } from './core'
 
 // ── 常量 ──
 export { CATEGORY_COLORS, CATEGORIES, POMODORO_SIZES, LONG_BREAK_INTERVAL } from './constants'

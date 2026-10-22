@@ -65,7 +65,7 @@ let backendProcess = null
 let _backendDir = null        // 后端工作目录，供 readApiToken 使用
 let _backendStarting = false  // 防止并发启动多个后端实例
 
-const BACKEND_PORT = 58888
+const BACKEND_PORT = 59300
 // isDev 判断优先级：
 // 1. ELECTRON_IS_DEV=0 → 强制生产模式（start.bat/start.vbs 使用）
 // 2. app.isPackaged → 真正打包后始终生产模式
@@ -228,7 +228,7 @@ async function _doStartBackend() {
       console.log('[Main] Backend already running with valid token, skip spawning')
       return
     }
-    console.error('[Main] WARNING: Port 58888 is occupied by another backend with mismatched token.')
+    console.error('[Main] WARNING: Port 59300 is occupied by another backend with mismatched token.')
     console.error('[Main] If the app shows 401 errors, kill any stale python.exe processes and restart.')
   }
 
@@ -447,7 +447,7 @@ function applyCSPToSession(targetSession) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
-    "connect-src 'self' http://127.0.0.1:58888 http://localhost:5173 http://localhost:58888",
+    "connect-src 'self' http://127.0.0.1:59300 http://localhost:5173 http://localhost:59300",
     "media-src 'none'",
     "object-src 'none'",
     "frame-src 'none'",
@@ -515,7 +515,7 @@ function createMainWindow() {
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
           "img-src 'self' data: blob: http: https:; " +
           "font-src 'self' data: https://fonts.gstatic.com; " +
-          "connect-src 'self' http://127.0.0.1:58888 http://localhost:5173 http://localhost:58888 " +
+          "connect-src 'self' http://127.0.0.1:59300 http://localhost:5173 http://localhost:59300 " +
             "https://wttr.in https://api.open-meteo.com https://geocoding-api.open-meteo.com " +
             "https://api.bigdatacloud.net https://qifu-api.baidubce.com https://pv.sohu.com " +
             "https://int.dpool.sina.com.cn https://nominatim.openstreetmap.org " +

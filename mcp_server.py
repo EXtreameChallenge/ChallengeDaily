@@ -4,7 +4,7 @@ ChallengeDaily MCP Server — 让外部 Agent 读写桌面端数据库
 设计要点：
 1. 零外部依赖：仅用 Python 标准库，避免给项目新增 pip 依赖
 2. stdio JSON-RPC：原生兼容 Claude Desktop / Cursor / TRAE / Continue 等
-3. HTTP 调本地 Flask：所有读写走 http://127.0.0.1:58888 + X-API-Token
+3. HTTP 调本地 Flask：所有读写走 http://127.0.0.1:59300 + X-API-Token
    —— 完整复用现有 routes 的鉴权、校验、事务、ETag，不绕过任何安全层
 4. token 自动读取：优先 userData/backend-data，回退项目 data 目录
 5. 进程生命周期：可由 Electron 主进程拉起，也可独立 `python mcp_server.py` 跑
@@ -60,7 +60,7 @@ LOG_DIR = DATA_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR / "mcp_server.log"
 
-BACKEND_URL = os.environ.get("CHALLENGE_DAILY_BACKEND_URL", "http://127.0.0.1:58888")
+BACKEND_URL = os.environ.get("CHALLENGE_DAILY_BACKEND_URL", "http://127.0.0.1:59300")
 BACKEND_TIMEOUT = float(os.environ.get("CHALLENGE_DAILY_BACKEND_TIMEOUT", "15"))
 # 后端启动等待：Flask 可能比 MCP 晚几秒起来，第一次请求重试窗口
 BACKEND_READY_WAIT = float(os.environ.get("CHALLENGE_DAILY_BACKEND_READY_WAIT", "30"))

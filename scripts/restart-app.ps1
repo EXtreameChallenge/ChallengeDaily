@@ -3,7 +3,7 @@
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $rootDir = Split-Path -Parent $scriptDir
 $startVbs = Join-Path $rootDir "start.vbs"
-$backendPort = 58888
+$backendPort = 59300
 
 Write-Host "[Restart] Project: $rootDir"
 

@@ -330,7 +330,7 @@ export default function ProtocolCompatPanel() {
               </summary>
               <div className="mt-1 p-2 bg-cd-bg rounded-lg text-[10px] space-y-1 text-cd-text-secondary">
                 <div>1. 安装 ActivityWatch 客户端：<a href="https://activitywatch.net/downloads/" target="_blank" rel="noopener noreferrer" className="text-cd-green inline-flex items-center gap-0.5">activitywatch.net <ExternalLink size={9} /></a></div>
-                <div>2. 修改 aw-server 端口指向 ChallengeDaily（默认 5600 → 58888）</div>
+                <div>2. 修改 aw-server 端口指向 ChallengeDaily（默认 5600 → 59300）</div>
                 <div>3. 或在 aw-server 配置中设置 base_url = <code className="text-cd-green">{awMeta.server_url}</code></div>
                 <div>4. 重启 ActivityWatch，事件将自动写入 ChallengeDaily</div>
               </div>

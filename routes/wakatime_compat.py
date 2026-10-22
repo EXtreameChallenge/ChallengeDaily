@@ -648,7 +648,7 @@ def status():
                 "steps": [
                     "安装 WakaTime 插件（VS Code Extensions 搜索 'WakaTime'）",
                     f"打开 ~/.wakatime.cfg，设置 api_key = {masked}",
-                    "设置 api_url = http://127.0.0.1:58888/api (ChallengeDaily 本地服务)",
+                    "设置 api_url = http://127.0.0.1:59300/api (ChallengeDaily 本地服务)",
                     "重启 VS Code，开始 coding 即可自动上报",
                 ],
             },
@@ -657,7 +657,7 @@ def status():
                 "steps": [
                     "pip install wakatime",
                     f"配置 ~/.wakatime.cfg: api_key = {masked}",
-                    "设置 api_url = http://127.0.0.1:58888/api",
+                    "设置 api_url = http://127.0.0.1:59300/api",
                 ],
             },
         },
