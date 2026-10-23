@@ -141,7 +141,7 @@ def _cb_record_failure():
 # ── AI 速率限制器（令牌桶，防止单次异常导致 API 账单暴涨） ──
 _RATE_LIMIT_LOCK = threading.Lock()
 _RATE_TEXT_MAX = 10       # 文本模型每分钟最大请求数
-_RATE_VISION_MAX = 2     # 视觉模型每分钟最大请求数
+_RATE_VISION_MAX = 8     # 视觉模型每分钟最大请求数（智谱GLM-4V-Flash实测无429限流，放宽以适配窗口切换高频采集）
 _RATE_WINDOW = 60        # 窗口期（秒）
 _rate_text_times = []    # 文本请求时间戳列表
 _rate_vision_times = []  # 视觉请求时间戳列表
@@ -234,16 +234,20 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
             pass
         return {"category": "生活", "summary": fallback_summary, "detail": "AI 服务暂时不可用，等待恢复中", "windows": []}
 
-    # 速率限制检查
+    # 速率限制检查（瞬时超限时用规则分类+窗口标题降级，不显示刺眼错误文案；
+    # 下次采集（常规60s/窗口切换）会自动重新尝试 AI 分析）
     if not _rate_limit_check("vision"):
-        fallback_summary = f"{app_name} - {window_title}" if window_title else app_name or "请求过于频繁"
+        fallback_summary = f"{app_name} - {window_title}" if window_title else app_name or "未分类"
         try:
             from audit_logger import log_audit
             log_audit("ai_vision", "analyze_screenshot", "skipped",
-                      detail="视觉请求速率超限", metadata={"app_name": app_name})
+                      detail="视觉请求速率超限（瞬时），已用规则分类降级", metadata={"app_name": app_name})
         except Exception:
             pass
-        return {"category": "生活", "summary": fallback_summary, "detail": "AI 请求过于频繁，稍后自动重试", "windows": []}
+        return {"category": _rule_based_category(app_name, window_title),
+                "summary": fallback_summary,
+                "detail": "",
+                "windows": []}
 
     # 预先将图片编码为 base64，避免重试时重复读取文件
     try:
