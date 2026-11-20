@@ -99,6 +99,7 @@ from routes.agent_routes import bp as agent_routes_bp
 from routes.keyboard_routes import keyboard_bp
 from routes.tools_routes import tools_bp
 from routes.enterprise_routes import enterprise_bp
+from routes.xiaohei_routes import bp as xiaohei_bp
 
 ALL_BLUEPRINTS = [
     health_bp,
@@ -202,4 +203,5 @@ ALL_BLUEPRINTS = [
     keyboard_bp,
     tools_bp,
     enterprise_bp,
+    xiaohei_bp,
 ]

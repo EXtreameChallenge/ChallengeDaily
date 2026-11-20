@@ -168,6 +168,13 @@ def take_screenshot(monitor_index: int = 0, app_name: str = "") -> tuple[str, st
             # 复用上一张截图路径，不重复保存
             filename = _last_saved_filename
             filepath = _last_saved_filepath
+            # 帧去重日志（真实事件）
+            try:
+                from xiaohei_core import log_frame_dedup
+                log_frame_dedup("skipped", similarity=100.0,
+                                detail=f"连续重复 {_consecutive_duplicates} 次，复用 {filename}")
+            except Exception:
+                pass
         else:
             # P17-3: 截图质量分级 — IDE/编辑器用高质量保留代码细节
             quality = _get_screenshot_quality(app_name)
@@ -207,6 +214,13 @@ def take_screenshot(monitor_index: int = 0, app_name: str = "") -> tuple[str, st
             # 记录本次保存的路径
             _last_saved_filepath = str(filepath)
             _last_saved_filename = filename
+            # 帧去重日志（真实事件：正常保存）
+            try:
+                from xiaohei_core import log_frame_dedup
+                log_frame_dedup("saved", similarity=0.0,
+                                detail=f"画面变化，保存 {filename}")
+            except Exception:
+                pass
 
         return filename, str(filepath), is_duplicate
     finally:

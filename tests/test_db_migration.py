@@ -23,14 +23,14 @@ def test_v22_migration_idempotent(temp_db):
 
 
 def test_v24_migration_idempotent(temp_db):
-    """已迁移到 V24 的 DB 重跑 init_db 不报错"""
+    """已迁移到当前版本（B17 修正：V24 起的迁移链）的 DB 重跑 init_db 不报错"""
     db.init_db()
     db.init_db()  # 再次执行，验证幂等
 
     with db.get_conn() as conn:
         row = conn.execute("SELECT value FROM schema_version WHERE key='version'").fetchone()
         assert row is not None
-        assert int(row["value"]) == 24
+        assert int(row["value"]) == db.SCHEMA_VERSION
 
 
 def test_init_db_creates_tables(temp_db):

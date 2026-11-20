@@ -12,6 +12,7 @@ import time
 from datetime import datetime
 
 from config import RETENTION_DAYS, is_app_excluded, load_settings
+from screenshot_redactor import should_skip_capture
 import config
 import json
 from app_tracker import get_foreground_app, get_display_name, get_idle_seconds, get_visible_windows
@@ -410,6 +411,12 @@ class Collector:
         if is_app_excluded(app_name) or is_app_excluded(window_title):
             logger.info(f"应用在排除列表中，跳过: {display_name} / {window_title}")
             # 结算上一段（按多窗口面积分摊）
+            self._flush_segment(timestamp)
+            return None
+
+        # 2.6 B03: 敏感窗口（密码/验证码/身份证/银行支付页面等）同样跳过采集
+        if should_skip_capture(window_title, app_name):
+            logger.info(f"敏感窗口，跳过采集: {display_name} / {window_title}")
             self._flush_segment(timestamp)
             return None
 

@@ -79,6 +79,7 @@ mypy_cache/
 *_audit*.md
 *_report*.md
 验收报告*.md
+PROJECT_HANDOVER_MEMORY.md
 循环工程日志*.md
 LOOP_ENGINEERING_PLAN.md
 PROJECT_FINAL_REPORT.md

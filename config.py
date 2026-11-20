@@ -194,7 +194,12 @@ PRIVACY_KEYWORDS = os.getenv("PRIVACY_KEYWORDS", "").split(",") if os.getenv("PR
 
 # ── 持久化设置（JSON 文件）──
 _DEFAULT_SETTINGS = {
-    "exclude_apps": ["1password", "bitwarden", "keepass"],
+    # B03: 隐私底线名单（与用户配置取并集，内置项不可被用户配置移除）
+    "exclude_apps": [
+        "1password", "bitwarden", "keepass", "lastpass", "dashlane",
+        "wechat", "weixin", "微信", "lark", "feishu", "飞书",
+        "银行", "bank", "支付宝", "alipay", "wallet", "钱包",
+    ],
     "screenshot_interval_sec": 60,
     "work_start_hour": 9,
     "work_end_hour": 18,
@@ -266,8 +271,10 @@ def save_settings(settings: dict) -> None:
         _settings_cache_time = time.time()
 
 def get_exclude_apps() -> list[str]:
-    """获取排除应用列表"""
-    return load_settings().get("exclude_apps", _DEFAULT_SETTINGS["exclude_apps"])
+    """获取排除应用列表：内置隐私底线 + 用户配置（并集，内置项不可移除）"""
+    user_list = load_settings().get("exclude_apps", []) or []
+    merged = list(dict.fromkeys([*_DEFAULT_SETTINGS["exclude_apps"], *user_list]))
+    return merged
 
 def is_app_excluded(app_name: str) -> bool:
     """检查应用是否在排除列表中（不区分大小写的子串匹配）"""

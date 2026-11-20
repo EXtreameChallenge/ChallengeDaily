@@ -511,6 +511,14 @@ def cleanup_old_data(days: int):
                 logger.debug("cleanup_old_data: activities_deleted 表不存在，跳过")
             else:
                 raise
+        # B41: timestamp 非法的历史垃圾行（BLOB/非日期文本，来自旧版错误写入与恢复脚本残留）
+        # 永远匹配不到上面的文本比较，单独清除，防止永久驻留
+        garbage = conn.execute(
+            "DELETE FROM activities WHERE typeof(timestamp) != 'text' "
+            "OR timestamp NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*'"
+        ).rowcount
+        if garbage:
+            logger.info(f"cleanup_old_data: 清除 timestamp 非法垃圾行 {garbage} 条")
         conn.commit()
 
 

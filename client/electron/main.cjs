@@ -1360,7 +1360,7 @@ try {
   autoUpdater.autoInstallOnAppQuit = true  // 退出时自动安装
   autoUpdater.setFeedURL({
     provider: 'github',
-    owner: 'ChallengeDaily',
+    owner: 'EXtreameChallenge',
     repo: 'ChallengeDaily',
   })
   // P0-11: 禁用更新缓存，避免拿到缓存的旧版本元数据
