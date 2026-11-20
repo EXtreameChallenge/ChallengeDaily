@@ -207,6 +207,32 @@ def insert_activity(timestamp: str, screenshot: str, app_name: str,
     return inserted
 
 
+def merge_activity_interval(extra_sec: int, max_interval_sec: int = 300) -> bool:
+    """Wave2-B42：相邻采样合并 — 把本次经过秒数并入最近一条活动。
+
+    同一应用/窗口在短间隔（<30s）内再次采样时不再新开一行，而是累加
+    上一条的 interval_sec（上限 max_interval_sec），避免 clamp 下限造成的多计。
+    返回是否合并成功。
+    """
+    global _pending_commits
+    if extra_sec <= 0:
+        return False
+    with _write_lock:
+        with get_conn() as conn:
+            cursor = _execute_with_retry(conn,
+                "UPDATE activities SET interval_sec = MIN(?, interval_sec + ?) "
+                "WHERE id = (SELECT id FROM activities ORDER BY id DESC LIMIT 1)",
+                (max_interval_sec, int(extra_sec)),
+            )
+            merged = cursor.rowcount > 0
+            if merged:
+                _pending_commits += 1
+                if _pending_commits >= _COMMIT_BATCH_SIZE:
+                    conn.commit()
+                    _pending_commits = 0
+    return merged
+
+
 def insert_manual_activity(timestamp: str, app_name: str, window_title: str,
                            category: str, summary: str, duration_min: int = 30):
     """手动补录一条活动记录（含生成 app_usage），返回新记录 id"""

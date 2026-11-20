@@ -834,6 +834,74 @@ def ai_chat_stream():
 # 操作确认执行端点
 # ═══════════════════════════════════════════════════════════════
 
+def _execute_external_action(action: str, action_data: dict) -> tuple[dict, int]:
+    """Wave2-B09：外部动作真实落地；模块未配置/接口未开放时明确 unsupported，不假报 ok。"""
+    try:
+        if action.startswith('mubu_'):
+            import mubu_mcp_client as mc
+            if not mc.has_token():
+                return {"status": "unsupported", "action": action,
+                        "message": "幕布 MCP 未配置 Token，请先在设置中填写"}, 503
+            if action == 'mubu_create_doc':
+                title = (action_data.get('title') or action_data.get('text', '')[:30]
+                         or '未命名文档')
+                res = mc.create_document(title, action_data.get('content', ''),
+                                         action_data.get('folder_id', ''))
+                if isinstance(res, dict) and res.get('error'):
+                    return {"status": "error", "action": action,
+                            "message": str(res['error'])[:300]}, 502
+                return {"status": "ok", "action": action,
+                        "message": f"幕布文档《{title}》已创建", "result": res}, 200
+            return {"status": "unsupported", "action": action,
+                    "message": "幕布 MCP 目前只提供创建/读取，更新接口未开放"}, 503
+
+        if action == 'obsidian_sync':
+            import obsidian_sync as osd
+            if not osd.is_vault_configured():
+                return {"status": "unsupported", "action": action,
+                        "message": "Obsidian 仓库路径未配置，请先在设置中填写"}, 503
+            res = osd.sync_mubu_to_obsidian(force=True)
+            return {"status": "ok", "action": action,
+                    "message": "Obsidian 同步完成", "result": res}, 200
+
+        if action == 'generate_report':
+            import report
+            target = (action_data.get('date') or action_data.get('target_date')
+                      or datetime.now().strftime('%Y-%m-%d'))
+            content = report.generate_daily_report(target_date=target)
+            return {"status": "ok", "action": action,
+                    "message": f"{target} 日报已生成（{len(content or '')} 字）",
+                    "preview": (content or '')[:200]}, 200
+
+        if action == 'export_data':
+            import data_analytics
+            res = data_analytics.export_data(
+                format=action_data.get('format', 'csv'),
+                table=action_data.get('table', 'activities'),
+                start_date=action_data.get('start_date'),
+                end_date=action_data.get('end_date'),
+            )
+            return {"status": "ok", "action": action,
+                    "message": "数据已导出", "result": res}, 200
+
+        if action == 'trigger_workflow':
+            import agent_workflows
+            name = action_data.get('workflow') or action_data.get('name')
+            if not name:
+                return {"status": "error", "action": action,
+                        "message": "缺少 workflow 名称"}, 400
+            out = agent_workflows.trigger_workflow(name, action_data.get('params') or {})
+            return {"status": "ok", "action": action,
+                    "message": f"工作流 {name} 已触发", "result": out}, 200
+
+        return {"status": "unsupported", "action": action,
+                "message": f"未知外部动作: {action}"}, 400
+    except Exception as e:
+        logger.error(f"外部动作执行失败 {action}: {e}", exc_info=True)
+        return {"status": "error", "action": action,
+                "message": f"{action} 执行失败: {str(e)[:200]}"}, 500
+
+
 @bp.route('/chat/execute', methods=['POST'])
 def execute_action():
     """用户确认后执行操作"""
@@ -938,13 +1006,11 @@ def execute_action():
             reminders_path.write_text(json.dumps(old, ensure_ascii=False, indent=2), encoding="utf-8")
             return jsonify({"status": "ok", "message": "提醒已创建"})
 
-        # ── Agent 新工具确认后落地（P1：外部集成，best-effort）──
+        # ── Agent 新工具确认后落地（Wave2-B09：真实调用，未配置则明示 unsupported）──
         elif action in ('mubu_create_doc', 'mubu_update_doc', 'obsidian_sync',
                         'generate_report', 'export_data', 'trigger_workflow'):
-            # 外部系统类操作：模块可能未配置，统一返回友好占位结果，不报错
-            return jsonify({"status": "ok",
-                            "message": f"操作 {action} 已触发（外部模块集成待接入，此处为占位执行）",
-                            "action": action})
+            payload, status = _execute_external_action(action, action_data)
+            return jsonify(payload), status
 
         else:
             return jsonify({"error": f"未知操作: {action}"}), 400

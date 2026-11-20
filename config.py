@@ -84,6 +84,8 @@ for d in [DATA_DIR, SCREENSHOT_DIR, REPORT_DIR]:
 
 # ── 截图间隔（秒）──
 SCREENSHOT_INTERVAL_SEC = int(os.getenv("SCREENSHOT_INTERVAL_SEC", "60"))
+# Wave2-B42：同一应用+窗口在短窗口内再次采样时并入上一行（秒）
+ADJACENT_MERGE_WINDOW_SEC = int(os.getenv("ADJACENT_MERGE_WINDOW_SEC", "30"))
 
 # ── P8-3：自适应采样 ──
 # 启用后采集器会根据近期分类变化频率动态调整下次采样间隔：

@@ -19,7 +19,7 @@ from app_tracker import get_foreground_app, get_display_name, get_idle_seconds, 
 from screenshot import take_screenshot, get_active_monitor_index
 from ai_client import analyze_screenshot
 from classifier import classify
-from db import insert_activity, upsert_app_usage_multi, cleanup_old_data, get_recent_activities
+from db import insert_activity, merge_activity_interval, upsert_app_usage_multi, cleanup_old_data, get_recent_activities
 from screenshot import cleanup_screenshots, get_screenshots_size_mb
 from config import CATEGORIES
 
@@ -230,6 +230,8 @@ class Collector:
         self._last_frame_bytes: bytes | None = None
         # Wave0-B05：上次成功入库时间 — interval_sec 记实际经过秒数而非恒 60
         self._last_insert_dt: datetime | None = None
+        # Wave2-B42：上次入库的 (应用, 窗口) 签名 — 相邻短间隔采样合并进上一行
+        self._last_insert_sig: tuple[str, str] | None = None
 
     def _record_category_for_adaptive(self, category: str) -> None:
         """P8-3：记录本次采集分类到滑动窗口"""
@@ -300,15 +302,23 @@ class Collector:
             return None, None, False
 
     def _compute_interval_sec(self, now: datetime) -> int:
-        """Wave0-B05：记录距上次成功入库的实际经过秒数（clamp 30~300）。
+        """Wave2-B42：记录距上次入库的实际经过秒数（clamp 1~300）。
 
-        自适应采样/事件驱动下实际间隔并非恒 60s，恒写 60 会造成时长统计系统性偏差。
-        首次入库无参照时用配置默认值。
+        Wave0 的 30s 下限会把 10s 的真实间隔记成 30s，短间隔连续采样时系统性多计。
+        相邻采样由 _should_merge_adjacent 合并进上一行，这里只保留 1s 安全下限。
         """
         if self._last_insert_dt is None:
             return config.SCREENSHOT_INTERVAL_SEC
         elapsed = (now - self._last_insert_dt).total_seconds()
-        return int(max(30, min(300, round(elapsed))))
+        return int(max(1, min(300, round(elapsed))))
+
+    def _should_merge_adjacent(self, now: datetime, app_name: str, window_title: str) -> bool:
+        """Wave2-B42：同一应用+窗口在短窗口内再次采样 → 并入上一行，不新开记录。"""
+        if self._last_insert_dt is None or self._last_insert_sig != (app_name, window_title):
+            return False
+        elapsed = (now - self._last_insert_dt).total_seconds()
+        window = float(getattr(config, "ADJACENT_MERGE_WINDOW_SEC", 30))
+        return 0 < elapsed < window
 
     def _flush_segment(self, end_time: str):
         """结算当前时间段：按 area_ratio 把 duration 分摊给所有可见窗口后写入 app_usage。
@@ -593,8 +603,14 @@ class Collector:
 
         # 6. 存储
         try:
-            # Wave0-B05: interval_sec 记实际经过秒数（clamp 30~300），不再恒写 60
+            # Wave0-B05: interval_sec 记实际经过秒数；Wave2-B42: 短间隔同签名采样合并进上一行
             interval_sec = self._compute_interval_sec(now)
+            if self._should_merge_adjacent(now, app_name, window_title):
+                merged = merge_activity_interval(interval_sec, max_interval_sec=300)
+                self._last_insert_dt = now
+                if merged:
+                    logger.info(f"[{category}] {summary} ({display_name}) 并入上一行 +{interval_sec}s")
+                    return
             inserted = insert_activity(
                 timestamp=timestamp,
                 screenshot=filename,
@@ -608,6 +624,7 @@ class Collector:
             )
             if inserted:
                 self._last_insert_dt = now
+                self._last_insert_sig = (app_name, window_title)
             # 推送 SSE 事件（活动变化通知前端实时刷新；Wave0-B20 重复被忽略时不推送）
             if inserted:
                 try:

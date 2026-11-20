@@ -1,5 +1,7 @@
-﻿import { useState, useEffect, useCallback } from 'react'
+﻿/* eslint-disable @typescript-eslint/no-explicit-any -- 应用锁状态为动态 JSON，局部断言即可 */
+import { useState, useEffect, useCallback } from 'react'
 import { Lock, Unlock, Fingerprint, Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import { get, post } from '../api/client'
 
 // 应用级隐私锁：密码 + Windows Hello + 闲置自动锁 + 模块级锁
 const LOCK_STORAGE_KEY = 'cd_app_lock_v1'
@@ -155,7 +157,18 @@ export function AppLockSettings() {
   const [cfg, setCfg] = useState(loadConfig())
   const [newPw, setNewPw] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
+  const [recoveryWord, setRecoveryWord] = useState('')
   const [msg, setMsg] = useState('')
+  const [backend, setBackend] = useState<any>(null)
+
+  // B30：密码真相走后端 app_lock（含恢复词），本地仅保留 Hello/闲置/模块锁偏好
+  useEffect(() => {
+    get('/api/enterprise/app-lock/status').then((s: any) => {
+      setBackend(s)
+      if (s?.enabled) update({ enabled: true })
+    }).catch(() => setBackend(null))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const update = (patch: Partial<LockConfig>) => {
     const next = { ...cfg, ...patch }
@@ -166,15 +179,27 @@ export function AppLockSettings() {
   const setPassword = async () => {
     if (newPw.length < 4) { setMsg('密码至少 4 位'); return }
     if (newPw !== confirmPw) { setMsg('两次输入不一致'); return }
+    if (!recoveryWord.trim()) { setMsg('请填写恢复词（用于找回密码）'); return }
+    try {
+      const res: any = await post('/api/enterprise/app-lock/setup', {
+        password: newPw, recoveryWord: recoveryWord.trim(),
+      })
+      if (!res?.ok) { setMsg(res?.error || res?.message || '后端设置失败'); return }
+      setBackend(res)
+    } catch (e: any) { setMsg(e?.message || '后端设置失败'); return }
     const hash = await hashPassword(newPw)
     update({ enabled: true, passwordHash: hash })
-    setNewPw(''); setConfirmPw('')
-    setMsg('应用锁已启用')
+    setNewPw(''); setConfirmPw(''); setRecoveryWord('')
+    setMsg('应用锁已启用（后端口令 + 恢复词已保存）')
   }
 
-  const disable = () => {
+  const disable = async () => {
+    try {
+      await post('/api/enterprise/app-lock/disable', {})
+    } catch (e: any) { setMsg(e?.message || '关闭后端锁失败'); return }
     update({ enabled: false, passwordHash: '' })
     setNewPw(''); setConfirmPw('')
+    setBackend({ enabled: false })
     setMsg('应用锁已关闭')
   }
 
@@ -195,6 +220,9 @@ export function AppLockSettings() {
             className="w-full bg-cd-bg-input border border-white/5 rounded-2xl px-3 py-2 text-sm text-cd-text" />
           <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
             placeholder="确认密码"
+            className="w-full bg-cd-bg-input border border-white/5 rounded-2xl px-3 py-2 text-sm text-cd-text" />
+          <input type="text" value={recoveryWord} onChange={e => setRecoveryWord(e.target.value)}
+            placeholder="恢复词（忘记密码时用于重置）"
             className="w-full bg-cd-bg-input border border-white/5 rounded-2xl px-3 py-2 text-sm text-cd-text" />
           <button onClick={setPassword}
             className="w-full py-2 bg-cd-accent/20 text-cd-accent rounded-2xl border border-cd-accent/30 hover:bg-cd-accent/30 text-sm">
@@ -245,6 +273,12 @@ export function AppLockSettings() {
         </div>
       )}
       {msg && <div className="text-xs text-cd-accent text-center">{msg}</div>}
+      {backend && (
+        <div className="text-[11px] text-cd-text-tertiary text-center">
+          后端口令库：{backend.enabled ? '已启用（SHA-256 + 恢复词）' : '未启用'}
+          {backend.enabled && backend.createdAt ? ` · ${backend.createdAt}` : ''}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- 小黑接口返回体为动态 JSON，局部断言即可 */
 import { useState, useEffect, useCallback } from 'react'
 import { get, post, request } from '../api/client'
+import { AppLockSettings } from '../components/AppLock'
 
 // ═══ 满血版小黑功能集成中心（真实 API 版）═══
 // 融合 ChallengeDaily glass风格 + 小黑日报助手功能
@@ -59,6 +61,7 @@ export default function XiaoheiHub() {
   // ── 原有功能状态（真实 tools/keyboard 接口） ──
   const [recording, setRecording] = useState(false)
   const [recordDuration, setRecordDuration] = useState(0)
+  const [recMsg, setRecMsg] = useState('')
   const [mdContent, setMdContent] = useState('')
   const [mdPath, setMdPath] = useState('')
   const [authSession, setAuthSession] = useState<{ loggedIn: boolean; user: any }>({ loggedIn: false, user: null })
@@ -484,12 +487,22 @@ export default function XiaoheiHub() {
             <span className="text-5xl">{recording ? '🔴' : '🎙️'}</span>
           </div>
           <div className="text-4xl font-mono mb-6">{formatTime(recordDuration)}</div>
-          <button onClick={() => {
-            if (recording) { post('/api/tools/recorder/stop'); setRecording(false) }
-            else { post('/api/tools/recorder/start'); setRecording(true); setRecordDuration(0) }
+          <button onClick={async () => {
+            try {
+              if (recording) {
+                const res: any = await post('/api/tools/recorder/stop')
+                setRecording(false)
+                setRecMsg(res?.ok ? `已保存：${res.filepath}` : (res?.error || '保存失败'))
+              } else {
+                const res: any = await post('/api/tools/recorder/start')
+                if (res?.ok) { setRecording(true); setRecordDuration(0); setRecMsg('') }
+                else setRecMsg(res?.error || '录音启动失败')
+              }
+            } catch (e: any) { setRecMsg(e?.message || '录音操作失败') }
           }} className={`px-8 py-3 rounded-full text-white font-medium ${recording ? 'bg-red-500' : 'bg-green-500'}`}>
             {recording ? '停止录音' : '开始录音'}
           </button>
+          {recMsg && <p className="text-xs text-amber-600 mt-3 break-all">{recMsg}</p>}
         </div>
       )}
 
@@ -504,6 +517,12 @@ export default function XiaoheiHub() {
               const data: any = await post('/api/tools/markdown/read', { path: mdPath })
               if (data?.content) setMdContent(data.content)
             }} className="px-4 py-2 bg-cd-accent text-white rounded-xl text-sm">打开</button>
+            <button onClick={async () => {
+              try {
+                const res: any = await post('/api/tools/markdown/save', { path: mdPath, content: mdContent })
+                setRecMsg(res?.ok ? `已保存：${res.path}` : (res?.error || '保存失败'))
+              } catch (e: any) { setRecMsg(e?.message || '保存失败') }
+            }} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm">保存</button>
           </div>
           <textarea className="w-full h-80 p-4 rounded-xl border font-mono text-sm bg-white/50"
             value={mdContent} onChange={e => setMdContent(e.target.value)} placeholder="Markdown内容..." />
@@ -515,8 +534,10 @@ export default function XiaoheiHub() {
         <div className="glass rounded-2xl p-8 text-center">
           <div className="text-6xl mb-4">📄</div>
           <h2 className="text-base font-semibold mb-2">PDF工具箱</h2>
-          <p className="text-sm text-gray-500 mb-6">选择PDF文件进行压缩优化（后端工具就绪）</p>
-          <button className="px-6 py-3 bg-cd-accent text-white rounded-xl">选择PDF文件</button>
+          <p className="text-sm text-gray-500 mb-6">
+            合并 / 拆分请在「工具中心 → PDF工具」使用；真实压缩需 Ghostscript，规划中。
+          </p>
+          <button disabled className="px-6 py-3 bg-gray-200 text-gray-500 rounded-xl cursor-not-allowed">压缩（规划中）</button>
         </div>
       )}
 
@@ -650,9 +671,9 @@ export default function XiaoheiHub() {
 
       {/* 应用锁 */}
       {activeTab === 'applock' && (
-        <div className="glass rounded-2xl p-6">
-          <h2 className="text-base font-semibold mb-4">应用锁（含恢复词）</h2>
-          <p className="text-gray-500">设置密码 + 恢复词，保护你的隐私数据（后端 app_lock.py 已就绪）</p>
+        <div>
+          <h2 className="text-base font-semibold px-1 mb-3">应用锁（后端口令 + 恢复词）</h2>
+          <AppLockSettings />
         </div>
       )}
 

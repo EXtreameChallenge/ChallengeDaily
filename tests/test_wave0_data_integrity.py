@@ -91,9 +91,9 @@ def test_b05_interval_actual_elapsed_clamped():
     c._last_insert_dt = now - timedelta(seconds=90)
     assert c._compute_interval_sec(now) == 90
 
-    # 事件驱动 5s 连采 → clamp 下限 30
+    # Wave2-B42 取代旧 clamp：5s 连采 → 记真实 5s（相邻采样由 merge 合并进上一行）
     c._last_insert_dt = now - timedelta(seconds=5)
-    assert c._compute_interval_sec(now) == 30
+    assert c._compute_interval_sec(now) == 5
 
     # 闲置恢复 999s → clamp 上限 300
     c._last_insert_dt = now - timedelta(seconds=999)

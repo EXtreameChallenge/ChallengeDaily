@@ -10,7 +10,7 @@ from config import DB_PATH
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 38
+SCHEMA_VERSION = 39
 
 # P-01: 默认数据保留天数（90 天）
 DEFAULT_DATA_RETENTION_DAYS = 90
@@ -979,6 +979,23 @@ def _init_db_impl():
                 logger.info(f"V38: activities 幂等去重索引创建成功（清理历史重复 {deleted} 行）")
             except Exception as e:
                 logger.warning(f"V38 schema 升级失败: {e}")
+
+        # V39 (Wave2-B06): 键盘按日统计持久化表 — keyboard_tracker 原先把计数只放内存，
+        # 重启即丢；前端热力图因此永远只有当前会话数据。
+        if current_version < 39:
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS keyboard_stats_daily (
+                        stat_date TEXT NOT NULL,
+                        key_name TEXT NOT NULL,
+                        count INTEGER NOT NULL DEFAULT 0,
+                        updated_at TEXT DEFAULT (datetime('now','localtime')),
+                        PRIMARY KEY (stat_date, key_name)
+                    )
+                """)
+                logger.info("V39: keyboard_stats_daily 表创建成功")
+            except Exception as e:
+                logger.warning(f"V39 schema 升级失败: {e}")
 
         # 更新版本号
         conn.execute(
