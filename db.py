@@ -30,10 +30,10 @@ def _get_thread_conn() -> sqlite3.Connection:
     conn = getattr(_local, 'conn', None)
     if conn is not None:
         return conn
-    # 为当前线程创建新连接
-    conn = sqlite3.connect(str(DB_PATH), timeout=10)
+    # 为当前线程创建新连接（busy_timeout/超时放宽：桌面端并发 AI 分析时减少 locked 误报）
+    conn = sqlite3.connect(str(DB_PATH), timeout=30)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute("PRAGMA busy_timeout=15000")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA cache_size=-4096")  # P29: 4MB cache (from 2MB)

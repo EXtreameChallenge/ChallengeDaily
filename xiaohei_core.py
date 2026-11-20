@@ -24,9 +24,22 @@ from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Optional
 
+from contextlib import contextmanager
+
 from db import get_conn
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _conn():
+    """B04 修复：db.get_conn 不自动 commit，统一在块结束时提交。
+    此前所有写路径（工作记录/积分/徽章/模板/Token/备份/清库）均未提交，
+    HTTP 返回 ok 但数据从未落库（假成功）。
+    """
+    with get_conn() as conn:
+        yield conn
+        conn.commit()
 
 # ════════════════════════════════════════════════════════════════
 # 1. AI 工作记录 — 小黑最核心功能
@@ -42,7 +55,7 @@ _WORK_RECORD_CATEGORIES = [
 
 def init_xiaohei_tables():
     """初始化小黑核心功能所需的全部数据库表（幂等）"""
-    with get_conn() as conn:
+    with _conn() as conn:
         conn.executescript("""
             -- 工作记录表
             CREATE TABLE IF NOT EXISTS work_records (
@@ -143,7 +156,7 @@ def list_work_records(day: Optional[str] = None, category: Optional[str] = None,
         where.append("category = ?")
         args.append(category)
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
-    with get_conn() as conn:
+    with _conn() as conn:
         rows = conn.execute(
             f"""SELECT * FROM work_records {where_sql}
                 ORDER BY created_at DESC LIMIT ? OFFSET ?""",
@@ -162,7 +175,7 @@ def create_work_record(data: dict) -> dict:
     title = (data.get("title") or "").strip()[:200]
     if not title:
         title = f"工作记录 {datetime.now().strftime('%H:%M')}"
-    with get_conn() as conn:
+    with _conn() as conn:
         cur = conn.execute(
             """INSERT INTO work_records
                (date, category, title, content, app_name, source_screenshot, duration_sec)
@@ -179,7 +192,7 @@ def create_work_record(data: dict) -> dict:
 def update_work_record(rid: int, data: dict) -> dict:
     """更新工作记录（人工修正AI结果）"""
     init_xiaohei_tables()
-    with get_conn() as conn:
+    with _conn() as conn:
         row = conn.execute("SELECT * FROM work_records WHERE id=?", (rid,)).fetchone()
         if not row:
             return {"ok": False, "error": "记录不存在"}
@@ -198,7 +211,7 @@ def update_work_record(rid: int, data: dict) -> dict:
 
 def delete_work_record(rid: int) -> dict:
     init_xiaohei_tables()
-    with get_conn() as conn:
+    with _conn() as conn:
         conn.execute("DELETE FROM work_records WHERE id=?", (rid,))
     return {"ok": True}
 
@@ -207,7 +220,7 @@ def get_work_records_daily_summary(day: Optional[str] = None) -> dict:
     """按日汇总：总记录数、总时长、分类分布、时间线摘要"""
     init_xiaohei_tables()
     day = day or date.today().isoformat()
-    with get_conn() as conn:
+    with _conn() as conn:
         rows = conn.execute(
             "SELECT * FROM work_records WHERE date=? ORDER BY created_at", (day,)
         ).fetchall()
@@ -229,7 +242,7 @@ def extract_work_records_from_activities(day: Optional[str] = None) -> dict:
     """从截图的 activities 表提取/生成工作记录（小黑核心：截图→记录）"""
     init_xiaohei_tables()
     day = day or date.today().isoformat()
-    with get_conn() as conn:
+    with _conn() as conn:
         acts = conn.execute(
             """SELECT * FROM activities WHERE date(timestamp)=? AND summary IS NOT NULL
                ORDER BY timestamp""", (day,)
@@ -247,7 +260,7 @@ def extract_work_records_from_activities(day: Optional[str] = None) -> dict:
     created = 0
     for app_name, items in app_groups.items():
         # 若当天该应用已有工作记录则跳过（幂等）
-        with get_conn() as conn:
+        with _conn() as conn:
             existing = conn.execute(
                 "SELECT COUNT(*) c FROM work_records WHERE date=? AND app_name=?",
                 (day, app_name)).fetchone()["c"]
@@ -258,7 +271,7 @@ def extract_work_records_from_activities(day: Optional[str] = None) -> dict:
         duration = sum(i.get("interval_sec") or 60 for i in items)
         category = _classify_app(app_name)
         title = app_name if len(app_name) < 30 else app_name[:27] + "..."
-        with get_conn() as conn:
+        with _conn() as conn:
             conn.execute(
                 """INSERT INTO work_records
                    (date, category, title, content, app_name, source_screenshot, duration_sec)
@@ -306,7 +319,7 @@ _FEATURE_PRICING = {
 def get_points_balance() -> dict:
     """获取积分余额 + 额度余额"""
     init_xiaohei_tables()
-    with get_conn() as conn:
+    with _conn() as conn:
         row = conn.execute(
             "SELECT COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE -amount END), 0) bal FROM points_ledger"
         ).fetchone()
@@ -317,7 +330,7 @@ def get_points_balance() -> dict:
 
 
 def conn_exec_any(table: str) -> bool:
-    with get_conn() as conn:
+    with _conn() as conn:
         r = conn.execute(f"SELECT COUNT(*) c FROM {table}").fetchone()
         return r["c"] > 0
 
@@ -325,7 +338,7 @@ def conn_exec_any(table: str) -> bool:
 def points_grant(amount: int, item: str, detail: str = "") -> dict:
     """发放积分"""
     init_xiaohei_tables()
-    with get_conn() as conn:
+    with _conn() as conn:
         conn.execute("INSERT INTO points_ledger (type, amount, item, detail) VALUES ('credit',?,?,?)",
                      (amount, item, detail))
     return {"ok": True, "amount": amount, "item": item}
@@ -335,7 +348,7 @@ def points_consume(item: str, detail: str = "", auto_pricing: bool = True) -> di
     """扣费。返回余额，余额不足返回 error。"""
     init_xiaohei_tables()
     price = _FEATURE_PRICING.get(item, 10)
-    with get_conn() as conn:
+    with _conn() as conn:
         bal_row = conn.execute(
             "SELECT COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE -amount END), 0) bal FROM points_ledger"
         ).fetchone()
@@ -350,7 +363,7 @@ def points_consume(item: str, detail: str = "", auto_pricing: bool = True) -> di
 
 def get_points_usage_records(page: int = 1, page_size: int = 20) -> dict:
     init_xiaohei_tables()
-    with get_conn() as conn:
+    with _conn() as conn:
         rows = conn.execute(
             "SELECT * FROM points_ledger ORDER BY id DESC LIMIT ? OFFSET ?",
             (page_size, (page - 1) * page_size)).fetchall()
@@ -371,7 +384,7 @@ _BADGE_DEFS = [
 
 def init_badges():
     init_xiaohei_tables()
-    with get_conn() as conn:
+    with _conn() as conn:
         for b in _BADGE_DEFS:
             conn.execute(
                 """INSERT OR IGNORE INTO badges (id, name, icon, desc, condition, target)
@@ -381,7 +394,7 @@ def init_badges():
 
 def get_badges() -> list:
     init_badges()
-    with get_conn() as conn:
+    with _conn() as conn:
         rows = conn.execute("SELECT * FROM badges ORDER BY unlocked DESC, target").fetchall()
         return [dict(r) for r in rows]
 
@@ -389,7 +402,7 @@ def get_badges() -> list:
 def badge_track_progress(badge_id: str, add: int = 1, check: bool = True) -> dict:
     """推进徽章进度，达到目标自动解锁"""
     init_badges()
-    with get_conn() as conn:
+    with _conn() as conn:
         row = conn.execute("SELECT * FROM badges WHERE id=?", (badge_id,)).fetchone()
         if not row:
             return {"ok": False}
@@ -408,7 +421,7 @@ def get_leaderboard_daily(day: Optional[str] = None) -> list:
     """从真实专注数据计算日榜（基于 activities 累计时长）"""
     init_xiaohei_tables()
     day = day or date.today().isoformat()
-    with get_conn() as conn:
+    with _conn() as conn:
         rows = conn.execute(
             """SELECT COALESCE(app_name,'未知') app, SUM(interval_sec) total_sec
                FROM activities WHERE date(timestamp)=? GROUP BY app_name
@@ -423,7 +436,7 @@ def get_leaderboard_daily(day: Optional[str] = None) -> list:
             "me": False,
         })
     # 补一个本人条目（基于全部活动时长）
-    with get_conn() as conn:
+    with _conn() as conn:
         my_total = conn.execute(
             "SELECT COALESCE(SUM(interval_sec),0) s FROM activities WHERE date(timestamp)=?",
             (day,)).fetchone()["s"]
@@ -436,7 +449,7 @@ def get_leaderboard_daily(day: Optional[str] = None) -> list:
 def init_template_market_seed():
     """首次运行写入种子模板"""
     init_xiaohei_tables()
-    with get_conn() as conn:
+    with _conn() as conn:
         c = conn.execute("SELECT COUNT(*) c FROM template_market").fetchone()["c"]
         if c > 0:
             return
@@ -457,18 +470,18 @@ def list_templates(category: Optional[str] = None) -> list:
     init_template_market_seed()
     init_xiaohei_tables()
     if category and category != "全部":
-        with get_conn() as conn:
+        with _conn() as conn:
             rows = conn.execute(
                 "SELECT * FROM template_market WHERE category=? ORDER BY downloads DESC", (category,)).fetchall()
     else:
-        with get_conn() as conn:
+        with _conn() as conn:
             rows = conn.execute("SELECT * FROM template_market ORDER BY downloads DESC").fetchall()
     return [dict(r) for r in rows]
 
 
 def create_template(data: dict) -> dict:
     init_xiaohei_tables()
-    with get_conn() as conn:
+    with _conn() as conn:
         cur = conn.execute(
             "INSERT INTO template_market (name, category, content) VALUES (?,?,?)",
             (data.get("name", "未命名模板"), data.get("category", "通用"), data.get("content", "")))
@@ -479,7 +492,7 @@ def create_template(data: dict) -> dict:
 def use_template(tid: int) -> dict:
     """使用模板：下载数+1，返回模板内容"""
     init_xiaohei_tables()
-    with get_conn() as conn:
+    with _conn() as conn:
         row = conn.execute("SELECT * FROM template_market WHERE id=?", (tid,)).fetchone()
         if not row:
             return {"ok": False, "error": "模板不存在"}
@@ -489,7 +502,7 @@ def use_template(tid: int) -> dict:
 
 def delete_template(tid: int) -> dict:
     init_xiaohei_tables()
-    with get_conn() as conn:
+    with _conn() as conn:
         conn.execute("DELETE FROM template_market WHERE id=?", (tid,))
     return {"ok": True}
 
@@ -499,7 +512,7 @@ def record_token_usage(feature: str, prompt_tokens: int, completion_tokens: int,
                        cost_points: int = 0) -> dict:
     init_xiaohei_tables()
     total = prompt_tokens + completion_tokens
-    with get_conn() as conn:
+    with _conn() as conn:
         conn.execute(
             "INSERT INTO token_usage (feature, prompt_tokens, completion_tokens, total_tokens, cost_points) VALUES (?,?,?,?,?)",
             (feature, prompt_tokens, completion_tokens, total, cost_points))
@@ -508,7 +521,7 @@ def record_token_usage(feature: str, prompt_tokens: int, completion_tokens: int,
 
 def get_token_usage_summary() -> dict:
     init_xiaohei_tables()
-    with get_conn() as conn:
+    with _conn() as conn:
         total = conn.execute("SELECT COALESCE(SUM(total_tokens),0) s FROM token_usage").fetchone()["s"]
         today = conn.execute(
             "SELECT COALESCE(SUM(total_tokens),0) s FROM token_usage WHERE date(created_at)=date('now','localtime')"
@@ -523,7 +536,7 @@ def get_token_usage_summary() -> dict:
 
 def list_token_usage(limit: int = 50) -> list:
     init_xiaohei_tables()
-    with get_conn() as conn:
+    with _conn() as conn:
         rows = conn.execute("SELECT * FROM token_usage ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
     return [dict(r) for r in rows]
 
@@ -533,7 +546,7 @@ def log_frame_dedup(event: str, similarity: float = 0, detail: str = "") -> None
     """记录帧去重事件（由 screenshot.py 调用）"""
     init_xiaohei_tables()
     try:
-        with get_conn() as conn:
+        with _conn() as conn:
             conn.execute(
                 "INSERT INTO frame_dedup_log (ts, event, similarity, detail) VALUES (datetime('now','localtime'),?,?,?)",
                 (event, similarity, detail[:500]))
@@ -543,7 +556,7 @@ def log_frame_dedup(event: str, similarity: float = 0, detail: str = "") -> None
 
 def list_frame_dedup_log(limit: int = 100) -> list:
     init_xiaohei_tables()
-    with get_conn() as conn:
+    with _conn() as conn:
         rows = conn.execute("SELECT * FROM frame_dedup_log ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
         rows.reverse()
     return [dict(r) for r in rows]
@@ -551,7 +564,7 @@ def list_frame_dedup_log(limit: int = 100) -> list:
 
 def clear_frame_dedup_log() -> dict:
     init_xiaohei_tables()
-    with get_conn() as conn:
+    with _conn() as conn:
         conn.execute("DELETE FROM frame_dedup_log")
     return {"ok": True}
 
@@ -569,7 +582,7 @@ def export_backup(target_dir: Optional[str] = None) -> dict:
     tables = ["work_records", "points_ledger", "badges", "template_market",
               "token_usage", "frame_dedup_log", "activities", "app_usage", "reports"]
     payload = {"exported_at": datetime.now().isoformat(), "version": 1, "tables": {}}
-    with get_conn() as conn:
+    with _conn() as conn:
         for t in tables:
             try:
                 rows = conn.execute(f"SELECT * FROM {t}").fetchall()
@@ -579,7 +592,7 @@ def export_backup(target_dir: Optional[str] = None) -> dict:
 
     fpath.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     size = fpath.stat().st_size
-    with get_conn() as conn:
+    with _conn() as conn:
         conn.execute("INSERT INTO backup_history (filename, size_bytes, kind) VALUES (?,?,?)",
                      (fname, size, "manual"))
     return {"ok": True, "file": str(fpath), "size_bytes": size}
@@ -620,7 +633,7 @@ def import_backup(src_path: Optional[str] = None) -> dict:
         return {"ok": False, "error": f"备份文件解析失败: {e}"}
 
     imported = 0
-    with get_conn() as conn:
+    with _conn() as conn:
         for table, rows in payload.get("tables", {}).items():
             if not rows:
                 continue
@@ -640,7 +653,7 @@ def clear_all_data() -> dict:
     """清空全部业务数据（保留 schema）"""
     tables = ["work_records", "points_ledger", "badges", "template_market",
               "token_usage", "frame_dedup_log", "activities", "app_usage", "reports"]
-    with get_conn() as conn:
+    with _conn() as conn:
         for t in tables:
             try:
                 conn.execute(f"DELETE FROM {t}")
@@ -653,7 +666,7 @@ def get_storage_stats() -> dict:
     """本地数据统计：各表行数 + 截图目录大小"""
     from config import DATA_DIR, SCREENSHOT_DIR
     stats = {}
-    with get_conn() as conn:
+    with _conn() as conn:
         for t in ["work_records", "points_ledger", "badges", "template_market",
                   "token_usage", "frame_dedup_log", "activities", "app_usage", "reports"]:
             try:
