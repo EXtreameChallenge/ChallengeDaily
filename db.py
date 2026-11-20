@@ -172,28 +172,39 @@ _write_lock = threading.Lock()  # 保护 _pending_commits 和写操作
 def insert_activity(timestamp: str, screenshot: str, app_name: str,
                     window_title: str, category: str, summary: str,
                     interval_sec: int = 60, ai_detail: str = "",
-                    windows_json: str = "[]"):
-    """写入一条活动记录（批量提交优化，线程安全）"""
+                    windows_json: str = "[]") -> bool:
+    """写入一条活动记录（批量提交优化，线程安全）
+
+    Wave0-B20: 对 (timestamp, app_name, window_title) 幂等去重（V38 唯一表达式索引），
+    事件钩子与主循环同秒并发采集时第二条被 IGNORE。返回是否真正插入。
+    """
     global _pending_commits
+    inserted = False
     with _write_lock:
         with get_conn() as conn:
-            _execute_with_retry(conn,
-                "INSERT INTO activities (timestamp, screenshot, app_name, window_title, category, summary, interval_sec, ai_detail, windows_json) "
+            cursor = _execute_with_retry(conn,
+                "INSERT OR IGNORE INTO activities (timestamp, screenshot, app_name, window_title, category, summary, interval_sec, ai_detail, windows_json) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (timestamp, screenshot, app_name, window_title, category, summary, interval_sec, ai_detail, windows_json),
             )
-            _pending_commits += 1
-            if _pending_commits >= _COMMIT_BATCH_SIZE:
-                conn.commit()
-                _pending_commits = 0
+            inserted = cursor.rowcount > 0
+            if inserted:
+                _pending_commits += 1
+                if _pending_commits >= _COMMIT_BATCH_SIZE:
+                    conn.commit()
+                    _pending_commits = 0
+            else:
+                logger.debug(f"重复采集被幂等忽略: {timestamp} {app_name}")
     # ── 数据飞轮：截图活动 → 自动 XP 奖励 ──
-    # 异步发放，不影响截图写入性能
-    try:
-        import growth_service
-        duration_min = interval_sec / 60.0
-        growth_service.award_exp_from_activity(category, duration_min)
-    except Exception:
-        pass  # XP 奖励失败不影响主流程
+    # 异步发放，不影响截图写入性能；Wave0-B20: 仅真实插入才发 XP，避免重复采集刷经验
+    if inserted:
+        try:
+            import growth_service
+            duration_min = interval_sec / 60.0
+            growth_service.award_exp_from_activity(category, duration_min)
+        except Exception:
+            pass  # XP 奖励失败不影响主流程
+    return inserted
 
 
 def insert_manual_activity(timestamp: str, app_name: str, window_title: str,

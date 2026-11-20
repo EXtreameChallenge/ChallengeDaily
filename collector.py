@@ -4,6 +4,8 @@ ChallengeDaily Windows 版 — 核心循环
 企业级稳定性：线程限流、内存监控、异常隔离
 """
 import logging
+import os
+import tempfile
 import threading
 import gc
 import time
@@ -150,9 +152,13 @@ def _smooth_category(current_category: str, app_name: str, window_title: str,
         return current_category
 
     # 找到最近一条非生活/非空闲记录
+    # Wave0-B01: 污染记录（截图文件缺失等降级摘要）不得作为平滑参照
     last_work = None
     for r in recent:
         cat = r.get("category", "")
+        summ = r.get("summary", "") or ""
+        if "截图文件缺失" in summ:
+            continue
         if cat and cat not in ("生活", ""):
             last_work = r
             break
@@ -219,6 +225,10 @@ class Collector:
         # P8-3：自适应采样 — 最近 N 次采集的分类记录，用于动态调整下次采样间隔
         self._recent_categories: list[str] = []
         self._adaptive_next_interval: int | None = None  # 缓存下次建议间隔（秒）
+        # Wave0-B01：内存缓存帧 — 截图即删后，重复帧强制重分析改用此缓存（不再读已删文件）
+        self._last_frame_bytes: bytes | None = None
+        # Wave0-B05：上次成功入库时间 — interval_sec 记实际经过秒数而非恒 60
+        self._last_insert_dt: datetime | None = None
 
     def _record_category_for_adaptive(self, category: str) -> None:
         """P8-3：记录本次采集分类到滑动窗口"""
@@ -264,6 +274,40 @@ class Collector:
     def _reset_adaptive_interval(self) -> None:
         """每次采集完成后清空缓存，下次 get_adaptive_interval 重新计算"""
         self._adaptive_next_interval = None
+
+    def _resolve_analysis_path(self, filepath: str, is_duplicate: bool, should_analyze: bool):
+        """Wave0-B01：解析 AI 分析的实际图片路径。
+
+        重复帧的原图已在上一轮分析后被即删（隐私设计），强制重分析时：
+        - 有内存缓存帧 → 写入临时文件供分析（分析后立即删除，加密字节原样保留）
+        - 无缓存帧 → 跳过本次重分析（复用 AI 缓存），绝不读取已删文件
+        返回 (analysis_path, tmp_path, should_analyze)
+        """
+        if not (should_analyze and is_duplicate):
+            return filepath, None, should_analyze
+        if not self._last_frame_bytes:
+            logger.info("重复帧无内存缓存帧，跳过重分析，复用上次 AI 结果")
+            return None, None, False
+        try:
+            fd, tmp = tempfile.mkstemp(prefix="reanalyze_", suffix=".jpg",
+                                       dir=str(config.SCREENSHOT_DIR))
+            with os.fdopen(fd, "wb") as f:
+                f.write(self._last_frame_bytes)
+            return tmp, tmp, True
+        except Exception as e:
+            logger.warning(f"缓存帧写临时文件失败，跳过重分析: {e}")
+            return None, None, False
+
+    def _compute_interval_sec(self, now: datetime) -> int:
+        """Wave0-B05：记录距上次成功入库的实际经过秒数（clamp 30~300）。
+
+        自适应采样/事件驱动下实际间隔并非恒 60s，恒写 60 会造成时长统计系统性偏差。
+        首次入库无参照时用配置默认值。
+        """
+        if self._last_insert_dt is None:
+            return config.SCREENSHOT_INTERVAL_SEC
+        elapsed = (now - self._last_insert_dt).total_seconds()
+        return int(max(30, min(300, round(elapsed))))
 
     def _flush_segment(self, end_time: str):
         """结算当前时间段：按 area_ratio 把 duration 分摊给所有可见窗口后写入 app_usage。
@@ -439,6 +483,10 @@ class Collector:
                  or (now_ts - self._last_ai_analysis_time) >= self._AI_REANALYZE_INTERVAL_SEC)
         )
 
+        # Wave0-B01: 重复帧重分析改用内存缓存帧（原图已即删），无帧则复用缓存
+        analysis_path, _tmp_frame, should_analyze = self._resolve_analysis_path(
+            filepath, is_duplicate, should_analyze)
+
         if not ai_enabled:
             logger.info("AI 分析已关闭，使用规则分类")
             category = classify(app_name, "", window_title)
@@ -483,10 +531,17 @@ class Collector:
                 logger.debug(f"获取近期活动上下文失败（不影响采集）: {e}")
 
             try:
-                ai_result = analyze_screenshot(filepath, display_name, window_title, recent_context, analysis_windows)
+                ai_result = analyze_screenshot(analysis_path, display_name, window_title, recent_context, analysis_windows)
             except Exception as e:
                 logger.error(f"AI 分析失败: {e}")
                 ai_result = {"category": "", "summary": "", "detail": "", "windows": []}
+            finally:
+                # Wave0-B01: 重分析临时帧用完即删（隐私不留盘）
+                if _tmp_frame:
+                    try:
+                        os.unlink(_tmp_frame)
+                    except Exception:
+                        pass
 
             # 5. 分类
             category = classify(app_name, ai_result.get("category", ""), window_title)
@@ -531,28 +586,33 @@ class Collector:
 
         # 6. 存储
         try:
-            insert_activity(
+            # Wave0-B05: interval_sec 记实际经过秒数（clamp 30~300），不再恒写 60
+            interval_sec = self._compute_interval_sec(now)
+            inserted = insert_activity(
                 timestamp=timestamp,
                 screenshot=filename,
                 app_name=app_name,
                 window_title=window_title,
                 category=category,
                 summary=summary or f"{display_name} - {window_title[:20]}",
-                interval_sec=config.SCREENSHOT_INTERVAL_SEC,
+                interval_sec=interval_sec,
                 ai_detail=ai_detail,
                 windows_json=json.dumps(windows_data, ensure_ascii=False) if windows_data else "[]",
             )
-            # 推送 SSE 事件（活动变化通知前端实时刷新）
-            try:
-                from event_bus import push_event
-                push_event('activity_change', {
-                    "category": category,
-                    "app_name": app_name,
-                    "summary": summary or "",
-                    "timestamp": timestamp,
-                })
-            except Exception:
-                pass
+            if inserted:
+                self._last_insert_dt = now
+            # 推送 SSE 事件（活动变化通知前端实时刷新；Wave0-B20 重复被忽略时不推送）
+            if inserted:
+                try:
+                    from event_bus import push_event
+                    push_event('activity_change', {
+                        "category": category,
+                        "app_name": app_name,
+                        "summary": summary or "",
+                        "timestamp": timestamp,
+                    })
+                except Exception:
+                    pass
         except Exception as e:
             logger.error(f"insert_activity 失败: {e}", exc_info=True)
 
@@ -563,6 +623,11 @@ class Collector:
             from pathlib import Path
             fp = Path(filepath)
             if fp.exists():
+                # Wave0-B01: 删除前缓存帧字节到内存，供后续重复帧重分析使用
+                try:
+                    self._last_frame_bytes = fp.read_bytes()
+                except Exception as e:
+                    logger.debug(f"缓存帧字节失败（不影响采集）: {e}")
                 fp.unlink()
                 logger.debug(f"已删除截图: {filename}")
         except Exception as e:

@@ -219,8 +219,9 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
     """
     if not config.AI_API_KEY:
         # 降级：使用窗口标题作为摘要，而非无意义占位符
+        # Wave0-B01: 返回空分类，交还 classifier 规则兜底（禁止强制"生活"污染应用规则分类）
         fallback_summary = f"{app_name} - {window_title}" if window_title else app_name or "未配置AI"
-        return {"category": "生活", "summary": fallback_summary, "detail": "AI 未配置，请在设置中配置 API Key 以启用智能摘要", "windows": []}
+        return {"category": "", "summary": fallback_summary, "detail": "AI 未配置，请在设置中配置 API Key 以启用智能摘要", "windows": []}
 
     # 熔断器检查
     if not _cb_check():
@@ -232,7 +233,8 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
                       detail="熔断器开启，跳过 AI 请求", metadata={"app_name": app_name})
         except Exception:
             pass
-        return {"category": "生活", "summary": fallback_summary, "detail": "AI 服务暂时不可用，等待恢复中", "windows": []}
+        # Wave0-B01: 空分类交还规则兜底
+        return {"category": "", "summary": fallback_summary, "detail": "AI 服务暂时不可用，等待恢复中", "windows": []}
 
     # 速率限制检查（瞬时超限时用规则分类+窗口标题降级，不显示刺眼错误文案；
     # 下次采集（常规60s/窗口切换）会自动重新尝试 AI 分析）
@@ -253,8 +255,11 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
     try:
         b64_image = encode_image_to_base64(image_path)
     except FileNotFoundError:
-        logger.error(f"截图文件不存在: {image_path}")
-        return {"category": "生活", "summary": "截图文件缺失", "detail": "截图已被清理或路径错误", "windows": []}
+        # Wave0-B01: 截图缺失（如已被即删）时返回空分类，交还 classifier 规则兜底；
+        # 禁止 fallback category="生活" 压过应用规则（历史污染根因），摘要用应用+标题如实降级
+        logger.warning(f"截图文件不存在: {image_path}，按应用规则分类")
+        fallback_summary = f"{app_name} - {window_title}" if window_title else app_name or "未分类"
+        return {"category": "", "summary": fallback_summary, "detail": "截图文件缺失，已按应用规则分类", "windows": []}
 
     user_text = build_user_prompt(app_name, window_title, recent_context, visible_windows)
 
@@ -273,7 +278,8 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
         if attempt > 0 and not _cb_check():
             logger.info("Circuit breaker OPEN，跳过重试")
             fallback_summary = f"{app_name} - {window_title}" if window_title else app_name or "AI服务暂时不可用"
-            return {"category": "生活", "summary": fallback_summary, "detail": "AI 服务暂时不可用，等待恢复中", "windows": []}
+            # Wave0-B01: 空分类交还规则兜底
+            return {"category": "", "summary": fallback_summary, "detail": "AI 服务暂时不可用，等待恢复中", "windows": []}
         try:
             client = _get_client()
 
@@ -371,7 +377,9 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
                     }, kind="screenshot")
                 except Exception:
                     pass
-                return {"category": "生活", "summary": "分析异常", "detail": str(e)[:50]}
+                # Wave0-B01: 空分类交还规则兜底，摘要如实降级
+                fallback_summary = f"{app_name} - {window_title}" if window_title else app_name or "未分类"
+                return {"category": "", "summary": fallback_summary, "detail": str(e)[:50]}
 
 
 # IDE/编辑器进程名列表

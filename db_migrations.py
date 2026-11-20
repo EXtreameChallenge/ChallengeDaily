@@ -10,7 +10,7 @@ from config import DB_PATH
 logger = logging.getLogger(__name__)
 
 # ── 数据库 Schema 版本 ──
-SCHEMA_VERSION = 37
+SCHEMA_VERSION = 38
 
 # P-01: 默认数据保留天数（90 天）
 DEFAULT_DATA_RETENTION_DAYS = 90
@@ -959,6 +959,25 @@ def _init_db_impl():
                     logger.info("V37: plan_end_min 列已存在，跳过")
             except Exception as e:
                 logger.warning(f"V37 schema 升级失败: {e}")
+
+        # V38: Wave0-B20 activities 幂等去重 — 清理同秒重复行 + 唯一表达式索引
+        # 背景：事件钩子与主循环可在同一秒各落一条 (timestamp, app_name, window_title)
+        # 完全相同的记录，造成时长重复计算。NULL 与 '' 视为同一标题（COALESCE）。
+        if current_version < 38:
+            try:
+                deleted = conn.execute("""
+                    DELETE FROM activities WHERE id NOT IN (
+                        SELECT MIN(id) FROM activities
+                        GROUP BY timestamp, COALESCE(app_name,''), COALESCE(window_title,'')
+                    )
+                """).rowcount
+                conn.execute("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS uq_activities_ts_app_title
+                    ON activities(timestamp, COALESCE(app_name,''), COALESCE(window_title,''))
+                """)
+                logger.info(f"V38: activities 幂等去重索引创建成功（清理历史重复 {deleted} 行）")
+            except Exception as e:
+                logger.warning(f"V38 schema 升级失败: {e}")
 
         # 更新版本号
         conn.execute(

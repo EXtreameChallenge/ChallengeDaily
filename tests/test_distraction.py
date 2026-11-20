@@ -6,7 +6,7 @@
 """
 import pytest
 from unittest.mock import patch
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import db
 
@@ -194,11 +194,14 @@ def test_distraction_heatmap_empty(authed_client):
 
 def test_distraction_heatmap_with_data(authed_client):
     """有生活类活动时返回热点图数据，工作类不计入"""
-    ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    base = datetime.now()
+    ts = base.strftime('%Y-%m-%d %H:%M:%S')
     # 插入 3 条生活类记录
-    for _ in range(3):
+    # Wave0-B20: 三次独立采样用不同时间戳；同秒同应用同标题属重复样本，会被幂等忽略
+    for i in range(3):
         db.insert_activity(
-            timestamp=ts, screenshot='',
+            timestamp=(base - timedelta(seconds=60 * i)).strftime('%Y-%m-%d %H:%M:%S'),
+            screenshot='',
             app_name='bilibili.exe', window_title='视频',
             category='生活', summary='看视频', interval_sec=60,
         )
