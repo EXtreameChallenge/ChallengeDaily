@@ -20,7 +20,8 @@ export function PrivacySection({ highlighted }: PrivacySectionProps) {
         <AppLockSettings />
 
         <div className="text-xs text-cd-text-tertiary space-y-1">
-          <p>• 截图在 AI 分析完成后会自动删除，不会保存到磁盘</p>
+          <p>• 截图在 AI 分析完成后会自动删除，不长期保存到磁盘</p>
+          <p>• 分析失败的截图会暂存本地重试队列（≤2.5MB），重试完成即删</p>
           <p>• 除 AI 分析当次上传截图外（分析后即删），其余数据仅保存于本地 SQLite</p>
           <p>• 默认不做内容脱敏；保守模式可在设置文件中开启 privacy_redact / privacy_block_upload</p>
           <p>• 排除列表默认为空；填写的应用不会被截图和记录</p>

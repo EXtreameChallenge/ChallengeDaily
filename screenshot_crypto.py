@@ -5,8 +5,8 @@ P17-1: 截图 AES-256-GCM 加密存储
 设计：
   - 密钥派生：从用户机器 ID + 安装时随机盐 → PBKDF2-HMAC-SHA256 → 32 字节 AES 密钥
   - 加密算法：AES-256-GCM（带认证标签，防篡改）
-  - 文件格式：[16B IV][16B auth_tag][密文...]，扩展名 .enc.jpg
-  - 向后兼容：老的 .jpg 文件仍可读取（透明解密失败时回退到明文）
+  - 文件格式：[4B MAGIC][12B nonce][密文+16B auth_tag]
+  - 向后兼容：无 MAGIC 头的旧 .jpg 明文仍可读取；加密失败绝不回退明文（B46 失败关闭）
   - 解密时机：仅在 AI 分析或用户查看时临时解密到内存，不落盘
 
 依赖：cryptography 库（已在 requirements 中）
@@ -30,10 +30,20 @@ _key_lock = threading.Lock()
 # 密钥派生参数
 _PBKDF2_ITERATIONS = 100_000  # 迭代次数，约 100ms 派生时间
 _SALT_FILE = "screenshot_salt.bin"  # 盐值文件名（存于 backend-data 目录）
+_SALT_BACKUP_DIR = "salt"  # 盐值备份目录（backend-data/backups/salt）
+_SALT_BACKUP_KEEP = 5  # 最多保留 5 代盐值备份
 _KEY_LEN = 32  # AES-256 需要 32 字节密钥
 
 # 加密标识头（用于判断文件是否已加密）
 _MAGIC_HEADER = b"CDE1"  # ChallengeDaily Encrypted v1
+
+
+class EncryptionUnavailableError(RuntimeError):
+    """加密能力不可用或密钥派生失败；调用方必须拒绝明文落盘。"""
+
+
+class DecryptionError(RuntimeError):
+    """密文存在但无法解密；调用方不得把密文当明文继续使用。"""
 
 
 def _legacy_backend_data_dir() -> Path:
@@ -97,16 +107,75 @@ def _get_machine_id() -> str:
     return fallback_id
 
 
+def _salt_backup_dir() -> Path:
+    """盐值备份目录；salt 文件丢失时优先从这里恢复，避免历史截图集体失明。"""
+    return _get_backend_data_dir() / "backups" / _SALT_BACKUP_DIR
+
+
+def _backup_salt(salt: bytes) -> None:
+    """按内容哈希备份盐值，最多保留最近 5 代；重复盐值不重复写。"""
+    if len(salt) != 16:
+        return
+    try:
+        backup_dir = _salt_backup_dir()
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        digest = hashlib.sha256(salt).hexdigest()[:16]
+        target = backup_dir / f"screenshot_salt_{digest}.bin"
+        if not target.exists():
+            target.write_bytes(salt)
+            logger.info(f"截图盐值已备份: {target}")
+        backups = sorted(
+            backup_dir.glob("screenshot_salt_*.bin"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        for old in backups[_SALT_BACKUP_KEEP:]:
+            old.unlink(missing_ok=True)
+    except Exception as e:
+        logger.warning(f"截图盐值备份失败（不影响主盐值）: {e}")
+
+
+def _restore_salt_from_backup() -> Optional[bytes]:
+    """主盐值缺失时，按修改时间从备份中恢复最近一代。"""
+    backup_dir = _salt_backup_dir()
+    if not backup_dir.exists():
+        return None
+    backups = sorted(
+        backup_dir.glob("screenshot_salt_*.bin"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    for backup in backups:
+        try:
+            salt = backup.read_bytes()
+            if len(salt) != 16:
+                continue
+            salt_path = _get_backend_data_dir() / _SALT_FILE
+            salt_path.parent.mkdir(parents=True, exist_ok=True)
+            salt_path.write_bytes(salt)
+            logger.warning(f"主截图盐值缺失，已从备份恢复: {backup} -> {salt_path}")
+            return salt
+        except Exception as e:
+            logger.warning(f"从备份恢复截图盐值失败 {backup}: {e}")
+    return None
+
+
 def _get_or_create_salt() -> bytes:
     """获取或创建盐值文件（16 字节随机盐）"""
     salt_path = _get_backend_data_dir() / _SALT_FILE
     _migrate_legacy_salt(salt_path)
     if salt_path.exists():
-        return salt_path.read_bytes()
+        salt = salt_path.read_bytes()
+        _backup_salt(salt)
+        return salt
+    restored = _restore_salt_from_backup()
+    if restored is not None:
+        return restored
     # 首次创建
     salt = os.urandom(16)
     salt_path.parent.mkdir(parents=True, exist_ok=True)
     salt_path.write_bytes(salt)
+    _backup_salt(salt)
     return salt
 
 
@@ -156,14 +225,14 @@ def encrypt_bytes(data: bytes) -> bytes:
     """加密字节数据
 
     返回格式: [4B MAGIC][12B nonce][密文+16B auth_tag]
-    失败时返回原始数据（降级为明文，保证可用性）
+    B46: 加密不可用时抛错，绝不返回明文；调用方必须失败关闭。
     """
     if not is_encryption_available():
-        return data
+        raise EncryptionUnavailableError("cryptography 不可用，拒绝明文降级")
 
     key = _derive_key()
     if not key:
-        return data
+        raise EncryptionUnavailableError("截图加密密钥派生失败，拒绝明文降级")
 
     try:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -174,29 +243,28 @@ def encrypt_bytes(data: bytes) -> bytes:
         return _MAGIC_HEADER + nonce + ciphertext
     except Exception as e:
         logger.error(f"加密失败: {e}")
-        return data
+        raise EncryptionUnavailableError(f"加密失败，拒绝明文降级: {e}") from e
 
 
 def decrypt_bytes(data: bytes) -> bytes:
     """解密字节数据
 
     自动识别加密文件（MAGIC 头）和明文文件（向后兼容）。
-    失败时返回原始数据（可能是明文，降级保证可用性）
+    B46: 密文解密失败必须抛错，绝不能把密文当明文返回。
     """
     # 检查是否为加密文件
     if len(data) < len(_MAGIC_HEADER) + 12 + 16:
         return data  # 太短，肯定是明文
 
     if data[:4] != _MAGIC_HEADER:
-        return data  # 明文文件，原样返回
+        return data  # 明文文件，原样返回（旧数据兼容）
 
     if not is_encryption_available():
-        logger.warning("文件已加密但 cryptography 库不可用，无法解密")
-        return data
+        raise DecryptionError("文件已加密但 cryptography 库不可用，无法解密")
 
     key = _derive_key()
     if not key:
-        return data
+        raise DecryptionError("截图解密密钥派生失败")
 
     try:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -207,7 +275,7 @@ def decrypt_bytes(data: bytes) -> bytes:
         return aesgcm.decrypt(nonce, ciphertext, None)
     except Exception as e:
         logger.error(f"解密失败: {e}")
-        return data
+        raise DecryptionError(f"截图解密失败（salt 或机器密钥不匹配）: {e}") from e
 
 
 def is_encrypted_file(filepath: str) -> bool:
@@ -223,27 +291,21 @@ def is_encrypted_file(filepath: str) -> bool:
 def save_encrypted_jpeg(img_bytes: bytes, filepath: str) -> bool:
     """将 JPEG 字节数据加密后保存到文件
 
-    Args:
-        img_bytes: 原始 JPEG 字节数据
-        filepath: 目标文件路径
-
-    Returns:
-        True 表示已加密保存，False 表示降级为明文保存
+    B46: 加密失败时删除半成品并抛错，绝不写明文兜底。
     """
+    target = Path(filepath)
     try:
         encrypted = encrypt_bytes(img_bytes)
-        Path(filepath).parent.mkdir(parents=True, exist_ok=True)
-        with open(filepath, 'wb') as f:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with open(target, 'wb') as f:
             f.write(encrypted)
-        return encrypted[:4] == _MAGIC_HEADER
-    except Exception as e:
-        logger.error(f"加密保存失败，降级明文: {e}")
+        return True
+    except Exception:
         try:
-            with open(filepath, 'wb') as f:
-                f.write(img_bytes)
-        except Exception as e2:
-            logger.error(f"明文保存也失败: {e2}")
-        return False
+            target.unlink(missing_ok=True)
+        except Exception:
+            pass
+        raise
 
 
 def load_and_decrypt(filepath: str) -> bytes:
@@ -257,7 +319,7 @@ def load_and_decrypt(filepath: str) -> bytes:
         return decrypt_bytes(data)
     except Exception as e:
         logger.error(f"读取文件失败: {filepath}: {e}")
-        return b''
+        raise
 
 
 # ── 迁移工具：批量加密已有截图 ──

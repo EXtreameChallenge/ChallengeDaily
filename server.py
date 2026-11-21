@@ -75,7 +75,13 @@ def set_collector(collector_instance):
 _PUBLIC_PATHS = {"/", "/api/health", "/api/metrics"}
 # 自习室心跳：局域网内其他设备不可能持有本机 token（每台独立生成），
 # 免鉴权开放；仅写入内存成员列表，非 localhost 仍受 rate limit 约束
-_PUBLIC_PREFIXES = ["/api/icons/", "/api/study-room/heartbeat"]
+_PUBLIC_PREFIXES = [
+    "/api/icons/", "/api/study-room/heartbeat",
+    # B40: 兼容层使用各自协议鉴权，不能再叠加全局 X-API-Token：
+    # - /api/v1/* 由 aw_compat 的可选 token 保护
+    # - /api/heartbeat 由 wakatime_compat 的 API key 保护
+    "/api/v1/", "/api/heartbeat",
+]
 # SSE 端点：不能通过 header 传 token，改用 query param ?token=xxx，在 handler 内自行校验
 _SSE_PATHS = {"/api/events/stream"}
 

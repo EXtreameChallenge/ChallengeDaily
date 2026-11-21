@@ -63,9 +63,19 @@ def user_tables(conn) -> list[str]:
 def _salt_paths() -> list[Path]:
     paths = [Path(config.DATA_DIR) / "screenshot_salt.bin"]
     legacy = Path(os.environ.get("APPDATA", str(Path.home()))) / "challenge-daily" / "backend-data" / "screenshot_salt.bin"
-    if legacy.resolve() != paths[0].resolve():
-        paths.append(legacy)
+    if legacy.resolve() == paths[0].resolve():
+        return paths
+    # B46：只要显式指定了数据目录（测试/隔离环境/自定义目录），就不得顺手删除
+    # 真实用户 legacy salt；否则 pytest 的 B37 端到端用例会误删生产盐值。
+    if os.environ.get("CHALLENGE_DAILY_DATA_DIR"):
+        return paths
+    paths.append(legacy)
     return paths
+
+
+def _salt_backup_dir() -> Path:
+    """B46：盐值备份目录，被遗忘权必须连同备份一起删除。"""
+    return Path(config.DATA_DIR) / "backups" / "salt"
 
 
 def export_payload() -> dict:
@@ -192,6 +202,13 @@ def delete_all() -> dict:
         except Exception as e:
             result["errors"].append(f"{path}: {e}")
 
+    backup_dir = _salt_backup_dir()
+    if backup_dir.exists():
+        removed = _delete_dir_contents(backup_dir)
+        if removed:
+            result["salt_removed"] = True
+            result["files_removed"].append(f"{backup_dir} ({removed} entries)")
+
     if enterprise_store.HOME_DATA_DIR.exists():
         removed = _delete_dir_contents(enterprise_store.HOME_DATA_DIR)
         result["files_removed"].append(f"{enterprise_store.HOME_DATA_DIR} ({removed} entries)")
@@ -229,6 +246,9 @@ def scan_state() -> dict:
     if enterprise_store.HOME_DATA_DIR.exists():
         home_entries = [str(p) for p in enterprise_store.HOME_DATA_DIR.rglob("*") if p.is_file()]
     salts = [str(p) for p in _salt_paths() if p.exists()]
+    backup_dir = _salt_backup_dir()
+    if backup_dir.exists():
+        salts.extend(str(p) for p in backup_dir.rglob("*") if p.is_file())
     return {
         "db_nonzero_tables": nonzero,
         "home_files": home_entries,

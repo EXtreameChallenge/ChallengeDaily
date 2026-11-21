@@ -204,12 +204,15 @@ def take_screenshot(monitor_index: int = 0, app_name: str = "") -> tuple[str, st
                 img_bytes = buf.getvalue()
                 buf.close()
                 from screenshot_crypto import save_encrypted_jpeg
-                save_encrypted_jpeg(img_bytes, str(filepath))
+                if not save_encrypted_jpeg(img_bytes, str(filepath)):
+                    raise RuntimeError("截图加密保存未返回成功")
             except Exception as e:
-                # 降级为明文保存
-                import logging
-                logging.getLogger(__name__).warning(f"加密保存失败，降级明文: {e}")
-                img.save(str(filepath), "JPEG", quality=quality, progressive=True, optimize=True)
+                # B46: 加密失败必须失败关闭，绝不能明文落盘
+                try:
+                    filepath.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                raise RuntimeError(f"截图加密失败，已拒绝明文落盘: {e}") from e
 
             # 记录本次保存的路径
             _last_saved_filepath = str(filepath)
@@ -272,19 +275,19 @@ def encode_image_to_base64(image_path: str) -> str:
     P17-1: 自动解密加密文件
     """
     from screenshot_crypto import load_and_decrypt, is_encrypted_file
-    try:
-        if is_encrypted_file(image_path):
-            # 加密文件：解密后转 base64
+    if is_encrypted_file(image_path):
+        # B46: 加密文件解密失败时绝不把密文当图片送回 AI
+        try:
             img_bytes = load_and_decrypt(image_path)
-            return base64.b64encode(img_bytes).decode("utf-8")
-        else:
-            # 明文文件：直接读取
-            with open(image_path, "rb") as f:
-                return base64.b64encode(f.read()).decode("utf-8")
-    except Exception:
-        # 兜底：直接读取
-        with open(image_path, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"截图解密失败，跳过 AI 分析: {image_path}: {e}")
+            return ""
+        return base64.b64encode(img_bytes).decode("utf-8")
+
+    # 明文文件：直接读取（旧数据兼容）
+    with open(image_path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
 
 
 def cleanup_screenshots(days: int):

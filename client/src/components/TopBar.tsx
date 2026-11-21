@@ -29,6 +29,11 @@ export default function TopBar() {
         window.electronAPI?.maximize()
       }}
     >
+      {/* B47: 顶栏整条加实底，避免页面文字从胶囊缝隙透出 */}
+      <div
+        className="pointer-events-none absolute inset-0 -z-10 rounded-2xl border border-cd-border/40 bg-cd-bg backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.10)]"
+        aria-hidden="true"
+      />
       {/* 后退/前进（一组玻璃胶囊） */}
       <div className="no-drag glass-pill flex items-center p-1 h-10">
         <button

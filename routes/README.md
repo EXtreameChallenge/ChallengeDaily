@@ -1,7 +1,20 @@
 # ChallengeDaily 路由组织规范
 
 > 路径: `routes/`
-> 版本: 3.5.11 (2026-10-14)
+> 版本: 3.10.8 (2026-11-21)
+
+## 协议兼容层（B40）
+
+| 蓝图 | 路径 | 鉴权 | 说明 |
+|------|------|------|------|
+| aw_compat_bp | `/api/v1/*` | 可选 `AW_COMPAT_TOKEN` / `settings.aw_compat_token`；默认无鉴权（与 aw-server 一致） | ActivityWatch aw-server REST 兼容：bucket CRUD、events 批量写入、heartbeat、CSV/JSON 导出 |
+| wakatime_compat_bp | `/api/heartbeat`、`/api/v1/users/current/heartbeats` | WakaTime API Key（`X-API-Token`、`Authorization: Basic` 或 `?api_key=`） | WakaTime 心跳兼容；连续 2 分钟同 entity 自动合并 |
+| wakatime_compat_bp | `/api/wakatime/status`、`/api/wakatime/key`、`/api/wakatime/test` | 全局 `X-API-Token`（前端管理端点） | 状态、Key 查看/重置、测试心跳 |
+| web_tracker_bp | `/api/web-activity/*` | 可选 `CHALLENGE_WEB_TOKEN`（默认 localhost 不校验） | WebExtension 单条/批量网页活动与今日统计 |
+
+> 注意：`/api/v1/*` 与 `/api/heartbeat` 由兼容层自行鉴权，不走全局 `X-API-Token` 叠加校验（B40 修复，否则 WakaTime/AW 客户端无法接入）。
+> 回归测试：`tests/test_round12_compat.py`。
+
 
 ## 路由分组（按业务域）
 

@@ -145,7 +145,9 @@ def _smooth_category(current_category: str, app_name: str, window_title: str,
       1. 当前是"其他"且最近非生活记录与当前为同一应用/相似窗口，沿用最近分类。
       2. 画面重复且应用未变，沿用最近一条记录的分类。
     """
-    if current_category not in CATEGORIES:
+    # B32: “其他”是 classify 的合法兜底分类，也允许参与平滑；
+    # 旧逻辑把它当成非法分类直接返回，导致平滑规则 1 永远不生效。
+    if current_category not in CATEGORIES and current_category != "其他":
         return current_category
 
     recent = get_recent_activities(3)
