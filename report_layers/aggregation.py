@@ -305,8 +305,8 @@ def _natural_overview(activities, cat_narratives, first_ts, last_ts, focus_hours
 
     time_span = _natural_time_span(first_ts, last_ts) if first_ts and last_ts else ""
 
-    # 构建开头
-    opening = f"今天从{time_span}投入了工作" if time_span else "今天投入了工作"
+    # 构建开头：这里描述的是“有记录的覆盖区间”，不是连续投入时长，避免把跨天空档写成连续工作。
+    opening = f"今天的记录覆盖 {time_span}" if time_span else "今天有工作记录"
 
     # 核心工作描述
     top_cats = [n["category"] for n in cat_narratives[:3]]

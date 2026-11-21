@@ -45,6 +45,12 @@ def main() -> int:
     (data_dir / "screenshots" / "round10-test.png").write_bytes(b"fake-png")
     (data_dir / "reports").mkdir(exist_ok=True)
     (data_dir / "reports" / "round10-test.md").write_text("# report", encoding="utf-8")
+    (data_dir / "logs").mkdir(exist_ok=True)
+    (data_dir / "logs" / "round10-test.log").write_text("log line", encoding="utf-8")
+    (data_dir / "benchmark_profile.json").write_text(
+        json.dumps({"anonymous_id": "round10-test"}), encoding="utf-8"
+    )
+    (data_dir / "xiaohei.db.bak").write_bytes(b"old-db-backup")
     (data_dir / "screenshot_salt.bin").write_bytes(b"0123456789abcdef")
     config.save_settings({**config.load_settings(), "telemetry_enabled": False})
 
@@ -96,6 +102,9 @@ def main() -> int:
     exported = export_resp.get_json()
     assert exported["tables"]["activities"], "导出必须包含 activities"
     assert "screenshot_salt.bin" in exported["files"]
+    assert "logs/round10-test.log" in exported["directories"]
+    assert "benchmark_profile.json" in exported["files"]
+    assert "xiaohei.db.bak" in exported["files"]
 
     delete_resp = client.delete("/api/privacy/data")
     assert delete_resp.status_code == 200
@@ -103,6 +112,9 @@ def main() -> int:
     assert deleted["scan"]["clean"] is True, deleted["scan"]
     assert deleted["scan"]["salt_files"] == []
     assert deleted["scan"]["home_files"] == []
+    assert not (data_dir / "logs" / "round10-test.log").exists()
+    assert not (data_dir / "benchmark_profile.json").exists()
+    assert not (data_dir / "xiaohei.db.bak").exists()
 
     restore_resp = client.post(
         "/api/backup/restore",
@@ -118,6 +130,9 @@ def main() -> int:
     assert (data_dir / "screenshot_salt.bin").exists()
     assert (data_dir / "screenshots" / "round10-test.png").exists()
     assert (data_dir / "archives" / "round10-home-json").exists()
+    assert (data_dir / "logs" / "round10-test.log").exists()
+    assert (data_dir / "benchmark_profile.json").exists()
+    assert (data_dir / "xiaohei.db.bak").exists()
 
     print(json.dumps({
         "status": "ok",
@@ -133,6 +148,9 @@ def main() -> int:
         "restored_legacy_template_downloads": int(restored_tpl["downloads"]),
         "restored_salt": True,
         "restored_screenshot": True,
+        "export_directories": len(exported["directories"]),
+        "export_files": len(exported["files"]),
+        "logs_removed_and_restored": True,
     }, ensure_ascii=False, indent=2))
     return 0
 

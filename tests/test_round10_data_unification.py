@@ -46,9 +46,12 @@ def test_b25_template_counts_and_price_are_real(round10_e2e):
 
 def test_b37_delete_scan_and_restore_three_roots(round10_e2e):
     assert round10_e2e["export_tables"] >= 40
+    assert round10_e2e["export_directories"] >= 1
+    assert round10_e2e["export_files"] >= 2
     assert round10_e2e["delete_rows"] > 0
     assert round10_e2e["scan_clean"] is True
     assert round10_e2e["restored_activities"] == 1
     assert round10_e2e["restored_legacy_template_downloads"] == 1
     assert round10_e2e["restored_salt"] is True
     assert round10_e2e["restored_screenshot"] is True
+    assert round10_e2e["logs_removed_and_restored"] is True

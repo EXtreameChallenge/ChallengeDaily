@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -29,12 +30,26 @@ _SHADOW_MARKERS = (
     "_vec_chunks", "_vec_info", "_vec_rowids", "_vector_chunks",
 )
 
-_USER_DIRS = ("screenshots", "reports", "backups", "insight_state", "calendar_cache", "archives")
+_USER_DIRS = (
+    "screenshots",
+    "reports",
+    "backups",
+    "insight_state",
+    "calendar_cache",
+    "archives",
+    "logs",
+    "benchmark_groups",
+)
 _USER_FILES = (
     "settings.json", "settings.pre-fullmode.json", "auto_report.json",
     "webhooks.json", "vault.dat", "wakatime_api_key.json",
-    "round10-migration.json",
+    "round10-migration.json", "benchmark_profile.json", "xiaohei.db.bak",
 )
+# 导出时按文件内容递归打包；backups/archives 体积可能很大，只导出清单，避免 JSON 爆内存。
+_EXPORT_DIRS = (
+    "screenshots", "reports", "insight_state", "calendar_cache", "logs", "benchmark_groups",
+)
+_EXPORT_MANIFEST_DIRS = ("backups", "archives")
 _SALT_NAMES = ("screenshot_salt.bin", "legacy-screenshot_salt.bin")
 
 
@@ -79,13 +94,15 @@ def _salt_backup_dir() -> Path:
 
 
 def export_payload() -> dict:
-    """可携带权导出：DB 全业务表 + 盐值 + home 遗留文件。"""
+    """可携带权导出：DB 全业务表 + 盐值 + home + DATA_DIR 用户目录/文件。"""
     import db
     payload = {
         "exported_at": datetime.now().isoformat(),
         "data_dir": str(config.DATA_DIR),
         "tables": {},
         "files": {},
+        "directories": {},
+        "large_file_manifest": {},
     }
     with db.get_conn() as conn:
         _ensure_vec_extension(conn)
@@ -100,6 +117,49 @@ def export_payload() -> dict:
         payload["files"]["screenshot_salt.bin"] = {
             "base64": base64.b64encode(salt.read_bytes()).decode("ascii"),
             "size": salt.stat().st_size,
+        }
+    # DATA_DIR 下的用户目录：小文件直接 base64，大文件只留清单，避免导出 JSON 爆内存。
+    for dirname in _EXPORT_DIRS:
+        base = Path(config.DATA_DIR) / dirname
+        if not base.exists():
+            continue
+        for path in base.rglob("*"):
+            if not path.is_file():
+                continue
+            rel = f"{dirname}/{path.relative_to(base).as_posix()}"
+            size = path.stat().st_size
+            try:
+                if size <= 5 * 1024 * 1024:
+                    payload["directories"][rel] = {
+                        "base64": base64.b64encode(path.read_bytes()).decode("ascii"),
+                        "size": size,
+                    }
+                else:
+                    payload["large_file_manifest"][rel] = {
+                        "size": size,
+                        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    }
+            except Exception as e:
+                payload["large_file_manifest"][rel] = {"_export_error": str(e), "size": size}
+    for dirname in _EXPORT_MANIFEST_DIRS:
+        base = Path(config.DATA_DIR) / dirname
+        if not base.exists():
+            continue
+        for path in base.rglob("*"):
+            if not path.is_file():
+                continue
+            rel = f"{dirname}/{path.relative_to(base).as_posix()}"
+            payload["large_file_manifest"][rel] = {
+                "size": path.stat().st_size,
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+    for name in _USER_FILES:
+        path = Path(config.DATA_DIR) / name
+        if not path.exists():
+            continue
+        payload["files"][name] = {
+            "base64": base64.b64encode(path.read_bytes()).decode("ascii"),
+            "size": path.stat().st_size,
         }
     if enterprise_store.HOME_DATA_DIR.exists():
         for path in enterprise_store.HOME_DATA_DIR.rglob("*"):

@@ -50,11 +50,13 @@ def create_backup():
         ("vault.dat", DATA_DIR / "vault.dat"),
         ("wakatime_api_key.json", DATA_DIR / "wakatime_api_key.json"),
         ("round10-migration.json", DATA_DIR / "round10-migration.json"),
+        ("benchmark_profile.json", DATA_DIR / "benchmark_profile.json"),
+        ("xiaohei.db.bak", DATA_DIR / "xiaohei.db.bak"),
         ("machine_fallback_id.bin", DATA_DIR / "machine_fallback_id.bin"),
         ("screenshot_salt.bin", DATA_DIR / "screenshot_salt.bin"),
     ]
     # 轮10 B37：用户内容目录纳入备份，保证被遗忘权删除后可完整恢复
-    for dirname in ("screenshots", "reports", "insight_state", "calendar_cache", "archives"):
+    for dirname in ("screenshots", "reports", "insight_state", "calendar_cache", "archives", "logs", "benchmark_groups"):
         base = DATA_DIR / dirname
         if not base.exists():
             continue
@@ -144,6 +146,8 @@ def restore_backup():
             "vault.dat": DATA_DIR / "vault.dat",
             "wakatime_api_key.json": DATA_DIR / "wakatime_api_key.json",
             "round10-migration.json": DATA_DIR / "round10-migration.json",
+            "benchmark_profile.json": DATA_DIR / "benchmark_profile.json",
+            "xiaohei.db.bak": DATA_DIR / "xiaohei.db.bak",
             "machine_fallback_id.bin": DATA_DIR / "machine_fallback_id.bin",
             "screenshot_salt.bin": DATA_DIR / "screenshot_salt.bin",
         }
@@ -249,7 +253,7 @@ def restore_backup():
                     _make_writable(target)
                     target.write_bytes(file_data)
                     restored.append(name)
-                elif name.split("/", 1)[0] in ("screenshots", "reports", "insight_state", "calendar_cache", "archives"):
+                elif name.split("/", 1)[0] in ("screenshots", "reports", "insight_state", "calendar_cache", "archives", "logs", "benchmark_groups"):
                     # 轮10 B37：恢复用户内容目录
                     target = DATA_DIR / name
                     target.parent.mkdir(parents=True, exist_ok=True)
