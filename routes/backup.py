@@ -44,8 +44,13 @@ def create_backup():
     backup_files = [
         ("challengedaily.db", DATA_DIR / "challengedaily.db"),
         ("settings.json", DATA_DIR / "settings.json"),
+        ("settings.pre-fullmode.json", DATA_DIR / "settings.pre-fullmode.json"),
         ("webhooks.json", DATA_DIR / "webhooks.json"),
         ("auto_report.json", DATA_DIR / "auto_report.json"),
+        ("vault.dat", DATA_DIR / "vault.dat"),
+        ("wakatime_api_key.json", DATA_DIR / "wakatime_api_key.json"),
+        ("round10-migration.json", DATA_DIR / "round10-migration.json"),
+        ("machine_fallback_id.bin", DATA_DIR / "machine_fallback_id.bin"),
         ("screenshot_salt.bin", DATA_DIR / "screenshot_salt.bin"),
     ]
     # 轮10 B37：用户内容目录纳入备份，保证被遗忘权删除后可完整恢复
@@ -56,17 +61,13 @@ def create_backup():
         for p in base.rglob("*"):
             if p.is_file():
                 backup_files.append((f"{dirname}/{p.relative_to(base).as_posix()}", p))
-    # 轮10：迁移前的 home JSON 也纳入备份，防止升级窗口丢数据
+    # 轮10：home 目录全量（含 friends/app_lock/notifications 等）
     try:
         from enterprise_store import HOME_DATA_DIR
-        for legacy_name in (
-            "points.json", "templates.json", "user.json", "publisher_accounts.json",
-            "wechat.json", "mcp_servers.json", "student.json",
-            "telemetry.jsonl", "friends.json",
-        ):
-            p = HOME_DATA_DIR / legacy_name
-            if p.exists():
-                backup_files.append((f"home/{legacy_name}", p))
+        if HOME_DATA_DIR.exists():
+            for p in HOME_DATA_DIR.rglob("*"):
+                if p.is_file():
+                    backup_files.append((f"home/{p.relative_to(HOME_DATA_DIR).as_posix()}", p))
     except Exception as e:
         logger.warning(f"home 数据加入备份失败: {e}")
 
@@ -137,8 +138,13 @@ def restore_backup():
             "challengedaily.db": DATA_DIR / "challengedaily.db",
             "xiaohei.db": DATA_DIR / "challengedaily.db",
             "settings.json": DATA_DIR / "settings.json",
+            "settings.pre-fullmode.json": DATA_DIR / "settings.pre-fullmode.json",
             "webhooks.json": DATA_DIR / "webhooks.json",
             "auto_report.json": DATA_DIR / "auto_report.json",
+            "vault.dat": DATA_DIR / "vault.dat",
+            "wakatime_api_key.json": DATA_DIR / "wakatime_api_key.json",
+            "round10-migration.json": DATA_DIR / "round10-migration.json",
+            "machine_fallback_id.bin": DATA_DIR / "machine_fallback_id.bin",
             "screenshot_salt.bin": DATA_DIR / "screenshot_salt.bin",
         }
 
@@ -225,10 +231,11 @@ def restore_backup():
                     with zf.open(name) as src, open(target, "wb") as dst:
                         dst.write(src.read())
                     restored.append(name)
-                elif name.startswith("home/") and len(Path(name).parts) == 2:
-                    # 轮10：恢复迁移前的 home JSON（可选条目）
+                elif name.startswith("home/"):
+                    # 轮10：恢复 home 目录全量（含 app_lock/notifications 等）
                     from enterprise_store import HOME_DATA_DIR
-                    target = HOME_DATA_DIR / Path(name).name
+                    rel = Path(name).relative_to("home")
+                    target = HOME_DATA_DIR / rel
                     target.parent.mkdir(parents=True, exist_ok=True)
                     file_data = zf.read(name)
                     if name in manifest:
