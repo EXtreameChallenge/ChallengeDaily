@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- 键盘接口返回体为动态 JSON，局部断言即可 */
 import { useState, useEffect, useCallback } from 'react'
 import { get, post } from '../api/client'
 
@@ -21,12 +22,15 @@ export default function KeyboardHeatmap() {
   const [listening, setListening] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [msg, setMsg] = useState('')
 
   const fetchData = useCallback(async () => {
     try {
-      const data = await get('/api/keyboard/stats')
+      const data: any = await get('/api/keyboard/stats')
       setStats(data.stats || {})
       setHotkeys(data.hotkeys || [])
+      setListening(!!data.listening)
+      if (data.available && !data.available.ok) setMsg(data.available.reason || '')
     } catch { /* ignore */ } finally {
       setLoading(false)
     }
@@ -34,26 +38,35 @@ export default function KeyboardHeatmap() {
 
   useEffect(() => {
     fetchData()
+    get('/api/keyboard/sound/status').then((s: any) => setSoundEnabled(!!s?.enabled)).catch(() => {})
     const timer = setInterval(fetchData, 5000)
     return () => clearInterval(timer)
   }, [fetchData])
 
   const toggleListening = async () => {
     try {
-      if (listening) { await post('/api/keyboard/stop'); setListening(false) }
-      else { await post('/api/keyboard/start'); setListening(true) }
-    } catch { /* ignore */ }
+      const res: any = listening ? await post('/api/keyboard/stop') : await post('/api/keyboard/start')
+      if (!res?.ok) { setMsg(res?.error || '操作失败'); setListening(false); return }
+      setListening(!listening)
+      setMsg('')
+    } catch (e: any) { setMsg(e?.message || '操作失败') }
   }
 
   const toggleSound = async () => {
     try {
-      const data = await post('/api/keyboard/sound/toggle', { enabled: !soundEnabled })
-      setSoundEnabled(data.enabled)
-    } catch { /* ignore */ }
+      const data: any = await post('/api/keyboard/sound/toggle', { enabled: !soundEnabled })
+      if (!data?.ok) { setMsg(data?.error || '音效不可用'); return }
+      setSoundEnabled(!!data.enabled)
+      setMsg('')
+    } catch (e: any) { setMsg(e?.message || '音效不可用') }
   }
 
   const resetStats = async () => {
-    try { await post('/api/keyboard/reset'); fetchData() } catch { /* ignore */ }
+    try {
+      const res: any = await post('/api/keyboard/reset')
+      if (!res?.ok) setMsg(res?.error || '重置失败')
+      fetchData()
+    } catch (e: any) { setMsg(e?.message || '重置失败') }
   }
 
   const maxCount = Math.max(...Object.values(stats), 1)
@@ -73,6 +86,10 @@ export default function KeyboardHeatmap() {
         <div>
           <h1 className="text-xl font-bold">⌨️ 键盘热力图</h1>
           <p className="text-sm text-gray-500 mt-1">统计按键频率，优化打字习惯</p>
+          <p className="text-xs text-gray-400 mt-1">
+            仅统计按键次数，不记录任何按键内容、不上传按键数据；默认关闭，开启后才监听，关闭即卸载全局钩子。
+          </p>
+          {msg && <p className="text-xs text-amber-600 mt-1">{msg}</p>}
         </div>
         <div className="flex gap-2">
           <button onClick={toggleListening}

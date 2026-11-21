@@ -63,6 +63,7 @@ export default function XiaoheiHub() {
   const [recordDuration, setRecordDuration] = useState(0)
   const [recMsg, setRecMsg] = useState('')
   const [tplMsg, setTplMsg] = useState('')
+  const [kbMsg, setKbMsg] = useState('')
   const [mdContent, setMdContent] = useState('')
   const [mdPath, setMdPath] = useState('')
   const [authSession, setAuthSession] = useState<{ loggedIn: boolean; user: any }>({ loggedIn: false, user: null })
@@ -447,14 +448,36 @@ export default function XiaoheiHub() {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-base font-semibold">键盘热力图</h2>
             <div className="flex gap-2">
-              <button onClick={() => post('/api/keyboard/start').then(() => setKeyboardListening(true))}
+              <button onClick={async () => {
+                try {
+                  const res: any = await post('/api/keyboard/start')
+                  if (res?.ok) { setKeyboardListening(true); setKbMsg('') }
+                  else setKbMsg(res?.error || '启动失败')
+                } catch (e: any) { setKbMsg(e?.message || '启动失败') }
+              }}
                 className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs">开始监听</button>
-              <button onClick={() => post('/api/keyboard/stop').then(() => setKeyboardListening(false))}
+              <button onClick={async () => {
+                try {
+                  const res: any = await post('/api/keyboard/stop')
+                  if (res?.ok) { setKeyboardListening(false); setKbMsg('') }
+                  else setKbMsg(res?.error || '停止失败')
+                } catch (e: any) { setKbMsg(e?.message || '停止失败') }
+              }}
                 className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs">停止监听</button>
-              <button onClick={() => { setSoundEnabled(!soundEnabled); post('/api/keyboard/sound/toggle', { enabled: !soundEnabled }) }}
+              <button onClick={async () => {
+                try {
+                  const res: any = await post('/api/keyboard/sound/toggle', { enabled: !soundEnabled })
+                  if (res?.ok) setSoundEnabled(!!res.enabled)
+                  else setKbMsg(res?.error || '音效不可用')
+                } catch (e: any) { setKbMsg(e?.message || '音效不可用') }
+              }}
                 className="px-3 py-1.5 bg-purple-500 text-white rounded-lg text-xs">🔊 音效</button>
             </div>
           </div>
+          <p className="text-xs text-gray-400 mb-2">
+            仅统计按键次数，不记录任何按键内容、不上传按键数据；默认关闭，开启后才监听，关闭即卸载全局钩子。
+          </p>
+          {kbMsg && <p className="text-xs text-amber-600 mb-2">{kbMsg}</p>}
           {keyboardListening && <p className="text-xs text-green-500 mb-2">正在监听键盘…</p>}
           <div className="flex flex-col items-center gap-1">
             {[
