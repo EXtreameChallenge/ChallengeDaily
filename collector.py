@@ -138,15 +138,17 @@ def _maybe_gc():
 
 
 def _smooth_category(current_category: str, app_name: str, window_title: str,
-                     is_duplicate: bool) -> str:
+                     is_duplicate: bool, ai_category: str = "") -> str:
     """
     分类稳定性平滑：避免同一工作场景下 category 在"开发"和"其他"之间乱跳。
-    规则：
-      1. 当前是"其他"且最近非生活记录与当前为同一应用/相似窗口，沿用最近分类。
+    规则（B32 用户裁决）：
+      1. 当前是"其他"且最近非生活记录与当前为同一应用/相似窗口，沿用最近分类；
+         但 AI 明确返回"其他"时保留"其他"（诚实标注优先）。
       2. 画面重复且应用未变，沿用最近一条记录的分类。
+      3. "其他"禁止作为参照源；只允许作为被平滑对象。
     """
-    # B32: “其他”是 classify 的合法兜底分类，也允许参与平滑；
-    # 旧逻辑把它当成非法分类直接返回，导致平滑规则 1 永远不生效。
+    # B32: “其他”是 classify 的合法兜底分类，也允许作为被平滑对象；
+    # 但 AI 明确返回“其他”时，它是低置信的真实结论，不能伪装成工作分类。
     if current_category not in CATEGORIES and current_category != "其他":
         return current_category
 
@@ -154,15 +156,16 @@ def _smooth_category(current_category: str, app_name: str, window_title: str,
     if not recent:
         return current_category
 
-    # 找到最近一条非生活/非空闲记录
+    # 找到最近一条非生活/非空闲/非兜底“其他”记录
     # Wave0-B01: 污染记录（截图文件缺失等降级摘要）不得作为平滑参照
+    # B32: “其他”不得作为参照源，避免把低置信兜底传染给后续记录
     last_work = None
     for r in recent:
         cat = r.get("category", "")
         summ = r.get("summary", "") or ""
         if "截图文件缺失" in summ:
             continue
-        if cat and cat not in ("生活", ""):
+        if cat and cat not in ("生活", "其他", ""):
             last_work = r
             break
     if not last_work:
@@ -188,12 +191,16 @@ def _smooth_category(current_category: str, app_name: str, window_title: str,
                          (window_title == last_title or
                           window_title.split(" - ")[-1] == last_title.split(" - ")[-1]))
 
-    # 画面重复：直接沿用上一分类
+    # 画面重复且应用未变：没有新的 AI 判断，沿用上一工作分类
     if is_duplicate and same_app:
         return last_cat
 
-    # 当前被归为"其他"，但最近是工作分类且时间/应用/窗口连续，沿用工作分类
-    if current_category == "其他" and last_cat != "其他" and delta_sec <= 300:
+    # AI 明确返回“其他”：如实保留，不做平滑
+    if current_category == "其他" and (ai_category or "").strip():
+        return current_category
+
+    # 当前被归为“其他”（AI 空/规则兜底），但最近是工作分类且时间/应用/窗口连续
+    if current_category == "其他" and delta_sec <= 300:
         if same_app or similar_title:
             logger.debug(f"分类平滑: {current_category} -> {last_cat} (同一工作场景)")
             return last_cat
@@ -494,6 +501,7 @@ class Collector:
 
         ai_enabled = bool(load_settings().get("ai_enabled", False))
         category = ""
+        ai_category_raw = ""
         summary = ""
         ai_detail = ""
         windows_data = analysis_windows
@@ -572,6 +580,8 @@ class Collector:
                     except Exception:
                         pass
 
+            ai_category_raw = str(ai_result.get("category", "") or "")
+
             # 5. 分类
             category = classify(app_name, ai_result.get("category", ""), window_title)
             summary = ai_result.get("summary", "")
@@ -609,6 +619,7 @@ class Collector:
                 app_name=app_name,
                 window_title=window_title,
                 is_duplicate=is_duplicate,
+                ai_category=ai_category_raw,
             )
         except Exception as e:
             logger.debug(f"分类平滑失败（不影响采集）: {e}")

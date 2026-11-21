@@ -1,9 +1,11 @@
 ﻿import { useState } from 'react'
 import dayjs from 'dayjs'
 import {
+  getActivities,
   getHealthCoverage,
   getHealthSystemEvents,
   getSamplingDeviation,
+  type Activity,
   type HealthCoverage,
   type HealthSystemEvents,
   type SamplingDeviation,
@@ -20,14 +22,16 @@ export default function Health() {
     coverage: HealthCoverage
     events: HealthSystemEvents
     sampling: SamplingDeviation
+    activities: Activity[]
   }>(
     async () => {
-      const [coverage, events, sampling] = await Promise.all([
+      const [coverage, events, sampling, activityPage] = await Promise.all([
         getHealthCoverage(selectedDate),
         getHealthSystemEvents(selectedDate),
         getSamplingDeviation(selectedDate),
+        getActivities(selectedDate, 1, 500),
       ])
-      return { coverage, events, sampling }
+      return { coverage, events, sampling, activities: activityPage.activities }
     },
     [selectedDate],
     30 * 60 * 1000,  // 30 分钟自动刷新校准数据
@@ -36,6 +40,7 @@ export default function Health() {
   const coverage = data?.coverage
   const events = data?.events
   const sampling = data?.sampling
+  const activities = data?.activities ?? []
 
   return (
     <div className="animate-fade-in space-y-5">
@@ -85,6 +90,9 @@ export default function Health() {
             <CollectedCard coverage={coverage} />
             <CoverageCard coverage={coverage} />
           </div>
+
+          {/* ─── B32：分类“其他”占比（诚实标注，不用平滑掩盖） ─── */}
+          <OtherCategoryCard activities={activities} />
 
           {/* ─── 会话时间条 ──────────────────── */}
           <SessionTimeline coverage={coverage} />
@@ -253,6 +261,47 @@ function CoverageCard({ coverage }: { coverage: HealthCoverage }) {
             覆盖率 = 采集时长 ÷ 系统时长。{'\n'}
             ≥80% 数据可信，50-80% 建议补录，&lt;50% 数据不可用。
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 子组件：分类健康度（B32 平滑裁决的配套指标）
+// ═══════════════════════════════════════════════════════════════════
+function OtherCategoryCard({ activities }: { activities: Activity[] }) {
+  const totalMin = activities.reduce((sum, a) => sum + (a.duration_min || 0), 0)
+  const otherMin = activities
+    .filter((a) => a.category === '其他')
+    .reduce((sum, a) => sum + (a.duration_min || 0), 0)
+  const pct = totalMin > 0 ? (otherMin / totalMin) * 100 : 0
+  const color = pct <= 10 ? 'text-cd-green' : pct <= 25 ? 'text-cd-gold' : 'text-cd-red'
+
+  return (
+    <div className="bg-cd-bg-secondary border border-cd-border rounded-2xl p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-cd-text-tertiary">分类健康度</span>
+            <span className="text-[10px] text-cd-text-tertiary bg-cd-bg px-2 py-0.5 rounded-lg">
+              “其他”占比
+            </span>
+          </div>
+          <div className={`mt-2 text-2xl font-bold font-brand ${color}`}>
+            {totalMin > 0 ? `${pct.toFixed(1)}%` : '—'}
+          </div>
+        </div>
+        <div className="flex-1 max-w-xl text-[11px] text-cd-text-tertiary leading-relaxed">
+          <p>
+            占比越低，说明应用分类规则覆盖越完整。AI 明确返回“其他”时如实保留，
+            不会被平滑伪装成工作分类；占比偏高时，建议到“分类规则”补充该应用的标签。
+          </p>
+          <p className="mt-1 text-cd-text-secondary">
+            当日“其他”时长 <span className="font-brand">{formatDuration(otherMin)}</span>
+            <span className="mx-1">/</span>
+            总采集 <span className="font-brand">{formatDuration(totalMin)}</span>
+          </p>
         </div>
       </div>
     </div>

@@ -582,10 +582,10 @@ return (
         </div>
       </div>
 
-      {/* ── 第三行：热力图(左2) + 行业基准(右1) ── */}
-      <div className="grid grid-cols-3 gap-3 mb-3">
+      {/* ── 第三行：热力图(左2) + 行业基准(右1)；窄窗改为上下堆叠，避免抢宽度 ── */}
+      <div className="grid grid-cols-1 gap-3 mb-3 lg:grid-cols-3">
         {/* 近三天热力图 */}
-        <div className="col-span-2 bg-cd-card border border-cd-border rounded-2xl p-2.5">
+        <div className="bg-cd-card border border-cd-border rounded-2xl p-2.5 lg:col-span-2">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-cd-text">近三天热力图</span>
             <button onClick={() => navigate('/heatmap')} className="text-[10px] text-cd-text-tertiary hover:text-cd-green transition">更多 →</button>
@@ -632,10 +632,10 @@ return (
               const maxIdx = today.cells.indexOf(Math.max(...today.cells))
               const peakHour = maxIdx >= 0 ? `${maxIdx * 2}:00-${maxIdx * 2 + 2}:00` : '--'
               return (
-                <div className="flex items-center gap-3 text-[9px]">
-                  <span className="text-cd-text-tertiary">峰值 <span className="text-cd-purple font-semibold">{peakHour}</span></span>
-                  <span className="text-cd-text-tertiary">活跃 <span className="text-cd-green font-semibold">{activeSlots}</span> 时段</span>
-                  <span className="text-cd-text-tertiary">共 <span className="text-cd-text font-semibold">{totalMin >= 60 ? `${(totalMin/60).toFixed(1)}h` : `${totalMin}m`}</span></span>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px]">
+                  <span className="whitespace-nowrap tabular-nums text-cd-text-tertiary">峰值 <span className="text-cd-purple font-semibold">{peakHour}</span></span>
+                  <span className="whitespace-nowrap tabular-nums text-cd-text-tertiary">活跃 <span className="text-cd-green font-semibold">{activeSlots}</span> 时段</span>
+                  <span className="whitespace-nowrap tabular-nums text-cd-text-tertiary">共 <span className="text-cd-text font-semibold">{totalMin >= 60 ? `${(totalMin/60).toFixed(1)}h` : `${totalMin}m`}</span></span>
                 </div>
               )
             })()}
@@ -650,9 +650,9 @@ return (
               const peakHour = maxIdx >= 0 && day.cells[maxIdx] > 0 ? `${maxIdx * 2}:00-${maxIdx * 2 + 2}:00` : '--'
               const intensity = maxHeatVal > 0 ? Math.max(...day.cells) / maxHeatVal : 0
               return (
-                <div key={day.date} className="flex items-center gap-2 text-[10px] bg-cd-bg-secondary/40 rounded-lg px-2 py-1">
+                <div key={day.date} className="flex items-center gap-2 text-[10px] bg-cd-bg-secondary/40 rounded-lg px-2 py-1 overflow-hidden">
                   <span className="text-cd-text-tertiary w-8 shrink-0">{dayLabel}</span>
-                  <div className="flex-1 flex items-center gap-1">
+                  <div className="flex-1 flex items-center gap-1 min-w-0 whitespace-nowrap tabular-nums">
                     <span className="text-cd-text font-semibold">{totalMin >= 60 ? `${(totalMin/60).toFixed(1)}h` : `${totalMin}m`}</span>
                     <span className="text-cd-text-tertiary">· {activeCount}时段活跃</span>
                     <span className="text-cd-text-tertiary">· 峰值</span>

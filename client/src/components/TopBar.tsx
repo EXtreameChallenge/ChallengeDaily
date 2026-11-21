@@ -34,7 +34,7 @@ export default function TopBar() {
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-16"
         style={{
           background:
-            'linear-gradient(to bottom, var(--cd-bg) 0%, var(--cd-bg) 30%, transparent 100%)',
+            'linear-gradient(to bottom, var(--cd-bg) 0%, var(--cd-bg) 80%, transparent 100%)',
         }}
         aria-hidden="true"
       />

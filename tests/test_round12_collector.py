@@ -102,6 +102,22 @@ def test_smooth_category_cases(monkeypatch):
     assert co._smooth_category("其他", "Other", "a - b", False) == "其他"
 
 
+def test_smooth_category_b32_other_is_never_reference(monkeypatch):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    recent = [
+        {"timestamp": now, "category": "其他", "app_name": "Code.exe",
+         "window_title": "main.py", "summary": "认不出"},
+        {"timestamp": now, "category": "开发", "app_name": "Code.exe",
+         "window_title": "main.py", "summary": "写代码"},
+    ]
+    monkeypatch.setattr(co, "get_recent_activities", lambda n: recent)
+    assert co._smooth_category("其他", "Code.exe", "main.py", False, ai_category="") == "开发"
+    # AI 明确返回“其他”时，诚实保留，不伪装成开发
+    assert co._smooth_category("其他", "Code.exe", "main.py", False, ai_category="其他") == "其他"
+    # 重复帧没有新的 AI 判断，允许继承上下文
+    assert co._smooth_category("其他", "Code.exe", "main.py", True, ai_category="其他") == "开发"
+
+
 def test_adaptive_sampling(monkeypatch):
     c = co.Collector()
     monkeypatch.setattr(config, "ADAPTIVE_SAMPLING_ENABLED", False)
