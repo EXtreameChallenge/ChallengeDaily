@@ -11,41 +11,34 @@ import logging
 from pathlib import Path
 from datetime import datetime
 
-logger = logging.getLogger(__name__)
+import enterprise_store
+import xiaohei_core
 
-_DATA_DIR = Path.home() / ".challenge-daily"
-_DATA_DIR.mkdir(parents=True, exist_ok=True)
+logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════
 # 1. 账号体系（本地框架，可扩展云端）
 # ═══════════════════════════════════════════════════════
 class AuthManager:
-    def __init__(self):
-        self.user_file = _DATA_DIR / "user.json"
-
     def get_session(self) -> dict:
-        if self.user_file.exists():
-            try:
-                return json.loads(self.user_file.read_text(encoding='utf-8'))
-            except Exception:
-                pass
-        return {"loggedIn": False, "user": None}
+        return enterprise_store.kv_get_json(
+            "auth_session", {"loggedIn": False, "user": None}
+        )
 
     def login(self, email: str, password: str) -> dict:
-        # 本地模式：不验证密码，直接创建本地会话
+        # 本地模式：不验证密码，直接创建本地会话（落 SQLite enterprise_kv）
         user = {
             "loggedIn": True,
             "user": {"email": email, "name": email.split('@')[0]},
             "token": str(uuid.uuid4()),
             "loginAt": time.time(),
         }
-        self.user_file.write_text(json.dumps(user, ensure_ascii=False), encoding='utf-8')
+        enterprise_store.kv_set_json("auth_session", user)
         return {"ok": True, "user": user}
 
     def logout(self):
-        if self.user_file.exists():
-            self.user_file.unlink()
+        enterprise_store.kv_delete("auth_session")
         return {"ok": True}
 
 
@@ -56,38 +49,26 @@ auth_manager = AuthManager()
 # 2. 积分计费系统
 # ═══════════════════════════════════════════════════════
 class PointsManager:
-    def __init__(self):
-        self.balance_file = _DATA_DIR / "points.json"
-
-    def _load(self) -> dict:
-        if self.balance_file.exists():
-            try:
-                return json.loads(self.balance_file.read_text(encoding='utf-8'))
-            except Exception:
-                pass
-        return {"balance": 1000, "credits": 1000, "ledger": []}
-
-    def _save(self, data: dict):
-        self.balance_file.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
+    """企业积分：与小黑共用 points_ledger，不再读写 points.json。"""
 
     def get_balance(self) -> dict:
-        data = self._load()
-        return {"balance": data["balance"], "credits": data["credits"]}
+        return xiaohei_core.get_points_balance()
 
     def consume(self, amount: int, reason: str) -> dict:
-        data = self._load()
-        if data["balance"] < amount:
-            return {"ok": False, "error": "积分不足"}
-        data["balance"] -= amount
-        data["ledger"].append({
-            "amount": -amount, "reason": reason, "time": time.time()
-        })
-        self._save(data)
-        return {"ok": True, "balance": data["balance"]}
+        return xiaohei_core.points_consume_amount(amount, "enterprise", reason)
 
     def get_usage_records(self) -> list:
-        data = self._load()
-        return data["ledger"][-50:]
+        result = xiaohei_core.get_points_usage_records(page=1, page_size=50)
+        rows = result.get("records", [])
+        return [
+            {
+                "amount": int(row.get("amount", 0)) * (1 if row.get("type") == "credit" else -1),
+                "reason": row.get("item", ""),
+                "detail": row.get("detail", ""),
+                "time": row.get("created_at", ""),
+            }
+            for row in rows
+        ]
 
 
 points_manager = PointsManager()
@@ -97,35 +78,30 @@ points_manager = PointsManager()
 # 3. 模板市场
 # ═══════════════════════════════════════════════════════
 class TemplateMarket:
-    def __init__(self):
-        self.templates_file = _DATA_DIR / "templates.json"
+    """模板市场：企业页与小黑共用 template_market，downloads 初始 0。"""
 
     def list(self) -> list:
-        # 内置模板
-        builtin = [
-            {"id": "daily", "name": "日报模板", "price": 0, "downloads": 1000},
-            {"id": "weekly", "name": "周报模板", "price": 0, "downloads": 500},
-            {"id": "deep", "name": "深度洞察模板", "price": 0, "downloads": 200},
-        ]
-        if self.templates_file.exists():
-            try:
-                custom = json.loads(self.templates_file.read_text(encoding='utf-8'))
-                return builtin + custom
-            except Exception:
-                pass
-        return builtin
+        return xiaohei_core.list_templates()
 
     def publish(self, name: str, content: str, price: int = 0) -> dict:
-        templates = []
-        if self.templates_file.exists():
-            try:
-                templates = json.loads(self.templates_file.read_text(encoding='utf-8'))
-            except Exception:
-                pass
-        t = {"id": str(uuid.uuid4()), "name": name, "price": price, "content": content, "downloads": 0}
-        templates.append(t)
-        self.templates_file.write_text(json.dumps(templates, ensure_ascii=False), encoding='utf-8')
-        return {"ok": True, "template": t}
+        result = xiaohei_core.create_template({
+            "name": (name or "未命名模板").strip(),
+            "content": content,
+            "category": "企业",
+            "price": int(price or 0),
+        })
+        if result.get("ok"):
+            templates = xiaohei_core.list_templates()
+            template = next((t for t in templates if t.get("id") == result.get("id")), None)
+            return {"ok": True, "template": template or result}
+        return {"ok": False, "error": result.get("error", "发布失败")}
+
+    def use(self, template_id: int) -> dict:
+        """真实使用/下载：只对 SQLite 中存在的模板 +1。"""
+        return xiaohei_core.use_template(int(template_id))
+
+    def download(self, template_id: int) -> dict:
+        return self.use(template_id)
 
 
 template_market = TemplateMarket()
@@ -136,9 +112,6 @@ template_market = TemplateMarket()
 # ═══════════════════════════════════════════════════════
 class Publisher:
     """视频发布器：演示模块，不写账号文件、不创建假任务。"""
-    def __init__(self):
-        self.accounts_file = _DATA_DIR / "publisher_accounts.json"
-
     def list_accounts(self) -> dict:
         return {"status": "not_implemented", "implemented": False, "accounts": []}
 
@@ -159,9 +132,6 @@ publisher = Publisher()
 # ═══════════════════════════════════════════════════════
 class WeChatIntegration:
     """微信集成：不拉起登录、不写绑定状态。"""
-    def __init__(self):
-        self.config_file = _DATA_DIR / "wechat.json"
-
     def get_state(self) -> dict:
         return {"status": "not_implemented", "implemented": False,
                 "bound": False, "qrcode": None}
@@ -200,9 +170,6 @@ browser_auto = BrowserAutomation()
 # ═══════════════════════════════════════════════════════
 class MCPManager:
     """企业页 MCP 管理列表为演示，不写 mcp_servers.json。"""
-    def __init__(self):
-        self.config_file = _DATA_DIR / "mcp_servers.json"
-
     def list(self) -> dict:
         return {"status": "not_implemented", "implemented": False, "servers": []}
 
@@ -236,9 +203,6 @@ mini_sync = MiniProgramSync()
 # ═══════════════════════════════════════════════════════
 class StudentVerification:
     """学生认证：绝不对任意邮箱返回 verified=true。"""
-    def __init__(self):
-        self.file = _DATA_DIR / "student.json"
-
     def get_status(self) -> dict:
         return {"status": "not_implemented", "implemented": False, "verified": False}
 
@@ -283,8 +247,7 @@ survey_system = SurveySystem()
 # 12. 遥测系统
 # ═══════════════════════════════════════════════════════
 class TelemetrySystem:
-    def __init__(self):
-        self.events_file = _DATA_DIR / "telemetry.jsonl"
+    """本地遥测：落 SQLite enterprise_telemetry；默认关闭，绝不上传。"""
 
     def is_enabled(self) -> bool:
         try:
@@ -294,42 +257,24 @@ class TelemetrySystem:
             return False
 
     def track(self, event: str, data: dict = None) -> bool:
-        """写本地遥测事件。默认关闭，关闭时静默跳过；绝不上传。"""
         if not self.is_enabled():
             return False
         try:
-            event_name = str(event or "").strip()
-            if not event_name:
-                return False
-            with open(self.events_file, 'a', encoding='utf-8') as f:
-                f.write(json.dumps({
-                    "event": event_name,
-                    "data": data or {},
-                    "time": time.time(),
-                }, ensure_ascii=False) + '\n')
+            enterprise_store.telemetry_add(event, data or {})
             return True
         except Exception as e:
             logger.debug(f"遥测记录失败: {e}")
             return False
 
     def get_events(self, limit: int = 100) -> list:
-        if not self.events_file.exists():
+        try:
+            return enterprise_store.telemetry_events(limit)
+        except Exception:
             return []
-        lines = self.events_file.read_text(encoding='utf-8').strip().split('\n')
-        out = []
-        for l in lines[-limit:]:
-            try:
-                out.append(json.loads(l))
-            except Exception:
-                continue
-        return out
 
     def clear(self) -> int:
         try:
-            if self.events_file.exists():
-                n = len(self.events_file.read_text(encoding='utf-8').strip().split('\n'))
-                self.events_file.unlink()
-                return n
+            return enterprise_store.telemetry_clear()
         except Exception as e:
             logger.debug(f"清空遥测失败: {e}")
         return 0

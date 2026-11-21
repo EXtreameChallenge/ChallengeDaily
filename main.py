@@ -228,6 +228,20 @@ def main():
     except Exception as e:
         logger.warning(f"报告模板表初始化失败（非致命）: {e}")
 
+    # 1.7 轮10 数据统一：企业旧 JSON → SQLite 单源（幂等）
+    try:
+        from enterprise_store import init_enterprise_tables, migrate_home_data
+        init_enterprise_tables()
+        report = migrate_home_data()
+        logger.info(
+            "企业旧数据迁移: migrated=%s points=%s templates=%s friends=%s telemetry=%s",
+            report.get("migrated"), report.get("points_found"),
+            report.get("templates_found"), report.get("friends_found"),
+            report.get("telemetry_found"),
+        )
+    except Exception as e:
+        logger.warning(f"企业旧数据迁移失败（非致命）: {e}")
+
     # 2. 打印配置信息
     logger.info(f"截图间隔: {config.SCREENSHOT_INTERVAL_SEC}s")
     logger.info(f"HTTP API 端口: {HTTP_PORT}")

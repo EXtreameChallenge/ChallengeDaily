@@ -197,7 +197,7 @@ python main.py
 >
 > 🧠 不配 Key 也能用。接智谱 / DeepSeek / Qwen / Kimi 的 Key 开启 AI 视觉识别。
 >
-> 🧩 企业仿真端点默认不注册；需要联调时设置 `CHALLENGEDAILY_ENTERPRISE_PLUGIN=1`。
+> 🧩 企业仿真端点默认不注册：43 个仿真域 / 811 个端点（含 17 个 P 系列僵尸域、CV 501 诚实实现）收在 `enterprise_plugin/`；需要联调时设置 `CHALLENGEDAILY_ENTERPRISE_PLUGIN=1`。
 > MCP 服务默认关闭，在「设置 → 集成」打开后按 [docs/mcp-integration.md](docs/mcp-integration.md) 接入外部客户端。
 
 ---

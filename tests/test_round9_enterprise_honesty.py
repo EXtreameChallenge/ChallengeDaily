@@ -11,20 +11,20 @@ def test_b22_core_endpoints_do_not_include_scaffold(authed_client):
     import routes
     import enterprise_plugin
 
-    assert len(routes.ALL_BLUEPRINTS) == 77
-    # 934 = 移除 301 个仿真端点后保留的 core 基线；+3 = 本轮新增的插件状态/遥测状态/清空
-    assert sum(len(bp.deferred_functions) for bp in routes.ALL_BLUEPRINTS) == 937
-    assert len(enterprise_plugin.load_blueprints()) == 26
+    assert len(routes.ALL_BLUEPRINTS) == 60
+    # 轮10：原 937 - 510 个 P 系列端点 + 2 个真实模板端点 = 429
+    assert sum(len(bp.deferred_functions) for bp in routes.ALL_BLUEPRINTS) == 429
+    assert len(enterprise_plugin.load_blueprints()) == 43
 
     status = authed_client.get("/api/enterprise/plugin/status").get_json()
     assert status["configured"] is False
     assert status["registered"] is False
-    assert status["manifest_blueprints"] == 26
-    assert status["manifest_endpoints"] == 301
+    assert status["manifest_blueprints"] == 43
+    assert status["manifest_endpoints"] == 811
 
 
 def test_b22_clipboard_core_still_registered(authed_client):
-    # 剪贴板 3 个端点留在 core，不能随 26 域一起移走
+    # 剪贴板 3 个端点留在 core，不能随 43 域一起移走
     resp = authed_client.get("/api/platform/clipboard")
     assert resp.status_code == 200
     assert "items" in resp.get_json()
@@ -39,9 +39,9 @@ def test_b22_plugin_registers_only_when_enabled(monkeypatch):
     status = enterprise_plugin.register(app)
     assert status["enabled"] is True
     assert status["registered"] is True
-    assert status["blueprints"] == 26
-    assert status["endpoints"] == 301
-    assert len(app.url_map._rules) == 302  # 301 个 API 规则 + Flask 自带 static
+    assert status["blueprints"] == 43
+    assert status["endpoints"] == 811
+    assert len(app.url_map._rules) == 812  # 811 个 API 规则 + Flask 自带 static
 
 
 def test_b11_enterprise_demo_modules_do_not_fake_success(authed_client):
@@ -113,11 +113,12 @@ def test_b23_cv_no_random_faces_or_barcodes():
 
 
 def test_b26_telemetry_default_off_and_toggle(tmp_path, monkeypatch):
-    monkeypatch.setattr(telemetry, "events_file", tmp_path / "telemetry.jsonl")
+    import enterprise_store
+    enterprise_store.telemetry_clear()
     config.save_settings({**config.load_settings(), "telemetry_enabled": False})
     try:
         assert telemetry.track("capture_failed", {"stage": "screenshot"}) is False
-        assert not telemetry.events_file.exists()
+        assert enterprise_store.telemetry_count() == 0
 
         config.save_settings({**config.load_settings(), "telemetry_enabled": True})
         assert telemetry.track("capture_failed", {"stage": "screenshot"}) is True
@@ -125,9 +126,10 @@ def test_b26_telemetry_default_off_and_toggle(tmp_path, monkeypatch):
         assert len(events) == 1
         assert events[0]["event"] == "capture_failed"
         assert events[0]["data"]["stage"] == "screenshot"
+        assert enterprise_store.telemetry_count() == 1
     finally:
         config.save_settings({**config.load_settings(), "telemetry_enabled": False})
-        monkeypatch.setattr(telemetry, "events_file", tmp_path / "telemetry-finally.jsonl")
+        enterprise_store.telemetry_clear()
 
 
 def test_b29_wecom_webhook_payload_and_errcode(monkeypatch):

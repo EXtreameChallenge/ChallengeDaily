@@ -2,48 +2,30 @@
 from flask import Blueprint, jsonify, request
 from routes.deps import check_token
 import logging
+import json
 import db
+import privacy_data
 
 logger = logging.getLogger(__name__)
 privacy_bp = Blueprint('privacy', __name__, url_prefix='/api/privacy')
 
-# 白名单校验：仅允许操作已知的业务表
-_ALLOWED_TABLES = frozenset([
-    'activities', 'app_usage', 'screenshots', 'reports',
-    'todos', 'habits', 'habit_logs', 'diaries', 'week_plans',
-    'countdowns', 'pomodoro_sessions', 'notifications',
-    'app_tags', 'deep_insight_cache', 'ai_chat_history'
-])
-
-
-def _validate_table_name(table: str) -> bool:
-    """校验表名是否在白名单内，防止 SQL 注入"""
-    return table in _ALLOWED_TABLES
-
 
 @privacy_bp.route('/data', methods=['DELETE'])
 def delete_all_user_data():
-    """删除所有用户数据（被遗忘权）"""
+    """删除所有用户数据（被遗忘权）：DB 全业务表 + home + 盐值 + 用户文件。"""
     try:
-        tables_to_clear = [
-            'activities', 'app_usage', 'screenshots', 'reports',
-            'todos', 'habits', 'habit_logs', 'diaries', 'week_plans',
-            'countdowns', 'pomodoro_sessions', 'notifications',
-            'app_tags', 'deep_insight_cache', 'ai_chat_history'
-        ]
-        with db.get_conn() as conn:
-            conn.execute("BEGIN IMMEDIATE")
-            for table in tables_to_clear:
-                if not _validate_table_name(table):
-                    logger.warning(f"跳过非法表名: {table}")
-                    continue
-                try:
-                    conn.execute(f"DELETE FROM {table}")
-                except Exception as e:
-                    logger.warning(f"清空 {table} 失败: {e}")
-            conn.execute("COMMIT")
-        logger.info(f"[AUDIT] User data deleted by {request.remote_addr}")
-        return jsonify({"status": "deleted", "message": "所有用户数据已删除"})
+        result = privacy_data.delete_all()
+        scan = privacy_data.scan_state()
+        logger.info(
+            f"[AUDIT] User data deleted by {request.remote_addr}: "
+            f"rows={result['row_count']} clean={scan['clean']}"
+        )
+        return jsonify({
+            "status": "deleted",
+            "message": "所有用户数据已删除",
+            "deleted": result,
+            "scan": scan,
+        })
     except Exception as e:
         logger.error(f"删除用户数据失败: {e}", exc_info=True)
         return jsonify({"error": "删除失败"}), 500
@@ -51,25 +33,13 @@ def delete_all_user_data():
 
 @privacy_bp.route('/export', methods=['GET'])
 def export_all_user_data():
-    """导出所有用户数据（数据可携带权）"""
+    """导出所有用户数据（数据可携带权）：DB 全业务表 + 盐值 + home。"""
     try:
-        import json
-        data = {}
-        tables = ['activities', 'app_usage', 'reports', 'todos', 'habits', 'diaries']
-        with db.get_conn() as conn:
-            for table in tables:
-                if not _validate_table_name(table):
-                    continue
-                try:
-                    rows = conn.execute(f"SELECT * FROM {table}").fetchall()
-                    cols = [d[0] for d in conn.execute(f"SELECT * FROM {table} LIMIT 0").description]
-                    data[table] = [dict(zip(cols, row)) for row in rows]
-                except Exception:
-                    data[table] = []
+        payload = privacy_data.export_payload()
         logger.info(f"[AUDIT] Data export by {request.remote_addr}")
         from flask import Response
         return Response(
-            json.dumps(data, ensure_ascii=False, default=str, indent=2),
+            json.dumps(payload, ensure_ascii=False, default=str, indent=2),
             mimetype='application/json',
             headers={'Content-Disposition': 'attachment; filename="user_data.json"'}
         )

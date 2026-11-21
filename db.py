@@ -53,6 +53,17 @@ def _get_thread_conn() -> sqlite3.Connection:
     return conn
 
 
+def close_thread_conn() -> None:
+    """关闭当前线程的 SQLite 连接；备份恢复前调用，避免文件句柄冲突。"""
+    conn = getattr(_local, "conn", None)
+    if conn is not None:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        _local.conn = None
+
+
 @contextmanager
 def get_conn():
     """获取数据库连接（contextmanager，使用线程局部连接，不关闭）

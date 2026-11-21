@@ -140,6 +140,23 @@ def init_xiaohei_tables():
                 kind        TEXT DEFAULT 'manual',   -- manual | auto
                 created_at  TEXT DEFAULT (datetime('now','localtime'))
             );
+
+            -- 轮10：企业键值（账号/演示模块/好友统一落库）
+            CREATE TABLE IF NOT EXISTS enterprise_kv (
+                key         TEXT PRIMARY KEY,
+                value       TEXT NOT NULL,
+                updated_at  TEXT DEFAULT (datetime('now','localtime'))
+            );
+
+            -- 轮10：企业遥测事件（替代 ~/.challenge-daily/telemetry.jsonl）
+            CREATE TABLE IF NOT EXISTS enterprise_telemetry (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                event       TEXT NOT NULL,
+                data        TEXT DEFAULT '{}',
+                time        REAL NOT NULL,
+                created_at  TEXT DEFAULT (datetime('now','localtime'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_ent_tel_time ON enterprise_telemetry(time);
         """)
 
 
@@ -303,8 +320,8 @@ def _classify_app(app_name: str) -> str:
 
 
 # ── 积分计费账本 ────────────────────────────────────────────
-_INITIAL_POINTS = 1000
-_INITIAL_CREDITS = 500
+# 轮10：取消未入账的 1000/500 展示默认值；余额只来自 points_ledger。
+_INITIAL_POINTS = 0
 
 # 各功能定价（积分/次）
 _FEATURE_PRICING = {
@@ -318,16 +335,16 @@ _FEATURE_PRICING = {
 
 
 def get_points_balance() -> dict:
-    """获取积分余额 + 额度余额"""
+    """获取积分余额 + 累计获得（都来自同一条 points_ledger）。"""
     init_xiaohei_tables()
     with _conn() as conn:
         row = conn.execute(
-            "SELECT COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE -amount END), 0) bal FROM points_ledger"
+            """SELECT
+                 COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE -amount END), 0) AS balance,
+                 COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE 0 END), 0) AS earned
+               FROM points_ledger"""
         ).fetchone()
-    balance = row["bal"]
-    if not conn_exec_any("points_ledger"):
-        balance = _INITIAL_POINTS
-    return {"balance": balance, "credits": _INITIAL_CREDITS}
+    return {"balance": int(row["balance"]), "credits": int(row["earned"])}
 
 
 def conn_exec_any(table: str) -> bool:
@@ -345,21 +362,30 @@ def points_grant(amount: int, item: str, detail: str = "") -> dict:
     return {"ok": True, "amount": amount, "item": item}
 
 
-def points_consume(item: str, detail: str = "", auto_pricing: bool = True) -> dict:
-    """扣费。返回余额，余额不足返回 error。"""
+def points_consume_amount(amount: int, item: str, detail: str = "") -> dict:
+    """按显式金额扣费；企业积分与小黑积分共用同一条账本。"""
     init_xiaohei_tables()
-    price = _FEATURE_PRICING.get(item, 10)
+    amount = int(amount or 0)
+    if amount <= 0:
+        return {"ok": False, "error": "扣费金额必须大于 0"}
     with _conn() as conn:
         bal_row = conn.execute(
             "SELECT COALESCE(SUM(CASE WHEN type='credit' THEN amount ELSE -amount END), 0) bal FROM points_ledger"
         ).fetchone()
-        balance = bal_row["bal"]
-        if balance < price:
-            return {"ok": False, "error": "积分不足", "balance": balance, "need": price}
+        balance = int(bal_row["bal"])
+        if balance < amount:
+            return {"ok": False, "error": "积分不足", "balance": balance, "need": amount}
         conn.execute("INSERT INTO points_ledger (type, amount, item, detail) VALUES ('debit',?,?,?)",
-                     (price, item, detail))
-        new_bal = balance - price
-    return {"ok": True, "consumed": price, "balance": new_bal}
+                     (amount, item, detail))
+        new_bal = balance - amount
+    return {"ok": True, "consumed": amount, "balance": new_bal}
+
+
+def points_consume(item: str, detail: str = "", auto_pricing: bool = True) -> dict:
+    """扣费。返回余额，余额不足返回 error。"""
+    init_xiaohei_tables()
+    price = _FEATURE_PRICING.get(item, 10)
+    return points_consume_amount(price, item, detail)
 
 
 def get_points_usage_records(page: int = 1, page_size: int = 20) -> dict:
@@ -484,8 +510,9 @@ def create_template(data: dict) -> dict:
     init_xiaohei_tables()
     with _conn() as conn:
         cur = conn.execute(
-            "INSERT INTO template_market (name, category, content) VALUES (?,?,?)",
-            (data.get("name", "未命名模板"), data.get("category", "通用"), data.get("content", "")))
+            "INSERT INTO template_market (name, category, content, price) VALUES (?,?,?,?)",
+            (data.get("name", "未命名模板"), data.get("category", "通用"),
+             data.get("content", ""), int(data.get("price", 0) or 0)))
         tid = cur.lastrowid
     return {"ok": True, "id": tid}
 

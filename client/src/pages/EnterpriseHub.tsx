@@ -39,6 +39,11 @@ export default function EnterpriseHub() {
     }
   }
 
+  const downloadTemplate = async (templateId: number) => {
+    await post(`/api/enterprise/templates/${templateId}/download`)
+    await refreshReal()
+  }
+
   useEffect(() => { refreshReal(); refreshTelemetry() }, [])
 
   const tabs: Array<{ id: string; label: string; demo?: boolean }> = [
@@ -83,8 +88,7 @@ export default function EnterpriseHub() {
       {activeTab === 'overview' && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { icon: '💎', label: '积分余额', value: points.balance },
-            { icon: '👤', label: '登录状态', value: session.loggedIn ? '已登录' : '未登录' },
+            { icon: '💎', label: '积分余额', value: points.balance },            { icon: '👤', label: '登录状态', value: session.loggedIn ? '已登录' : '未登录' },
             { icon: '📡', label: '本地遥测', value: telemetry.enabled ? '已开启' : '已关闭（默认）' },
             { icon: '🧪', label: '演示模块', value: '8 个 · 规划中' },
           ].map((card, i) => (
@@ -101,7 +105,7 @@ export default function EnterpriseHub() {
       {activeTab === 'auth' && (
         <div className="glass rounded-2xl p-6">
           <h2 className="text-base font-semibold mb-1">账号体系</h2>
-          <p className="text-xs text-gray-500 mb-4">本地账号会话，数据写入本机 user.json，不连接云端。</p>
+          <p className="text-xs text-gray-500 mb-4">本地账号会话写入 SQLite（enterprise_kv），不连接云端。</p>
           {session.loggedIn ? (
             <div>
               <p className="mb-4">欢迎，{session.user?.name}</p>
@@ -123,10 +127,10 @@ export default function EnterpriseHub() {
       {activeTab === 'points' && (
         <div className="glass rounded-2xl p-6">
           <h2 className="text-base font-semibold mb-1">积分计费系统</h2>
-          <p className="text-xs text-gray-500 mb-4">本地积分账本，数据来自 points.json。</p>
+          <p className="text-xs text-gray-500 mb-4">积分来自 SQLite points_ledger，与小黑积分共用同一账本。</p>
           <div className="flex gap-8">
             <div><span className="text-gray-500">余额: </span><span className="text-3xl font-bold">{points.balance}</span></div>
-            <div><span className="text-gray-500">额度: </span><span className="text-3xl font-bold">{points.credits}</span></div>
+            <div><span className="text-gray-500">累计获得: </span><span className="text-3xl font-bold">{points.credits}</span></div>
           </div>
         </div>
       )}
@@ -135,15 +139,15 @@ export default function EnterpriseHub() {
       {activeTab === 'templates' && (
         <div className="glass rounded-2xl p-6">
           <h2 className="text-base font-semibold mb-1">模板市场</h2>
-          <p className="text-xs text-gray-500 mb-4">本地模板列表；下载按钮仅展示，未接远端市场。</p>
+          <p className="text-xs text-gray-500 mb-4">模板与下载数来自 SQLite template_market，初始 0；点击下载/使用会真实 +1。</p>
           <div className="space-y-2">
             {templates.length === 0 && <p className="text-sm text-gray-500">暂无本地模板</p>}
             {templates.map((t: any) => (
               <div key={t.id} className="flex items-center p-4 bg-white/50 rounded-xl">
                 <span className="font-medium">{t.name}</span>
                 <span className="ml-auto text-sm text-gray-500">下载 {t.downloads}</span>
-                <button disabled title="模板下载未接线"
-                  className="ml-2 px-3 py-1 bg-gray-300 text-white text-sm rounded-lg cursor-not-allowed">下载</button>
+                <button onClick={() => downloadTemplate(t.id)}
+                  className="ml-2 px-3 py-1 bg-cd-accent text-white text-sm rounded-lg">下载/使用</button>
               </div>
             ))}
           </div>
@@ -174,7 +178,7 @@ export default function EnterpriseHub() {
             <div>
               <h2 className="text-base font-semibold">本地诊断遥测</h2>
               <p className="text-xs text-gray-500 mt-1">
-                仅写本机 ~/.challenge-daily/telemetry.jsonl，绝不上传；默认关闭。
+                仅写本机 SQLite（enterprise_telemetry），绝不上传；默认关闭。
               </p>
             </div>
             <span className={`px-3 py-1 rounded-full text-xs ${

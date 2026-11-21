@@ -37,23 +37,6 @@ from routes.git_routes import bp as git_integration_bp
 from routes.benchmark_routes import bp as benchmark_bp
 from routes.local_model_routes import bp as local_model_bp
 from routes.platform_core_routes import bp as platform_core_bp
-from routes.cv_routes import bp as cv_bp
-from routes.rec_ab_routes import bp as rec_ab_bp
-from routes.flags_adv_routes import bp as flags_adv_bp
-from routes.chaos_cap_routes import bp as chaos_cap_bp
-from routes.cost_compliance_routes import bp as cost_compliance_bp
-from routes.privacy_dq_routes import bp as privacy_dq_bp
-from routes.mlops_routes import bp as mlops_bp
-from routes.infra_edge_routes import bp as infra_edge_bp
-from routes.network_dr_routes import bp as network_dr_bp
-from routes.flow_control_routes import bp as flow_control_bp
-from routes.db_advanced_routes import bp as db_advanced_bp
-from routes.cache_advanced_routes import bp as cache_advanced_bp
-from routes.mq_stream_routes import bp as mq_stream_bp
-from routes.security_advanced_routes import bp as security_advanced_bp
-from routes.perf_apm_routes import bp as perf_apm_bp
-from routes.deployment_routes import bp as deployment_bp
-from routes.quality_docs_routes import bp as quality_docs_bp
 from routes.daily_card import bp as daily_card_bp
 from routes.growth import bp as growth_bp
 from routes.ritual import bp as ritual_bp
@@ -116,23 +99,6 @@ ALL_BLUEPRINTS = [
     benchmark_bp,
     local_model_bp,
     platform_core_bp,
-    cv_bp,
-    rec_ab_bp,
-    flags_adv_bp,
-    chaos_cap_bp,
-    cost_compliance_bp,
-    privacy_dq_bp,
-    mlops_bp,
-    infra_edge_bp,
-    network_dr_bp,
-    flow_control_bp,
-    db_advanced_bp,
-    cache_advanced_bp,
-    mq_stream_bp,
-    security_advanced_bp,
-    perf_apm_bp,
-    deployment_bp,
-    quality_docs_bp,
     daily_card_bp,
     growth_bp,
     ritual_bp,

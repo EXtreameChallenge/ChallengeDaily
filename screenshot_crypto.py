@@ -16,6 +16,7 @@ import sys
 import base64
 import hashlib
 import logging
+import shutil
 import threading
 from pathlib import Path
 from typing import Optional
@@ -35,12 +36,32 @@ _KEY_LEN = 32  # AES-256 需要 32 字节密钥
 _MAGIC_HEADER = b"CDE1"  # ChallengeDaily Encrypted v1
 
 
-def _get_backend_data_dir() -> Path:
-    """获取后端数据目录（与 db.py 一致）"""
+def _legacy_backend_data_dir() -> Path:
+    """轮10 前的盐值目录（仅用于一次性搬移旧盐值）。"""
     if sys.platform == 'win32':
         base = os.environ.get('APPDATA') or os.path.expanduser('~')
         return Path(base) / 'challenge-daily' / 'backend-data'
     return Path.home() / '.challenge-daily' / 'backend-data'
+
+
+def _get_backend_data_dir() -> Path:
+    """轮10 统一：盐值与主库都在 config.DATA_DIR。"""
+    from config import DATA_DIR
+    return Path(DATA_DIR)
+
+
+def _migrate_legacy_salt(salt_path: Path) -> None:
+    """旧安装盐值在 APPDATA；首次使用时复制到统一数据目录，保留原文件做只读归档。"""
+    if salt_path.exists():
+        return
+    legacy = _legacy_backend_data_dir() / _SALT_FILE
+    if legacy.exists() and legacy.resolve() != salt_path.resolve():
+        try:
+            salt_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(legacy, salt_path)
+            logger.info(f"盐值已迁移到统一数据目录: {salt_path}")
+        except Exception as e:
+            logger.warning(f"盐值迁移失败: {e}")
 
 
 def _get_machine_id() -> str:
@@ -79,6 +100,7 @@ def _get_machine_id() -> str:
 def _get_or_create_salt() -> bytes:
     """获取或创建盐值文件（16 字节随机盐）"""
     salt_path = _get_backend_data_dir() / _SALT_FILE
+    _migrate_legacy_salt(salt_path)
     if salt_path.exists():
         return salt_path.read_bytes()
     # 首次创建

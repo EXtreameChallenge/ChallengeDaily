@@ -15,35 +15,47 @@ import platform_integration
 # ── B15: friends.py 数据完整性 ──────────────────────────
 
 @pytest.fixture
-def friends_file(tmp_path, monkeypatch):
-    p = tmp_path / "friends.json"
-    monkeypatch.setattr(friends, "_DATA_FILE", p)
-    return p
+def friends_store(monkeypatch):
+    store = {}
+
+    def get_json(key, default=None):
+        return store.get(key, default)
+
+    def set_json(key, value):
+        store[key] = value
+
+    monkeypatch.setattr(friends.enterprise_store, "kv_get_json", get_json)
+    monkeypatch.setattr(friends.enterprise_store, "kv_set_json", set_json)
+    return store
 
 
-def test_b15_send_invitation_preserves_friends_file(friends_file):
+def test_b15_send_invitation_preserves_friends_data(friends_store):
     friends.add_friend("阿泽", "aze@example.com")
     friends.send_invitation("friend-1", "todo-1", "一起做")
-    raw = json.loads(friends_file.read_text(encoding="utf-8"))
+    raw = friends_store[friends.enterprise_store.KV_FRIENDS]
     assert set(raw) == {"friends", "invitations", "sharedTodos"}
     assert len(raw["friends"]) == 1
     assert len(raw["invitations"]) == 1
 
 
-def test_b15_load_normalizes_missing_or_bad_keys(friends_file):
-    friends_file.write_text(json.dumps({"friends": [], "invitations": "bad"}), encoding="utf-8")
+def test_b15_load_normalizes_missing_or_bad_keys(friends_store):
+    friends_store[friends.enterprise_store.KV_FRIENDS] = {"friends": [], "invitations": "bad"}
     data = friends._load()
     assert data["friends"] == []
     assert data["invitations"] == []
     assert data["sharedTodos"] == []
 
 
-def test_b15_corrupt_file_is_backed_up_not_silently_overwritten(friends_file):
-    friends_file.write_text("{bad json", encoding="utf-8")
-    data = friends._load()
-    assert data == {"friends": [], "invitations": [], "sharedTodos": []}
-    backups = list(friends_file.parent.glob("friends.json.corrupt-*.bak"))
-    assert backups, "损坏的 friends.json 必须先留备份"
+def test_b15_save_never_drops_existing_friends(friends_store):
+    friends_store[friends.enterprise_store.KV_FRIENDS] = {
+        "friends": [{"id": "f1", "name": "阿泽"}],
+        "invitations": [],
+        "sharedTodos": [],
+    }
+    friends.send_invitation("f1", "todo-1", "一起做")
+    raw = friends_store[friends.enterprise_store.KV_FRIENDS]
+    assert len(raw["friends"]) == 1
+    assert len(raw["invitations"]) == 1
 
 
 # ── B10: 截图失败重试不再依赖已删除的原图 ───────────────

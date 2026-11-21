@@ -1607,7 +1607,7 @@ export default function Settings() {
             <div>
               <div className="text-sm text-cd-text">本地诊断遥测</div>
               <div className="text-xs text-cd-text-tertiary mt-0.5">
-                采集失败、AI 熔断、后端异常三类事件；仅保存在 ~/.challenge-daily/telemetry.jsonl
+                采集失败、AI 熔断、后端异常三类事件；仅保存在本机 SQLite（enterprise_telemetry）
               </div>
             </div>
             <ToggleSwitch

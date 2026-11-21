@@ -3,6 +3,8 @@ import io
 import json
 import hashlib
 import logging
+import sqlite3
+import stat
 
 from flask import Blueprint, jsonify, request, Response
 from datetime import datetime as _datetime
@@ -14,6 +16,15 @@ from routes.deps import safe_error
 logger = logging.getLogger(__name__)
 
 bp = Blueprint('backup', __name__)
+
+
+def _make_writable(path: Path) -> None:
+    """解除迁移归档等只读文件，保证恢复可覆盖。"""
+    try:
+        if path.exists():
+            os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+    except Exception:
+        pass
 
 
 @bp.route("/api/backup", methods=["POST"])
@@ -35,7 +46,29 @@ def create_backup():
         ("settings.json", DATA_DIR / "settings.json"),
         ("webhooks.json", DATA_DIR / "webhooks.json"),
         ("auto_report.json", DATA_DIR / "auto_report.json"),
+        ("screenshot_salt.bin", DATA_DIR / "screenshot_salt.bin"),
     ]
+    # 轮10 B37：用户内容目录纳入备份，保证被遗忘权删除后可完整恢复
+    for dirname in ("screenshots", "reports", "insight_state", "calendar_cache", "archives"):
+        base = DATA_DIR / dirname
+        if not base.exists():
+            continue
+        for p in base.rglob("*"):
+            if p.is_file():
+                backup_files.append((f"{dirname}/{p.relative_to(base).as_posix()}", p))
+    # 轮10：迁移前的 home JSON 也纳入备份，防止升级窗口丢数据
+    try:
+        from enterprise_store import HOME_DATA_DIR
+        for legacy_name in (
+            "points.json", "templates.json", "user.json", "publisher_accounts.json",
+            "wechat.json", "mcp_servers.json", "student.json",
+            "telemetry.jsonl", "friends.json",
+        ):
+            p = HOME_DATA_DIR / legacy_name
+            if p.exists():
+                backup_files.append((f"home/{legacy_name}", p))
+    except Exception as e:
+        logger.warning(f"home 数据加入备份失败: {e}")
 
     manifest = {}
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -106,6 +139,7 @@ def restore_backup():
             "settings.json": DATA_DIR / "settings.json",
             "webhooks.json": DATA_DIR / "webhooks.json",
             "auto_report.json": DATA_DIR / "auto_report.json",
+            "screenshot_salt.bin": DATA_DIR / "screenshot_salt.bin",
         }
 
         restored = []
@@ -128,6 +162,43 @@ def restore_backup():
                 if name.startswith("/") or ".." in Path(name).parts:
                     logger.warning(f"跳过可疑 zip 条目: {name}")
                     continue
+                if name in ("challengedaily.db", "xiaohei.db"):
+                    # 轮10：用 SQLite backup API 写入在线库，避免覆盖文件句柄导致损坏
+                    file_data = zf.read(name)
+                    if name in manifest:
+                        actual_sha = hashlib.sha256(file_data).hexdigest()
+                        expected_sha = manifest[name].get("sha256", "")
+                        if expected_sha and actual_sha != expected_sha:
+                            integrity_errors.append(f"{name}: 哈希不匹配")
+                            continue
+                    tmp_db = DATA_DIR / ".restore-upload.db"
+                    tmp_db.write_bytes(file_data)
+                    target = DATA_DIR / "challengedaily.db"
+                    if target.exists():
+                        backup_file(target)
+                    try:
+                        import db as _db
+                        _db.close_thread_conn()
+                        src = sqlite3.connect(str(tmp_db))
+                        dst = sqlite3.connect(str(target), timeout=30)
+                        with dst:
+                            src.backup(dst)
+                        try:
+                            dst.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                        except Exception:
+                            pass
+                        src.close()
+                        dst.close()
+                    except Exception as be:
+                        integrity_errors.append(f"{name}: 写入失败 {be}")
+                        continue
+                    finally:
+                        try:
+                            tmp_db.unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                    restored.append(name)
+                    continue
                 if name in restore_map:
                     # 校验文件哈希（如果 manifest 中有记录）
                     if name in manifest:
@@ -142,6 +213,7 @@ def restore_backup():
                         target = restore_map[name]
                         if target.exists():
                             backup_file(target)
+                        _make_writable(target)
                         target.write_bytes(file_data)
                         restored.append(name)
                         continue
@@ -149,8 +221,40 @@ def restore_backup():
                     target = restore_map[name]
                     if target.exists():
                         backup_file(target)
+                    _make_writable(target)
                     with zf.open(name) as src, open(target, "wb") as dst:
                         dst.write(src.read())
+                    restored.append(name)
+                elif name.startswith("home/") and len(Path(name).parts) == 2:
+                    # 轮10：恢复迁移前的 home JSON（可选条目）
+                    from enterprise_store import HOME_DATA_DIR
+                    target = HOME_DATA_DIR / Path(name).name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    file_data = zf.read(name)
+                    if name in manifest:
+                        actual_sha = hashlib.sha256(file_data).hexdigest()
+                        expected_sha = manifest[name].get("sha256", "")
+                        if expected_sha and actual_sha != expected_sha:
+                            integrity_errors.append(f"{name}: 哈希不匹配")
+                            continue
+                    if target.exists():
+                        backup_file(target)
+                    _make_writable(target)
+                    target.write_bytes(file_data)
+                    restored.append(name)
+                elif name.split("/", 1)[0] in ("screenshots", "reports", "insight_state", "calendar_cache", "archives"):
+                    # 轮10 B37：恢复用户内容目录
+                    target = DATA_DIR / name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    file_data = zf.read(name)
+                    if name in manifest:
+                        actual_sha = hashlib.sha256(file_data).hexdigest()
+                        expected_sha = manifest[name].get("sha256", "")
+                        if expected_sha and actual_sha != expected_sha:
+                            integrity_errors.append(f"{name}: 哈希不匹配")
+                            continue
+                    _make_writable(target)
+                    target.write_bytes(file_data)
                     restored.append(name)
 
         if integrity_errors:
@@ -181,8 +285,16 @@ def restore_backup():
         if "xiaohei.db" in restored or "challengedaily.db" in restored:
             try:
                 import db as _db
-                _db._persistent_conn = None
-                logger.info("备份恢复：已重置持久数据库连接")
+                _db.close_thread_conn()
+                logger.info("备份恢复：已关闭当前线程旧连接")
+            except Exception:
+                pass
+
+        if "screenshot_salt.bin" in restored:
+            try:
+                import screenshot_crypto
+                screenshot_crypto._enc_key = None
+                logger.info("备份恢复：已重置截图加密盐值缓存")
             except Exception:
                 pass
 

@@ -1,7 +1,7 @@
 """挑战日报可选企业仿真插件。
 
 设计原则：
-- 26 个仿真域（304 个端点）默认不注册，避免把“无 UI、无真实调用方”的
+- 43 个仿真域（811 个端点）默认不注册，避免把“无 UI、无真实调用方”的
   企业演示端点混进正式运行时。
 - 剪贴板核心 3 个端点留在 routes/platform_core_routes.py，始终可用。
 - 只有显式设置 CHALLENGEDAILY_ENTERPRISE_PLUGIN=1 时才注册本插件。
@@ -15,7 +15,7 @@ from __future__ import annotations
 import importlib
 import os
 
-# 26 个仿真域（顺序与 routes/__init__.py 移除顺序一致）
+# 43 个仿真域（顺序与 routes/__init__.py 移除顺序一致）
 PLUGIN_MODULES = (
     "analytics_routes",
     "ai_intel_routes",
@@ -43,11 +43,29 @@ PLUGIN_MODULES = (
     "accessibility_routes",
     "ml_basic_routes",
     "nlp_routes",
+    # 轮10 B22 同口径新增 17 个僵尸域
+    "cv_routes",
+    "rec_ab_routes",
+    "flags_adv_routes",
+    "chaos_cap_routes",
+    "cost_compliance_routes",
+    "privacy_dq_routes",
+    "mlops_routes",
+    "infra_edge_routes",
+    "network_dr_routes",
+    "flow_control_routes",
+    "db_advanced_routes",
+    "cache_advanced_routes",
+    "mq_stream_routes",
+    "security_advanced_routes",
+    "perf_apm_routes",
+    "deployment_routes",
+    "quality_docs_routes",
 )
 
 # 静态清单：启用时实际注册数以此为准，测试会对照真实 bp 数
-EXPECTED_ENDPOINT_COUNT = 301
-EXPECTED_BLUEPRINT_COUNT = 26
+EXPECTED_ENDPOINT_COUNT = 811
+EXPECTED_BLUEPRINT_COUNT = 43
 
 
 def is_enabled() -> bool:

@@ -93,6 +93,20 @@ def publish_template():
     data = request.get_json(silent=True) or {}
     return jsonify(template_market.publish(data.get('name', ''), data.get('content', ''), data.get('price', 0)))
 
+@enterprise_bp.route('/templates/<int:template_id>/download', methods=['POST'])
+def download_template(template_id):
+    result = template_market.download(template_id)
+    if not result.get('ok'):
+        return jsonify(result), 404
+    return jsonify(result)
+
+@enterprise_bp.route('/templates/<int:template_id>/use', methods=['POST'])
+def use_template(template_id):
+    result = template_market.use(template_id)
+    if not result.get('ok'):
+        return jsonify(result), 404
+    return jsonify(result)
+
 
 # ── 视频发布器（演示/规划中） ──
 @enterprise_bp.route('/publisher/accounts', methods=['GET'])

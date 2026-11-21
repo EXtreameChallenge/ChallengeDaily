@@ -582,7 +582,7 @@ export default function XiaoheiHub() {
           <h2 className="text-base font-semibold mb-4">积分计费系统（真实账本）</h2>
           <div className="flex gap-8 mb-6">
             <div><span className="text-gray-500">余额: </span><span className="text-3xl font-bold">{points.balance}</span></div>
-            <div><span className="text-gray-500">额度: </span><span className="text-3xl font-bold">{points.credits}</span></div>
+            <div><span className="text-gray-500">累计获得: </span><span className="text-3xl font-bold">{points.credits}</span></div>
           </div>
           <p className="text-sm text-gray-500 mb-4">积分可用于AI报告生成、词云、PDF压缩等功能，消费后写入真实账本</p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -781,7 +781,7 @@ export default function XiaoheiHub() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold mb-1">遥测事件</h2>
-              <p className="text-xs text-gray-500">仅写本机 telemetry.jsonl，绝不上传；默认关闭。</p>
+              <p className="text-xs text-gray-500">仅写本机 SQLite（enterprise_telemetry），绝不上传；默认关闭。</p>
             </div>
             <span className={`px-3 py-1 rounded-full text-xs ${
               telemetry.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
