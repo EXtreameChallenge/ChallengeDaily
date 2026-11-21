@@ -135,8 +135,8 @@ def _record_auth_fail(ip: str):
     _auth_fail_store[ip].append(time.time())
 
 
-# P0-07: 请求体大小限制（Flask 兜底模式兜底，waitress 已有 max_request_body_size）
-_MAX_BODY_SIZE = 10 * 1024 * 1024  # 10MB
+# P0-07: 请求体大小限制（本地备份/恢复允许 200MB，其余大请求仍拒绝）
+_MAX_BODY_SIZE = 200 * 1024 * 1024  # 200MB
 
 
 @app.before_request

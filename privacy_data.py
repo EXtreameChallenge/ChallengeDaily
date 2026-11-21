@@ -46,6 +46,15 @@ def _is_system_table(name: str) -> bool:
     return any(marker in name for marker in _SHADOW_MARKERS)
 
 
+def _ensure_vec_extension(conn) -> None:
+    """加载 sqlite-vec，确保向量虚表可查询/可清空。失败时不影响普通表。"""
+    try:
+        from memory_engine import _load_sqlite_vec
+        _load_sqlite_vec(conn)
+    except Exception as e:
+        logger.debug(f"sqlite-vec 扩展加载失败（向量表可能不可读）: {e}")
+
+
 def user_tables(conn) -> list[str]:
     rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
     return [row[0] for row in rows if not _is_system_table(row[0])]
@@ -69,6 +78,7 @@ def export_payload() -> dict:
         "files": {},
     }
     with db.get_conn() as conn:
+        _ensure_vec_extension(conn)
         for table in user_tables(conn):
             try:
                 rows = conn.execute(f"SELECT * FROM {table}").fetchall()
@@ -136,6 +146,7 @@ def delete_all() -> dict:
         "errors": [],
     }
     with db.get_conn() as conn:
+        _ensure_vec_extension(conn)
         tables = user_tables(conn)
         try:
             conn.execute("BEGIN IMMEDIATE")
@@ -186,6 +197,7 @@ def scan_state() -> dict:
     import db
     nonzero = {}
     with db.get_conn() as conn:
+        _ensure_vec_extension(conn)
         for table in user_tables(conn):
             try:
                 count = conn.execute(f"SELECT COUNT(*) c FROM {table}").fetchone()["c"]
