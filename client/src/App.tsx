@@ -286,7 +286,7 @@ export default function App() {
                     padding-bottom 预留坞+展开面板高度，正文可从坞背后滚过 */}
                 <div className="flex-1 min-w-0 flex flex-col min-h-0">
                   <main
-                    className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6 pt-12"
+                    className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6 pt-[72px]"
                     style={{ paddingBottom: 'calc(96px + var(--ai-dock-extra-pad, 0px))' }}
                   >
                     <RouteErrorBoundary>
