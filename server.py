@@ -208,12 +208,36 @@ except (OSError, ValueError):
 for bp in ALL_BLUEPRINTS:
     app.register_blueprint(bp)
 
+# B22: 企业仿真插件默认不注册；仅 CHALLENGEDAILY_ENTERPRISE_PLUGIN=1 时加载
+from enterprise_plugin import register as register_enterprise_plugin
+_enterprise_plugin_status = register_enterprise_plugin(app)
+logger.info(
+    "企业仿真插件: enabled=%s blueprints=%s endpoints=%s",
+    _enterprise_plugin_status["enabled"],
+    _enterprise_plugin_status["blueprints"],
+    _enterprise_plugin_status["endpoints"],
+)
+
+
+def _track_backend_error(source: str, error: Exception, trace_id: str):
+    try:
+        from telemetry_events import track
+        track("backend_error", {
+            "source": source,
+            "trace_id": trace_id,
+            "error_type": type(error).__name__,
+            "path": request.path[:120],
+        })
+    except Exception:
+        pass
+
 
 # P0-05: 500 错误统一脱敏，避免堆栈信息泄露
 @app.errorhandler(500)
 def handle_500(e):
     trace_id = str(uuid.uuid4())[:8]
     logger.error(f"[trace:{trace_id}] Internal error: {e}", exc_info=True)
+    _track_backend_error("500_handler", e if isinstance(e, Exception) else Exception(str(e)), trace_id)
     return jsonify({"error": "服务器内部错误", "trace_id": trace_id}), 500
 
 
@@ -221,6 +245,7 @@ def handle_500(e):
 def handle_unexpected(e):
     trace_id = str(uuid.uuid4())[:8]
     logger.error(f"[trace:{trace_id}] Unexpected error: {e}", exc_info=True)
+    _track_backend_error("unexpected_handler", e, trace_id)
     if isinstance(e, HTTPException):
         return e
     return jsonify({"error": "服务器内部错误", "trace_id": trace_id}), 500

@@ -196,6 +196,9 @@ python main.py
 > 📦 安装包自行构建：`cd client && npm run dist`（产物在 client/release）| 需 Python 3.10+
 >
 > 🧠 不配 Key 也能用。接智谱 / DeepSeek / Qwen / Kimi 的 Key 开启 AI 视觉识别。
+>
+> 🧩 企业仿真端点默认不注册；需要联调时设置 `CHALLENGEDAILY_ENTERPRISE_PLUGIN=1`。
+> MCP 服务默认关闭，在「设置 → 集成」打开后按 [docs/mcp-integration.md](docs/mcp-integration.md) 接入外部客户端。
 
 ---
 

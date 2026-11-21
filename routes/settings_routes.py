@@ -28,7 +28,8 @@ def update_settings():
     for key in ["exclude_apps", "screenshot_interval_sec", "work_start_hour",
                 "work_end_hour", "custom_report_instructions",
                 "ai_base_url", "ai_vision_model", "ai_text_model", "ai_enabled",
-                "birthday", "life_expectancy"]:
+                "birthday", "life_expectancy",
+                "telemetry_enabled", "mcp_enabled"]:
         if key in data:
             current[key] = data[key]
 

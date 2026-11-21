@@ -65,7 +65,7 @@ def cv_resize():
 @bp.route("/ocr", methods=["POST"])
 def cv_ocr():
     data = request.get_json(silent=True) or {}
-    return jsonify(OCRExtractor.extract(data.get("image_id", ""), data.get("doc_type", "document")))
+    return jsonify(OCRExtractor.extract(data.get("image_id", ""), data.get("doc_type", "document"))), 501
 
 
 @bp.route("/ocr/types", methods=["GET"])
@@ -83,13 +83,13 @@ def cv_classify():
 @bp.route("/face-detect", methods=["POST"])
 def cv_face():
     data = request.get_json(silent=True) or {}
-    return jsonify(FaceDetector.detect(int(data.get("width", 640)), int(data.get("height", 480))))
+    return jsonify(FaceDetector.detect(int(data.get("width", 640)), int(data.get("height", 480))), 501)
 
 
 @bp.route("/barcode", methods=["POST"])
 def cv_barcode():
     data = request.get_json(silent=True) or {}
-    return jsonify(BarcodeScanner.scan(data.get("image_id", "")))
+    return jsonify(BarcodeScanner.scan(data.get("image_id", ""))), 501
 
 
 @bp.route("/hash", methods=["POST"])

@@ -5,10 +5,10 @@ P331-P340: 计算机视觉(CV)基础系统
 - P333: 边缘检测(简化)
 - P334: 颜色聚类
 - P335: 图像尺寸调整算法
-- P336: OCR文本提取(模拟)
+- P336: OCR文本提取(未接入，返回 not_implemented)
 - P337: 图像分类(基于颜色)
-- P338: 人脸检测(模拟)
-- P339: 条形码/二维码识别(模拟)
+- P338: 人脸检测(未接入，不生成随机结果)
+- P339: 条形码/二维码识别(未接入，不生成随机码)
 - P340: 图像哈希(感知哈希)
 """
 from __future__ import annotations
@@ -200,9 +200,9 @@ class ImageResizer:
 
 # ─── P336: OCR文本提取 ──────────────────────────
 class OCRExtractor:
-    """OCR文本提取(模拟,实际需要Tesseract等)"""
+    """OCR 文本提取：未接入引擎，明确返回未实现，不生成占位字段。"""
 
-    # 模拟OCR结果模板
+    # 支持的文档类型枚举（仅类型列表，不代表已具备识别能力）
     TEMPLATES = {
         "invoice": ["发票号码", "日期", "金额", "购买方", "销售方"],
         "receipt": ["商户名称", "交易时间", "金额", "支付方式"],
@@ -212,14 +212,15 @@ class OCRExtractor:
 
     @classmethod
     def extract(cls, image_id: str, doc_type: str = "document") -> dict:
-        fields = cls.TEMPLATES.get(doc_type, cls.TEMPLATES["document"])
         return {
             "image_id": image_id,
             "doc_type": doc_type,
-            "fields": {f: f"[模拟_{f}]" for f in fields},
-            "confidence": 0.85,
+            "fields": {},
+            "confidence": 0.0,
             "language": "zh-CN",
-            "note": "模拟OCR结果,需接入Tesseract或云OCR服务",
+            "status": "not_implemented",
+            "implemented": False,
+            "note": "未接入 OCR 引擎，不返回模拟识别结果",
         }
 
     @classmethod
@@ -272,53 +273,34 @@ class ImageClassifier:
 
 # ─── P338: 人脸检测 ──────────────────────────
 class FaceDetector:
-    """人脸检测(模拟)"""
+    """人脸检测：未接入模型，明确返回未实现，不生成随机人脸。"""
 
     @staticmethod
     def detect(image_width: int, image_height: int) -> dict:
-        # 模拟检测结果
-        import random
-        random.seed(42)
-        face_count = random.randint(0, 3)
-        faces = []
-        for i in range(face_count):
-            w = min(100, image_width // 4)
-            h = min(120, image_height // 4)
-            x = random.randint(0, max(0, image_width - w))
-            y = random.randint(0, max(0, image_height - h))
-            faces.append({
-                "bbox": {"x": x, "y": y, "width": w, "height": h},
-                "confidence": round(random.uniform(0.7, 0.99), 3),
-            })
         return {
-            "faces": faces,
-            "count": len(faces),
+            "faces": [],
+            "count": 0,
             "image_size": {"width": image_width, "height": image_height},
-            "note": "模拟检测结果,需接入OpenCV或MTCNN",
+            "status": "not_implemented",
+            "implemented": False,
+            "note": "未接入人脸检测模型，不返回模拟检测结果",
         }
 
 
 # ─── P339: 条形码/二维码识别 ──────────────────────────
 class BarcodeScanner:
-    """条形码/二维码识别(模拟)"""
+    """条形码/二维码识别：未接入解码器，明确返回未实现，不生成随机码。"""
 
     @staticmethod
     def scan(image_id: str) -> dict:
-        import random
-        random.seed(hash(image_id) % 1000)
-        code_type = random.choice(["QR_CODE", "EAN_13", "CODE_128", "UPC_A"])
-        if code_type == "QR_CODE":
-            data = f"https://example.com/{image_id}"
-        elif code_type == "EAN_13":
-            data = "".join(str(random.randint(0, 9)) for _ in range(13))
-        else:
-            data = "".join(str(random.randint(0, 9)) for _ in range(12))
         return {
             "image_id": image_id,
-            "type": code_type,
-            "data": data,
-            "confidence": round(random.uniform(0.85, 0.99), 3),
-            "note": "模拟扫描结果",
+            "type": None,
+            "data": None,
+            "confidence": 0.0,
+            "status": "not_implemented",
+            "implemented": False,
+            "note": "未接入条码/二维码解码器，不返回模拟扫描结果",
         }
 
 

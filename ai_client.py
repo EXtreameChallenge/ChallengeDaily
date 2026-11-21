@@ -113,6 +113,18 @@ def _cb_record_success():
         _cb_cooldown_sec = _CB_COOLDOWN_INIT_SEC  # 重置冷却时间
 
 
+def _track_circuit_open():
+    """AI 熔断器打开时写本地遥测；失败绝不影响主流程。"""
+    try:
+        from telemetry_events import track
+        track("ai_circuit_open", {
+            "consecutive_failures": _cb_consecutive_failures,
+            "cooldown_sec": _cb_cooldown_sec,
+        })
+    except Exception:
+        pass
+
+
 def _cb_record_failure():
     """记录一次失败请求，累计失败次数（指数退避冷却）"""
     global _cb_state, _cb_consecutive_failures, _cb_opened_at, _cb_cooldown_sec
@@ -127,6 +139,7 @@ def _cb_record_failure():
                 f"Circuit breaker: HALF_OPEN → OPEN，试探失败，重新熔断，"
                 f"冷却 {_cb_cooldown_sec}s"
             )
+            _track_circuit_open()
         elif _cb_consecutive_failures >= _CB_FAILURE_THRESHOLD:
             # closed→open 首次熔断使用初始冷却值，避免翻倍导致首次即 120s
             _cb_cooldown_sec = _CB_COOLDOWN_INIT_SEC
@@ -136,6 +149,7 @@ def _cb_record_failure():
                 f"Circuit breaker: CLOSED → OPEN，连续 {_cb_consecutive_failures} 次失败，"
                 f"冷却 {_cb_cooldown_sec}s"
             )
+            _track_circuit_open()
 
 
 # ── AI 速率限制器（令牌桶，防止单次异常导致 API 账单暴涨） ──

@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- 小黑接口返回体为动态 JSON，局部断言即可 */
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { get, post, request } from '../api/client'
 import { AppLockSettings } from '../components/AppLock'
 
-// ═══ 满血版小黑功能集成中心（真实 API 版）═══
-// 融合 ChallengeDaily glass风格 + 小黑日报助手功能
-// 数据全部来自后端 /api/xiaohei/*（xiaohei_core.py 真实持久化），无硬编码假数据
+// ═══ 小黑功能集成中心（真实 API + 规划中模块）═══
+// 数据来自后端 /api/xiaohei/*、/api/enterprise/*、/api/settings；
+// 微信/MCP/效率节/问卷中未接线的部分明确标「规划中」，不伪造数据。
 
 interface Notif { id: string; title: string; body: string; read: boolean; timeStr: string }
 interface Todo { id: string; title: string; done: boolean; pinned: boolean }
@@ -70,6 +71,8 @@ export default function XiaoheiHub() {
   const [keyboardStats, setKeyboardStats] = useState<Record<string, number>>({})
   const [keyboardListening, setKeyboardListening] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(false)
+  const [mcpEnabled, setMcpEnabled] = useState(false)
+  const [telemetry, setTelemetry] = useState<{ enabled: boolean; events: Array<any> }>({ enabled: false, events: [] })
 
   // ── 交互状态 ──
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -116,6 +119,13 @@ export default function XiaoheiHub() {
       // 账号
       const a: any = await get('/api/enterprise/auth/session')
       setAuthSession(a || { loggedIn: false, user: null })
+
+      // 集成状态（真实开关）
+      const s: any = await get('/api/settings')
+      setMcpEnabled(!!s?.mcp_enabled)
+      const ts: any = await get('/api/enterprise/telemetry/status')
+      const te: any = await get('/api/enterprise/telemetry/events?limit=20')
+      setTelemetry({ enabled: !!ts?.enabled, events: Array.isArray(te?.events) ? te.events : [] })
 
       // 键盘
       const k: any = await get('/api/keyboard/stats')
@@ -250,7 +260,7 @@ export default function XiaoheiHub() {
     } catch { flash('清空失败') }
   }
 
-  const tabs = [
+  const tabs: Array<{ id: string; label: string; demo?: boolean }> = [
     { id: 'overview', label: '📊 总览' },
     { id: 'todos', label: '✅ 待办' },
     { id: 'records', label: '📝 工作记录' },
@@ -265,10 +275,10 @@ export default function XiaoheiHub() {
     { id: 'templates', label: '📋 模板市场' },
     { id: 'auth', label: '👤 账号' },
     { id: 'applock', label: '🔒 应用锁' },
-    { id: 'wechat', label: '💬 微信' },
-    { id: 'mcp', label: '🔧 MCP管理' },
-    { id: 'festival', label: '🎉 效率节' },
-    { id: 'survey', label: '📝 问卷' },
+    { id: 'wechat', label: '💬 微信', demo: true },
+    { id: 'mcp', label: '🔧 MCP管理', demo: true },
+    { id: 'festival', label: '🎉 效率节', demo: true },
+    { id: 'survey', label: '📝 问卷', demo: true },
     { id: 'telemetry', label: '📡 遥测' },
     { id: 'debug', label: '🐛 调试日志' },
   ]
@@ -288,7 +298,7 @@ export default function XiaoheiHub() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
         <h1 className="text-xl font-bold">🐱 小黑集成中心</h1>
-        <p className="text-sm text-gray-500 mt-1">小黑日报助手全部功能 × ChallengeDaily glass风格（数据来自真实后端 API）</p>
+        <p className="text-sm text-gray-500 mt-1">本地真实功能 + 规划中模块；规划中项明确置灰，不返回假成功。</p>
       </div>
 
       {/* 提示消息 */}
@@ -304,6 +314,7 @@ export default function XiaoheiHub() {
               activeTab === tab.id ? 'bg-cd-accent text-white shadow' : 'text-gray-600 hover:bg-white/50'
             }`}>
             {tab.label}
+            {tab.demo && <span className="ml-1 text-[10px] opacity-60">·规划</span>}
           </button>
         ))}
       </div>
@@ -695,7 +706,7 @@ export default function XiaoheiHub() {
                 className="px-4 py-2 bg-red-500 text-white rounded-xl">退出登录</button>
             </div>
           ) : (
-            <p className="text-gray-500">本地模式，无需登录即可使用全部功能</p>
+            <p className="text-gray-500">本地模式，无需登录即可使用已接入的本地功能；规划中模块见对应 Tab 标注</p>
           )}
         </div>
       )}
@@ -718,38 +729,85 @@ export default function XiaoheiHub() {
         </div>
       )}
 
-      {/* MCP管理 */}
+      {/* MCP管理（规划中：真开关在设置 → 集成） */}
       {activeTab === 'mcp' && (
-        <div className="glass rounded-2xl p-6">
-          <h2 className="text-base font-semibold mb-4">MCP服务器管理</h2>
-          <div className="p-4 bg-white/50 rounded-xl text-sm text-gray-600">
-            本机 MCP 服务器由 mcp_server.py 独立运行（真实实现，1023 行），当前未开放远程管理列表。
+        <div className="glass rounded-2xl p-6 space-y-4">
+          <div>
+            <h2 className="text-base font-semibold mb-1">MCP 服务器管理</h2>
+            <p className="text-xs text-gray-500">企业页管理列表为演示；真实开关在「设置 → 集成 → MCP stdio 服务」。</p>
           </div>
+          <div className={`p-4 rounded-xl text-sm ${mcpEnabled ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+            MCP stdio 服务：{mcpEnabled ? '已开启（外部客户端可接入）' : '已关闭（默认）'}
+          </div>
+          <div className="p-4 bg-white/50 rounded-xl text-xs text-gray-600 leading-5">
+            开启后，外部客户端用 `python mcp_server.py` 通过 stdio 连接；关闭时服务直接退出并提示。
+            联调文档见仓库 `docs/mcp-integration.md`。
+          </div>
+          <Link to="/settings" className="inline-block px-4 py-2 bg-cd-accent text-white text-sm rounded-xl">
+            去设置调整 MCP 开关
+          </Link>
         </div>
       )}
 
-      {/* 效率节 */}
+      {/* 效率节（规划中） */}
       {activeTab === 'festival' && (
         <div className="glass rounded-2xl p-6">
-          <h2 className="text-base font-semibold mb-4">🔥 效率节</h2>
-          <p className="text-gray-600 mb-4">连续专注打卡，解锁专属徽章（徽章进度见「徽章」Tab 真实数据）</p>
-          <div className="p-4 bg-yellow-50 rounded-xl">奖励：专注大师（累计专注100h）/ 连击勇士（连续打卡30天）</div>
+          <div className="inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-medium mb-4">
+            演示 / 规划中 · 活动数据未接入
+          </div>
+          <h2 className="text-base font-semibold mb-2">🔥 效率节</h2>
+          <p className="text-sm text-gray-500">
+            当前没有真实活动、奖励或排名数据；不会展示虚构奖励。已解锁的真实成就请看「徽章」Tab。
+          </p>
         </div>
       )}
 
-      {/* 问卷 */}
+      {/* 问卷（规划中） */}
       {activeTab === 'survey' && (
         <div className="glass rounded-2xl p-6">
-          <h2 className="text-base font-semibold mb-4">问卷调查</h2>
-          <div className="text-center py-12 text-gray-400">暂无进行中的问卷</div>
+          <div className="inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-medium mb-4">
+            演示 / 规划中 · 问卷系统未接入
+          </div>
+          <h2 className="text-base font-semibold mb-2">问卷调查</h2>
+          <p className="text-sm text-gray-500">
+            暂无真实问卷；提交入口未开放，不会记录或丢弃任何答案。
+          </p>
         </div>
       )}
 
-      {/* 遥测 */}
+      {/* 遥测（真实本地功能） */}
       {activeTab === 'telemetry' && (
-        <div className="glass rounded-2xl p-6">
-          <h2 className="text-base font-semibold mb-4">遥测事件</h2>
-          <div className="text-center py-12 text-gray-400">暂无遥测事件（遥测采集接口未启用）</div>
+        <div className="glass rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold mb-1">遥测事件</h2>
+              <p className="text-xs text-gray-500">仅写本机 telemetry.jsonl，绝不上传；默认关闭。</p>
+            </div>
+            <span className={`px-3 py-1 rounded-full text-xs ${
+              telemetry.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+            }`}>
+              {telemetry.enabled ? '已开启' : '已关闭'}
+            </span>
+          </div>
+          {!telemetry.enabled ? (
+            <p className="text-sm text-gray-500">遥测关闭时不会记录任何事件；可在设置 → 集成中开启。</p>
+          ) : telemetry.events.length === 0 ? (
+            <p className="text-sm text-gray-500">暂无遥测事件；触发采集失败 / AI 熔断 / 后端异常后会写入。</p>
+          ) : (
+            <div className="space-y-1">
+              {telemetry.events.slice(0, 10).map((ev, i) => (
+                <div key={`${ev.time}-${i}`} className="flex items-center justify-between text-xs p-2 bg-white/50 rounded-lg">
+                  <span className="font-mono">{ev.event}</span>
+                  <span className="text-gray-400">
+                    {new Date(ev.time * 1000).toLocaleTimeString('zh-CN', { hour12: false })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          <Link to="/settings" className="inline-block px-4 py-2 bg-cd-accent text-white text-sm rounded-xl">
+            去设置调整遥测开关
+          </Link>
         </div>
       )}
 

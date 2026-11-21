@@ -1,4 +1,4 @@
-"""P91-P99: 平台与集成 API 路由"""
+"""P91-P99: 平台与集成仿真 API（可选插件；剪贴板核心端点留在 routes/platform_core_routes.py）"""
 from flask import Blueprint, jsonify, request
 from routes.deps import check_token
 import platform_integration
@@ -74,35 +74,6 @@ def platform_mark_read():
         return jsonify({"status": "ok", "marked": n})
     ok = platform_integration.mark_notification_read(notif_id)
     return jsonify({"status": "ok" if ok else "not_found"})
-
-
-@bp.route("/api/platform/clipboard")
-def platform_clipboard():
-    """P95: 剪贴板历史"""
-    if not check_token(request):
-        return jsonify({"error": "Unauthorized"}), 401
-    limit = int(request.args.get("limit", "20"))
-    return jsonify({"items": platform_integration.get_clipboard_history(limit)})
-
-
-@bp.route("/api/platform/clipboard", methods=["POST"])
-def platform_add_clipboard():
-    if not check_token(request):
-        return jsonify({"error": "Unauthorized"}), 401
-    data = request.get_json(silent=True) or {}
-    item = platform_integration.add_clipboard_item(
-        data.get("content", ""),
-        data.get("type", "text")
-    )
-    return jsonify(item)
-
-
-@bp.route("/api/platform/clipboard/clear", methods=["POST"])
-def platform_clear_clipboard():
-    if not check_token(request):
-        return jsonify({"error": "Unauthorized"}), 401
-    n = platform_integration.clear_clipboard_history()
-    return jsonify({"status": "ok", "cleared": n})
 
 
 @bp.route("/api/platform/windows")

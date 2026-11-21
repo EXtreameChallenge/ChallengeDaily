@@ -18,6 +18,8 @@ interface MubuStatusInfo {
   doc_count: number
   last_sync: string | null
   status?: string
+  cookie_valid?: boolean
+  message?: string
 }
 
 interface MubuDoc {
@@ -114,6 +116,11 @@ export default function Settings() {
   const [opmlUploading, setOpmlUploading] = useState(false)
   const opmlFileInputRef = useRef<HTMLInputElement>(null)
   const [memoryStatus, setMemoryStatus] = useState<MemoryStatus | null>(null)
+  // 集成开关（遥测 / MCP）
+  const [telemetryEnabled, setTelemetryEnabled] = useState(false)
+  const [mcpEnabled, setMcpEnabled] = useState(false)
+  const [telemetryEvents, setTelemetryEvents] = useState<Array<{ event: string; data: Record<string, unknown>; time: number }>>([])
+  const [integrationBusy, setIntegrationBusy] = useState<'telemetry' | 'mcp' | false>(false)
   // 人生配置
   const [birthday, setBirthday] = useState('')
   const [lifeExpectancy, setLifeExpectancy] = useState(80)
@@ -130,7 +137,7 @@ export default function Settings() {
     setSearchQuery(query)
     if (!query.trim()) { setHighlightedSection(''); return }
     // 简单匹配：遍历设置分区标题
-    const sections = ['外观', '采集', 'AI', '日报', '数据', '日历', '人生', 'Git', '幕布', '备份', '导入', '隐私', '关于']
+    const sections = ['外观', '采集', 'AI', '日报', '数据', '日历', '人生', 'Git', '集成', '幕布', '备份', '导入', '隐私', '关于']
     const match = sections.find(s => s.toLowerCase().includes(query.toLowerCase()))
     if (match) {
       setHighlightedSection(match)
@@ -206,6 +213,9 @@ export default function Settings() {
     // 每日自动生成日报
     setAutoDailyReport(settings.auto_daily_report ?? false)
     setAutoDailyReportHour(settings.auto_daily_report_hour ?? 18)
+    // 集成开关
+    setTelemetryEnabled(!!(settings as any).telemetry_enabled)
+    setMcpEnabled(!!(settings as any).mcp_enabled)
   }, [initialData])
 
   // 获取应用版本 & 开机自启动状态
@@ -272,8 +282,14 @@ export default function Settings() {
     const fetchMubuStatus = async () => {
       try {
         const data = await request('/api/mubu/status') as MubuStatusInfo
-        setMubuInfo({ doc_count: data.doc_count ?? 0, last_sync: data.last_sync ?? null })
-        setMubuStatus(normalizeMubuStatus(data.status))
+        setMubuInfo({
+          doc_count: data.doc_count ?? 0,
+          last_sync: data.last_sync ?? null,
+          status: data.status,
+          cookie_valid: data.cookie_valid,
+          message: data.message,
+        })
+        setMubuStatus(data.cookie_valid === false ? 'cookie_invalid' : normalizeMubuStatus(data.status))
       } catch {
         // 后端尚未实现 /api/mubu/status 时静默失败
       }
@@ -360,7 +376,9 @@ export default function Settings() {
         life_expectancy: lifeExpectancy,
         auto_daily_report: autoDailyReport,
         auto_daily_report_hour: autoDailyReportHour,
-      }
+        telemetry_enabled: telemetryEnabled,
+        mcp_enabled: mcpEnabled,
+      } as Partial<BackendSettings>
       // 仅当用户实际输入了 API Key 时才发送（避免清空已保存的 key）
       if (apiKey.trim()) {
         (settings as any).ai_api_key = apiKey.trim()
@@ -385,6 +403,50 @@ export default function Settings() {
     }
   }
 
+  const refreshTelemetryEvents = useCallback(async () => {
+    try {
+      const res = await request('/api/enterprise/telemetry/events?limit=20') as { enabled?: boolean; events?: Array<{ event: string; data: Record<string, unknown>; time: number }> }
+      setTelemetryEvents(Array.isArray(res.events) ? res.events.slice(-20).reverse() : [])
+    } catch {
+      setTelemetryEvents([])
+    }
+  }, [])
+
+  const handleIntegrationToggle = async (key: 'telemetry_enabled' | 'mcp_enabled', value: boolean) => {
+    const kind = key === 'telemetry_enabled' ? 'telemetry' : 'mcp'
+    setIntegrationBusy(kind)
+    try {
+      await updateSettings({ [key]: value } as Partial<BackendSettings>)
+      if (key === 'telemetry_enabled') {
+        setTelemetryEnabled(value)
+        if (value) await refreshTelemetryEvents()
+      } else {
+        setMcpEnabled(value)
+      }
+      toast.success(key === 'telemetry_enabled'
+        ? (value ? '已开启本地遥测（仅写本机，不上传）' : '已关闭本地遥测')
+        : (value ? '已开启 MCP 服务开关' : '已关闭 MCP 服务开关'))
+    } catch {
+      toast.error('保存集成开关失败')
+    } finally {
+      setIntegrationBusy(false)
+    }
+  }
+
+  const handleClearTelemetry = async () => {
+    try {
+      await request('/api/enterprise/telemetry/clear', { method: 'POST' })
+      setTelemetryEvents([])
+      toast.success('已清空本地遥测事件')
+    } catch {
+      toast.error('清空遥测事件失败')
+    }
+  }
+
+  useEffect(() => {
+    if (telemetryEnabled) refreshTelemetryEvents()
+  }, [telemetryEnabled, refreshTelemetryEvents])
+
   const handleResetDefaults = async () => {
     try {
       const defaultSettings: Partial<BackendSettings> = {
@@ -398,6 +460,8 @@ export default function Settings() {
         ai_vision_model: 'glm-4v-flash',
         ai_text_model: 'glm-4-flash',
         ai_enabled: false,
+        telemetry_enabled: false,
+        mcp_enabled: false,
       }
       await updateSettings(defaultSettings)
       // 重置本地状态
@@ -414,6 +478,9 @@ export default function Settings() {
       setApiKey('')
       setApiKeySet(false)
       setShowKeyInput(true)
+      setTelemetryEnabled(false)
+      setMcpEnabled(false)
+      setTelemetryEvents([])
       toast.success('已恢复默认设置')
     } catch (err) {
       toast.error('恢复默认失败')
@@ -466,6 +533,10 @@ export default function Settings() {
 
   // 幕布文档接入：立即同步（使用 SSE 绕过 IPC 注册不稳定问题）
   const handleMubuSync = async () => {
+    if (mubuStatus === 'cookie_invalid') {
+      toast.warning('幕布 Cookie 已失效，请先重新登录再同步')
+      return
+    }
     setMubuSyncing(true)
     setMubuStatus('syncing')
     try {
@@ -1458,6 +1529,95 @@ export default function Settings() {
         <GitRepoManager />
       </section>
 
+      {/* ─── 集成开关（B26/B27） ──────────────────────────── */}
+      <section
+        id="settings-section-集成"
+        className={`card space-y-4 ${highlightedSection === '集成' ? 'ring-2 ring-cd-green' : ''}`}
+      >
+        <div className="flex items-center gap-2">
+          <Server size={16} className="text-cd-green" />
+          <h2 className="text-sm font-semibold text-cd-text">集成</h2>
+        </div>
+        <div className="text-xs text-cd-text-tertiary">
+          两个开关默认关闭。遥测只写本机 JSONL、绝不上传；MCP 开关控制外部客户端能否启动 stdio 服务。
+        </div>
+
+        <div className="rounded-xl border border-cd-border p-4 space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm text-cd-text">本地诊断遥测</div>
+              <div className="text-xs text-cd-text-tertiary mt-0.5">
+                采集失败、AI 熔断、后端异常三类事件；仅保存在 ~/.challenge-daily/telemetry.jsonl
+              </div>
+            </div>
+            <ToggleSwitch
+              checked={telemetryEnabled}
+              disabled={integrationBusy === 'telemetry'}
+              onChange={(v) => handleIntegrationToggle('telemetry_enabled', v)}
+            />
+          </div>
+          {telemetryEnabled && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-cd-text-secondary">最近事件（{telemetryEvents.length}）</div>
+                <button
+                  onClick={handleClearTelemetry}
+                  className="text-xs text-cd-red hover:underline"
+                >
+                  清空
+                </button>
+              </div>
+              {telemetryEvents.length === 0 ? (
+                <div className="text-xs text-cd-text-tertiary">暂无事件；触发一次失败或熔断后会出现在这里。</div>
+              ) : (
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {telemetryEvents.slice(0, 5).map((ev, i) => (
+                    <div key={`${ev.time}-${i}`} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-mono text-cd-text-secondary">{ev.event}</span>
+                      <span className="text-cd-text-tertiary">
+                        {dayjs.unix(ev.time).format('MM-DD HH:mm:ss')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-cd-border p-4 space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm text-cd-text">MCP stdio 服务</div>
+              <div className="text-xs text-cd-text-tertiary mt-0.5">
+                开启后外部 MCP 客户端可启动 mcp_server.py；关闭时服务拒绝启动，避免默认暴露工具面。
+              </div>
+            </div>
+            <ToggleSwitch
+              checked={mcpEnabled}
+              disabled={integrationBusy === 'mcp'}
+              onChange={(v) => handleIntegrationToggle('mcp_enabled', v)}
+            />
+          </div>
+          <div className="text-xs text-cd-text-tertiary">
+            状态：{mcpEnabled ? '已开启（需重启外部客户端生效）' : '已关闭'} · 联调文档 docs/mcp-integration.md
+          </div>
+          {mcpEnabled && (
+            <pre className="text-[11px] leading-5 bg-cd-bg-secondary rounded-lg p-3 overflow-x-auto text-cd-text-secondary">
+{`{
+  "mcpServers": {
+    "challenge-daily": {
+      "command": "python",
+      "args": ["mcp_server.py"],
+      "cwd": "${'<repo>'}"
+    }
+  }
+}`}
+            </pre>
+          )}
+        </div>
+      </section>
+
       {/* ─── 幕布文档接入 ──────────────────────────── */}
       <section
         id="settings-section-幕布"
@@ -1491,6 +1651,27 @@ export default function Settings() {
           </div>
         </div>
 
+        {/* Cookie 失效引导 */}
+        {mubuStatus === 'cookie_invalid' && (
+          <div className="rounded-xl border border-cd-red/30 bg-cd-red-light px-4 py-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-medium text-cd-red">
+              <XCircle size={14} />
+              幕布 Cookie 已失效，同步已暂停
+            </div>
+            <div className="text-[11px] text-cd-text-secondary">
+              请点击「重新登录幕布」完成授权，登录成功后状态会自动恢复为「已同步」。
+              {mubuInfo?.message ? `（${mubuInfo.message}）` : ''}
+            </div>
+            <button
+              onClick={handleMubuLogin}
+              disabled={mubuLogging}
+              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-cd-red text-white hover:opacity-90 disabled:opacity-40"
+            >
+              {mubuLogging ? '登录中...' : '立即重连 →'}
+            </button>
+          </div>
+        )}
+
         {/* 操作按钮 */}
         <div className="flex flex-wrap gap-3">
           <button
@@ -1499,11 +1680,12 @@ export default function Settings() {
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-bg-secondary text-cd-text-secondary hover:bg-cd-hover transition-colors border border-cd-border disabled:opacity-40"
           >
             {mubuLogging ? <Loader2 size={12} className="animate-spin" /> : <Cloud size={12} />}
-            {mubuLogging ? '登录中...' : '登录幕布'}
+            {mubuLogging ? '登录中...' : (mubuStatus === 'cookie_invalid' ? '重新登录幕布' : '登录幕布')}
           </button>
           <button
             onClick={handleMubuSync}
-            disabled={mubuSyncing}
+            disabled={mubuSyncing || mubuStatus === 'cookie_invalid'}
+            title={mubuStatus === 'cookie_invalid' ? 'Cookie 失效，请先重新登录' : undefined}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-2xl text-xs font-medium bg-cd-green text-white hover:opacity-90 transition-opacity disabled:opacity-40"
           >
             {mubuSyncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}

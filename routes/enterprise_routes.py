@@ -12,6 +12,47 @@ from enterprise_features import (
 enterprise_bp = Blueprint('enterprise', __name__, url_prefix='/api/enterprise')
 
 
+def _not_implemented(module: str, operation: str, detail: str = ""):
+    """企业演示模块统一响应：不回假成功，明确标注未接线。"""
+    return jsonify({
+        "status": "not_implemented",
+        "implemented": False,
+        "module": module,
+        "operation": operation,
+        "message": detail or f"{module} 为演示模块，当前未接入真实服务",
+    }), 501
+
+
+def _demo_state(module: str, **extra):
+    """只读状态也写明未实现，避免 UI 把空状态当成真实空数据。"""
+    payload = {
+        "status": "not_implemented",
+        "implemented": False,
+        "demo": True,
+        "module": module,
+        "message": f"{module} 为演示模块，当前未接入真实服务",
+    }
+    payload.update(extra)
+    return jsonify(payload)
+
+
+# ── 可选企业仿真插件状态 ──
+@enterprise_bp.route('/plugin/status', methods=['GET'])
+def enterprise_plugin_status():
+    from enterprise_plugin import is_enabled, EXPECTED_BLUEPRINT_COUNT, EXPECTED_ENDPOINT_COUNT
+    from flask import current_app
+    status = current_app.extensions.get("enterprise_plugin", {})
+    return jsonify({
+        "configured": is_enabled(),
+        "registered": status.get("registered", False),
+        "blueprints": status.get("blueprints", 0),
+        "endpoints": status.get("endpoints", 0),
+        "manifest_blueprints": EXPECTED_BLUEPRINT_COUNT,
+        "manifest_endpoints": EXPECTED_ENDPOINT_COUNT,
+        "toggle": "CHALLENGEDAILY_ENTERPRISE_PLUGIN=1",
+    })
+
+
 # ── 账号体系 ──
 @enterprise_bp.route('/auth/session', methods=['GET'])
 def get_session():
@@ -53,107 +94,120 @@ def publish_template():
     return jsonify(template_market.publish(data.get('name', ''), data.get('content', ''), data.get('price', 0)))
 
 
-# ── 视频发布器 ──
+# ── 视频发布器（演示/规划中） ──
 @enterprise_bp.route('/publisher/accounts', methods=['GET'])
 def list_publisher_accounts():
-    return jsonify(publisher.list_accounts())
+    return _demo_state('publisher', accounts=[])
 
 @enterprise_bp.route('/publisher/bind', methods=['POST'])
 def bind_publisher_account():
-    data = request.get_json(silent=True) or {}
-    return jsonify(publisher.bind_account(data.get('platform', ''), data.get('account', '')))
+    return _not_implemented('publisher', 'bind_account', '视频平台账号绑定尚未接入，当前不会写入任何账号')
 
 @enterprise_bp.route('/publisher/task', methods=['POST'])
 def create_publish_task():
-    data = request.get_json(silent=True) or {}
-    return jsonify(publisher.create_task(data.get('videoPath', ''), data.get('platforms', [])))
+    return _not_implemented('publisher', 'create_task', '视频发布任务尚未接入，当前不会创建任务')
 
 
-# ── 微信集成 ──
+# ── 微信集成（演示/规划中） ──
 @enterprise_bp.route('/wechat/state', methods=['GET'])
 def wechat_state():
-    return jsonify(wechat.get_state())
+    return _demo_state('wechat', connected=False, qrcode=None)
 
 @enterprise_bp.route('/wechat/begin', methods=['POST'])
 def wechat_begin():
-    return jsonify(wechat.begin_bind())
+    return _not_implemented('wechat', 'begin_bind', '微信绑定尚未接入，当前不会拉起登录或写绑定状态')
 
 @enterprise_bp.route('/wechat/unbind', methods=['POST'])
 def wechat_unbind():
-    return jsonify(wechat.unbind())
+    return _not_implemented('wechat', 'unbind', '微信解绑尚未接入')
 
 
-# ── 浏览器自动化 ──
+# ── 浏览器自动化（演示/规划中） ──
 @enterprise_bp.route('/browser/deepseek', methods=['POST'])
 def open_deepseek():
-    data = request.get_json(silent=True) or {}
-    return jsonify(browser_auto.open_deepseek(data.get('prompt', '')))
+    return _not_implemented('browser', 'open_deepseek', '浏览器自动化尚未接入，当前不会启动浏览器')
 
 @enterprise_bp.route('/browser/chatgpt', methods=['POST'])
 def open_chatgpt():
-    data = request.get_json(silent=True) or {}
-    return jsonify(browser_auto.open_chatgpt(data.get('prompt', '')))
+    return _not_implemented('browser', 'open_chatgpt', '浏览器自动化尚未接入，当前不会启动浏览器')
 
 
-# ── MCP 服务器管理 ──
+# ── MCP 服务器管理（本页为演示；真开关在设置 → 集成） ──
 @enterprise_bp.route('/mcp/list', methods=['GET'])
 def list_mcp():
-    return jsonify(mcp_manager.list())
+    return _demo_state('mcp', servers=[])
 
 @enterprise_bp.route('/mcp/add', methods=['POST'])
 def add_mcp():
-    data = request.get_json(silent=True) or {}
-    return jsonify(mcp_manager.add(data.get('name', ''), data.get('command', ''), data.get('args', [])))
+    return _not_implemented('mcp', 'add', '企业页 MCP 管理为演示模块；请使用设置 → 集成中的 MCP 开关')
 
 
-# ── 小程序同步 ──
+# ── 小程序同步（演示/规划中） ──
 @enterprise_bp.route('/miniprogram/status', methods=['GET'])
 def miniprogram_status():
-    return jsonify(mini_sync.get_status())
+    return _demo_state('miniprogram', connected=False, last_sync=None)
 
 @enterprise_bp.route('/miniprogram/sync', methods=['POST'])
 def miniprogram_sync():
-    return jsonify(mini_sync.sync_now())
+    return _not_implemented('miniprogram', 'sync_now', '小程序同步尚未接入，当前不会上传或下载数据')
 
 
-# ── 学生认证 ──
+# ── 学生认证（演示/规划中） ──
 @enterprise_bp.route('/student/status', methods=['GET'])
 def student_status():
-    return jsonify(student_verification.get_status())
+    return _demo_state('student', verified=False)
 
 @enterprise_bp.route('/student/submit', methods=['POST'])
 def student_submit():
-    data = request.get_json(silent=True) or {}
-    return jsonify(student_verification.submit(data.get('email', '')))
+    return _not_implemented('student', 'submit', '学生认证尚未接入，当前不会提交或自动通过')
 
 
-# ── 效率节 ──
+# ── 效率节活动（演示/规划中） ──
 @enterprise_bp.route('/festival/info', methods=['GET'])
 def festival_info():
-    return jsonify(efficiency_festival.get_info())
+    return _demo_state('festival', active=False, events=[])
 
 
-# ── 问卷调查 ──
+# ── 问卷调查（演示/规划中） ──
 @enterprise_bp.route('/survey/active', methods=['GET'])
 def active_surveys():
-    return jsonify(survey_system.get_active())
+    return _demo_state('survey', surveys=[])
 
 @enterprise_bp.route('/survey/submit', methods=['POST'])
 def submit_survey():
-    data = request.get_json(silent=True) or {}
-    return jsonify(survey_system.submit(data.get('id', ''), data.get('answers', {})))
+    return _not_implemented('survey', 'submit', '问卷系统尚未接入，当前不会记录答案')
 
 
-# ── 遥测系统 ──
+# ── 遥测系统（本地诊断，默认关闭，不上传） ──
+@enterprise_bp.route('/telemetry/status', methods=['GET'])
+def telemetry_status():
+    return jsonify({
+        "enabled": telemetry.is_enabled(),
+        "storage": "local_jsonl",
+        "upload": False,
+        "events": len(telemetry.get_events(limit=1000)),
+    })
+
+
 @enterprise_bp.route('/telemetry/track', methods=['POST'])
 def track_event():
     data = request.get_json(silent=True) or {}
-    telemetry.track(data.get('event', ''), data.get('data', {}))
-    return jsonify({"ok": True})
+    ok = telemetry.track(data.get('event', ''), data.get('data', {}))
+    return jsonify({"ok": ok, "enabled": telemetry.is_enabled()})
+
 
 @enterprise_bp.route('/telemetry/events', methods=['GET'])
 def list_telemetry_events():
-    return jsonify(telemetry.get_events())
+    limit = min(max(int(request.args.get('limit', 100)), 1), 1000)
+    return jsonify({
+        "enabled": telemetry.is_enabled(),
+        "events": telemetry.get_events(limit=limit),
+    })
+
+
+@enterprise_bp.route('/telemetry/clear', methods=['POST'])
+def clear_telemetry_events():
+    return jsonify({"ok": True, "cleared": telemetry.clear()})
 
 
 # ── 应用锁（含恢复词） ──

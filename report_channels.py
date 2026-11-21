@@ -228,15 +228,58 @@ class DingtalkReportChannel(ReportChannel):
 # ── 企业微信日报 API 通道 ──
 
 class WeComReportChannel(ReportChannel):
-    """企业微信日报 API 通道"""
+    """企业微信日报通道：群机器人 Webhook（markdown 消息）"""
     name = "wecom_report"
 
+    _WEBHOOK_PREFIX = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key="
+    _MAX_CONTENT_BYTES = 4000  # 企微 markdown 上限 4096 字节，留 96 字节余量
+
+    def _webhook_url(self) -> str:
+        return str(self.config.get("webhook_url", "") or self.config.get("webhook", "")).strip()
+
+    def _post_markdown(self, content: str) -> dict:
+        url = self._webhook_url()
+        if not url:
+            return {"success": False, "message": "企微群机器人 webhook_url 未配置", "channel": self.name}
+        if not url.startswith(self._WEBHOOK_PREFIX) or len(url) <= len(self._WEBHOOK_PREFIX):
+            return {"success": False, "message": "webhook_url 必须是企业微信群机器人地址（https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...）", "channel": self.name}
+
+        # 按 UTF-8 字节截断，避免超限被企微整条拒绝
+        encoded = content.encode("utf-8")
+        if len(encoded) > self._MAX_CONTENT_BYTES:
+            content = encoded[:self._MAX_CONTENT_BYTES].decode("utf-8", errors="ignore") + "\n\n（内容过长已截断）"
+
+        payload = json.dumps({
+            "msgtype": "markdown",
+            "markdown": {"content": content},
+        }, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(
+            url, data=payload, headers={"Content-Type": "application/json"}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+                if result.get("errcode") == 0:
+                    return {"success": True, "message": "企微群机器人消息已发送", "channel": self.name}
+                return {
+                    "success": False,
+                    "message": f"企微返回错误: {result.get('errcode')} {result.get('errmsg')}",
+                    "channel": self.name,
+                }
+        except Exception as e:
+            logger.error(f"企微群机器人发送失败: {e}")
+            return {"success": False, "message": f"发送失败: {e}", "channel": self.name}
+
     def submit(self, report_text: str, report_date: str = None) -> dict:
-        # 企业微信日报 API 较复杂，暂用 Webhook 群机器人兜底
-        return {"success": False, "message": "企微日报 API 暂未实现，请使用 Webhook 通道", "channel": self.name}
+        date_str = report_date or datetime.now().strftime("%Y-%m-%d")
+        content = f"### 工作日报 {date_str}\n\n{report_text}"
+        result = self._post_markdown(content)
+        if result.get("success"):
+            logger.info(f"企微日报已提交: {date_str}")
+        return result
 
     def test_connection(self) -> dict:
-        return {"success": False, "message": "企微日报 API 暂未实现", "channel": self.name}
+        return self._post_markdown("### 连接测试\n\nChallengeDaily 企微日报通道已连通。")
 
 
 # ── 通道工厂 ──

@@ -225,6 +225,8 @@ _DEFAULT_SETTINGS = {
     "auto_daily_report_hour": 18,
     "auto_daily_report_template": "standard",
     "agent_engine": "agno",
+    "telemetry_enabled": False,         # 本地诊断遥测（默认关闭，不上传）
+    "mcp_enabled": False,               # MCP stdio 服务开关（默认关闭）
 }
 
 # ── settings 缓存（避免每次 API 请求都读磁盘）──

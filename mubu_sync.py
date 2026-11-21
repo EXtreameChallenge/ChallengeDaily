@@ -373,6 +373,7 @@ def get_sync_status() -> dict:
         "last_error": last_error,
         "cookie_valid": cookie_ok,
         "status": status,
+        "message": last_error or ("Cookie 已失效，请重新登录" if status == "cookie_invalid" else ""),
     }
 
 

@@ -384,6 +384,11 @@ class Collector:
             logger.info(f"截图完成: {filename}{' (画面重复)' if is_duplicate else ''}")
         except Exception as e:
             logger.error(f"截图失败: {e}")
+            try:
+                from telemetry_events import track as _track
+                _track("capture_failed", {"stage": "screenshot", "error_type": type(e).__name__})
+            except Exception:
+                pass
             return None
 
         # 2. 获取前台应用 + 所有可见窗口
@@ -551,6 +556,11 @@ class Collector:
                 ai_result = analyze_screenshot(analysis_path, display_name, window_title, recent_context, analysis_windows)
             except Exception as e:
                 logger.error(f"AI 分析失败: {e}")
+                try:
+                    from telemetry_events import track as _track
+                    _track("capture_failed", {"stage": "ai_analysis", "error_type": type(e).__name__})
+                except Exception:
+                    pass
                 ai_result = {"category": "", "summary": "", "detail": "", "windows": []}
             finally:
                 # Wave0-B01: 重分析临时帧用完即删（隐私不留盘）

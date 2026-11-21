@@ -135,172 +135,145 @@ template_market = TemplateMarket()
 # 4. 视频发布器（基础框架）
 # ═══════════════════════════════════════════════════════
 class Publisher:
+    """视频发布器：演示模块，不写账号文件、不创建假任务。"""
     def __init__(self):
         self.accounts_file = _DATA_DIR / "publisher_accounts.json"
 
-    def list_accounts(self) -> list:
-        if self.accounts_file.exists():
-            try:
-                return json.loads(self.accounts_file.read_text(encoding='utf-8'))
-            except Exception:
-                pass
-        return []
+    def list_accounts(self) -> dict:
+        return {"status": "not_implemented", "implemented": False, "accounts": []}
 
     def bind_account(self, platform: str, account: str) -> dict:
-        accounts = self.list_accounts()
-        accounts.append({"platform": platform, "account": account, "boundAt": time.time()})
-        self.accounts_file.write_text(json.dumps(accounts, ensure_ascii=False), encoding='utf-8')
-        return {"ok": True}
+        return {"status": "not_implemented", "implemented": False, "ok": False,
+                "message": "视频平台账号绑定未接入"}
 
     def create_task(self, video_path: str, platforms: list) -> dict:
-        return {"ok": True, "taskId": str(uuid.uuid4()), "status": "pending", "message": "发布任务已创建（需配置平台API）"}
+        return {"status": "not_implemented", "implemented": False, "ok": False,
+                "message": "视频发布任务未接入"}
 
 
 publisher = Publisher()
 
 
 # ═══════════════════════════════════════════════════════
-# 5. 微信集成（基础框架）
+# 5. 微信集成（演示模块）
 # ═══════════════════════════════════════════════════════
 class WeChatIntegration:
+    """微信集成：不拉起登录、不写绑定状态。"""
     def __init__(self):
         self.config_file = _DATA_DIR / "wechat.json"
 
     def get_state(self) -> dict:
-        if self.config_file.exists():
-            try:
-                return json.loads(self.config_file.read_text(encoding='utf-8'))
-            except Exception:
-                pass
-        return {"bound": False}
+        return {"status": "not_implemented", "implemented": False,
+                "bound": False, "qrcode": None}
 
     def begin_bind(self) -> dict:
-        return {"ok": True, "message": "微信绑定流程已启动（需扫码）"}
+        return {"status": "not_implemented", "implemented": False, "ok": False,
+                "message": "微信绑定未接入"}
 
     def unbind(self) -> dict:
-        if self.config_file.exists():
-            self.config_file.unlink()
-        return {"ok": True}
+        return {"status": "not_implemented", "implemented": False, "ok": False,
+                "message": "微信解绑未接入"}
 
 
 wechat = WeChatIntegration()
 
 
 # ═══════════════════════════════════════════════════════
-# 6. 浏览器自动化（DeepSeek/ChatGPT）
+# 6. 浏览器自动化（演示模块）
 # ═══════════════════════════════════════════════════════
 class BrowserAutomation:
+    """浏览器自动化：不启动任何浏览器进程。"""
     def open_deepseek(self, prompt: str = "") -> dict:
-        return {"ok": True, "message": "DeepSeek聊天窗口已打开（需Playwright）", "prompt": prompt}
+        return {"status": "not_implemented", "implemented": False, "ok": False,
+                "message": "浏览器自动化未接入"}
 
     def open_chatgpt(self, prompt: str = "") -> dict:
-        return {"ok": True, "message": "ChatGPT聊天窗口已打开（需Playwright）", "prompt": prompt}
+        return {"status": "not_implemented", "implemented": False, "ok": False,
+                "message": "浏览器自动化未接入"}
 
 
 browser_auto = BrowserAutomation()
 
 
 # ═══════════════════════════════════════════════════════
-# 7. MCP 服务器管理（完善）
+# 7. MCP 服务器管理（企业页演示；真开关在 settings.mcp_enabled）
 # ═══════════════════════════════════════════════════════
 class MCPManager:
+    """企业页 MCP 管理列表为演示，不写 mcp_servers.json。"""
     def __init__(self):
         self.config_file = _DATA_DIR / "mcp_servers.json"
 
-    def list(self) -> list:
-        if self.config_file.exists():
-            try:
-                return json.loads(self.config_file.read_text(encoding='utf-8'))
-            except Exception:
-                pass
-        return [
-            {"name": "filesystem", "enabled": True, "description": "文件系统访问"},
-            {"name": "sqlite", "enabled": True, "description": "SQLite数据库"},
-        ]
+    def list(self) -> dict:
+        return {"status": "not_implemented", "implemented": False, "servers": []}
 
     def add(self, name: str, command: str, args: list = None) -> dict:
-        servers = self.list()
-        servers.append({"name": name, "command": command, "args": args or [], "enabled": True})
-        self.config_file.write_text(json.dumps(servers, ensure_ascii=False), encoding='utf-8')
-        return {"ok": True}
+        return {"status": "not_implemented", "implemented": False, "ok": False,
+                "message": "企业页 MCP 管理未接入；请使用 settings.mcp_enabled"}
 
 
 mcp_manager = MCPManager()
 
 
 # ═══════════════════════════════════════════════════════
-# 8. 小程序同步
+# 8. 小程序同步（演示模块）
 # ═══════════════════════════════════════════════════════
 class MiniProgramSync:
+    """小程序同步：不发送任何同步请求。"""
     def get_status(self) -> dict:
-        return {"synced": False, "lastSync": 0, "message": "小程序同步需配置云端API"}
+        return {"status": "not_implemented", "implemented": False,
+                "synced": False, "lastSync": None}
 
     def sync_now(self) -> dict:
-        return {"ok": True, "message": "同步请求已发送"}
+        return {"status": "not_implemented", "implemented": False, "ok": False,
+                "message": "小程序同步未接入"}
 
 
 mini_sync = MiniProgramSync()
 
 
 # ═══════════════════════════════════════════════════════
-# 9. 学生认证
+# 9. 学生认证（演示模块）
 # ═══════════════════════════════════════════════════════
 class StudentVerification:
+    """学生认证：绝不对任意邮箱返回 verified=true。"""
     def __init__(self):
         self.file = _DATA_DIR / "student.json"
 
     def get_status(self) -> dict:
-        if self.file.exists():
-            try:
-                return json.loads(self.file.read_text(encoding='utf-8'))
-            except Exception:
-                pass
-        return {"verified": False}
+        return {"status": "not_implemented", "implemented": False, "verified": False}
 
     def submit(self, email: str) -> dict:
-        result = {"verified": True, "email": email, "verifiedAt": time.time()}
-        self.file.write_text(json.dumps(result, ensure_ascii=False), encoding='utf-8')
-        return {"ok": True, **result}
+        return {"status": "not_implemented", "implemented": False, "ok": False,
+                "verified": False, "message": "学生认证未接入"}
 
 
 student_verification = StudentVerification()
 
 
 # ═══════════════════════════════════════════════════════
-# 10. 效率节（运营活动）
+# 10. 效率节（演示模块）
 # ═══════════════════════════════════════════════════════
 class EfficiencyFestival:
+    """效率节：不展示虚构活动或奖励。"""
     def get_info(self) -> dict:
-        return {
-            "active": True,
-            "title": "效率节活动",
-            "description": "连续专注7天，解锁专属徽章",
-            "reward": "🔥 效率达人徽章",
-        }
+        return {"status": "not_implemented", "implemented": False,
+                "active": False, "events": []}
 
 
 efficiency_festival = EfficiencyFestival()
 
 
 # ═══════════════════════════════════════════════════════
-# 11. 问卷调查
+# 11. 问卷调查（演示模块）
 # ═══════════════════════════════════════════════════════
 class SurveySystem:
-    def get_active(self) -> list:
-        return [
-            {
-                "id": "feedback_v1",
-                "title": "产品体验反馈",
-                "questions": [
-                    {"q": "你最常用哪个功能？", "type": "text"},
-                    {"q": "你希望增加什么功能？", "type": "text"},
-                ],
-            }
-        ]
+    """问卷系统：不生成假问卷、不记录/丢弃答案。"""
+    def get_active(self) -> dict:
+        return {"status": "not_implemented", "implemented": False, "surveys": []}
 
     def submit(self, survey_id: str, answers: dict) -> dict:
-        logger.info(f"问卷提交: {survey_id}, 答案: {answers}")
-        return {"ok": True, "message": "感谢反馈！"}
+        return {"status": "not_implemented", "implemented": False, "ok": False,
+                "message": "问卷系统未接入"}
 
 
 survey_system = SurveySystem()
@@ -313,22 +286,53 @@ class TelemetrySystem:
     def __init__(self):
         self.events_file = _DATA_DIR / "telemetry.jsonl"
 
-    def track(self, event: str, data: dict = None):
+    def is_enabled(self) -> bool:
         try:
+            from config import load_settings
+            return bool(load_settings().get("telemetry_enabled", False))
+        except Exception:
+            return False
+
+    def track(self, event: str, data: dict = None) -> bool:
+        """写本地遥测事件。默认关闭，关闭时静默跳过；绝不上传。"""
+        if not self.is_enabled():
+            return False
+        try:
+            event_name = str(event or "").strip()
+            if not event_name:
+                return False
             with open(self.events_file, 'a', encoding='utf-8') as f:
                 f.write(json.dumps({
-                    "event": event,
+                    "event": event_name,
                     "data": data or {},
                     "time": time.time(),
                 }, ensure_ascii=False) + '\n')
+            return True
         except Exception as e:
             logger.debug(f"遥测记录失败: {e}")
+            return False
 
     def get_events(self, limit: int = 100) -> list:
         if not self.events_file.exists():
             return []
         lines = self.events_file.read_text(encoding='utf-8').strip().split('\n')
-        return [json.loads(l) for l in lines[-limit:] if l]
+        out = []
+        for l in lines[-limit:]:
+            try:
+                out.append(json.loads(l))
+            except Exception:
+                continue
+        return out
+
+    def clear(self) -> int:
+        try:
+            if self.events_file.exists():
+                n = len(self.events_file.read_text(encoding='utf-8').strip().split('\n'))
+                self.events_file.unlink()
+                return n
+        except Exception as e:
+            logger.debug(f"清空遥测失败: {e}")
+        return 0
 
 
 telemetry = TelemetrySystem()

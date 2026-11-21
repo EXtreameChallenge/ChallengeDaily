@@ -56,6 +56,7 @@ def _resolve_data_dir() -> Path:
 
 DATA_DIR = _resolve_data_dir()
 TOKEN_PATH = DATA_DIR / ".api_token"
+SETTINGS_PATH = DATA_DIR / "settings.json"
 LOG_DIR = DATA_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR / "mcp_server.log"
@@ -67,6 +68,17 @@ BACKEND_READY_WAIT = float(os.environ.get("CHALLENGE_DAILY_BACKEND_READY_WAIT", 
 
 SERVER_NAME = "challenge-daily-mcp"
 SERVER_VERSION = "1.0.0"
+
+
+def _mcp_enabled() -> bool:
+    """读取与桌面端共享的 settings.json；默认关闭，缺失/损坏都按关闭处理。"""
+    try:
+        if not SETTINGS_PATH.exists():
+            return False
+        data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        return bool(data.get("mcp_enabled", False))
+    except Exception:
+        return False
 
 # ──────────────────────────────────────────────────────────────
 # 日志：同时写文件和 stderr（stderr 不污染 stdio JSON-RPC 通道，
@@ -1002,6 +1014,15 @@ def _process_line(line: str) -> None:
 
 
 def main() -> None:
+    if not _mcp_enabled():
+        message = (
+            "MCP 服务已在设置中关闭（mcp_enabled=false）。"
+            "请先在 ChallengeDaily 设置 → 集成中开启，再启动外部 MCP 客户端。"
+        )
+        log.error(message)
+        sys.stderr.write(message + "\n")
+        raise SystemExit(2)
+
     log.info(f"Loaded {len(_TOOL_REGISTRY)} tools: {sorted(_TOOL_REGISTRY.keys())}")
     log.info("Listening on stdin (stdio JSON-RPC), protocol version %s", PROTOCOL_VERSION)
 
