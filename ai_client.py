@@ -217,10 +217,11 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
     recent_context: 近期活动的简短描述，供 AI 综合分析
     visible_windows: 当前屏幕上所有可见窗口的列表
     """
-    # B03 第二道防线：即使采集层漏判，敏感/排除应用也绝不把截图送云端分析
+    # 隐私可选项（默认关闭，开启 privacy_block_upload 才生效）：敏感/排除窗口不上传
     try:
         from screenshot_redactor import is_sensitive_window, is_no_upload_window
-        if (is_sensitive_window(window_title, app_name)
+        if config.is_privacy_block_upload_enabled() and (
+                is_sensitive_window(window_title, app_name)
                 or is_no_upload_window(window_title, app_name)
                 or config.is_app_excluded(app_name or "")
                 or config.is_app_excluded(window_title or "")):

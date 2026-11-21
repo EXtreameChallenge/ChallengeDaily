@@ -424,8 +424,8 @@ class Collector:
             self._flush_segment(timestamp)
             return None
 
-        # 2.6 B03: 敏感窗口（密码/验证码/身份证/银行支付页面等）同样跳过采集
-        if should_skip_capture(window_title, app_name):
+        # 2.6 隐私可选项：敏感窗口整窗跳过（默认关闭，开启 privacy_skip_capture 才生效）
+        if config.is_privacy_skip_enabled() and should_skip_capture(window_title, app_name):
             logger.info(f"敏感窗口，跳过采集: {display_name} / {window_title}")
             self._flush_segment(timestamp)
             return None

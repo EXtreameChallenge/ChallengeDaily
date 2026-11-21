@@ -1,57 +1,59 @@
 """
-B03 隐私宣称回归（最终口径）：
-- 微信/飞书/银行/支付/密码管理器：默认跳过采集；
-- QQ：记录使用时长并归"沟通"，但截图不上传、不做内容分析；
-- AI 客户端第二道防线拦截敏感/排除/禁止上传窗口。
+隐私口径回归（2026-11-21 重大变更）：「自用全量模式」为默认。
+
+- 默认不排除任何应用、不跳过任何窗口、不上传拦截关闭；全量采集与分析。
+- 隐私机制保留为可配置开关：privacy_skip_capture / privacy_block_upload / privacy_redact。
+- QQ 全量记录，分类交给 AI + 规则（规则口径：沟通 / 工作记录归会议沟通）。
 """
 import config
 from screenshot_redactor import should_skip_capture, is_no_upload_window
 
 
-def test_b03_default_excluded_apps():
-    assert config.is_app_excluded("Weixin.exe"), "微信必须在默认排除名单（内置底线）"
-    assert config.is_app_excluded("Feishu.exe"), "飞书必须在默认排除名单"
-    assert not config.is_app_excluded("QQ.exe"), "QQ 应记录时长，不得整窗跳过"
-    assert config.is_app_excluded("招商银行专业版.exe"), "银行类必须在默认排除名单"
-    assert config.is_app_excluded("1Password.exe"), "密码管理器必须在默认排除名单"
-    assert not config.is_app_excluded("Code.exe"), "普通开发应用不得被误排除"
+def test_full_mode_defaults():
+    assert config.get_exclude_apps() == [], "默认排除名单应为空（全量采集）"
+    assert config.is_app_excluded("Weixin.exe") is False
+    assert config.is_app_excluded("招商银行专业版.exe") is False
+    assert config.is_privacy_skip_enabled() is False
+    assert config.is_privacy_block_upload_enabled() is False
+    assert config.is_privacy_redact_enabled() is False
 
 
-def test_b03_user_settings_cannot_remove_privacy_floor(monkeypatch):
-    monkeypatch.setattr(config, "load_settings", lambda: {"exclude_apps": ["SmokeTest"]})
-    apps = config.get_exclude_apps()
-    assert "SmokeTest" in apps, "用户配置应保留"
-    assert any(a == "weixin" for a in apps), "内置隐私底线不得被用户配置覆盖掉"
-
-
-def test_b03_should_skip_capture_rules():
-    assert should_skip_capture("登录 - Chrome", "chrome.exe"), "登录页应跳过"
-    assert should_skip_capture("在线支付 - 招商银行", "chrome.exe"), "支付/银行页应跳过"
-    assert not should_skip_capture("QQ - 聊天", "QQ.exe"), "QQ 记录时长，不得整窗跳过"
-    assert is_no_upload_window("QQ - 聊天", "QQ.exe"), "QQ 截图禁止上传"
-    assert not should_skip_capture("main.py - Visual Studio Code", "Code.exe")
-
-
-def test_b03_ai_client_blocks_sensitive_window(monkeypatch):
-    """第二道防线：敏感窗口直接返回空分类，不会进入上传路径。"""
+def test_privacy_switches_can_be_enabled(monkeypatch):
+    """机制保留：开启开关后，旧的保守行为仍可用。"""
     import ai_client
+    monkeypatch.setattr(config, "load_settings", lambda: {
+        "privacy_skip_capture": True,
+        "privacy_block_upload": True,
+        "privacy_redact": True,
+        "exclude_apps": ["SmokeTest"],
+    })
+    assert should_skip_capture("微信 - 聊天", "Weixin.exe") is True
+    assert config.is_privacy_skip_enabled() is True
+
     monkeypatch.setattr(config, "AI_API_KEY", "test-key")
     result = ai_client.analyze_screenshot("whatever.jpg", "Weixin.exe", "微信")
     assert result["category"] == ""
     assert "未上传" in result["detail"] or "跳过" in result["summary"]
 
 
-def test_b03_ai_client_blocks_qq_upload(monkeypatch):
-    """QQ 记录时长但截图不上传：AI 客户端返回空分类，分类交给规则（沟通）。"""
-    import ai_client
+def test_privacy_gate_off_by_default_does_not_skip():
+    """机制仍能识别敏感窗口，但默认开关关闭，采集层不会因此跳过。"""
+    assert should_skip_capture("微信 - 聊天", "Weixin.exe") is True
+    assert (config.is_privacy_skip_enabled()
+            and should_skip_capture("微信 - 聊天", "Weixin.exe")) is False
+
+
+def test_user_exclude_list_still_works(monkeypatch):
+    """用户显式配置的排除项依然生效（全量模式不等于禁用配置）。"""
+    monkeypatch.setattr(config, "load_settings", lambda: {"exclude_apps": ["SmokeTest"]})
+    assert config.get_exclude_apps() == ["SmokeTest"]
+    assert config.is_app_excluded("SmokeTest.exe") is True
+
+
+def test_qq_full_record_and_category():
+    """QQ 全量记录；AI 关闭上传拦截时正常分析，分类规则归沟通。"""
     from classifier import classify
-    monkeypatch.setattr(config, "AI_API_KEY", "test-key")
-    result = ai_client.analyze_screenshot("whatever.jpg", "QQ.exe", "QQ - 聊天")
-    assert result["category"] == ""
-    assert classify("QQ.exe", result["category"], "QQ - 聊天") == "沟通"
-
-
-def test_b03_qq_work_record_category_is_meeting():
-    """小黑工作记录里 QQ 归「会议沟通」，与采集侧「沟通」口径一致。"""
     from xiaohei_core import _classify_app
+    assert classify("QQ.exe", "", "QQ - 聊天") == "沟通"
     assert _classify_app("QQ.exe") == "会议沟通"
+    assert is_no_upload_window("QQ - 聊天", "QQ.exe") is True  # 机制保留，可随开关启用

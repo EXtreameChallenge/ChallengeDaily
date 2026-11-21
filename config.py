@@ -196,12 +196,12 @@ PRIVACY_KEYWORDS = os.getenv("PRIVACY_KEYWORDS", "").split(",") if os.getenv("PR
 
 # ── 持久化设置（JSON 文件）──
 _DEFAULT_SETTINGS = {
-    # B03: 隐私底线名单（与用户配置取并集，内置项不可被用户配置移除）
-    "exclude_apps": [
-        "1password", "bitwarden", "keepass", "lastpass", "dashlane",
-        "wechat", "weixin", "微信", "lark", "feishu", "飞书",
-        "银行", "bank", "支付宝", "alipay", "支付", "wallet", "钱包",
-    ],
+    # 自用全量模式（2026-11-21 口径变更）：默认不排除任何应用，全量采集与分析。
+    # 需要保守模式时，在设置里填 exclude_apps 或开启 privacy_skip_capture。
+    "exclude_apps": [],
+    "privacy_skip_capture": False,      # 敏感窗口整窗跳过采集（默认关闭，机制保留）
+    "privacy_block_upload": False,      # 敏感窗口禁止上传 AI（默认关闭，机制保留）
+    "privacy_redact": False,            # 截图脱敏（默认关闭，机制保留）
     "screenshot_interval_sec": 60,
     "work_start_hour": 9,
     "work_end_hour": 18,
@@ -273,10 +273,27 @@ def save_settings(settings: dict) -> None:
         _settings_cache_time = time.time()
 
 def get_exclude_apps() -> list[str]:
-    """获取排除应用列表：内置隐私底线 + 用户配置（并集，内置项不可移除）"""
-    user_list = load_settings().get("exclude_apps", []) or []
-    merged = list(dict.fromkeys([*_DEFAULT_SETTINGS["exclude_apps"], *user_list]))
-    return merged
+    """获取排除应用列表（来自用户设置；默认为空 = 全量采集）"""
+    return list(load_settings().get("exclude_apps", []) or [])
+
+
+def _privacy_flag(key: str) -> bool:
+    return bool(load_settings().get(key, False))
+
+
+def is_privacy_skip_enabled() -> bool:
+    """敏感窗口整窗跳过采集开关（默认关闭）"""
+    return _privacy_flag("privacy_skip_capture")
+
+
+def is_privacy_block_upload_enabled() -> bool:
+    """敏感窗口禁止上传 AI 开关（默认关闭）"""
+    return _privacy_flag("privacy_block_upload")
+
+
+def is_privacy_redact_enabled() -> bool:
+    """截图脱敏开关（默认关闭）"""
+    return _privacy_flag("privacy_redact")
 
 def is_app_excluded(app_name: str) -> bool:
     """检查应用是否在排除列表中（不区分大小写的子串匹配）"""
