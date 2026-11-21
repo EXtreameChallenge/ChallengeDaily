@@ -422,7 +422,11 @@ code, pre, kbd, .font-mono {
   user-select: none;
 }
 
-.titlebar button {
+.titlebar button,
+.titlebar input,
+.titlebar textarea,
+.titlebar select,
+.titlebar a {
   -webkit-app-region: no-drag;
 }
 

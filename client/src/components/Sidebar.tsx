@@ -293,8 +293,11 @@ export default function Sidebar() {
     <nav
       className="w-56 m-3 rounded-2xl glass flex flex-col shrink-0 select-none overflow-hidden"
     >
-      {/* ─── 品牌标识 ───────────────── */}
-      <div className="px-5 pt-4 pb-2 flex justify-center">
+      {/* ─── 品牌标识（同时作为窗口拖拽区）───────────────── */}
+      <div
+        className="titlebar px-5 pt-4 pb-2 flex justify-center"
+        onDoubleClick={() => window.electronAPI?.maximize()}
+      >
         <span className="text-base font-bold text-cd-accent font-brand tracking-tight">ChallengeDaily</span>
       </div>
 

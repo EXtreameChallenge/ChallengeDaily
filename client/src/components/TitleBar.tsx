@@ -5,7 +5,13 @@
  */
 export default function TitleBar() {
   return (
-    <div className="titlebar fixed top-3 right-3 z-50 no-drag">
+    <div
+      className="titlebar fixed top-3 right-3 z-50"
+      onDoubleClick={(e) => {
+        if ((e.target as HTMLElement).closest('button')) return
+        window.electronAPI?.maximize()
+      }}
+    >
       <div className="win-controls">
         <button
           className="win-minimize"

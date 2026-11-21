@@ -21,9 +21,16 @@ export default function TopBar() {
   const showViewToggle = ['/dashboard', '/todos', '/apps', '/timeline'].some(p => currentPath.startsWith(p))
 
   return (
-    <div className="fixed top-3 left-[248px] z-40 flex items-center gap-3 no-drag">
+    <div
+      className="titlebar fixed top-3 left-[248px] right-[190px] z-40 flex items-center gap-3 select-none"
+      onDoubleClick={(e) => {
+        // 双击空白拖拽区 = 最大化/还原；交互控件不触发
+        if ((e.target as HTMLElement).closest('.no-drag')) return
+        window.electronAPI?.maximize()
+      }}
+    >
       {/* 后退/前进（一组玻璃胶囊） */}
-      <div className="glass-pill flex items-center p-1 h-10">
+      <div className="no-drag glass-pill flex items-center p-1 h-10">
         <button
           onClick={goBack}
           className="w-8 h-8 rounded-full hover:bg-white/10 dark:hover:bg-white/10 flex items-center justify-center text-cd-text-secondary transition-colors"
@@ -41,7 +48,7 @@ export default function TopBar() {
       </div>
 
       {/* 搜索框（独立玻璃胶囊） */}
-      <div className="glass-pill topbar-search flex items-center gap-2 px-3 h-10 w-56 transition-all">
+      <div className="no-drag glass-pill topbar-search flex items-center gap-2 px-3 h-10 w-56 transition-all">
         <Search size={15} className="text-cd-text-tertiary shrink-0" />
         <input
           type="text"
@@ -87,6 +94,9 @@ export default function TopBar() {
           </div>
         </>
       )}
+
+      {/* 空白拖拽区：填满到窗口控制按钮左侧 */}
+      <div className="flex-1 h-10" aria-hidden="true" />
     </div>
   )
 }
