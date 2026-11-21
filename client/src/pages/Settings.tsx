@@ -388,7 +388,7 @@ export default function Settings() {
   const handleResetDefaults = async () => {
     try {
       const defaultSettings: Partial<BackendSettings> = {
-        exclude_apps: ['WeChat', '飞书', 'DingTalk', '1Password'],
+        exclude_apps: [],
     focus_strictness: 'standard',
         screenshot_interval_sec: 60,
         work_start_hour: 9,
@@ -1007,7 +1007,7 @@ export default function Settings() {
 
         <div className="text-xs text-cd-text-tertiary space-y-1">
           <p>• 匹配逻辑：应用名或窗口标题包含上述关键词时不截图、不记录</p>
-          <p>• 默认排除微信、飞书、钉钉、1Password 等隐私应用</p>
+          <p>• 默认不排除任何应用（全量采集）；可按需填写，改后即时生效</p>
           <p>• 修改后即时生效，无需重启</p>
         </div>
       </section>
@@ -1724,9 +1724,9 @@ export default function Settings() {
 
         <div className="text-xs text-cd-text-tertiary space-y-1">
           <p>• 截图在 AI 分析完成后会自动删除，不会保存到磁盘</p>
-          <p>• 所有数据仅保存于本地 SQLite 数据库，不上传任何服务器</p>
-          <p>• AI 分析时自动脱敏：隐藏人名、手机号、金额等敏感信息</p>
-          <p>• 排除列表中的应用不会被截图和记录</p>
+          <p>• 除 AI 分析当次上传截图外（分析后即删），其余数据仅保存于本地 SQLite</p>
+          <p>• 默认不做内容脱敏；保守模式可在设置文件中开启 privacy_redact / privacy_block_upload</p>
+          <p>• 排除列表默认为空；填写的应用不会被截图和记录</p>
           <p>• API Key 使用 Windows 系统加密存储 (DPAPI)，不以明文保存</p>
         </div>
       </section>
