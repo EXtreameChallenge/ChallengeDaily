@@ -199,18 +199,37 @@ def import_rescuetime():
         return jsonify({"error": safe_error(e, "RescueTime 导入失败")}), 500
 
 
+def _normalize_import_timestamp(value) -> str | None:
+    """B41 加固：外部导入的时间戳必须先归一化，拒绝 BLOB/路径/索引名等垃圾值。
+
+    合法格式：YYYY-MM-DD HH:MM:SS，或可解析的 YYYY-MM-DD HH:MM / YYYY-MM-DD。
+    返回 None 表示非法，调用方应跳过该行，避免污染 activities.timestamp。
+    """
+    text = str(value or "").strip()
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(text, fmt).strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            continue
+    return None
+
+
 def _insert_imported_activities(rows: list[dict]) -> int:
     """将导入的活动数据插入 activities 表（标记 source='imported'）"""
     inserted = 0
     with db.get_conn() as conn:
         for r in rows:
+            ts = _normalize_import_timestamp(r.get("timestamp"))
+            if ts is None:
+                logger.debug(f"导入时间戳非法，已跳过: {r.get('timestamp')!r}")
+                continue
             try:
                 conn.execute(
                     "INSERT INTO activities (timestamp, app_name, window_title, category, "
                     "                       summary, interval_sec, ai_detail) "
                     "VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (
-                        r["timestamp"],
+                        ts,
                         r["app_name"][:100],
                         r["window_title"][:200],
                         r["category"],

@@ -37,3 +37,16 @@ def test_b41_cleanup_removes_garbage_timestamp_rows(temp_db):
 
     assert [r[0] for r in rows] == [f"{today} 10:00:00"], f"应只剩今日正常行，实际: {rows}"
     assert db.count_activities_today() >= 1 if hasattr(db, "count_activities_today") else True
+
+
+def test_b41_import_timestamp_rejects_garbage():
+    """B41 写入源头加固：外部导入必须先归一化，垃圾时间戳不得入库。"""
+    from routes.imports import _normalize_import_timestamp
+
+    assert _normalize_import_timestamp("2026-11-21 10:00:00") == "2026-11-21 10:00:00"
+    assert _normalize_import_timestamp("2026-11-21 10:00") == "2026-11-21 10:00:00"
+    assert _normalize_import_timestamp("2026-11-21") == "2026-11-21 00:00:00"
+    assert _normalize_import_timestamp("幕布同步/2025.09.18.md") is None
+    assert _normalize_import_timestamp("sqlite_autoindex_productivity_scores_1") is None
+    assert _normalize_import_timestamp(b"\x00\x01\x02") is None
+
