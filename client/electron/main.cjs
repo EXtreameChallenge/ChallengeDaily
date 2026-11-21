@@ -1242,6 +1242,59 @@ function backendGet(apiPath, cb) {
   req.end()
 }
 
+// ─── B26：主进程/渲染进程崩溃上报（本地遥测，绝不上传） ───────────
+function backendPost(apiPath, payload, cb) {
+  const token = readApiToken()
+  if (!token) { cb?.(new Error('api token unavailable')); return }
+  const body = JSON.stringify(payload)
+  const options = {
+    hostname: '127.0.0.1',
+    port: BACKEND_PORT,
+    path: apiPath,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(body),
+      'X-API-Token': token,
+    },
+  }
+  const req = http.request(options, (res) => {
+    let data = ''
+    res.on('data', (d) => { data += d })
+    res.on('end', () => cb?.(null, data, res))
+  })
+  req.on('error', (err) => cb?.(err))
+  req.setTimeout(5000, () => { req.destroy() })
+  req.end(body)
+}
+
+function reportCrash(source, detail) {
+  const safeDetail = {
+    source,
+    message: String(detail?.message || detail?.reason || detail || 'unknown').slice(0, 500),
+    stack: String(detail?.stack || '').slice(0, 1500),
+    name: String(detail?.name || '').slice(0, 120),
+    reason: String(detail?.reason || '').slice(0, 120),
+    exitCode: detail?.exitCode ?? null,
+  }
+  try {
+    backendPost('/api/enterprise/telemetry/track', {
+      event: 'electron_crash',
+      data: safeDetail,
+    })
+  } catch (e) {
+    safeLog(console.error, '[reportCrash] failed:', e)
+  }
+}
+
+app.on('render-process-gone', (_event, _webContents, details) => {
+  reportCrash('renderer_gone', details)
+})
+app.on('child-process-gone', (_event, details) => {
+  reportCrash('child_process_gone', details)
+})
+
+
 function registerShortcuts() {
   // Ctrl+Shift+S — 手动截图
   const ret1 = globalShortcut.register('CommandOrControl+Shift+S', () => {
@@ -1457,6 +1510,12 @@ process.on('uncaughtException', (err) => {
   }
   // 其他未捕获异常仍然记录
   safeLog(console.error, '[uncaughtException]', err)
+  reportCrash('main_uncaught', err)
+})
+
+process.on('unhandledRejection', (reason) => {
+  safeLog(console.error, '[unhandledRejection]', reason)
+  reportCrash('main_unhandled_rejection', reason)
 })
 
 // ─── 崩溃监控 & Watchdog & 心跳检测 ──────────────────
