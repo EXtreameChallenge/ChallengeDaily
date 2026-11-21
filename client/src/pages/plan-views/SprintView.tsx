@@ -126,8 +126,13 @@ export default function SprintView({ weekStart }: SprintViewProps) {
   }
 
   const rate = data.completion_rate
-  const rateColor = rate >= 80 ? 'text-green-400' : rate >= 50 ? 'text-yellow-400' : 'text-red-400'
-  const rateBg = rate >= 80 ? 'bg-green-500/10 border-green-500/20' : rate >= 50 ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-red-500/10 border-red-500/20'
+  const hasTasks = data.total_tasks > 0
+  const rateColor = !hasTasks
+    ? 'text-cd-text-tertiary'
+    : rate >= 80 ? 'text-green-400' : rate >= 50 ? 'text-yellow-400' : 'text-red-400'
+  const rateBg = !hasTasks
+    ? 'bg-cd-bg-card border-white/5'
+    : rate >= 80 ? 'bg-green-500/10 border-green-500/20' : rate >= 50 ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-red-500/10 border-red-500/20'
 
   // 准备燃尽图数据
   const burndownData = data.burndown.map((b, i) => ({
@@ -155,7 +160,7 @@ export default function SprintView({ weekStart }: SprintViewProps) {
             <Flame size={14} className="text-cd-accent" />
             <span className="text-xs text-cd-text-tertiary">完成率</span>
           </div>
-          <div className={`text-2xl font-bold ${rateColor}`}>{rate.toFixed(1)}%</div>
+          <div className={`text-2xl font-bold ${rateColor}`}>{hasTasks ? `${rate.toFixed(1)}%` : '—'}</div>
         </div>
         <div className="rounded-2xl p-4 border border-white/5 bg-cd-bg-card">
           <div className="flex items-center gap-2 mb-1">
@@ -230,7 +235,7 @@ export default function SprintView({ weekStart }: SprintViewProps) {
       <div className="bg-cd-bg-card rounded-2xl p-5 border border-white/5">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-cd-text-secondary">Sprint 进度</span>
-          <span className="text-sm font-semibold text-cd-text">{data.completed_tasks}/{data.total_tasks}</span>
+          <span className="text-sm font-semibold text-cd-text">{hasTasks ? `${data.completed_tasks}/${data.total_tasks}` : '—'}</span>
         </div>
         <div className="h-3 bg-cd-bg-secondary rounded-full overflow-hidden">
           <div
@@ -241,9 +246,11 @@ export default function SprintView({ weekStart }: SprintViewProps) {
           />
         </div>
         <div className="text-xs text-cd-text-tertiary mt-2 text-center">
-          {data.remaining_tasks > 0
-            ? `还有 ${data.remaining_tasks} 个任务待完成`
-            : '🎉 所有任务已完成！'}
+          {!hasTasks
+            ? '暂无任务，先添加任务或设置 Sprint 目标'
+            : data.remaining_tasks > 0
+              ? `还有 ${data.remaining_tasks} 个任务待完成`
+              : '🎉 所有任务已完成！'}
         </div>
       </div>
     </div>

@@ -1276,6 +1276,11 @@ export default function Focus() {
       {levelUp !== null && (
         <LevelUpCelebration newLevel={levelUp} onClose={() => setLevelUp(null)} />
       )}
+
+      {/* 默认窗口宽度也能看到专注评分日历；xl 以上由右栏承载 */}
+      <div className="xl:hidden mt-4">
+        <FocusScoreCalendar />
+      </div>
         </div>
       </main>
 
