@@ -219,8 +219,9 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
     """
     # B03 第二道防线：即使采集层漏判，敏感/排除应用也绝不把截图送云端分析
     try:
-        from screenshot_redactor import is_sensitive_window
+        from screenshot_redactor import is_sensitive_window, is_no_upload_window
         if (is_sensitive_window(window_title, app_name)
+                or is_no_upload_window(window_title, app_name)
                 or config.is_app_excluded(app_name or "")
                 or config.is_app_excluded(window_title or "")):
             logger.info(f"敏感/排除应用，AI 分析跳过（不上传）: {app_name} / {window_title}")

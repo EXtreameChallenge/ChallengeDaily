@@ -7,13 +7,16 @@ logger = logging.getLogger(__name__)
 # 需要脱敏的应用窗口标题关键词
 _SENSITIVE_WINDOW_KEYWORDS = [
     '密码', 'password', '登录', 'login', '银行', 'bank', '支付', 'payment',
-    '微信', 'wechat', 'qq', '支付宝', 'alipay', 'wallet', '钱包',
+    '微信', 'wechat', '支付宝', 'alipay', 'wallet', '钱包',
     # P33: 扩展敏感关键词
     '验证码', 'verification', 'otp', 'token', 'secret',
     '私人', 'private', '机密', 'confidential',
     '病历', 'medical', '健康记录',
     '社保', 'passport', '护照', '身份证',
 ]
+
+# B03 收口：QQ 只记录使用时长（归"沟通"），但截图不上传、不做内容分析
+_NO_UPLOAD_WINDOW_KEYWORDS = ['qq']
 
 # 隐私应用名单（用户可在 Settings 配置，存 settings 表）
 _PRIVACY_APPS_CACHE = None
@@ -29,6 +32,13 @@ def is_sensitive_window(window_title: str, app_name: str) -> bool:
         if kw in title_lower or kw in app_lower:
             return True
     return False
+
+
+def is_no_upload_window(window_title: str, app_name: str) -> bool:
+    """可记录但禁止上传截图的窗口（如 QQ：只统计时长与分类）。"""
+    title_lower = (window_title or "").lower()
+    app_lower = (app_name or "").lower()
+    return any(kw in title_lower or kw in app_lower for kw in _NO_UPLOAD_WINDOW_KEYWORDS)
 
 
 def blur_sensitive_region(image, region=None):

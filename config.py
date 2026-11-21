@@ -199,7 +199,7 @@ _DEFAULT_SETTINGS = {
     # B03: 隐私底线名单（与用户配置取并集，内置项不可被用户配置移除）
     "exclude_apps": [
         "1password", "bitwarden", "keepass", "lastpass", "dashlane",
-        "wechat", "weixin", "微信", "lark", "feishu", "飞书", "qq",
+        "wechat", "weixin", "微信", "lark", "feishu", "飞书",
         "银行", "bank", "支付宝", "alipay", "支付", "wallet", "钱包",
     ],
     "screenshot_interval_sec": 60,
