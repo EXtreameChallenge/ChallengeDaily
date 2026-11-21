@@ -121,6 +121,10 @@ export default function Settings() {
   const [mcpEnabled, setMcpEnabled] = useState(false)
   const [telemetryEvents, setTelemetryEvents] = useState<Array<{ event: string; data: Record<string, unknown>; time: number }>>([])
   const [integrationBusy, setIntegrationBusy] = useState<'telemetry' | 'mcp' | false>(false)
+  // 企微日报群机器人（B29）
+  const [wecomWebhook, setWecomWebhook] = useState('')
+  const [wecomConfigured, setWecomConfigured] = useState(false)
+  const [wecomBusy, setWecomBusy] = useState(false)
   // 人生配置
   const [birthday, setBirthday] = useState('')
   const [lifeExpectancy, setLifeExpectancy] = useState(80)
@@ -217,6 +221,62 @@ export default function Settings() {
     setTelemetryEnabled(!!(settings as any).telemetry_enabled)
     setMcpEnabled(!!(settings as any).mcp_enabled)
   }, [initialData])
+
+  // 企微日报配置：读取真实通道配置，未配置时明确显示“未配置”
+  const loadWecomConfig = useCallback(async () => {
+    try {
+      const res = await request('/api/report-channels/config') as { channels?: Array<{ type?: string; config?: { webhook_url?: string; webhook?: string } }> }
+      const channel = (res.channels || []).find((item) => item.type === 'wecom_report')
+      const url = String(channel?.config?.webhook_url || channel?.config?.webhook || '').trim()
+      setWecomWebhook(url)
+      setWecomConfigured(!!url)
+    } catch {
+      setWecomWebhook('')
+      setWecomConfigured(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadWecomConfig()
+  }, [loadWecomConfig])
+
+  const handleSaveWecom = async () => {
+    const url = wecomWebhook.trim()
+    if (!url) {
+      toast.error('请先填写企微群机器人 webhook')
+      return
+    }
+    if (!url.startsWith('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=')) {
+      toast.error('webhook 必须是企业微信群机器人地址')
+      return
+    }
+    setWecomBusy(true)
+    try {
+      const result = await request('/api/report-channels/test', {
+        method: 'POST',
+        body: JSON.stringify({ type: 'wecom_report', config: { webhook_url: url } }),
+      }) as { success?: boolean; message?: string }
+      if (!result.success) {
+        toast.error(`企微连接测试失败：${result.message || '未知错误'}`)
+        await loadWecomConfig()
+        return
+      }
+      const current = await request('/api/report-channels/config') as { channels?: Array<{ type?: string; config?: Record<string, unknown> }> }
+      const channels = (current.channels || []).filter((item) => item.type !== 'wecom_report')
+      channels.push({ type: 'wecom_report', config: { webhook_url: url } })
+      await request('/api/report-channels/config', {
+        method: 'POST',
+        body: JSON.stringify({ channels }),
+      })
+      setWecomConfigured(true)
+      toast.success('企微日报已保存，连接测试已真实发送')
+    } catch {
+      toast.error('保存或测试企微日报配置失败')
+      await loadWecomConfig()
+    } finally {
+      setWecomBusy(false)
+    }
+  }
 
   // 获取应用版本 & 开机自启动状态
   useEffect(() => {
@@ -1616,9 +1676,48 @@ export default function Settings() {
             </pre>
           )}
         </div>
-      </section>
 
-      {/* ─── 幕布文档接入 ──────────────────────────── */}
+        <div className="rounded-xl border border-cd-border p-4 space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-sm text-cd-text">
+                <Bot size={14} className="text-cd-green" />
+                企微群机器人日报
+              </div>
+              <div className="text-xs text-cd-text-tertiary mt-0.5">
+                通过企业微信群机器人 webhook 外发日报；未配置时不会发送任何消息。
+              </div>
+            </div>
+            <span className={`text-xs px-2.5 py-0.5 rounded-full whitespace-nowrap ${
+              wecomConfigured
+                ? 'bg-cd-green-light text-cd-green'
+                : 'bg-cd-bg-secondary text-cd-text-tertiary'
+            }`}>
+              {wecomConfigured ? '已配置' : '未配置'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="password"
+              value={wecomWebhook}
+              onChange={(e) => setWecomWebhook(e.target.value)}
+              placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
+              className="flex-1 min-w-0 bg-cd-bg-secondary text-cd-text border border-cd-border rounded-2xl px-3 py-1.5 text-xs focus:outline-none focus:border-cd-green transition-colors"
+            />
+            <button
+              onClick={handleSaveWecom}
+              disabled={wecomBusy}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-medium bg-cd-accent text-white hover:opacity-90 transition-opacity disabled:opacity-40 whitespace-nowrap"
+            >
+              {wecomBusy ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+              {wecomBusy ? '测试中...' : '保存并测试'}
+            </button>
+          </div>
+          <div className="text-xs text-cd-text-tertiary">
+            保存后会真实发送一条“连接测试”消息；只有企微返回 errcode 0 才会标记已配置。
+          </div>
+        </div>
+      </section>
       <section
         id="settings-section-幕布"
         className={`card space-y-4 ${highlightedSection === '幕布' ? 'ring-2 ring-cd-green' : ''}`}
