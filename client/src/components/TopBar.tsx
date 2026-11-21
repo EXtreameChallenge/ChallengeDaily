@@ -22,16 +22,16 @@ export default function TopBar() {
 
   return (
     <div
-      className="titlebar fixed top-3 left-[248px] right-[190px] z-40 flex items-center gap-3 select-none"
+      className="titlebar fixed top-0 left-[248px] right-0 z-40 flex items-center gap-3 select-none pt-3 pr-4"
       onDoubleClick={(e) => {
         // 双击空白拖拽区 = 最大化/还原；交互控件不触发
         if ((e.target as HTMLElement).closest('.no-drag')) return
         window.electronAPI?.maximize()
       }}
     >
-      {/* B47: 顶栏整条加实底，避免页面文字从胶囊缝隙透出 */}
+      {/* B47/B48: 顶栏衬底向上包住 12px 安全缝，整条不透明；禁止正文从缝隙穿出 */}
       <div
-        className="pointer-events-none absolute inset-0 -z-10 rounded-2xl border border-cd-border/40 bg-cd-bg backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.10)]"
+        className="pointer-events-none absolute inset-0 -z-10 rounded-b-2xl bg-cd-bg shadow-[0_8px_24px_rgba(0,0,0,0.10)]"
         aria-hidden="true"
       />
       {/* 后退/前进（一组玻璃胶囊） */}

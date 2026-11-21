@@ -83,8 +83,8 @@ function ToggleButton({
       onClick={onClick}
       className={`flex items-center gap-1 h-7 px-2.5 rounded-full text-xs transition border ${
         active
-          ? 'bg-cd-accent/15 border-cd-accent/40 text-cd-accent'
-          : 'border-cd-border text-cd-text-secondary hover:bg-cd-hover'
+          ? 'bg-cd-accent/20 border-cd-accent/50 text-white'
+          : 'border-white/15 text-white/65 hover:bg-white/10'
       }`}
     >
       <Icon size={12} />
@@ -105,6 +105,7 @@ export default function AIDock() {
 
   const inputRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const idRef = useRef(1)
 
@@ -121,6 +122,26 @@ export default function AIDock() {
     if (expanded) {
       const t = setTimeout(() => inputRef.current?.focus(), 80)
       return () => clearTimeout(t)
+    }
+  }, [expanded])
+
+  // B48 留白层：展开面板是浮层，不占布局；把面板高度写到 CSS 变量，
+  // 主滚动容器用它追加 padding-bottom，保证最后一个元素仍能滚到坞上方。
+  useEffect(() => {
+    const root = document.documentElement
+    const panel = panelRef.current
+    const sync = () => {
+      const extra = expanded && panel ? panel.offsetHeight + 12 : 0
+      root.style.setProperty('--ai-dock-extra-pad', `${extra}px`)
+    }
+    sync()
+    const ro = typeof ResizeObserver !== 'undefined' && panel ? new ResizeObserver(sync) : null
+    ro?.observe(panel)
+    window.addEventListener('resize', sync)
+    return () => {
+      ro?.disconnect()
+      window.removeEventListener('resize', sync)
+      root.style.setProperty('--ai-dock-extra-pad', '0px')
     }
   }, [expanded])
 
@@ -224,27 +245,31 @@ export default function AIDock() {
   }
 
   return (
-    <div className="ai-dock-float relative mx-auto w-[min(620px,58%)]">
-      {/* ── 展开的对话面板（B45：必须在文档流内，由 gate 撑高、main 收缩；禁止 absolute bottom-full） ── */}
+    <div className="fixed bottom-4 left-[248px] right-0 z-40 flex justify-center pointer-events-none">
+      <div className="ai-dock-shell relative pointer-events-auto">
+      {/* ── 展开的对话面板（B48：向上浮层，不占布局；玻璃材质、无边框） ── */}
       {expanded && (
-        <div className="glass-strong rounded-2xl mb-3 flex flex-col max-h-[60vh] overflow-hidden animate-slide-up">
+        <div
+          ref={panelRef}
+          className="ai-dock-panel absolute bottom-[calc(100%+12px)] left-0 right-0 flex flex-col max-h-[60vh] overflow-hidden"
+        >
           {/* 头部 */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-cd-border/50 shrink-0">
+          <div className="flex items-center justify-between px-4 py-2.5 shrink-0">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-cd-accent/15 flex items-center justify-center">
+              <div className="w-6 h-6 rounded-full bg-cd-accent/20 flex items-center justify-center">
                 <Bot size={13} className="text-cd-accent" />
               </div>
-              <span className="text-sm font-medium text-cd-text">AI 助手</span>
-              <span className="text-[11px] text-cd-text-tertiary hidden sm:inline">
+              <span className="text-sm font-medium text-white">AI 助手</span>
+              <span className="text-[11px] text-white/45 hidden sm:inline">
                 当前：{pageLabel}
               </span>
             </div>
             <button
               onClick={() => setExpanded(false)}
-              className="p-1 rounded-lg hover:bg-cd-hover transition"
+              className="p-1 rounded-lg hover:bg-white/10 transition"
               title="收起"
             >
-              <ChevronDown size={15} className="text-cd-text-tertiary" />
+              <ChevronDown size={15} className="text-white/55" />
             </button>
           </div>
 
@@ -252,10 +277,10 @@ export default function AIDock() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center py-6">
-                <div className="w-10 h-10 rounded-full bg-cd-accent/10 flex items-center justify-center mb-2.5">
+                <div className="w-10 h-10 rounded-full bg-cd-accent/20 flex items-center justify-center mb-2.5">
                   <Sparkles size={18} className="text-cd-accent" />
                 </div>
-                <p className="text-sm text-cd-text-secondary mb-3">
+                <p className="text-sm text-white/70 mb-3">
                   问我任何事，回答就在这里展开
                 </p>
                 <div className="flex flex-wrap gap-2 justify-center max-w-md">
@@ -263,7 +288,7 @@ export default function AIDock() {
                     <button
                       key={i}
                       onClick={() => handleSend(s)}
-                      className="text-xs px-3 py-1.5 rounded-full border border-cd-border text-cd-text-secondary hover:border-cd-accent hover:text-cd-accent transition"
+                      className="text-xs px-3 py-1.5 rounded-full border border-white/15 text-white/70 hover:border-cd-accent hover:text-cd-accent transition"
                     >
                       {s}
                     </button>
@@ -282,7 +307,7 @@ export default function AIDock() {
                   <div key={m.id} className="flex justify-start">
                     <div className="max-w-[85%]">
                       {m.content ? (
-                        <div className="text-sm leading-relaxed text-cd-text [&_li]:ml-4 [&_li]:list-disc [&_strong]:text-cd-text">
+                        <div className="text-sm leading-relaxed text-white/90 [&_li]:ml-4 [&_li]:list-disc [&_strong]:text-white">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {m.content}
                           </ReactMarkdown>
@@ -302,7 +327,7 @@ export default function AIDock() {
           </div>
 
           {/* 功能工具栏：仅展开时显示 */}
-          <div className="px-3 pt-2 pb-2 shrink-0 border-t border-cd-border/40">
+          <div className="px-3 pt-2 pb-2 shrink-0 bg-white/5">
             <div className="flex items-center gap-1.5 flex-wrap">
               <ToggleButton
                 active={deepThink}
@@ -324,7 +349,7 @@ export default function AIDock() {
                       setInput(t.prompt)
                       inputRef.current?.focus()
                     }}
-                    className="flex items-center gap-1 h-7 px-2.5 rounded-full text-xs border border-cd-border text-cd-text-secondary hover:bg-cd-hover transition"
+                    className="flex items-center gap-1 h-7 px-2.5 rounded-full text-xs border border-white/15 text-white/65 hover:bg-white/10 transition"
                   >
                     <t.icon size={12} />
                     {t.label}
@@ -332,11 +357,11 @@ export default function AIDock() {
                 ))}
               <div className="flex-1" />
               {/* 模式切换 */}
-              <div className="glass-pill flex items-center p-0.5 h-7">
+              <div className="ai-dock-segment flex items-center p-0.5 h-7">
                 <button
                   onClick={() => setMode('chat')}
                   className={`px-2.5 h-6 rounded-full text-xs transition ${
-                    mode === 'chat' ? 'bg-cd-accent text-white' : 'text-cd-text-secondary'
+                    mode === 'chat' ? 'bg-cd-accent text-white' : 'text-white/60'
                   }`}
                 >
                   对话
@@ -344,7 +369,7 @@ export default function AIDock() {
                 <button
                   onClick={() => setMode('agent')}
                   className={`px-2.5 h-6 rounded-full text-xs transition ${
-                    mode === 'agent' ? 'bg-cd-accent text-white' : 'text-cd-text-secondary'
+                    mode === 'agent' ? 'bg-cd-accent text-white' : 'text-white/60'
                   }`}
                 >
                   智能体
@@ -355,9 +380,9 @@ export default function AIDock() {
         </div>
       )}
 
-      {/* ── 悬浮玻璃输入条（h-11=44px，发送按钮上下右边距均为8px）── */}
-      <div className="glass-pill ai-dock-input flex items-center gap-2 pl-3 pr-2 h-11 shrink-0 w-full" style={{ height: '44px', minHeight: '44px' }}>
-        <Bot size={15} className="text-cd-accent shrink-0" />
+      {/* ── 悬浮玻璃输入条（B48：52px 高、20px 圆角、无边框、背后内容实时模糊）── */}
+      <div className="ai-dock-surface flex items-center gap-2 pl-4 pr-2.5 h-[52px] w-full">
+        <Bot size={16} className="text-cd-accent shrink-0" />
         <input
           ref={inputRef}
           type="text"
@@ -366,23 +391,24 @@ export default function AIDock() {
           onKeyDown={handleKeyDown}
           onFocus={() => setExpanded(true)}
           placeholder="问我任何事..."
-          className="flex-1 min-w-0 bg-transparent text-sm text-cd-text placeholder:text-cd-text-tertiary outline-none"
+          className="flex-1 min-w-0 bg-transparent text-sm text-white placeholder:text-white/35 outline-none"
         />
         {input && !streaming && (
           <button
             onClick={() => setInput('')}
-            className="p-1 rounded-full hover:bg-cd-hover transition shrink-0"
+            className="p-1 rounded-full hover:bg-white/10 transition shrink-0"
           >
-            <X size={13} className="text-cd-text-tertiary" />
+            <X size={13} className="text-white/50" />
           </button>
         )}
         <button
           onClick={streaming ? handleStop : () => handleSend()}
           disabled={!streaming && !input.trim()}
-          className="w-7 h-7 rounded-full bg-cd-accent text-white flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition"
+          className="w-8 h-8 rounded-full bg-cd-accent text-white flex items-center justify-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition"
         >
-          {streaming ? <Square size={11} /> : <Send size={13} />}
+          {streaming ? <Square size={12} /> : <Send size={14} />}
         </button>
+      </div>
       </div>
     </div>
   )

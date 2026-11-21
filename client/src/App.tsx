@@ -282,10 +282,13 @@ export default function App() {
                 <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
                 <ElectronNavigationBridge />
                 <Sidebar />
-                {/* B45 布局不变量：main 与 AIDockGate 必须同列；main 的 min-h-0 保证
-                    展开面板撑高 gate 时 main 收缩，任何页面滚到底最后一个元素都完整可见 */}
+                {/* B48 布局不变量：AI 坞是 fixed 浮层，不占布局；main 用
+                    padding-bottom 预留坞+展开面板高度，正文可从坞背后滚过 */}
                 <div className="flex-1 min-w-0 flex flex-col min-h-0">
-                  <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6 pt-12 pb-6">
+                  <main
+                    className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6 pt-12"
+                    style={{ paddingBottom: 'calc(96px + var(--ai-dock-extra-pad, 0px))' }}
+                  >
                     <RouteErrorBoundary>
                       <Suspense fallback={<PageSpinner />}>
                       <Routes>
@@ -401,15 +404,11 @@ function RouteErrorBoundary({ children }: { children: ReactNode }) {
   )
 }
 
-/** AI 对话页面隐藏底部悬浮对话框；其余页面在底部占位栏中显示，避免遮挡内容 */
+/** AI 对话页面隐藏底部悬浮坞；其余页面渲染固定浮层，不再占用布局高度 */
 function AIDockGate() {
   const location = useLocation()
   if (location.pathname === '/ai-chat') return null
-  return (
-    <div className="shrink-0 px-6 pb-3 pt-1 relative z-40">
-      <AIDock />
-    </div>
-  )
+  return <AIDock />
 }
 
 function LoadingScreen() {

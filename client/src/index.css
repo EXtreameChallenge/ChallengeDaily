@@ -510,6 +510,45 @@ code, pre, kbd, .font-mono {
   border-radius: 999px;
 }
 
+/* ─── B48 浮动玻璃坞（floating glass dock）────────────
+   位置层：fixed 悬浮，不占布局；材质层：半透明 + backdrop blur；
+   无 border，避免画出一条硬线；留白由主滚动容器负责。 */
+.ai-dock-shell {
+  width: min(640px, calc(100vw - 296px));
+}
+
+.ai-dock-surface,
+.ai-dock-panel {
+  background: rgba(20, 18, 40, 0.45);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 0;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.26);
+}
+
+.ai-dock-panel {
+  background: rgba(20, 18, 40, 0.62);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.34);
+}
+
+/* 输入框自身不画硬焦点线；焦点反馈放到整条坞上，保持玻璃边缘无边框 */
+.ai-dock-surface input:focus-visible {
+  outline: none !important;
+}
+.ai-dock-surface:focus-within {
+  box-shadow:
+    0 0 28px rgba(108, 92, 231, 0.32),
+    0 10px 40px rgba(0, 0, 0, 0.26);
+  background: rgba(20, 18, 40, 0.50);
+}
+
+.ai-dock-segment {
+  background: rgba(255, 255, 255, 0.08);
+  border: 0;
+  border-radius: 999px;
+}
+
 /* 玻璃卡片（带内边距，用于内容区） */
 .card-glass {
   background: var(--cd-glass-bg);
@@ -1185,10 +1224,10 @@ main h1 {
   }
 }
 
-/* 悬浮 AI 输入条小窗口适配（布局内占位，不再 fixed 覆盖内容） */
+/* 悬浮 AI 坞小窗口适配：玻璃坞始终居中于主内容区，窗口变窄时同步收窄 */
 @media (max-width: 720px) {
-  .ai-dock-float {
-    width: 100% !important;
+  .ai-dock-shell {
+    width: min(640px, calc(100vw - 296px));
   }
 }
 
@@ -1328,6 +1367,11 @@ textarea:focus-visible,
 @supports not (backdrop-filter: blur(1px)) {
   .glass, .glass-strong, .glass-pill, .card, .card-glass {
     background: var(--cd-card);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .ai-dock-surface, .ai-dock-panel {
+    background: rgba(20, 18, 40, 0.88);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
