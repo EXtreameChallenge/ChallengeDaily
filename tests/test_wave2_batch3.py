@@ -61,6 +61,23 @@ def test_b06_start_listening_returns_real_result(monkeypatch):
     assert "keyboard" in result["error"]
 
 
+def test_b06_key_event_counts_only_keydown(monkeypatch):
+    """keyboard.hook 同时触发 down/up，计数只认 down（一次按键记 1 次）。"""
+    import keyboard_tracker as kt
+
+    class Ev:
+        def __init__(self, name, event_type):
+            self.name = name
+            self.event_type = event_type
+
+    kt._key_stats.clear()
+    monkeypatch.setattr(kt, "play_keypress_sound", lambda: None, raising=False)
+    kt._on_key_event(Ev("a", "down"))
+    kt._on_key_event(Ev("a", "up"))
+    kt._on_key_event(Ev("a", "down"))
+    assert kt.get_stats().get("A") == 2, "只统计按下事件"
+
+
 def test_b06_flush_stats_persists(temp_db, monkeypatch):
     import keyboard_tracker as kt
     from db import get_conn

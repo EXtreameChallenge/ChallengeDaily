@@ -48,6 +48,9 @@ def _on_key_event(event):
         key_name = event.name
         if not key_name:
             return
+        # keyboard.hook 同时抛 down/up 事件，只统计按下，避免一次按键记两次
+        if getattr(event, "event_type", "down") != "down":
+            return
         normalized = _normalize_key(key_name)
         with _stats_lock:
             _key_stats[normalized] += 1
