@@ -60,6 +60,18 @@ def offline_ai(monkeypatch):
     monkeypatch.setattr(report.config, "SCREENSHOT_INTERVAL_SEC", 60)
 
 
+def test_generate_daily_report_facade(monkeypatch, offline_ai):
+    """拆分后门面仍可走完 daily 生成链路（隔离 DB 与磁盘）。"""
+    monkeypatch.setattr(report, "get_activities", lambda a, b: ACTIVITIES)
+    monkeypatch.setattr(report, "get_daily_summary", lambda a, b: SUMMARY)
+    monkeypatch.setattr(report, "get_app_usage", lambda a, b: APP_USAGE)
+    monkeypatch.setattr(report, "_save", lambda content, target_date: None)
+    monkeypatch.setattr(report, "_work_records_section", lambda target_date: "")
+    monkeypatch.setattr(report, "_mark_first_report_badge", lambda: None)
+    content = report.generate_daily_report(DATE, "standard")
+    assert content == (GOLDEN_DIR / "standard.md").read_text(encoding="utf-8")
+
+
 def test_six_templates_match_golden(offline_ai):
     assert set(report._TEMPLATE_MAP) == {"standard", "simple", "technical", "okr", "ai", "deep"}
     GOLDEN_DIR.mkdir(parents=True, exist_ok=True)
