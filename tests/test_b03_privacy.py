@@ -57,3 +57,23 @@ def test_qq_full_record_and_category():
     assert classify("QQ.exe", "", "QQ - 聊天") == "沟通"
     assert _classify_app("QQ.exe") == "会议沟通"
     assert is_no_upload_window("QQ - 聊天", "QQ.exe") is True  # 机制保留，可随开关启用
+
+
+def test_redact_helper_really_blurs():
+    """privacy_redact 开启时确有真实动作：整图模糊后再编码。"""
+    import base64, io
+    from PIL import Image
+    from screenshot_redactor import redact_base64_image
+
+    img = Image.new("RGB", (40, 40), "white")
+    for x in range(10, 30):
+        img.putpixel((x, 20), (0, 0, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=95)
+    src_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+
+    out_b64 = redact_base64_image(src_b64)
+    out = Image.open(io.BytesIO(base64.b64decode(out_b64)))
+    assert out.size == (40, 40)
+    assert out_b64 != src_b64, "脱敏必须实际改变像素，不能是原图透传"
+

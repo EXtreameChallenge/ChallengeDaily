@@ -275,16 +275,29 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
         fallback_summary = f"{app_name} - {window_title}" if window_title else app_name or "未分类"
         return {"category": "", "summary": fallback_summary, "detail": "截图文件缺失，已按应用规则分类", "windows": []}
 
+    # 隐私可选项（默认关闭）：截图脱敏——敏感窗口整图模糊后再上传，OCR 同样跳过
+    redacted = False
+    if config.is_privacy_redact_enabled():
+        try:
+            from screenshot_redactor import is_sensitive_window, redact_base64_image
+            if is_sensitive_window(window_title, app_name):
+                b64_image = redact_base64_image(b64_image)
+                redacted = True
+                logger.info(f"敏感窗口截图已脱敏（整图模糊）后上传: {app_name}")
+        except Exception as e:
+            logger.warning(f"截图脱敏失败（按未脱敏处理）: {e}")
+
     user_text = build_user_prompt(app_name, window_title, recent_context, visible_windows)
 
     # P9-1：注入 OCR 增强上下文（PaddleOCR 文字 + 图像特征）
-    try:
-        from ocr_enhancer import extract_text_from_image
-        ocr_ctx = extract_text_from_image(image_path)
-        if ocr_ctx:
-            user_text = user_text + "\n" + ocr_ctx
-    except Exception:
-        pass  # OCR 模块加载失败不影响核心功能
+    if not redacted:
+        try:
+            from ocr_enhancer import extract_text_from_image
+            ocr_ctx = extract_text_from_image(image_path)
+            if ocr_ctx:
+                user_text = user_text + "\n" + ocr_ctx
+        except Exception:
+            pass  # OCR 模块加载失败不影响核心功能
 
     max_retries = 3
     for attempt in range(max_retries):

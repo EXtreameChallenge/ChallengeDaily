@@ -1,4 +1,6 @@
 """截屏内容脱敏"""
+import base64
+import io
 import logging
 from PIL import Image, ImageFilter
 
@@ -50,6 +52,20 @@ def blur_sensitive_region(image, region=None):
     blurred = cropped.filter(ImageFilter.GaussianBlur(radius=15))
     image.paste(blurred, (x, y))
     return image
+
+
+def redact_base64_image(b64_image: str, radius: int = 15) -> str:
+    """整图高斯模糊后返回新的 base64（内存中处理，不落临时文件）。
+
+    用于 privacy_redact 开关开启时的敏感窗口：宁可牺牲分析精度，也不让
+    原始像素离开本机。
+    """
+    raw = base64.b64decode(b64_image)
+    img = Image.open(io.BytesIO(raw)).convert("RGB")
+    blurred = img.filter(ImageFilter.GaussianBlur(radius=radius))
+    buf = io.BytesIO()
+    blurred.save(buf, format="JPEG", quality=85)
+    return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
 def get_privacy_apps() -> list:
