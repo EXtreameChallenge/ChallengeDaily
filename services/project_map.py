@@ -23,7 +23,7 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 # ── 外部路径：基于本文件所在目录定位项目根 ──
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ROUTES_DIR = PROJECT_ROOT / "routes"
 
 try:

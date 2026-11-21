@@ -12,7 +12,7 @@ from file_utils import atomic_write_text, backup_file
 
 # ── 加载 .env 文件 ──
 # 加载 .env 文件，但空值不会写入 os.environ，避免覆盖 vault 或环境变量中已保存的敏感信息
-_ENV_FILE = Path(__file__).resolve().parent / ".env"
+_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 if _ENV_FILE.exists():
     with open(_ENV_FILE, "r", encoding="utf-8") as f:
         for line in f:
@@ -28,7 +28,7 @@ if _ENV_FILE.exists():
                     os.environ[key] = value
 
 # ── 基础路径 ──
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 # 支持通过环境变量覆盖数据目录，Electron 打包后会把数据固定到 userData/backend-data
 _data_dir_override = os.getenv("CHALLENGE_DAILY_DATA_DIR", "")
 if _data_dir_override:

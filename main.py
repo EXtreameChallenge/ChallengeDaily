@@ -13,6 +13,10 @@ import threading
 import time
 from datetime import date, datetime
 
+from legacy_aliases import install as _install_legacy_aliases
+
+_install_legacy_aliases()
+
 from config import HTTP_PORT, RETENTION_DAYS, DATA_DIR, BASE_DIR
 import config
 from db import init_db

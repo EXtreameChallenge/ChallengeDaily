@@ -64,6 +64,8 @@ scripts/_test_singleton.py
 
 # Python cache
 .pytest_cache/
+.coverage
+.coverage.*
 mypy_cache/
 .ruff_cache/
 

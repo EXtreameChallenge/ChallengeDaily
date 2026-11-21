@@ -1,6 +1,6 @@
 """
 ChallengeDaily Windows 版 — 依赖安装脚本
-运行: python install_deps.py
+运行: python scripts/install_deps.py
 """
 import subprocess
 import sys

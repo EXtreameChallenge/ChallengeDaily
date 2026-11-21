@@ -10,6 +10,10 @@ from collections import defaultdict
 from flask import Flask, jsonify, request
 from werkzeug.exceptions import HTTPException
 
+from legacy_aliases import install as _install_legacy_aliases
+
+_install_legacy_aliases()
+
 from config import HTTP_PORT
 from routes.deps import shutdown_event, check_token, save_token, TOKEN_PATH, install_log_redaction
 import routes.deps as deps

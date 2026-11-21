@@ -1,6 +1,16 @@
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from legacy_aliases import install
+
+install()
+
 import config
 import json
-from pathlib import Path
 from crypto import has_vault, load_secret
 
 print(f"AI_ENABLED (settings): {config.load_settings().get('ai_enabled')}")

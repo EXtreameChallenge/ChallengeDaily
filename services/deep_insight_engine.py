@@ -26,7 +26,7 @@ def _load_knowledge_base():
     global _FRAMEWORKS, _CATEGORY_PROFILES, _REFERENCES
     if _FRAMEWORKS is not None:
         return
-    kb_path = os.path.join(os.path.dirname(__file__), 'deep_insight_frameworks.yaml')
+    kb_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'deep_insight_frameworks.yaml')
     try:
         with open(kb_path, 'r', encoding='utf-8') as f:
             kb = yaml.safe_load(f)

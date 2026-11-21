@@ -1,6 +1,6 @@
 {
   "name": "challenge-daily",
-  "version": "3.10.11",
+  "version": "3.10.12",
   "description": "ChallengeDaily Windows - AI Work Daily Report Assistant",
   "type": "module",
   "main": "electron/main.cjs",
@@ -117,112 +117,45 @@
         "to": "backend/main.py"
       },
       {
-        "from": "../mcp_server.py",
-        "to": "backend/mcp_server.py"
-      },
-      {
-        "from": "../mubu_sync.py",
-        "to": "backend/mubu_sync.py"
-      },
-      {
-        "from": "../routes/mubu_routes.py",
-        "to": "backend/routes/mubu_routes.py"
-      },
-      {
-        "from": "../config.py",
-        "to": "backend/config.py"
-      },
-      {
-        "from": "../db.py",
-        "to": "backend/db.py"
-      },
-      {
-        "from": "../screenshot.py",
-        "to": "backend/screenshot.py"
-      },
-      {
-        "from": "../app_tracker.py",
-        "to": "backend/app_tracker.py"
-      },
-      {
-        "from": "../prompt.py",
-        "to": "backend/prompt.py"
-      },
-      {
-        "from": "../ai_client.py",
-        "to": "backend/ai_client.py"
-      },
-      {
-        "from": "../collector.py",
-        "to": "backend/collector.py"
-      },
-      {
-        "from": "../report.py",
-        "to": "backend/report.py"
-      },
-      {
         "from": "../server.py",
         "to": "backend/server.py"
       },
       {
-        "from": "../context_manager.py",
-        "to": "backend/context_manager.py"
+        "from": "../mcp_server.py",
+        "to": "backend/mcp_server.py"
       },
       {
-        "from": "../system_events.py",
-        "to": "backend/system_events.py"
+        "from": "../legacy_aliases.py",
+        "to": "backend/legacy_aliases.py"
       },
       {
-        "from": "../deep_insight_engine.py",
-        "to": "backend/deep_insight_engine.py"
+        "from": "../sitecustomize.py",
+        "to": "backend/sitecustomize.py"
       },
       {
-        "from": "../icon_extractor.py",
-        "to": "backend/icon_extractor.py"
+        "from": "../conftest.py",
+        "to": "backend/conftest.py"
       },
       {
-        "from": "../file_utils.py",
-        "to": "backend/file_utils.py"
+        "from": "../core",
+        "to": "backend/core",
+        "filter": [
+          "**/*.py"
+        ]
       },
       {
-        "from": "../crypto.py",
-        "to": "backend/crypto.py"
+        "from": "../services",
+        "to": "backend/services",
+        "filter": [
+          "**/*.py"
+        ]
       },
       {
-        "from": "../classifier.py",
-        "to": "backend/classifier.py"
-      },
-      {
-        "from": "../install_deps.py",
-        "to": "backend/install_deps.py"
-      },
-      {
-        "from": "../observability.py",
-        "to": "backend/observability.py"
-      },
-      {
-        "from": "../backup_scheduler.py",
-        "to": "backend/backup_scheduler.py"
-      },
-      {
-        "from": "../db_consistency_check.py",
-        "to": "backend/db_consistency_check.py"
-      },
-      {
-        "from": "../feature_flags.py",
-        "to": "backend/feature_flags.py"
-      },
-      {
-        "from": "../screenshot_redactor.py",
-        "to": "backend/screenshot_redactor.py"
-      },
-      {
-        "from": "../event_bus.py",
-        "to": "backend/event_bus.py"
-      },
-      {
-        "from": "../requirements.txt",
-        "to": "backend/requirements.txt"
+        "from": "../integrations",
+        "to": "backend/integrations",
+        "filter": [
+          "**/*.py"
+        ]
       },
       {
         "from": "../routes",
@@ -230,6 +163,25 @@
         "filter": [
           "**/*.py"
         ]
+      },
+      {
+        "from": "../db_layers",
+        "to": "backend/db_layers",
+        "filter": [
+          "**/*.py"
+        ]
+      },
+      {
+        "from": "../scripts",
+        "to": "backend/scripts",
+        "filter": [
+          "**/*.py",
+          "**/*.ps1"
+        ]
+      },
+      {
+        "from": "../requirements.txt",
+        "to": "backend/requirements.txt"
       },
       {
         "from": "../deep_insight_frameworks.yaml",

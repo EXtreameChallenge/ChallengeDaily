@@ -1,5 +1,15 @@
 """ChallengeDaily Agent 系统全面测试脚本 v2"""
 import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from legacy_aliases import install  # noqa: E402
+
+install()
+
 import traceback
 
 PASS = 0
