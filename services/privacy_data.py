@@ -44,6 +44,7 @@ _USER_FILES = (
     "settings.json", "settings.pre-fullmode.json", "auto_report.json",
     "webhooks.json", "vault.dat", "wakatime_api_key.json",
     "round10-migration.json", "benchmark_profile.json", "xiaohei.db.bak",
+    "machine_fallback_id.bin",
 )
 # 导出时按文件内容递归打包；backups/archives 体积可能很大，只导出清单，避免 JSON 爆内存。
 _EXPORT_DIRS = (

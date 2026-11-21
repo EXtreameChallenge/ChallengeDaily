@@ -51,6 +51,7 @@ def main() -> int:
         json.dumps({"anonymous_id": "round10-test"}), encoding="utf-8"
     )
     (data_dir / "xiaohei.db.bak").write_bytes(b"old-db-backup")
+    (data_dir / "machine_fallback_id.bin").write_text("machine-test-id", encoding="utf-8")
     (data_dir / "screenshot_salt.bin").write_bytes(b"0123456789abcdef")
     config.save_settings({**config.load_settings(), "telemetry_enabled": False})
 
@@ -105,6 +106,7 @@ def main() -> int:
     assert "logs/round10-test.log" in exported["directories"]
     assert "benchmark_profile.json" in exported["files"]
     assert "xiaohei.db.bak" in exported["files"]
+    assert "machine_fallback_id.bin" in exported["files"]
 
     delete_resp = client.delete("/api/privacy/data")
     assert delete_resp.status_code == 200
@@ -115,6 +117,7 @@ def main() -> int:
     assert not (data_dir / "logs" / "round10-test.log").exists()
     assert not (data_dir / "benchmark_profile.json").exists()
     assert not (data_dir / "xiaohei.db.bak").exists()
+    assert not (data_dir / "machine_fallback_id.bin").exists()
 
     restore_resp = client.post(
         "/api/backup/restore",
@@ -133,6 +136,7 @@ def main() -> int:
     assert (data_dir / "logs" / "round10-test.log").exists()
     assert (data_dir / "benchmark_profile.json").exists()
     assert (data_dir / "xiaohei.db.bak").exists()
+    assert (data_dir / "machine_fallback_id.bin").exists()
 
     print(json.dumps({
         "status": "ok",
