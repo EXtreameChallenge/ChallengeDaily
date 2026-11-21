@@ -246,6 +246,9 @@ export interface HealthCoverage {
   date: string
   system: {
     total_uptime_min: number
+    sleep_min: number
+    awake_min: number
+    sleep_count: number
     current_uptime_sec: number
     boot_count: number
     shutdown_count: number
@@ -262,6 +265,7 @@ export interface HealthCoverage {
   gap: {
     missing_min: number
     coverage_pct: number
+    sleep_excluded_min: number
     missing_periods: Array<{
       start: string
       end: string

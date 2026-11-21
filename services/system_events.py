@@ -7,6 +7,8 @@
   - System log Event ID 12  (Kernel-General)  系统启动
   - System log Event ID 13  (Kernel-General)  系统关闭
   - System log Event ID 41  (Kernel-Power)    意外关机/蓝屏
+  - System log Event ID 42  (Kernel-Power)    进入睡眠
+  - System log Event ID 107 (Kernel-Power)    从睡眠恢复
   - System log Event ID 1   (EventLog)        事件日志服务启动（开机后第一批）
   - Security log Event ID 4624 LogonType=2/11  交互式/解锁登录（需管理员权限，失败时降级）
   - Security log Event ID 4647                 用户发起注销（需管理员权限，失败时降级）
@@ -37,12 +39,18 @@ EVENT_SHUTDOWN = "shutdown"  # 正常关机
 EVENT_CRASH = "crash"        # 意外关机
 EVENT_LOGIN = "login"        # 用户登录
 EVENT_LOGOFF = "logoff"      # 用户注销
+EVENT_SLEEP = "sleep"        # 进入睡眠
+EVENT_RESUME = "resume"      # 从睡眠恢复
 
 # Windows 事件 ID → 事件类型映射
 _SYSTEM_EVENT_MAP = {
     12: EVENT_BOOT,
     13: EVENT_SHUTDOWN,
     41: EVENT_CRASH,
+}
+_POWER_EVENT_MAP = {
+    42: EVENT_SLEEP,    # Kernel-Power: 进入睡眠
+    107: EVENT_RESUME,  # Kernel-Power: 从睡眠恢复
 }
 
 # 权威 provider 白名单 —— 同一事件 ID 会被多个 provider 重复发，只信权威源
@@ -227,6 +235,107 @@ $events | Sort-Object TimeCreated | ForEach-Object {{
     return result
 
 
+def get_power_events(start_date: str, end_date: str) -> list[dict]:
+    """读取睡眠/恢复事件（Kernel-Power 42/107）。
+
+    返回 [{"timestamp", "event_type", "source"}] 按时间升序。
+    若系统未启用睡眠（台式机常驻）或事件日志不可读，返回空列表。
+    """
+    _validate_date(start_date)
+    _validate_date(end_date)
+
+    try:
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        lookback = (start_dt - timedelta(days=30)).strftime("%Y-%m-%d")
+    except Exception:
+        lookback = start_date
+
+    script = f"""
+$ErrorActionPreference = 'SilentlyContinue'
+$start = [datetime]::ParseExact('{lookback}', 'yyyy-MM-dd', $null)
+$end = [datetime]::ParseExact('{end_date}', 'yyyy-MM-dd', $null).AddDays(1)
+$events = Get-WinEvent -FilterHashtable @{{LogName='System'; Id=42,107; StartTime=$start; EndTime=$end}} -ErrorAction SilentlyContinue
+if (-not $events) {{ return '[]' }}
+$events | Sort-Object TimeCreated | ForEach-Object {{
+    [pscustomobject]@{{
+        timestamp = $_.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss')
+        event_id = $_.Id
+        provider = $_.ProviderName
+    }}
+}} | ConvertTo-Json -Compress
+"""
+    out = _run_powershell(script, timeout=20)
+    if not out:
+        return []
+    try:
+        data = json.loads(out)
+        if isinstance(data, dict):
+            data = [data]
+    except json.JSONDecodeError as e:
+        logger.warning(f"解析睡眠事件失败: {e}")
+        return []
+
+    result = []
+    for ev in data:
+        etype = _POWER_EVENT_MAP.get(ev.get("event_id"))
+        if not etype:
+            continue
+        provider = ev.get("provider", "")
+        if provider and provider != "Microsoft-Windows-Kernel-Power":
+            continue
+        result.append({
+            "timestamp": ev["timestamp"],
+            "event_type": etype,
+            "source": f"System/{provider or 'Kernel-Power'}",
+        })
+    result.sort(key=lambda x: x["timestamp"])
+    return result
+
+
+def get_sleep_sessions(start_date: str, end_date: str) -> list[dict]:
+    """把 42/107 配对成睡眠区间，并裁剪到查询当天。
+
+    跨夜睡眠也支持：查询会向前看 30 天找 42，再与 107 配对。
+    """
+    events = get_power_events(start_date, end_date)
+    range_start = datetime.strptime(f"{start_date} 00:00:00", "%Y-%m-%d %H:%M:%S")
+    range_end = datetime.strptime(f"{end_date} 23:59:59", "%Y-%m-%d %H:%M:%S")
+    now = datetime.now()
+    sessions = []
+    sleep_start = None
+
+    for ev in events:
+        ts = datetime.strptime(ev["timestamp"], "%Y-%m-%d %H:%M:%S")
+        if ev["event_type"] == EVENT_SLEEP:
+            if sleep_start is None:
+                sleep_start = ts
+            continue
+        if ev["event_type"] == EVENT_RESUME and sleep_start is not None:
+            sessions.append((sleep_start, ts))
+            sleep_start = None
+
+    # 仍在睡眠：截止到现在（不超过查询日终点）
+    if sleep_start is not None:
+        sessions.append((sleep_start, min(now, range_end)))
+
+    clipped = []
+    for start, end in sessions:
+        if end <= start:
+            continue
+        start = max(start, range_start)
+        end = min(end, range_end)
+        if end <= start:
+            continue
+        clipped.append({
+            "start": start.strftime("%Y-%m-%d %H:%M:%S"),
+            "end": end.strftime("%Y-%m-%d %H:%M:%S"),
+            "duration_sec": int((end - start).total_seconds()),
+            "type": "sleep_session",
+            "source": "System/Kernel-Power",
+        })
+    return clipped
+
+
 def get_login_events(start_date: str, end_date: str) -> list[dict]:
     """读取登录/注销事件（需管理员权限，失败返回空列表降级）。
 
@@ -402,6 +511,9 @@ def get_system_coverage(start_date: str, end_date: str) -> dict:
     sessions = get_system_sessions(start_date, end_date)
     boot_sessions = [s for s in sessions if s["type"] == "boot_session"]
     total_uptime = sum(s["duration_sec"] for s in boot_sessions)
+    sleep_sessions = get_sleep_sessions(start_date, end_date)
+    sleep_sec = sum(s["duration_sec"] for s in sleep_sessions)
+    awake_sec = max(0, total_uptime - sleep_sec)
 
     # 只统计查询范围内的事件
     events = get_boot_events(start_date, end_date)
@@ -412,6 +524,12 @@ def get_system_coverage(start_date: str, end_date: str) -> dict:
     return {
         "total_uptime_sec": total_uptime,
         "total_uptime_min": round(total_uptime / 60, 1),
+        "sleep_sec": sleep_sec,
+        "sleep_min": round(sleep_sec / 60, 1),
+        "awake_sec": awake_sec,
+        "awake_min": round(awake_sec / 60, 1),
+        "sleep_count": len(sleep_sessions),
+        "sleep_sessions": sleep_sessions,
         "sessions": boot_sessions,
         "boot_count": sum(1 for e in in_range_events if e["event_type"] == EVENT_BOOT),
         "shutdown_count": sum(1 for e in in_range_events if e["event_type"] == EVENT_SHUTDOWN),

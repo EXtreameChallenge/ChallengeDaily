@@ -116,14 +116,14 @@ export default function Health() {
 // ═══════════════════════════════════════════════════════════════════
 function SystemUptimeCard({ coverage }: { coverage: HealthCoverage }) {
   const sys = coverage.system
-  const uptimeMin = sys.total_uptime_min
+  const uptimeMin = sys.awake_min ?? sys.total_uptime_min
   const currentUptimeH = Math.floor(sys.current_uptime_sec / 3600)
   const currentUptimeM = Math.floor((sys.current_uptime_sec % 3600) / 60)
 
   return (
     <div className="bg-cd-bg-secondary border border-cd-border rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-cd-text-tertiary">系统运行时长</span>
+        <span className="text-xs text-cd-text-tertiary">系统清醒时长</span>
         <span className="text-[10px] text-cd-text-tertiary bg-cd-bg px-2 py-0.5 rounded-lg">
           Windows 权威
         </span>
@@ -132,6 +132,18 @@ function SystemUptimeCard({ coverage }: { coverage: HealthCoverage }) {
         {formatDuration(uptimeMin)}
       </div>
       <div className="mt-3 space-y-1 text-[11px] text-cd-text-tertiary">
+        <div className="flex justify-between">
+          <span>开机总时长</span>
+          <span className="text-cd-text-secondary font-brand">
+            {formatDuration(sys.total_uptime_min)}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span>已扣睡眠</span>
+          <span className="text-cd-text-secondary font-brand">
+            {formatDuration(sys.sleep_min ?? 0)}
+          </span>
+        </div>
         <div className="flex justify-between">
           <span>当前已开机</span>
           <span className="text-cd-text-secondary font-brand">
@@ -165,7 +177,15 @@ function CollectedCard({ coverage }: { coverage: HealthCoverage }) {
   return (
     <div className="bg-cd-bg-secondary border border-cd-border rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-cd-text-tertiary">应用采集时长</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-cd-text-tertiary">应用采集时长</span>
+          <span
+            className="text-[10px] text-cd-gold bg-cd-bg px-1.5 py-0.5 rounded-md"
+            title="多个窗口的时长累加，不是墙钟时间"
+          >
+            窗口累计
+          </span>
+        </div>
         <span className="text-[10px] text-cd-text-tertiary bg-cd-bg px-2 py-0.5 rounded-lg">
           ChallengeDaily
         </span>
@@ -257,9 +277,15 @@ function CoverageCard({ coverage }: { coverage: HealthCoverage }) {
               {gap.missing_periods.length}
             </span>
           </div>
+          <div className="flex justify-between">
+            <span className="text-cd-text-tertiary">分母已扣睡眠</span>
+            <span className="text-cd-text-secondary font-brand">
+              {formatDuration(gap.sleep_excluded_min ?? 0)}
+            </span>
+          </div>
           <div className="mt-2 pt-2 border-t border-cd-border text-[10px] text-cd-text-tertiary leading-relaxed">
-            覆盖率 = 采集时长 ÷ 系统时长。{'\n'}
-            ≥80% 数据可信，50-80% 建议补录，&lt;50% 数据不可用。
+            覆盖率 = 采集时长 ÷ 系统清醒时长（已扣关机/睡眠）。{'\n'}
+            分母仍含开机空闲，仅作采集下限参考，不作硬告警。
           </div>
         </div>
       </div>

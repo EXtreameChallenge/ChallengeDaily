@@ -177,11 +177,11 @@ def health_coverage():
         except Exception:
             collector_running_sec = 0
 
-    # 漏采时段：系统会话 - 采集器活跃时段
-    # 简化版：找出系统在跑但 activities 时间戳覆盖不到的时段
+    # 漏采时段：系统清醒时长 - 采集器活跃时长
+    # 分母扣关机（boot_session 只覆盖开机区间）并扣睡眠（Kernel-Power 42/107）
     missing_periods = []
     collected_min = collected_app_min
-    system_min = sys_cov["total_uptime_min"]
+    system_min = sys_cov.get("awake_min", sys_cov["total_uptime_min"])
     missing_min = max(0, system_min - collected_min)
     coverage_pct = round(collected_min / system_min * 100, 1) if system_min > 0 else 0
 
@@ -233,10 +233,40 @@ def health_coverage():
                     "duration_min": round(gap_min, 1),
                 })
 
+    # 从漏采时段中扣除睡眠区间，避免把“睡着了”误报成“漏采”
+    sleep_ranges = []
+    for s in sys_cov.get("sleep_sessions", []):
+        try:
+            sleep_ranges.append((
+                datetime.strptime(s["start"], "%Y-%m-%d %H:%M:%S"),
+                datetime.strptime(s["end"], "%Y-%m-%d %H:%M:%S"),
+            ))
+        except Exception:
+            continue
+
+    for p in missing_periods:
+        try:
+            p_start = datetime.strptime(p["start"], "%Y-%m-%d %H:%M:%S")
+            p_end = datetime.strptime(p["end"], "%Y-%m-%d %H:%M:%S")
+            dur_min = p.get("duration_min")
+            if dur_min is None:
+                dur_min = (p_end - p_start).total_seconds() / 60
+            overlap_sec = 0
+            for s_start, s_end in sleep_ranges:
+                overlap_sec += max(0, (min(p_end, s_end) - max(p_start, s_start)).total_seconds())
+            p["duration_min"] = round(max(0, dur_min - overlap_sec / 60), 1)
+        except Exception:
+            p["duration_min"] = p.get("duration_min", 0)
+
+    missing_periods = [p for p in missing_periods if p.get("duration_min", 0) > 0]
+
     return jsonify({
         "date": target_date,
         "system": {
             "total_uptime_min": sys_cov["total_uptime_min"],
+            "sleep_min": sys_cov.get("sleep_min", 0),
+            "awake_min": sys_cov.get("awake_min", sys_cov["total_uptime_min"]),
+            "sleep_count": sys_cov.get("sleep_count", 0),
             "current_uptime_sec": sys_cov["current_uptime_sec"],
             "boot_count": sys_cov["boot_count"],
             "shutdown_count": sys_cov["shutdown_count"],
@@ -253,6 +283,7 @@ def health_coverage():
         "gap": {
             "missing_min": round(missing_min, 1),
             "coverage_pct": coverage_pct,
+            "sleep_excluded_min": sys_cov.get("sleep_min", 0),
             "missing_periods": missing_periods,
         },
     })

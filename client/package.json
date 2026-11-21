@@ -1,6 +1,6 @@
 {
   "name": "challenge-daily",
-  "version": "3.10.12",
+  "version": "3.10.17",
   "description": "ChallengeDaily Windows - AI Work Daily Report Assistant",
   "type": "module",
   "main": "electron/main.cjs",
@@ -177,6 +177,20 @@
         "filter": [
           "**/*.py",
           "**/*.ps1"
+        ]
+      },
+      {
+        "from": "../report_layers",
+        "to": "backend/report_layers",
+        "filter": [
+          "**/*.py"
+        ]
+      },
+      {
+        "from": "../enterprise_plugin",
+        "to": "backend/enterprise_plugin",
+        "filter": [
+          "**/*.py"
         ]
       },
       {

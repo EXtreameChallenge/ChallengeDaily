@@ -105,6 +105,9 @@ def _group_into_blocks(activities: list) -> list[dict]:
     if not activities:
         return []
 
+    # get_activities 返回 DESC；分段必须按时间升序，否则时段会出现 22:51-22:30
+    activities = sorted(activities, key=lambda a: a.get("timestamp", ""))
+
     blocks = []
     cur_cat = None
     cur_summaries = []
@@ -112,23 +115,34 @@ def _group_into_blocks(activities: list) -> list[dict]:
     cur_titles = set()
     cur_start = None
     cur_count = 0
+    prev_ts = None
+    prev_ts_str = None
+    # 同分类但中断超过 5 分钟，必须切段；否则会把 00:00 和 08:36 拼成一段
+    gap_limit_sec = max(300, int(getattr(config, "SCREENSHOT_INTERVAL_SEC", 60)) * 2)
 
     for act in activities:
         cat = act["category"]
         ts = act["timestamp"]
+        try:
+            ts_dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+        except Exception:
+            ts_dt = prev_ts
 
-        if cat != cur_cat:
-            # 保存上一段
-            if cur_cat is not None:
-                blocks.append(_make_block(cur_cat, cur_start, ts, cur_count,
+        if cur_cat is not None:
+            gap_sec = (ts_dt - prev_ts).total_seconds() if (ts_dt and prev_ts) else 0
+            if cat != cur_cat or gap_sec > gap_limit_sec:
+                blocks.append(_make_block(cur_cat, cur_start, prev_ts_str, cur_count,
                                           cur_summaries, cur_apps, cur_titles))
-            # 开始新段
+                cur_cat = None
+                cur_start = None
+                cur_summaries = []
+                cur_apps = set()
+                cur_titles = set()
+                cur_count = 0
+
+        if cur_cat is None:
             cur_cat = cat
             cur_start = ts
-            cur_summaries = []
-            cur_apps = set()
-            cur_titles = set()
-            cur_count = 0
 
         cur_count += 1
         display_name = get_display_name(act["app_name"])
@@ -139,10 +153,12 @@ def _group_into_blocks(activities: list) -> list[dict]:
         summary = act.get("summary", "")
         if summary and summary != "未配置AI":
             cur_summaries.append(summary)
+        prev_ts = ts_dt
+        prev_ts_str = ts
 
     # 最后一段
     if cur_cat is not None:
-        blocks.append(_make_block(cur_cat, cur_start, activities[-1]["timestamp"],
+        blocks.append(_make_block(cur_cat, cur_start, prev_ts_str,
                                   cur_count, cur_summaries, cur_apps, cur_titles))
 
     return blocks
@@ -303,8 +319,8 @@ def _natural_overview(activities, cat_narratives, first_ts, last_ts, focus_hours
     else:
         core_desc = ""
 
-    # 专注时长
-    focus_desc = f"，累计专注{focus_hours}"
+    # 应用窗口累计（多窗口时长可重叠，不等于墙钟专注时长）
+    focus_desc = f"，应用窗口累计{focus_hours}"
     if focus_sessions > 0:
         focus_desc += f"，进入深度状态{focus_sessions}次"
 
@@ -729,7 +745,7 @@ def _build_rich_data_context(target_date, summary_data, app_usage, activities) -
     lines.append(f"平均会话时长：{attention['avg_session_min']} 分钟")
     lines.append(f"最长连续同分类：{attention['longest_streak_min']} 分钟")
     lines.append(f"每小时切换次数：{attention['switch_frequency']}")
-    lines.append(f"专注时长：{focus_hours}，深度会话 {focus_sessions} 次")
+    lines.append(f"应用累计时长：{focus_hours}，深度会话 {focus_sessions} 次")
     lines.append("")
 
     # 注入番茄统计（一行，不超过 100 字符，不影响 prompt 预算）
