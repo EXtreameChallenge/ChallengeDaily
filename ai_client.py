@@ -210,7 +210,8 @@ def _reset_client():
 
 
 def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = "",
-                        recent_context: str = "", visible_windows: list[dict] | None = None) -> dict:
+                        recent_context: str = "", visible_windows: list[dict] | None = None,
+                        enqueue_on_failure: bool = True) -> dict:
     """
     调用 AI Vision 分析截图，返回 {"category": ..., "summary": ..., "detail": ..., "windows": [...]}
     内置指数退避重试（3次）+ 熔断器
@@ -299,6 +300,8 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
         except Exception:
             pass  # OCR 模块加载失败不影响核心功能
 
+    # B10: 保留一份 base64 供失败入队；不能用 del 后的 b64_image 变量
+    b64_for_retry = b64_image
     max_retries = 3
     for attempt in range(max_retries):
         # 重试前检查熔断器，避免在熔断状态下继续浪费请求
@@ -394,14 +397,22 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
                 except Exception:
                     pass
                 # P10-1：标记离线状态 + 入队重试
+                # B10: 原图在 collector 分析结束后会被删除，队列不能只存 image_path；
+                # 这里保存已编码的 base64（限大小），重试时临时落盘，避免队列空转。
                 try:
                     from offline_ai import mark_ai_failure, enqueue_retry
                     mark_ai_failure()
-                    enqueue_retry({
-                        "image_path": image_path,
-                        "app_name": app_name,
-                        "window_title": window_title,
-                    }, kind="screenshot")
+                    if enqueue_on_failure:
+                        payload = {
+                            "app_name": app_name,
+                            "window_title": window_title,
+                        }
+                        if b64_for_retry and len(b64_for_retry) <= 2_500_000:
+                            payload["image_b64"] = b64_for_retry
+                        else:
+                            logger.warning("截图过大或不可用，重试队列仅保留元数据")
+                            payload["image_path"] = image_path
+                        enqueue_retry(payload, kind="screenshot")
                 except Exception:
                     pass
                 # Wave0-B01: 空分类交还规则兜底，摘要如实降级

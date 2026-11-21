@@ -183,14 +183,18 @@ _CLIPBOARD_ID_COUNTER = 0
 def add_clipboard_item(content: str, content_type: str = "text") -> dict:
     """添加剪贴板历史项（供 ClipboardMonitor 回调和 API 调用）"""
     global _CLIPBOARD_ID_COUNTER
+    raw_content = str(content)
+    # B36: 统一在入口脱敏，覆盖所有调用方；length 保留原始长度用于排查
+    from security_utils import redact_pii
+    safe_content = redact_pii(raw_content[:2000])
     with _CLIPBOARD_LOCK:
         _CLIPBOARD_ID_COUNTER += 1
         item = {
             "id": _CLIPBOARD_ID_COUNTER,
-            "content": content[:2000],
+            "content": safe_content,
             "kind": content_type,
             "type": content_type,  # 兼容旧字段
-            "length": len(content),
+            "length": len(raw_content),
             "timestamp": datetime.now().isoformat()
         }
         # 去重：相同内容不重复添加

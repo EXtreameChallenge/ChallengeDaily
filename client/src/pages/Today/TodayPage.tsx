@@ -538,7 +538,7 @@ return (
                   <XAxis dataKey="date" tickFormatter={(v: string) => dayjs(v).format('M/D')}
                     tick={{ fontSize: 9, fill: 'var(--cd-text-tertiary)' }} axisLine={{ stroke: 'var(--cd-border)' }} tickLine={false} />
                   <YAxis tick={{ fontSize: 9, fill: 'var(--cd-text-tertiary)' }} axisLine={false} tickLine={false}
-                    tickFormatter={(v: number) => `${Math.round(v / 60 * 10) / 10}h`} width={32} />
+                    tickFormatter={(v: number) => v <= 0 ? '0h' : v >= 60 ? `${Math.round(v / 60)}h` : `${Math.round(v)}m`} width={32} />
                   <Tooltip formatter={(value: number) => [value >= 60 ? `${(value / 60).toFixed(1)}h` : `${Math.round(value)}min`, '时长']}
                     labelFormatter={(label: string) => dayjs(label).format('YYYY-MM-DD')}
                     contentStyle={{ background: 'var(--cd-card)', border: '1px solid var(--cd-border)', borderRadius: 8, fontSize: 11 }} />

@@ -15,7 +15,11 @@ P10-1：AI 离线优先模块
 import threading
 import time
 import json
+import base64
 import logging
+import os
+import tempfile
+from pathlib import Path
 from datetime import datetime, date, timedelta
 from typing import Optional
 
@@ -128,12 +132,39 @@ def _retry_one(kind: str, payload_json: str) -> bool:
         payload = json.loads(payload_json)
         if kind == "screenshot":
             from ai_client import analyze_screenshot
-            analyze_screenshot(
-                payload.get("image_path", ""),
-                payload.get("app_name", ""),
-                payload.get("window_title", ""),
-            )
-            return True
+            image_b64 = payload.get("image_b64")
+            if image_b64:
+                # B10: 原图已删，用队列里的 base64 临时落盘，分析完立即删除
+                raw = base64.b64decode(image_b64, validate=True)
+                fd, tmp_path = tempfile.mkstemp(prefix="cd-retry-", suffix=".jpg")
+                os.close(fd)
+                try:
+                    Path(tmp_path).write_bytes(raw)
+                    analyze_screenshot(
+                        tmp_path,
+                        payload.get("app_name", ""),
+                        payload.get("window_title", ""),
+                        enqueue_on_failure=False,
+                    )
+                finally:
+                    try:
+                        Path(tmp_path).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                return True
+
+            image_path = payload.get("image_path", "")
+            if image_path and Path(image_path).exists():
+                analyze_screenshot(
+                    image_path,
+                    payload.get("app_name", ""),
+                    payload.get("window_title", ""),
+                    enqueue_on_failure=False,
+                )
+                return True
+            # 旧队列记录只存了 image_path，原图已被 collector 删除：不要空转重试
+            logger.debug(f"重试截图不存在，跳过旧队列记录: {image_path}")
+            return False
         # 其他 kind 暂不重试（report/chat 通常是即时的，过期重试意义不大）
         return True
     except Exception as e:

@@ -469,14 +469,19 @@ def heatmap_by_range():
         with get_conn() as conn:
             if rng == 'year':
                 # 年度：按日聚合（activities.timestamp + interval_sec）
+                # B35: 用半开区间让 idx_activities_ts 可命中；不要对列套 strftime
                 year = date_str[:4]
+                if not re.fullmatch(r'\d{4}', year):
+                    year = date.today().strftime('%Y')
+                year_start = f"{year}-01-01"
+                year_end = f"{int(year) + 1}-01-01"
                 rows = conn.execute(
                     "SELECT date(timestamp) AS d, "
                     "       COALESCE(SUM(CASE WHEN category != '生活' THEN interval_sec ELSE 0 END), 0) AS focus_sec "
                     "FROM activities "
-                    "WHERE strftime('%Y', timestamp) = ? "
+                    "WHERE timestamp >= ? AND timestamp < ? "
                     "GROUP BY date(timestamp) ORDER BY d",
-                    (year,),
+                    (year_start, year_end),
                 ).fetchall()
                 result = [{
                     "date": r["d"],
@@ -484,15 +489,19 @@ def heatmap_by_range():
                     "level": min(4, int((r["focus_sec"] or 0) // 60 // 120)),
                 } for r in rows]
             elif rng == 'month':
-                # 月度：按日聚合
-                month = date_str[:7]
+                # 月度：按日聚合；同样改成 [月初, 下月初) 范围查询
+                try:
+                    month_start = date.fromisoformat(date_str[:7] + '-01')
+                except ValueError:
+                    month_start = date.today().replace(day=1)
+                month_end = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
                 rows = conn.execute(
                     "SELECT date(timestamp) AS d, "
                     "       COALESCE(SUM(CASE WHEN category != '生活' THEN interval_sec ELSE 0 END), 0) AS focus_sec "
                     "FROM activities "
-                    "WHERE strftime('%Y-%m', timestamp) = ? "
+                    "WHERE timestamp >= ? AND timestamp < ? "
                     "GROUP BY date(timestamp) ORDER BY d",
-                    (month,),
+                    (month_start.isoformat(), month_end.isoformat()),
                 ).fetchall()
                 result = [{
                     "date": r["d"],
@@ -500,14 +509,20 @@ def heatmap_by_range():
                     "level": min(4, int((r["focus_sec"] or 0) // 60 // 120)),
                 } for r in rows]
             else:
-                # 周度：复用现有 recent-heatmap 逻辑（按日聚合）
+                # 周度：复用现有 recent-heatmap 逻辑（按日聚合），范围同样走索引
+                try:
+                    week_end_day = date.fromisoformat(date_str)
+                except ValueError:
+                    week_end_day = date.today()
+                week_start_day = week_end_day - timedelta(days=6)
+                week_end_exclusive = week_end_day + timedelta(days=1)
                 rows = conn.execute(
                     "SELECT date(timestamp) AS d, "
                     "       COALESCE(SUM(CASE WHEN category != '生活' THEN interval_sec ELSE 0 END), 0) AS focus_sec "
                     "FROM activities "
-                    "WHERE date(timestamp) >= date(?, '-6 days') AND date(timestamp) <= date(?) "
+                    "WHERE timestamp >= ? AND timestamp < ? "
                     "GROUP BY date(timestamp) ORDER BY d",
-                    (date_str, date_str),
+                    (week_start_day.isoformat(), week_end_exclusive.isoformat()),
                 ).fetchall()
                 result = [{
                     "date": r["d"],

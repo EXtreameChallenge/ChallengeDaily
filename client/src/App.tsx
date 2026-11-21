@@ -406,7 +406,7 @@ function AIDockGate() {
   const location = useLocation()
   if (location.pathname === '/ai-chat') return null
   return (
-    <div className="shrink-0 px-6 pb-3 pt-1">
+    <div className="shrink-0 px-6 pb-3 pt-1 relative z-40">
       <AIDock />
     </div>
   )

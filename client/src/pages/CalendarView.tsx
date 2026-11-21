@@ -173,7 +173,7 @@ export default function CalendarView() {
 
       {/* 悬浮详情 */}
       {hoverDay && (
-        <div className="fixed bottom-6 right-6 bg-cd-bg-card border border-white/10 rounded-2xl p-3 shadow-xl max-w-xs z-30">
+        <div className="fixed bottom-24 right-6 bg-cd-bg-card border border-white/10 rounded-2xl p-3 shadow-xl max-w-xs z-0 pointer-events-none">
           <div className="text-sm font-medium text-cd-text mb-1">{hoverDay.date}</div>
           <div className="text-xs text-cd-text-secondary mb-2">
             总专注 {Math.floor(hoverDay.total_min / 60)}h {hoverDay.total_min % 60}m

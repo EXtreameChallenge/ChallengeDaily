@@ -17,6 +17,8 @@ import logging
 from collections import deque
 from datetime import datetime
 
+from security_utils import redact_pii
+
 logger = logging.getLogger(__name__)
 
 # 缓存最近 10 条剪贴板记录，每条 TTL 5 分钟
@@ -109,8 +111,8 @@ class ClipboardMonitor:
         self._last_content_hash = h
 
         kind = "url" if text.lower().startswith(_URL_PREFIXES) else "text"
-        # URL 只取前 200 字符，文本只取前 200 字符
-        content = text[:200]
+        # B36: 入库/入内存前先脱敏 PII；原文只用于本次判定，不写入历史
+        content = redact_pii(text[:200])
         now = time.time()
         with self._lock:
             # 去重：如果内容已存在则更新时间戳
