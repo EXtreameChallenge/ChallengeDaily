@@ -49,3 +49,9 @@ def test_b03_ai_client_blocks_qq_upload(monkeypatch):
     result = ai_client.analyze_screenshot("whatever.jpg", "QQ.exe", "QQ - 聊天")
     assert result["category"] == ""
     assert classify("QQ.exe", result["category"], "QQ - 聊天") == "沟通"
+
+
+def test_b03_qq_work_record_category_is_meeting():
+    """小黑工作记录里 QQ 归「会议沟通」，与采集侧「沟通」口径一致。"""
+    from xiaohei_core import _classify_app
+    assert _classify_app("QQ.exe") == "会议沟通"

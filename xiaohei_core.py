@@ -292,7 +292,7 @@ def _classify_app(app_name: str) -> str:
         ("word", "文档写作"), ("wps", "文档写作"), ("typora", "文档写作"),
         ("obsidian", "文档写作"), ("notion", "文档写作"),
         ("wechat", "会议沟通"), ("dingtalk", "会议沟通"), ("feishu", "会议沟通"),
-        ("teams", "会议沟通"), ("zoom", "会议沟通"),
+        ("teams", "会议沟通"), ("zoom", "会议沟通"), ("qq", "会议沟通"),
         ("photoshop", "设计创作"), ("figma", "设计创作"), ("剪映", "设计创作"),
         ("excel", "数据整理"), ("numbers", "数据整理"),
     ]
