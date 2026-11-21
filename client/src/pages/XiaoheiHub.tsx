@@ -62,6 +62,7 @@ export default function XiaoheiHub() {
   const [recording, setRecording] = useState(false)
   const [recordDuration, setRecordDuration] = useState(0)
   const [recMsg, setRecMsg] = useState('')
+  const [tplMsg, setTplMsg] = useState('')
   const [mdContent, setMdContent] = useState('')
   const [mdPath, setMdPath] = useState('')
   const [authSession, setAuthSession] = useState<{ loggedIn: boolean; user: any }>({ loggedIn: false, user: null })
@@ -629,6 +630,7 @@ export default function XiaoheiHub() {
       {activeTab === 'templates' && (
         <div className="glass rounded-2xl p-6">
           <h2 className="text-base font-semibold mb-4">模板市场（本地持久化）</h2>
+          {tplMsg && <p className="text-xs text-amber-600 mb-2 break-all">{tplMsg}</p>}
           {templates.length === 0 ? (
             <div className="text-center py-12 text-gray-400">暂无模板</div>
           ) : (
@@ -640,6 +642,12 @@ export default function XiaoheiHub() {
                     <span className="text-xs px-2 py-0.5 bg-gray-100 rounded-full">{t.category}</span>
                     <span className="ml-auto text-sm text-gray-500">下载 {t.downloads} · {t.price > 0 ? `${t.price}积分` : '免费'}</span>
                     <button onClick={() => useTemplate(t.id)} className="ml-2 px-3 py-1 bg-cd-accent text-white text-sm rounded-lg">使用</button>
+                    <button onClick={async () => {
+                      try {
+                        const res: any = await post(`/api/xiaohei/templates/${t.id}/apply`)
+                        setTplMsg(res?.ok ? `已应用到 ${res.day} 日报（${res.chars} 字）` : (res?.error || '应用失败'))
+                      } catch (e: any) { setTplMsg(e?.message || '应用失败') }
+                    }} className="px-3 py-1 bg-emerald-600 text-white text-sm rounded-lg">应用到日报</button>
                     <button onClick={() => setExpandedTpl(expandedTpl === t.id ? null : t.id)}
                       className="text-xs text-gray-400 hover:text-gray-600">{expandedTpl === t.id ? '收起' : '查看'}</button>
                   </div>

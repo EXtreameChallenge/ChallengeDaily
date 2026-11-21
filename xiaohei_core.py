@@ -29,6 +29,7 @@ from contextlib import contextmanager
 from db import get_conn
 
 logger = logging.getLogger(__name__)
+_auto_extract_thread = None
 
 
 @contextmanager
@@ -681,6 +682,52 @@ def get_storage_stats() -> dict:
                 shot_bytes += f.stat().st_size
     stats["screenshot_dir_size_mb"] = round(shot_bytes / 1024 / 1024, 1)
     return stats
+
+
+def apply_template_to_daily_report(tid: int, day: Optional[str] = None) -> dict:
+    """B18：模板「应用到日报」— 生成/更新当日日报并追加模板正文。"""
+    day = day or date.today().isoformat()
+    with _conn() as conn:
+        row = conn.execute("SELECT * FROM template_market WHERE id=?", (tid,)).fetchone()
+        if not row:
+            return {"ok": False, "error": "模板不存在"}
+        conn.execute("UPDATE template_market SET downloads=downloads+1 WHERE id=?", (tid,))
+    try:
+        import report
+        content = report.generate_daily_report(day)
+        section = f"\n\n## 应用模板：{row['name']}\n\n{row['content']}"
+        final = content + section
+        report._save(final, day)
+        return {"ok": True, "day": day, "template": row["name"], "chars": len(final)}
+    except Exception as e:
+        logger.error(f"模板应用到日报失败: {e}")
+        return {"ok": False, "error": str(e)}
+
+
+def start_daily_auto_extract(hour: int = 23) -> None:
+    """B18：每日定时自动抽取工作记录（daemon 线程，按本地日期去重）。"""
+    global _auto_extract_thread
+    if _auto_extract_thread is not None and _auto_extract_thread.is_alive():
+        return
+    import threading
+    import time
+    state = {"day": None}
+
+    def _loop():
+        while True:
+            try:
+                now = datetime.now()
+                today = now.date().isoformat()
+                if now.hour >= hour and state["day"] != today:
+                    result = extract_work_records_from_activities(today)
+                    state["day"] = today
+                    logger.info(f"每日自动抽取工作记录完成: {result}")
+            except Exception as e:
+                logger.warning(f"每日自动抽取失败: {e}")
+            time.sleep(60)
+
+    _auto_extract_thread = threading.Thread(target=_loop, daemon=True, name="xh-auto-extract")
+    _auto_extract_thread.start()
 
 
 # ════════════════════════════════════════════════════════════

@@ -77,6 +77,19 @@ def log_habit_route(hid):
         growth_service.award_exp(exp, growth_service.map_habit_to_dimension(habit_name), 'habit', hid, f"习惯打卡: {habit_name}")
     except Exception:
         pass
+    # B18：小黑积分 + 连续打卡徽章（当日首次打卡才推进 streak）
+    try:
+        import xiaohei_core as xh
+        from datetime import date as _date
+        xh.points_grant(10, 'habit_checkin', f'习惯打卡 #{hid}')
+        with db.get_conn() as conn:
+            today_logs = conn.execute(
+                "SELECT COUNT(*) c FROM habit_logs WHERE log_date = ?", (_date.today().isoformat(),)
+            ).fetchone()["c"]
+        if today_logs <= 1:
+            xh.badge_track_progress('streak_warrior', 1)
+    except Exception:
+        pass
     return jsonify({"status": "ok"})
 
 

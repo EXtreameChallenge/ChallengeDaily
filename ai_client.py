@@ -217,6 +217,18 @@ def analyze_screenshot(image_path: str, app_name: str = "", window_title: str = 
     recent_context: 近期活动的简短描述，供 AI 综合分析
     visible_windows: 当前屏幕上所有可见窗口的列表
     """
+    # B03 第二道防线：即使采集层漏判，敏感/排除应用也绝不把截图送云端分析
+    try:
+        from screenshot_redactor import is_sensitive_window
+        if (is_sensitive_window(window_title, app_name)
+                or config.is_app_excluded(app_name or "")
+                or config.is_app_excluded(window_title or "")):
+            logger.info(f"敏感/排除应用，AI 分析跳过（不上传）: {app_name} / {window_title}")
+            return {"category": "", "summary": f"{app_name} - 敏感窗口已跳过（未上传云端）",
+                    "detail": "隐私保护：该窗口截图未送 AI 分析", "windows": []}
+    except Exception as e:
+        logger.debug(f"隐私预检失败（按放行处理）: {e}")
+
     if not config.AI_API_KEY:
         # 降级：使用窗口标题作为摘要，而非无意义占位符
         # Wave0-B01: 返回空分类，交还 classifier 规则兜底（禁止强制"生活"污染应用规则分类）

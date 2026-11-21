@@ -251,7 +251,7 @@ def stop_pomodoro():
         # 完成时自动回写 todo 进度（V19 联动）
         if status == 'completed':
             with db.get_conn() as conn:
-                row = conn.execute("SELECT todo_id, duration_min FROM pomodoro_sessions WHERE id=?", (session_id,)).fetchone()
+                row = conn.execute("SELECT todo_id, duration_min, start_time FROM pomodoro_sessions WHERE id=?", (session_id,)).fetchone()
                 if row and row['todo_id']:
                     db.update_todo_progress(row['todo_id'], row['duration_min'])
             # V35: 番茄完成奖励EXP
@@ -264,6 +264,20 @@ def stop_pomodoro():
                 push_event('growth_update', {'exp_awarded': exp, 'dimension': dim, 'source': 'pomodoro'})
             except Exception as e:
                 logger.warning(f"EXP奖励失败: {e}")
+            # B18：小黑积分 + 徽章（番茄完成 → 积分；早起/夜猫按开始小时推进）
+            try:
+                import xiaohei_core as xh
+                mins = int(row['duration_min']) if row and row['duration_min'] else 25
+                xh.points_grant(20, 'pomodoro_complete', f'番茄完成 {mins}min (session {session_id})')
+                start_time = (row['start_time'] if row else '') or ''
+                if len(start_time) >= 13:
+                    start_hour = int(start_time[11:13])
+                    if start_hour < 7:
+                        xh.badge_track_progress('early_bird', 1)
+                    elif start_hour >= 23:
+                        xh.badge_track_progress('night_owl', 1)
+            except Exception as e:
+                logger.warning(f"小黑积分/徽章写入失败: {e}")
         # 推送 SSE 事件（番茄状态变化）
         try:
             from event_bus import push_event

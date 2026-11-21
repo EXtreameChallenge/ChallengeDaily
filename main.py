@@ -284,6 +284,13 @@ def main():
             logger.info("日历订阅后台刷新已启动")
         except Exception as e:
             logger.debug(f"日历后台刷新启动失败（不影响主流程）: {e}")
+        # B18：每日 23 点自动抽取工作记录（小黑闭环）
+        try:
+            import xiaohei_core
+            xiaohei_core.start_daily_auto_extract(23)
+            logger.info("小黑每日自动抽取工作记录已启动（23:00）")
+        except Exception as e:
+            logger.debug(f"小黑自动抽取启动失败（不影响主流程）: {e}")
         # P21: 预热日报缓存（低优先级）
         try:
             from context_manager import build_weekly_context

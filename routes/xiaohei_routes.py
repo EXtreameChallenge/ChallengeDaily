@@ -131,6 +131,13 @@ def templates_use(tid):
     return jsonify(xc.use_template(tid))
 
 
+@bp.route("/templates/<int:tid>/apply", methods=["POST"])
+def templates_apply(tid):
+    """B18：模板应用到当日日报"""
+    data = request.get_json(silent=True) or {}
+    return jsonify(xc.apply_template_to_daily_report(tid, data.get("date")))
+
+
 @bp.route("/templates/<int:tid>", methods=["DELETE"])
 def templates_delete(tid):
     return jsonify(xc.delete_template(tid))

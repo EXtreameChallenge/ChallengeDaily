@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 # 需要脱敏的应用窗口标题关键词
 _SENSITIVE_WINDOW_KEYWORDS = [
     '密码', 'password', '登录', 'login', '银行', 'bank', '支付', 'payment',
-    '微信', 'wechat', '支付宝', 'alipay', 'wallet', '钱包',
+    '微信', 'wechat', 'qq', '支付宝', 'alipay', 'wallet', '钱包',
     # P33: 扩展敏感关键词
     '验证码', 'verification', 'otp', 'token', 'secret',
     '私人', 'private', '机密', 'confidential',

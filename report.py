@@ -1804,6 +1804,38 @@ def _build_template_context(target_date: str) -> dict:
     return ctx
 
 
+def _work_records_section(target_date: str) -> str:
+    """B18：日报消费小黑 work_records — 把当日工作记录摘要追加进日报。"""
+    try:
+        import xiaohei_core as xc
+        records = xc.list_work_records(target_date, limit=50)
+        if not records:
+            return ""
+        summary = xc.get_work_records_daily_summary(target_date)
+        lines = ["", "## 工作记录（小黑）",
+                 f"- 共 {summary.get('count', len(records))} 条，累计 {summary.get('total_minutes', 0)} 分钟"]
+        for r in records[:8]:
+            mins = int((r.get("duration_sec") or 0) // 60)
+            title = (r.get("title") or "未命名")[:40]
+            cat = r.get("category") or "其他"
+            lines.append(f"- **{title}**（{cat}，{mins} 分钟）")
+        if len(records) > 8:
+            lines.append(f"- …其余 {len(records) - 8} 条见小黑工作记录")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.debug(f"日报追加工作记录失败（忽略）: {e}")
+        return ""
+
+
+def _mark_first_report_badge():
+    """B18：生成首份日报后解锁「初出茅庐」徽章（幂等，已解锁则无副作用）。"""
+    try:
+        import xiaohei_core as xc
+        xc.badge_track_progress("first_report", 1)
+    except Exception:
+        pass
+
+
 def generate_daily_report(target_date: str = None, template: str = "standard",
                           template_id: int = None) -> str:
     """
@@ -1825,7 +1857,9 @@ def generate_daily_report(target_date: str = None, template: str = "standard",
             if tpl:
                 context = _build_template_context(target_date)
                 content = _rt.render_template(tpl["content_md"], context)
+                content += _work_records_section(target_date)
                 _save(content, target_date)
+                _mark_first_report_badge()
                 return content
             logger.warning(f"template_id={template_id} 不存在，回退内置模板")
         except Exception as e:
@@ -1839,8 +1873,10 @@ def generate_daily_report(target_date: str = None, template: str = "standard",
     # 选择模板
     tmpl_func = _TEMPLATE_MAP.get(template, _template_standard)
     content = tmpl_func(target_date, activities, summary_data, app_usage)
+    content += _work_records_section(target_date)
 
     _save(content, target_date)
+    _mark_first_report_badge()
     return content
 
 
