@@ -17,6 +17,7 @@ import {
   type DeepInsightSummary, type ProfileAnalysisItem,
 } from '../api/client'
 import { useAsyncData, formatDuration } from '../components/shared'
+import WordCloud from '../components/WordCloud'
 import { useToast } from '../components/Toast'
 import {
   Brain, User, Briefcase, Zap, Clock, Sunrise, Activity, Monitor,
@@ -537,6 +538,9 @@ export default function DeepProfile() {
             </div>
           )}
         </section>
+
+        {/* 工作关键词词云（最近 30 天真实工作记录） */}
+        <WordCloud />
 
         {/* 工作内容类型 + 行为模式 双栏 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

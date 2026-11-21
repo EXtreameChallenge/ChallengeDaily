@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
-from datetime import date
+from datetime import date, timedelta
 import logging
+import re
 
 import config
 from db import get_activities, get_daily_summary, get_conn, get_app_usage
@@ -22,6 +23,152 @@ def stats_date(d):
     if not validate_date(d):
         return jsonify({"error": f"Invalid date format: {d}, expected YYYY-MM-DD"}), 400
     return _build_stats(d)
+
+
+def _focus_grade(score: int) -> str:
+    """专注分等级：与前端 FocusScoreCalendar 的阈值保持一致。"""
+    if score >= 90:
+        return "S"
+    if score >= 75:
+        return "A"
+    if score >= 60:
+        return "B"
+    if score >= 40:
+        return "C"
+    return "D"
+
+
+def _focus_session_score(status: str, interrupted_count: int) -> int:
+    """单次番茄的专注质量分：完成 100 起评，中断每次 -10；中止 50 起评。"""
+    base = 100 if status == "completed" else 50 if status == "interrupted" else 0
+    return max(0, min(100, base - max(0, int(interrupted_count or 0)) * 10))
+
+
+@bp.route("/api/stats/focus-score/calendar")
+def focus_score_calendar():
+    """按日聚合番茄专注质量分（FocusScoreCalendar 数据源）。
+
+    数据来自 pomodoro_sessions 的真实记录，不做任何补零或模拟：
+    - days: 有番茄记录的日期 -> 当日平均分 + 等级
+    - month_stats: 按自然月汇总的均分/最佳/有效天数
+    """
+    try:
+        months = int(request.args.get("months", "3"))
+    except (TypeError, ValueError):
+        months = 3
+    months = max(1, min(12, months))
+
+    today = date.today()
+    year, month = today.year, today.month
+    for _ in range(months - 1):
+        month -= 1
+        if month == 0:
+            year -= 1
+            month = 12
+    window_start = f"{year:04d}-{month:02d}-01"
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT date(start_time) AS day, status, interrupted_count "
+            "FROM pomodoro_sessions WHERE date(start_time) >= ? "
+            "ORDER BY start_time",
+            (window_start,),
+        ).fetchall()
+
+    scores_by_day: dict[str, list[int]] = {}
+    for row in rows:
+        day = row["day"]
+        if not day:
+            continue
+        scores_by_day.setdefault(day, []).append(
+            _focus_session_score(row["status"], row["interrupted_count"])
+        )
+
+    days = []
+    for day in sorted(scores_by_day):
+        values = scores_by_day[day]
+        avg = int(round(sum(values) / len(values)))
+        days.append({"date": day, "score": avg, "grade": _focus_grade(avg)})
+
+    month_buckets: dict[str, list[int]] = {}
+    for item in days:
+        month_buckets.setdefault(item["date"][:7], []).append(item["score"])
+    month_stats = []
+    for month_key in sorted(month_buckets):
+        values = month_buckets[month_key]
+        month_stats.append({
+            "month": month_key,
+            "avg_score": int(round(sum(values) / len(values))),
+            "best_score": max(values),
+            "days_count": len(values),
+        })
+
+    return jsonify({"days": days, "month_stats": month_stats})
+
+
+_WORD_STOPWORDS = {
+    "the", "and", "for", "with", "that", "this", "from", "are", "was", "were",
+    "have", "has", "had", "not", "you", "your", "our", "but", "all", "can",
+    "工作", "记录", "总结", "今天", "今日", "进行", "完成", "一个", "一些", "没有",
+}
+
+
+def _wordcloud_tokens(text: str) -> list[str]:
+    """把标题切成可读关键词：按空白/中英文标点切分，过滤停用词与纯数字。"""
+    if not text:
+        return []
+    parts = re.split(r"[\s,，。、;；:：/\\|·（）()\[\]【】<>《》\-—_]+", text)
+    tokens = []
+    for part in parts:
+        token = part.strip()
+        if len(token) < 2 or len(token) > 20:
+            continue
+        if token.lower() in _WORD_STOPWORDS:
+            continue
+        if re.fullmatch(r"[0-9.:%+\-]+", token):
+            continue
+        tokens.append(token)
+    return tokens
+
+
+@bp.route("/api/stats/wordcloud")
+def stats_wordcloud():
+    """最近 30 天工作关键词词频（WordCloud 数据源）。
+
+    优先使用 work_records（小黑抽取的真实工作记录），无数据时回退到
+    activities.summary；返回 [{text, value}]，value 为出现次数。
+    """
+    cutoff = (date.today() - timedelta(days=30)).isoformat()
+    counts: dict[str, int] = {}
+    source = "work_records"
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT title, app_name FROM work_records "
+            "WHERE date >= ? ORDER BY id DESC LIMIT 500",
+            (cutoff,),
+        ).fetchall()
+        if not rows:
+            source = "activities"
+            rows = conn.execute(
+                "SELECT summary AS title, app_name FROM activities "
+                "WHERE date(timestamp) >= ? AND summary IS NOT NULL AND summary != '' "
+                "ORDER BY id DESC LIMIT 500",
+                (cutoff,),
+            ).fetchall()
+
+    for row in rows:
+        for token in _wordcloud_tokens(row["title"] or ""):
+            counts[token] = counts.get(token, 0) + 1
+        app_name = (row["app_name"] or "").strip()
+        if len(app_name) >= 2 and app_name.lower() not in _WORD_STOPWORDS:
+            counts[app_name] = counts.get(app_name, 0) + 1
+
+    words = [
+        {"text": text, "value": value}
+        for text, value in sorted(counts.items(), key=lambda x: (-x[1], x[0]))[:40]
+    ]
+    return jsonify({"words": words, "source": source, "window_days": 30})
 
 
 def _build_stats(target_date: str):

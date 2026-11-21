@@ -2,6 +2,7 @@ export { default as YearView } from './YearView'
 export { default as MonthView } from './MonthView'
 export { default as WeekView } from './WeekView'
 export { default as DayView } from './DayView'
+export { default as SprintView } from './SprintView'
 export { ProgressRing, TaskCard, StatBlock, MonthProgressBar } from './weekPlanComponents'
 export {
   PRIORITY_COLORS, MODE_LABELS, WEEKDAY_LABELS, DAILY_LIMIT, HEAT_COLORS,

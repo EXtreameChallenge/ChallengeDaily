@@ -62,12 +62,12 @@ interface WorkflowTask {
 
 /** 技能卡片 */
 interface Skill {
-  id: number
+  id: string
   name: string
   description: string
-  risk_level: 'readonly' | 'operation' | 'dangerous'
+  risk_level?: 'readonly' | 'operation' | 'dangerous'
   enabled: boolean
-  use_count: number
+  use_count?: number
 }
 
 /** 审计记录 */
@@ -82,10 +82,18 @@ interface AuditRecord {
 
 /** 指标概览 */
 interface AgentMetrics {
-  total_calls: number
-  avg_response_ms: number
-  token_usage: number
-  success_rate: number
+  total_calls?: number
+  avg_response_ms?: number
+  token_usage?: number
+  success_rate?: number
+}
+
+/** 审计风险级别归一化：后端存 READ_ONLY/DANGEROUS，前端用小写枚举 */
+function normalizeRisk(value: unknown): AuditRecord['risk_level'] {
+  const risk = String(value || '').toLowerCase().replace('read_only', 'readonly')
+  if (risk === 'dangerous') return 'dangerous'
+  if (risk === 'operation' || risk === 'write' || risk === 'confirm') return 'operation'
+  return 'readonly'
 }
 
 // ════════════════════════════════════════════════════════════
@@ -184,7 +192,7 @@ export default function AgentPanel({ className = '', visible = true }: AgentPane
   const [audit, setAudit] = useState<AuditRecord[]>([])
   const [metrics, setMetrics] = useState<AgentMetrics | null>(null)
   const [skillSearch, setSkillSearch] = useState('')
-  const [expandedSkill, setExpandedSkill] = useState<number | null>(null)
+  const [expandedSkill, setExpandedSkill] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
 
   const esRef = useRef<EventSource | null>(null)
@@ -201,10 +209,60 @@ export default function AgentPanel({ className = '', visible = true }: AgentPane
         request('/api/agent/metrics').catch(() => null),
       ])
       if (st) setStatus(st as AgentStatus)
-      if (wf) setWorkflow(wf as WorkflowTask)
-      if (sk) setSkills((sk as { skills: Skill[] }).skills || (sk as Skill[]))
-      if (au) setAudit((au as { records: AuditRecord[] }).records || (au as AuditRecord[]))
-      if (mt) setMetrics(mt as AgentMetrics)
+      if (wf) {
+        const tasks = ((wf as { tasks?: Array<Record<string, unknown>> }).tasks || [])
+        const active = tasks.find(t => t.status === 'running') || tasks[0]
+        if (active) {
+          let state: Record<string, unknown> = {}
+          try {
+            state = typeof active.state === 'string'
+              ? JSON.parse(active.state) as Record<string, unknown>
+              : (active.state as Record<string, unknown>) || {}
+          } catch { /* 脏状态不阻塞面板 */ }
+          setWorkflow({
+            active: active.status === 'running',
+            name: String(active.workflow_name || ''),
+            current_node: String(active.current_node || ''),
+            node_index: Number(state.node_index || 0),
+            total_nodes: Number(state.total_nodes || 0),
+            started_at: active.created_at ? Date.parse(String(active.created_at)) / 1000 : undefined,
+          })
+        } else {
+          setWorkflow({ active: false })
+        }
+      }
+      if (sk) {
+        const raw = ((sk as { skills?: Array<Record<string, unknown>> }).skills || [])
+        setSkills(raw.map(s => ({
+          id: String(s.id ?? ''),
+          name: String(s.name || ''),
+          description: String(s.description || ''),
+          risk_level: s.risk_level ? normalizeRisk(s.risk_level) : undefined,
+          enabled: s.status === 'approved',
+          use_count: typeof s.use_count === 'number' ? s.use_count : undefined,
+        })))
+      }
+      if (au) {
+        const raw = ((au as { logs?: Array<Record<string, unknown>> }).logs
+          || (au as { records?: Array<Record<string, unknown>> }).records || [])
+        setAudit(raw.map(r => ({
+          id: Number(r.id || 0),
+          tool_name: String(r.tool_name || ''),
+          risk_level: normalizeRisk(r.risk_level),
+          confirmed: Boolean(r.confirmed),
+          duration_ms: Number(r.cost_ms ?? r.duration_ms ?? 0),
+          created_at: String(r.created_at || ''),
+        })))
+      }
+      if (mt) {
+        const m = ((mt as { metrics?: Record<string, unknown> }).metrics || mt) as Record<string, unknown>
+        setMetrics({
+          total_calls: Number(m.total_tool_calls ?? m.total_calls ?? 0),
+          avg_response_ms: Number(m.avg_cost_ms ?? m.avg_response_ms ?? 0),
+          token_usage: typeof m.token_usage === 'number' ? m.token_usage : undefined,
+          success_rate: typeof m.success_rate === 'number' ? m.success_rate : undefined,
+        })
+      }
     } finally {
       setRefreshing(false)
     }
@@ -474,7 +532,7 @@ export default function AgentPanel({ className = '', visible = true }: AgentPane
         ) : (
           <div className="space-y-1">
             {filteredSkills.map(s => {
-              const risk = RISK_LABEL[s.risk_level]
+              const risk = s.risk_level ? RISK_LABEL[s.risk_level] : null
               const expanded = expandedSkill === s.id
               return (
                 <div key={s.id} className="bg-cd-bg rounded-lg px-2 py-1.5">
@@ -485,7 +543,7 @@ export default function AgentPanel({ className = '', visible = true }: AgentPane
                     >
                       <div className="flex items-center gap-1">
                         <span className="text-[11px] text-cd-text font-medium truncate">{s.name}</span>
-                        <span className={`text-[9px] shrink-0 ${risk.cls}`}>{risk.label}</span>
+                        {risk && <span className={`text-[9px] shrink-0 ${risk.cls}`}>{risk.label}</span>}
                       </div>
                       {expanded && (
                         <div className="text-[10px] text-cd-text-tertiary mt-0.5 leading-snug">
@@ -493,7 +551,9 @@ export default function AgentPanel({ className = '', visible = true }: AgentPane
                         </div>
                       )}
                     </button>
-                    <span className="text-[9px] text-cd-text-tertiary shrink-0">×{s.use_count}</span>
+                    {typeof s.use_count === 'number' && s.use_count > 0 && (
+                      <span className="text-[9px] text-cd-text-tertiary shrink-0">×{s.use_count}</span>
+                    )}
                     <button
                       onClick={() => toggleSkill(s)}
                       className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
@@ -543,20 +603,20 @@ export default function AgentPanel({ className = '', visible = true }: AgentPane
         ) : (
           <div className="grid grid-cols-4 gap-1.5 text-center">
             <div className="bg-cd-bg rounded-lg px-1 py-1.5">
-              <div className="text-[13px] font-bold text-cd-text">{metrics.total_calls}</div>
+              <div className="text-[13px] font-bold text-cd-text">{metrics.total_calls ?? '—'}</div>
               <div className="text-[9px] text-cd-text-tertiary mt-0.5">总调用</div>
             </div>
             <div className="bg-cd-bg rounded-lg px-1 py-1.5">
-              <div className="text-[13px] font-bold text-cd-text">{fmtMs(metrics.avg_response_ms)}</div>
+              <div className="text-[13px] font-bold text-cd-text">{fmtMs(metrics.avg_response_ms ?? 0)}</div>
               <div className="text-[9px] text-cd-text-tertiary mt-0.5">平均响应</div>
             </div>
             <div className="bg-cd-bg rounded-lg px-1 py-1.5">
-              <div className="text-[13px] font-bold text-cd-text">{metrics.token_usage}</div>
+              <div className="text-[13px] font-bold text-cd-text">{metrics.token_usage ?? '—'}</div>
               <div className="text-[9px] text-cd-text-tertiary mt-0.5">Token</div>
             </div>
             <div className="bg-cd-bg rounded-lg px-1 py-1.5">
               <div className="text-[13px] font-bold text-cd-green">
-                {Math.round(metrics.success_rate * 100)}%
+                {typeof metrics.success_rate === 'number' ? `${Math.round(metrics.success_rate * 100)}%` : '—'}
               </div>
               <div className="text-[9px] text-cd-text-tertiary mt-0.5">成功率</div>
             </div>

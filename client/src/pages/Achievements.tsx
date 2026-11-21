@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import { Trophy, Lock, Sparkles, Crown, Calendar, History, Share2, Download, X } from 'lucide-react'
 import { getAchievements, checkAchievements, getQuote, getSeason, getSeasonHistory, type Achievement, type SeasonData, type SeasonHistoryItem } from '../api/client'
+import SeasonLeaderboard from '../components/SeasonLeaderboard'
 import { useToast } from '../components/Toast'
 
 const ALL_BADGES = [
@@ -33,6 +34,7 @@ export default function Achievements() {
   const [season, setSeason] = useState<SeasonData | null>(null)
   const [seasonHistory, setSeasonHistory] = useState<SeasonHistoryItem[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [shareModal, setShareModal] = useState(false)
   const [shareImg, setShareImg] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
@@ -295,6 +297,14 @@ export default function Achievements() {
               <span className="text-sm text-cd-text-secondary">
                 {season.unlocked_count}/{season.total_count} 已解锁
               </span>
+              {/* 赛季排行榜入口（匿名 benchmark 群组） */}
+              <button
+                onClick={() => setShowLeaderboard(true)}
+                className="flex items-center gap-1 text-xs text-gold hover:text-gold/80 transition"
+              >
+                <Trophy size={12} />
+                赛季排行榜
+              </button>
               {/* P13-3：赛季历史切换按钮 */}
               {seasonHistory.length > 0 && (
                 <button
@@ -369,6 +379,9 @@ export default function Achievements() {
           </div>
         </div>
       )}
+
+      {/* 赛季排行榜（匿名群组对比） */}
+      <SeasonLeaderboard open={showLeaderboard} onClose={() => setShowLeaderboard(false)} />
 
       {/* P15-2：分享卡片模态框 */}
       {shareModal && (

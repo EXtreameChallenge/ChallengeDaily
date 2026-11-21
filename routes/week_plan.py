@@ -163,6 +163,103 @@ def update_meta():
         return jsonify({'error': safe_error(e, "操作失败")}), 500
 
 
+def _task_completed_day(task: dict) -> str | None:
+    """任务完成日期：优先 completed_at，缺失时回退 updated_at 的日期部分。"""
+    if task.get('status') != 'completed':
+        return None
+    for key in ('completed_at', 'updated_at'):
+        raw = str(task.get(key) or '')
+        if len(raw) >= 10 and validate_date(raw[:10]):
+            return raw[:10]
+    return None
+
+
+@bp.route('/sprint/<week_start>', methods=['GET'])
+def sprint(week_start: str):
+    """Sprint 视图：本周任务统计 + 燃尽图 + 每日完成量。
+
+    全部来自 todos 真实状态；未来日期不编造 actual 值（返回 null）。
+    """
+    if not validate_date(week_start):
+        return jsonify({'error': 'week_start 日期格式无效，需 YYYY-MM-DD'}), 400
+    try:
+        data = db.get_week_tasks(week_start)
+        week_tasks = data.get('week_tasks') or []
+        day_map = data.get('day_tasks') or {}
+        dates = data.get('dates') or []
+        all_tasks = list(week_tasks) + [t for tasks in day_map.values() for t in tasks]
+
+        total_tasks = len(all_tasks)
+        completed_tasks = sum(1 for t in all_tasks if t.get('status') == 'completed')
+        remaining_tasks = max(0, total_tasks - completed_tasks)
+        completion_rate = round(completed_tasks / total_tasks * 100, 1) if total_tasks else 0
+        today_str = date.today().strftime('%Y-%m-%d')
+
+        daily_completion = []
+        for day in dates:
+            day_tasks = day_map.get(day) or []
+            daily_completion.append({
+                'date': day,
+                'total': len(day_tasks),
+                'completed': sum(1 for t in day_tasks if t.get('status') == 'completed'),
+            })
+
+        completed_days = [_task_completed_day(t) for t in all_tasks]
+        burndown = []
+        for idx, day in enumerate(dates):
+            ideal = round(total_tasks - (total_tasks * idx / max(1, len(dates) - 1)), 1)
+            actual = None
+            if day <= today_str:
+                completed_by_day = sum(
+                    1 for done_day in completed_days if done_day and done_day <= day
+                )
+                actual = max(0, total_tasks - completed_by_day)
+            burndown.append({'date': day, 'ideal': ideal, 'actual': actual})
+
+        return jsonify({
+            'week_start': week_start,
+            'total_tasks': total_tasks,
+            'completed_tasks': completed_tasks,
+            'remaining_tasks': remaining_tasks,
+            'completion_rate': completion_rate,
+            'burndown': burndown,
+            'daily_completion': daily_completion,
+        })
+    except Exception as e:
+        return jsonify({'error': safe_error(e, "操作失败")}), 500
+
+
+@bp.route('/sprint-goal/<week_start>', methods=['GET'])
+def get_sprint_goal(week_start: str):
+    """读取本周 Sprint 目标（复用周计划 goal 字段，不额外造存储）。"""
+    if not validate_date(week_start):
+        return jsonify({'error': 'week_start 日期格式无效，需 YYYY-MM-DD'}), 400
+    meta = db.get_plan_meta('week', week_start) or {}
+    return jsonify({'week_start': week_start, 'goal_text': meta.get('goal', '')})
+
+
+@bp.route('/sprint-goal/<week_start>', methods=['POST'])
+def save_sprint_goal(week_start: str):
+    """保存本周 Sprint 目标到周计划元数据。"""
+    if not validate_date(week_start):
+        return jsonify({'error': 'week_start 日期格式无效，需 YYYY-MM-DD'}), 400
+    data = request.get_json(force=True, silent=True) or {}
+    goal_text = str(data.get('goal_text') or '').strip()
+    if len(goal_text) > 500:
+        return jsonify({'error': 'goal_text 最长 500 字'}), 400
+    try:
+        meta = db.get_plan_meta('week', week_start) or {}
+        db.update_plan_meta(
+            plan_type='week',
+            plan_key=week_start,
+            title=meta.get('title', ''),
+            goal=goal_text,
+        )
+        return jsonify({'status': 'ok', 'goal_text': goal_text})
+    except Exception as e:
+        return jsonify({'error': safe_error(e, "操作失败")}), 500
+
+
 @bp.route('/stats', methods=['GET'])
 def stats():
     """本周/本月数据条统计"""

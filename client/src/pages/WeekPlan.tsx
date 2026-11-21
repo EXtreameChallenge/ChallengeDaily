@@ -13,7 +13,7 @@ import { useToast } from '../components/Toast'
 import TaskDetailModal from '../components/TaskDetailModal'
 import TaskCreateModal from '../components/TaskCreateModal'
 import {
-  YearView, MonthView, WeekView, DayView,
+  YearView, MonthView, WeekView, DayView, SprintView,
   StatBlock,
   VIEW_TABS, type ViewMode,
   getTodayStr, formatLocalDate, formatLocalMonth, fmtDate, getISOWeek,
@@ -288,7 +288,7 @@ export default function WeekPlan() {
       const [y, m] = monthKey.split('-').map(Number)
       return `${y}年${m}月`
     }
-    if (viewMode === 'week') {
+    if (viewMode === 'week' || viewMode === 'sprint') {
       const [y, m] = weekStart.split('-').map(Number)
       const wk = getISOWeek(weekStart)
       const end = dates[6] || weekStart
@@ -382,6 +382,7 @@ export default function WeekPlan() {
           {viewMode === 'year' && `📅 年计划 · ${yearKey} 年度总览`}
           {viewMode === 'month' && `📆 月计划 · ${monthKey} 月历与目标`}
           {viewMode === 'week' && `📋 周计划 · ${rangeLabel}`}
+          {viewMode === 'sprint' && `🏃 冲刺视图 · ${rangeLabel}`}
           {viewMode === 'day' && `✅ 日计划 · ${rangeLabel}`}
         </div>
       </div>
@@ -432,6 +433,9 @@ export default function WeekPlan() {
             setShowCreateModal={setShowCreateModal}
             toggleExpand={toggleExpand}
           />
+        )}
+        {viewMode === 'sprint' && weekPlan && (
+          <SprintView weekStart={weekStart} />
         )}
         {viewMode === 'day' && weekPlan && (
           <DayView

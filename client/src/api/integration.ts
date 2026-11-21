@@ -139,6 +139,83 @@ export async function getSeasonHistory(months = 6): Promise<{ history: SeasonHis
   return request(`/api/achievements/season/history?months=${months}`) as Promise<{ history: SeasonHistoryItem[] }>
 }
 
+// ── 赛季排行榜（匿名 benchmark 群组）──────────────────────────
+export interface SeasonLeaderboardUser {
+  rank: number
+  anonymous_name: string
+  avatar_seed: string
+  score: number
+  is_me: boolean
+}
+export interface SeasonLeaderboardGoal {
+  key: string
+  name: string
+  target: number
+  my_progress: number
+  completed: boolean
+}
+export interface SeasonLeaderboardBin {
+  range: string
+  count: number
+  is_mine: boolean
+}
+export interface SeasonLeaderboardData {
+  month: string
+  metric: string
+  metric_label: string
+  my_rank: number
+  my_score: number
+  total_users: number
+  percentile: number
+  top_users: SeasonLeaderboardUser[]
+  my_history: Array<{ month: string; rank: number; score: number; total_users: number }>
+  distribution: SeasonLeaderboardBin[]
+  season_goals: SeasonLeaderboardGoal[]
+  occupation: string
+  privacy_note: string
+}
+export interface SeasonSummaryDimension {
+  key: string
+  label: string
+  unit: string
+  my_value: number
+  group_avg: number
+}
+export interface SeasonSummaryData {
+  month: string
+  my_rank: number
+  my_score: number
+  total_users: number
+  percentile: number
+  rank_change: number
+  prev_rank: number
+  beaten_percent: number
+  dimensions: SeasonSummaryDimension[]
+  goals_completed: number
+  goals_total: number
+  season_goals: SeasonLeaderboardGoal[]
+  occupation: string
+  summary_text: string
+}
+/** 获取指定月份的赛季排行榜（月份格式 YYYYMM，默认当月） */
+export async function getSeasonLeaderboard(month?: string, metric = 'productivity'): Promise<SeasonLeaderboardData> {
+  const params = new URLSearchParams({ metric })
+  if (month) params.set('month', month)
+  return request(`/api/leaderboard/season?${params.toString()}`) as Promise<SeasonLeaderboardData>
+}
+/** 获取赛季总结（排名变化、六维对比、成就进度） */
+export async function getSeasonLeaderboardSummary(month?: string): Promise<SeasonSummaryData> {
+  const m = month ? `?month=${month}` : ''
+  return request(`/api/leaderboard/season/summary${m}`) as Promise<SeasonSummaryData>
+}
+/** 提交本月匿名聚合分数到群组 */
+export async function submitSeasonScore(month?: string): Promise<{ ok: boolean; month: string; message: string }> {
+  return request('/api/leaderboard/season/submit', {
+    method: 'POST',
+    body: JSON.stringify(month ? { month } : {}),
+  }) as Promise<{ ok: boolean; month: string; message: string }>
+}
+
 /** 创建备份（安全下载：使用 header 传 token） */
 export async function downloadBackup(): Promise<void> {
   const token = await getApiToken()
@@ -392,6 +469,22 @@ export interface RuleEvalResult {
 }
 export async function getRules(): Promise<{ rules: Rule[]; triggers: Record<string, string>; actions: Record<string, string> }> {
   return request('/api/rules/list') as Promise<{ rules: Rule[]; triggers: Record<string, string>; actions: Record<string, string> }>
+}
+export interface CreateRulePayload {
+  name: string
+  description?: string
+  trigger_type: string
+  trigger_params?: Record<string, unknown>
+  action_type: string
+  action_params?: Record<string, unknown>
+}
+/** 创建一条自动化规则 */
+export async function createRule(payload: CreateRulePayload): Promise<{ status: string; id: number }> {
+  return request('/api/rules/create', { method: 'POST', body: JSON.stringify(payload) }) as Promise<{ status: string; id: number }>
+}
+/** 删除一条自动化规则 */
+export async function deleteRule(id: number): Promise<{ status: string }> {
+  return request(`/api/rules/${id}`, { method: 'DELETE' }) as Promise<{ status: string }>
 }
 export async function toggleRule(id: number, enabled: boolean): Promise<{ status: string }> {
   return request('/api/rules/toggle', { method: 'POST', body: JSON.stringify({ id, enabled }) }) as Promise<{ status: string }>

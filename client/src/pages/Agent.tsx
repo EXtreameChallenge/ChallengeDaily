@@ -30,6 +30,8 @@ import {
 import { ToggleSwitch, useAsyncData, ApiErrorDisplay } from '../components/shared'
 import { useToast } from '../components/Toast'
 import WebhookCreateModal from '../components/WebhookCreateModal'
+import AgentPanel from '../components/AgentPanel'
+import WorkflowEditor from './WorkflowEditor'
 
 type AgentData = { webhooks: Webhook[]; autoConfig: AutoReportConfig }
 
@@ -330,6 +332,21 @@ export default function AgentPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* ─── Agent 运行控制台 ─────────────────── */}
+      <section className="card">
+        <div className="flex items-center gap-2 mb-3">
+          <Bot size={16} className="text-cd-green" />
+          <h2 className="text-sm font-semibold text-cd-text">Agent 控制台</h2>
+          <span className="text-[10px] text-cd-text-tertiary">引擎状态 / 工具调用 / 技能库 / 审计</span>
+        </div>
+        <AgentPanel />
+      </section>
+
+      {/* ─── 自动化规则（原 WorkflowEditor） ─────────────────── */}
+      <section className="card !p-0 overflow-hidden">
+        <WorkflowEditor />
       </section>
     </div>
   )

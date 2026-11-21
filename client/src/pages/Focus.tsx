@@ -5,6 +5,7 @@ import { Play, Square, SkipForward, Brain, X, Sparkles, BarChart3, ChevronLeft, 
 import { startPomodoro, stopPomodoro, getPomodoroStats, getPomodoroQuality, getTodayTodos, checkPomodoroDistraction, formatLocalTimestamp, getSmartDuration, getPomodoroReport, getRecentHeatmap, getPomodoroSessions, getPomodoroSessionReport, type TodoV2, type RecentHeatmapDay, type PomodoroSession, type PomodoroSessionReport, POMODORO_SIZES, LONG_BREAK_INTERVAL, type SmartDurationResult, type PomodoroReport } from '../api/client'
 import { request } from '../api/core'
 import WhiteNoise from '../components/WhiteNoise'
+import FocusScoreCalendar from '../components/FocusScoreCalendar'
 import LevelUpCelebration from '../components/LevelUpCelebration'
 import { useEventStream } from '../hooks/useEventStream'
 import { useGrowthStore } from '../stores/growthStore'
@@ -1338,6 +1339,9 @@ export default function Focus() {
             <span>多</span>
           </div>
         </div>
+
+        {/* 专注质量日历（按日聚合番茄质量分） */}
+        <FocusScoreCalendar />
 
         {/* 应用使用分布 TOP5 */}
         <div className="bg-cd-bg-card rounded-2xl p-4 border border-cd-border">

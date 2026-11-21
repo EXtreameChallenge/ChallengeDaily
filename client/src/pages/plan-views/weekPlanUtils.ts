@@ -6,12 +6,13 @@ export const DAILY_LIMIT = 180 // 负载警示阈值（分钟）
 // GitHub 风格热力色阶（5 级）
 export const HEAT_COLORS = ['#161b22', '#0e4429', '#006d32', '#26a641', '#39d353']
 
-export type ViewMode = 'year' | 'month' | 'week' | 'day'
+export type ViewMode = 'year' | 'month' | 'week' | 'day' | 'sprint'
 
 export const VIEW_TABS: { key: ViewMode; emoji: string; label: string }[] = [
   { key: 'year', emoji: '📅', label: '年计划' },
   { key: 'month', emoji: '📆', label: '月计划' },
   { key: 'week', emoji: '📋', label: '周计划' },
+  { key: 'sprint', emoji: '🏃', label: '冲刺' },
   { key: 'day', emoji: '✅', label: '日计划' },
 ]
 
