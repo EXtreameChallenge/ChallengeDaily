@@ -147,11 +147,31 @@ def delete_all() -> dict:
     }
     with db.get_conn() as conn:
         _ensure_vec_extension(conn)
-        tables = user_tables(conn)
+        vec_tables = {
+            row[0]: row[1]
+            for row in conn.execute(
+                "SELECT name, sql FROM sqlite_master WHERE sql LIKE '%USING vec0%'"
+            ).fetchall()
+        }
+        tables = [t for t in user_tables(conn) if t not in vec_tables]
         try:
             conn.execute("BEGIN IMMEDIATE")
         except Exception:
             pass
+        # sqlite-vec 虚表在脏 shadow 状态下无法 DELETE；整表重建是唯一可靠清空方式。
+        for name, ddl in vec_tables.items():
+            try:
+                try:
+                    before = int(conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0])
+                except Exception:
+                    before = 0
+                conn.execute(f'DROP TABLE "{name}"')
+                conn.execute(ddl)
+                result["tables"][name] = before
+                result["row_count"] += before
+            except Exception as e:
+                result["errors"].append(f"{name}: {e}")
+                logger.warning(f"重建向量表 {name} 失败: {e}")
         for table in tables:
             try:
                 before = conn.execute(f"SELECT COUNT(*) c FROM {table}").fetchone()["c"]
