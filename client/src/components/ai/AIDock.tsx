@@ -225,9 +225,9 @@ export default function AIDock() {
 
   return (
     <div className="ai-dock-float relative mx-auto w-[min(620px,58%)]">
-      {/* ── 展开的对话面板 ── */}
+      {/* ── 展开的对话面板（B45：必须在文档流内，由 gate 撑高、main 收缩；禁止 absolute bottom-full） ── */}
       {expanded && (
-        <div className="glass-strong rounded-2xl mb-3 flex flex-col max-h-[60vh] overflow-hidden animate-slide-up absolute bottom-full left-0 right-0 z-50">
+        <div className="glass-strong rounded-2xl mb-3 flex flex-col max-h-[60vh] overflow-hidden animate-slide-up">
           {/* 头部 */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-cd-border/50 shrink-0">
             <div className="flex items-center gap-2">

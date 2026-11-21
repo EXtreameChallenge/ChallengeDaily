@@ -282,9 +282,10 @@ export default function App() {
                 <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
                 <ElectronNavigationBridge />
                 <Sidebar />
-                {/* 主内容与底部 AI 输入条同列布局：输入条占位，不覆盖页面内容 */}
+                {/* B45 布局不变量：main 与 AIDockGate 必须同列；main 的 min-h-0 保证
+                    展开面板撑高 gate 时 main 收缩，任何页面滚到底最后一个元素都完整可见 */}
                 <div className="flex-1 min-w-0 flex flex-col min-h-0">
-                  <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pt-12 pb-6">
+                  <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6 pt-12 pb-6">
                     <RouteErrorBoundary>
                       <Suspense fallback={<PageSpinner />}>
                       <Routes>

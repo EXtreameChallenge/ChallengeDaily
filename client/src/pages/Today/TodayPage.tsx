@@ -38,7 +38,7 @@ import BenchmarkPanel from '../../components/BenchmarkPanel'
 import MorningRitual from '../../components/MorningRitual'
 import EveningRitual from '../../components/EveningRitual'
 import DistractionHeatmap from '../../components/DistractionHeatmap'
-import InfoTooltip, { METRIC_EXPLANATIONS } from '../../components/InfoTooltip'
+import InfoTooltip from '../../components/InfoTooltip'
 import { useGrowthStore } from '../../stores/growthStore'
 import {
   Play, Pause, Sun, Moon, Sunrise, Sunset, Coffee,
@@ -223,6 +223,7 @@ export default function TodayPage() {
   const isPaused = status !== null && !status.running
   const intervalSec = status?.interval_sec || 60
   const topApps = stats?.top_apps || []
+  const maxTopAppMin = Math.max(...topApps.map(a => a.duration_min), 1)
 
   const categoryBars = stats?.categories
     ? Object.entries(stats.categories).map(([name, value]) => ({ name, value: Math.round(value) })).filter(d => d.value > 0).sort((a, b) => b.value - a.value)
@@ -490,13 +491,16 @@ return (
         {/* 应用使用 */}
         <div className="bg-cd-card border border-cd-border rounded-2xl p-2.5">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-cd-text">应用使用</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-cd-text">应用使用 <span className="text-cd-text-tertiary font-normal text-[10px]">今日 · 窗口累计</span></span>
+              <InfoTooltip text="今日各应用窗口累计时长。多个窗口同时打开时会重叠，因此合计可能高于顶部工作时长。" size={11} />
+            </div>
             <button onClick={() => navigate('/apps')} className="text-[10px] text-cd-text-tertiary hover:text-cd-green transition">更多 →</button>
           </div>
           {topApps.length > 0 ? (
             <div className="space-y-1.5">
               {topApps.slice(0, 5).map(app => {
-                const pct = totalMin > 0 ? (app.duration_min / totalMin) * 100 : 0
+                const pct = Math.min((app.duration_min / maxTopAppMin) * 100, 100)
                 const iconUrl = iconUrls[app.app_name]
                 const defaultIcon = import.meta.env.DEV ? '/icon.png' : './icon.png'
                 return (
