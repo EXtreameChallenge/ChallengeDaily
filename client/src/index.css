@@ -1155,6 +1155,29 @@ main h1 {
   }
 }
 
+/* 顶栏搜索框：与左右控件同高，窄窗口下占位文案省略而非硬切 */
+.topbar-search {
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  align-self: center;
+  overflow: hidden;
+}
+
+.topbar-search input {
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-search input::placeholder {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 小窗口：TopBar 搜索框缩短 */
 @media (max-width: 960px) {
   .topbar-search {
@@ -1162,11 +1185,10 @@ main h1 {
   }
 }
 
-/* 悬浮 AI 输入条小窗口适配 */
+/* 悬浮 AI 输入条小窗口适配（布局内占位，不再 fixed 覆盖内容） */
 @media (max-width: 720px) {
   .ai-dock-float {
-    width: 90% !important;
-    bottom: 12px !important;
+    width: 100% !important;
   }
 }
 

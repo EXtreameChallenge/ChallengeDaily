@@ -282,9 +282,11 @@ export default function App() {
                 <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
                 <ElectronNavigationBridge />
                 <Sidebar />
-                <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pt-12 pb-24">
-                  <RouteErrorBoundary>
-                    <Suspense fallback={<PageSpinner />}>
+                {/* 主内容与底部 AI 输入条同列布局：输入条占位，不覆盖页面内容 */}
+                <div className="flex-1 min-w-0 flex flex-col min-h-0">
+                  <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pt-12 pb-6">
+                    <RouteErrorBoundary>
+                      <Suspense fallback={<PageSpinner />}>
                       <Routes>
                         <Route path="/" element={<TodayPage />} />
                         <Route path="/overview" element={<Navigate to="/" replace />} />
@@ -328,9 +330,10 @@ export default function App() {
                       </Routes>
                     </Suspense>
                   </RouteErrorBoundary>
-                </main>
+                  </main>
+                  <AIDockGate />
+                </div>
                 <RelayCardContainer />
-                <AIDockGate />
                 </RelayEngineProvider>
               </HashRouter>
             )}
@@ -397,11 +400,15 @@ function RouteErrorBoundary({ children }: { children: ReactNode }) {
   )
 }
 
-/** AI 对话页面隐藏底部悬浮对话框 */
+/** AI 对话页面隐藏底部悬浮对话框；其余页面在底部占位栏中显示，避免遮挡内容 */
 function AIDockGate() {
   const location = useLocation()
   if (location.pathname === '/ai-chat') return null
-  return <AIDock />
+  return (
+    <div className="shrink-0 px-6 pb-3 pt-1">
+      <AIDock />
+    </div>
+  )
 }
 
 function LoadingScreen() {

@@ -224,13 +224,10 @@ export default function AIDock() {
   }
 
   return (
-    <div
-      className="ai-dock-float fixed bottom-3 z-40 w-[min(620px,58%)]"
-      style={{ left: 'calc(50% + 124px)', transform: 'translateX(-50%)' }}
-    >
+    <div className="ai-dock-float relative mx-auto w-[min(620px,58%)]">
       {/* ── 展开的对话面板 ── */}
       {expanded && (
-        <div className="glass-strong rounded-2xl mb-3 flex flex-col max-h-[60vh] overflow-hidden animate-slide-up">
+        <div className="glass-strong rounded-2xl mb-3 flex flex-col max-h-[60vh] overflow-hidden animate-slide-up absolute bottom-full left-0 right-0 z-50">
           {/* 头部 */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-cd-border/50 shrink-0">
             <div className="flex items-center gap-2">
@@ -359,7 +356,7 @@ export default function AIDock() {
       )}
 
       {/* ── 悬浮玻璃输入条（h-11=44px，发送按钮上下右边距均为8px）── */}
-      <div className="glass-pill topbar-search flex items-center gap-2 pl-3 pr-2 h-11 shrink-0" style={{ height: '44px', minHeight: '44px' }}>
+      <div className="glass-pill ai-dock-input flex items-center gap-2 pl-3 pr-2 h-11 shrink-0 w-full" style={{ height: '44px', minHeight: '44px' }}>
         <Bot size={15} className="text-cd-accent shrink-0" />
         <input
           ref={inputRef}
@@ -369,7 +366,7 @@ export default function AIDock() {
           onKeyDown={handleKeyDown}
           onFocus={() => setExpanded(true)}
           placeholder="问我任何事..."
-          className="flex-1 bg-transparent text-sm text-cd-text placeholder:text-cd-text-tertiary outline-none"
+          className="flex-1 min-w-0 bg-transparent text-sm text-cd-text placeholder:text-cd-text-tertiary outline-none"
         />
         {input && !streaming && (
           <button

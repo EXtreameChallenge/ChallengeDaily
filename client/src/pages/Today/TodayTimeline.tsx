@@ -8,6 +8,13 @@ import {
 } from '../../api/client'
 import { Clock, ChevronDown, ChevronRight, Play, CheckCircle2, Circle } from 'lucide-react'
 
+/** 统一输出 00:00–23:59；非法时间显示 --:--，绝不产生 99:12 这类值 */
+function safeClock(value?: string | null): string {
+  if (!value) return '--:--'
+  const parsed = dayjs(value)
+  return parsed.isValid() ? parsed.format('HH:mm') : '--:--'
+}
+
 /**
  * 今日时间线组件
  * 设计理念：时间线即界面（Timeline as Interface）
@@ -60,7 +67,7 @@ export default function TodayTimeline({
 
     // 已完成的活动
     for (const act of activities) {
-      const time = dayjs(act.timestamp).format('HH:mm')
+      const time = safeClock(act.timestamp)
       list.push({
         id: `act-${act.id}`,
         type: 'activity',
@@ -78,7 +85,7 @@ export default function TodayTimeline({
     // 未完成的待办（计划中）
     for (const todo of todos) {
       if (todo.status === 'completed') continue
-      const scheduledTime = todo.due_date ? dayjs(todo.due_date).format('HH:mm') : '待定'
+      const scheduledTime = todo.due_date ? safeClock(todo.due_date) : '待定'
       list.push({
         id: `todo-${todo.id}`,
         type: 'todo',

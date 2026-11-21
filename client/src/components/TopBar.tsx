@@ -48,12 +48,13 @@ export default function TopBar() {
       </div>
 
       {/* 搜索框（独立玻璃胶囊） */}
-      <div className="no-drag glass-pill topbar-search flex items-center gap-2 px-3 h-10 w-56 transition-all">
+      <div className="no-drag glass-pill topbar-search flex items-center gap-2 px-3 h-10 min-h-10 max-h-10 w-52 transition-all">
         <Search size={15} className="text-cd-text-tertiary shrink-0" />
         <input
           type="text"
+          aria-label="搜索任务、笔记"
           placeholder="搜索任务、笔记…"
-          className="bg-transparent outline-none text-sm flex-1 text-cd-text placeholder:text-cd-text-tertiary"
+          className="min-w-0 w-full bg-transparent outline-none text-sm flex-1 text-cd-text placeholder:text-cd-text-tertiary truncate"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               window.dispatchEvent(new CustomEvent('open-command-palette'))
