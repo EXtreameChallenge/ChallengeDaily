@@ -72,7 +72,7 @@ export default function TopBar() {
           >
             <RefreshCw size={15} />
           </button>
-          <div className="glass-pill flex items-center p-1 h-10">
+          <div className="no-drag glass-pill flex items-center p-1 h-10">
             <button
               onClick={() => setViewMode('grid')}
               className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
