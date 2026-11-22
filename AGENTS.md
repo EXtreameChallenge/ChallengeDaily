@@ -34,6 +34,14 @@
 - 提交信息格式沿用现有风格：`round<N>: <一句话> (vX.Y.Z)`
 - 回滚方式见 `06-交接说明.md`
 
+## 三·补 运行纪律（事故沉淀，违反即返工）
+- 解释器只用 `C:\Users\Challenge\AppData\Local\Programs\Python\Python311\python.exe`（PATH 的 python 是沙箱，禁用）
+- Electron 独占后端生命周期，禁止并行独立起 main.py；重启前杀旧 python/node/electron 进程
+- 动数据先备份；生产库在 `%APPDATA%\challenge-daily\backend-data\`；后端端口 59300
+- UI 改动必与 `../evidence-round12/visual-baseline/` 基线对比
+- 测试基线 `python -m pytest -o addopts="" -q` = 219 passed
+- 汇报 ≤10 行、第一行报账本；反假成功宪章见 `docs/memory/04-决策记录.md` ADR-005
+
 ## 四、目录地图
 
 | 路径 | 说明 |
@@ -47,6 +55,7 @@
 
 ## 五、当前状态指针（PM 每轮更新）
 
+- **事实基准**：`../工作区文档/00-交接/ChallengeDaily项目交接包-20261122.md`（旧 PM 14 节交接包）
 - 当前版本：见 `client/package.json`
 - 当前轮次与进度：`docs/memory/02-任务板.md`
 - 最近发生了什么：`docs/memory/03-轮次日志.md` 末尾
