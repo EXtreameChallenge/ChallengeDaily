@@ -172,6 +172,34 @@ def get_embedding(text: str) -> Optional[list[float]]:
         return None
 
 
+def get_embeddings_batch(texts: list[str], batch_size: int = 16) -> list[Optional[list[float]]]:
+    """批量生成嵌入向量（R15-04b P0-1）。
+
+    用一次 model.encode(list, batch_size=16) 替代逐条 encode，显著减少 torch
+    每次调用产生的私有内存提交（R15-04a 定位的泄漏点）。模型不可用时返回全 None；
+    空文本对应位置返回 None；批量失败时降级为逐条 get_embedding。
+    """
+    results: list[Optional[list[float]]] = [None] * len(texts)
+    if not texts:
+        return results
+    model = _get_embedding_model()
+    if model is None:
+        return results
+    idx_map = [i for i, t in enumerate(texts) if t and t.strip()]
+    if not idx_map:
+        return results
+    payload = [texts[i] for i in idx_map]
+    try:
+        vecs = model.encode(payload, batch_size=batch_size, normalize_embeddings=True)
+        for pos, vec in zip(idx_map, vecs):
+            results[pos] = [float(x) for x in vec.tolist()]
+    except Exception as e:
+        logger.warning(f"批量嵌入失败，降级逐条: {e}")
+        for i in idx_map:
+            results[i] = get_embedding(texts[i])
+    return results
+
+
 # ── 文档分块 ────────────────────────────────────────────────
 def chunk_text(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE,
                overlap: int = DEFAULT_CHUNK_OVERLAP) -> list[str]:
@@ -415,6 +443,11 @@ def index_document(source: str, source_id: str, content: str,
                 all(a == b for a, b in zip(existing_hashes, new_hashes)):
             return 0
 
+        # P1-1（R15-04b）：先加载 sqlite_vec 扩展再删除旧向量行。原实现删除循环
+        # 早于 _load_sqlite_vec，新连接上扩展未加载致 DELETE 静默失败，vec0 孤儿
+        # rowid 只增不减（R15-04a 根因之一）。
+        vec_ok = _load_sqlite_vec(conn) and _vec_table_available(conn, "doc_chunks_vec")
+
         # 删除旧块（含 FTS5 / 向量同步）
         for r in existing_rows:
             old_rowid = r["id"]
@@ -426,11 +459,15 @@ def index_document(source: str, source_id: str, content: str,
             except Exception:
                 pass
             _delete_fts_row(conn, old_rowid, old_content or "")
-            _delete_vec_row(conn, "doc_chunks_vec", old_rowid)
+            if vec_ok:
+                _delete_vec_row(conn, "doc_chunks_vec", old_rowid)
         conn.execute(
             "DELETE FROM doc_chunks WHERE source = ? AND source_id = ?",
             (source, source_id),
         )
+
+        # P0-1（R15-04b）：整篇分块一次性批量编码，替代逐块 model.encode。
+        embeddings = get_embeddings_batch(chunks) if vec_ok else [None] * len(chunks)
 
         # 写入新块
         written = 0
@@ -442,11 +479,9 @@ def index_document(source: str, source_id: str, content: str,
             )
             new_rowid = cur.lastrowid
             _insert_fts_row(conn, new_rowid, chunk)
-            # 向量化（若可用）
-            if _load_sqlite_vec(conn) and _vec_table_available(conn, "doc_chunks_vec"):
-                emb = get_embedding(chunk)
-                if emb is not None:
-                    _insert_vec_row(conn, "doc_chunks_vec", new_rowid, emb)
+            emb = embeddings[idx]
+            if vec_ok and emb is not None:
+                _insert_vec_row(conn, "doc_chunks_vec", new_rowid, emb)
             written += 1
         conn.commit()
         return written

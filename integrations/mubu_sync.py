@@ -97,37 +97,64 @@ def upsert_doc(
 
 
 def batch_upsert(docs: list[dict]) -> int:
-    """批量入库文档，返回成功入库的数量
+    """批量入库文档，返回实际写入的数量。
 
-    每个文档需包含：doc_id, title（其余可选）
+    P0-2/P0-3（R15-04b）：增量短路 —— 仅当文档新增或正文/标题/编辑时间变化时
+    才写库并触发向量化；未变化文档直接跳过，避免每 30min 全量重索引引发的
+    逐块 encode 内存泄漏（R15-04a 根因）。/api/mubu/ingest 入参格式保持不变。
     入库后会在后台线程触发 memory_engine 的向量化索引（非阻塞，失败不影响入库）。
     """
     count = 0
     indexed_docs: list[dict] = []
+    # 一次性取现有文档指纹用于增量判断：doc_id -> (content_md, title, edit_time)
+    existing: dict[str, tuple] = {}
+    try:
+        with get_conn() as conn:
+            rows = conn.execute(
+                "SELECT doc_id, content_md, title, edit_time FROM mubu_docs"
+            ).fetchall()
+            for r in rows:
+                existing[str(r["doc_id"])] = (
+                    r["content_md"] or "", r["title"] or "", int(r["edit_time"] or 0)
+                )
+    except Exception as e:
+        logger.warning(f"读取现有幕布文档指纹失败，降级全量入库: {e}")
+        existing = {}
+
     for d in docs:
         try:
+            doc_id = str(d.get("doc_id", ""))
+            content_md = d.get("content_md", "") or ""
+            title = d.get("title", "") or ""
+            edit_time = int(d.get("edit_time", 0))
+            prev = existing.get(doc_id)
+            if prev is not None and prev[0] == content_md \
+                    and prev[1] == title and prev[2] == edit_time:
+                continue  # 内容未变：跳过写库与索引
             upsert_doc(
-                doc_id=str(d.get("doc_id", "")),
-                title=d.get("title", ""),
+                doc_id=doc_id,
+                title=title,
                 parent_id=str(d.get("parent_id", "")),
                 doc_type=d.get("type", "doc"),
-                content_md=d.get("content_md", ""),
+                content_md=content_md,
                 content_json=d.get("content_json", ""),
-                edit_time=int(d.get("edit_time", 0)),
+                edit_time=edit_time,
                 extra=d.get("extra"),
             )
             count += 1
             # 仅对有正文的 doc 类型触发向量化
-            if d.get("type", "doc") == "doc" and (d.get("content_md") or "").strip():
+            if d.get("type", "doc") == "doc" and content_md.strip():
                 indexed_docs.append({
                     "source": "mubu",
-                    "source_id": str(d.get("doc_id", "")),
-                    "title": d.get("title", ""),
-                    "content": d.get("content_md", ""),
+                    "source_id": doc_id,
+                    "title": title,
+                    "content": content_md,
                 })
         except Exception as e:
             logger.warning(f"入库文档失败 doc_id={d.get('doc_id')}: {e}")
 
+    # 诊断日志（R15-04b）：增量短路命中率，便于 soak 判读核对全量推送是否被拦截
+    logger.info(f"幕布增量同步：推送 {len(docs)} 篇，变更 {count} 篇，跳过 {len(docs) - count} 篇")
     # 后台线程触发向量化索引，避免阻塞 ingest 接口
     if indexed_docs:
         _trigger_memory_index(indexed_docs)

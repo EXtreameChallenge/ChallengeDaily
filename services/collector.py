@@ -60,18 +60,32 @@ def _should_extract_icon(app_name: str) -> bool:
 _last_gc_time = 0
 _GC_INTERVAL_SEC = 1800  # 30分钟执行一次 GC
 
-# P11-4：内存阈值监控 — 进程 RSS 超过阈值时主动 GC + 清理缓存
-_MEM_WARN_MB = 400    # 警告阈值：400MB
-_MEM_CRITICAL_MB = 600  # 临界阈值：600MB，触发激进清理
+# P11-4：内存阈值监控 — 进程内存超过阈值时主动 GC + 清理缓存
+# P2-1（R15-04b）：指标改为 private bytes 后，阈值相应上调以匹配 torch 加载后
+# 的私有内存基线（约 1.4GB），避免 idle 常态误触发激进清理；泄漏增长仍可越阈被捕获。
+_MEM_WARN_MB = 2048    # 警告阈值：2048MB（private）
+_MEM_CRITICAL_MB = 3072  # 临界阈值：3072MB（private），触发激进清理
 _last_mem_check = 0
 _MEM_CHECK_INTERVAL_SEC = 300  # 5 分钟检查一次内存
 
 
 def _get_process_rss_mb() -> float:
-    """获取当前进程 RSS（常驻内存），单位 MB。失败返回 0。"""
+    """获取当前进程内存占用（MB）。失败返回 0。
+
+    P2-1（R15-04b）：Windows 优先用 private bytes（私有提交内存）。torch 等库
+    导入会一次性提交大量私有内存而 RSS 可能回落，仅看 RSS 会低估真实占用、
+    漏报内存增长（R15-04a：私有 +405MB/h 而 RSS 误判）。其他平台回退 RSS。
+    """
     try:
         import psutil
-        return psutil.Process().memory_info().rss / (1024 * 1024)
+        p = psutil.Process()
+        try:
+            private = getattr(p.memory_full_info(), "private", 0) or 0
+            if private > 0:
+                return private / (1024 * 1024)
+        except Exception:
+            pass
+        return p.memory_info().rss / (1024 * 1024)
     except Exception:
         # 降级方案：用 resource 模块（仅 Unix 可用，Windows 返回 0）
         try:
