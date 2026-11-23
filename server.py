@@ -392,15 +392,16 @@ def health_check():
     except Exception as e:
         checks["disk"] = {"status": "unknown", "error": str(e)[:80]}
 
-    # 5. P11-4：进程内存
+    # 5. P11-4：进程内存（R15-04b D1：复用 collector 阈值常量，与 private bytes 口径对齐，
+    #    避免 torch 基线 ~1.4GB 下旧 400/600 阈值长期误报 degraded）
     try:
-        from collector import _get_process_rss_mb
+        from collector import _get_process_rss_mb, _MEM_WARN_MB, _MEM_CRITICAL_MB
         rss = _get_process_rss_mb()
         checks["memory"] = {
-            "status": "ok" if rss < 400 else ("warn" if rss < 600 else "critical"),
+            "status": "ok" if rss < _MEM_WARN_MB else ("warn" if rss < _MEM_CRITICAL_MB else "critical"),
             "rss_mb": round(rss, 1),
         }
-        if rss >= 600:
+        if rss >= _MEM_CRITICAL_MB:
             overall = "degraded" if overall == "ok" else overall
     except Exception as e:
         checks["memory"] = {"status": "unknown", "error": str(e)[:80]}
