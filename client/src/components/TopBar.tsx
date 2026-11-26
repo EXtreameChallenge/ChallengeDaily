@@ -22,7 +22,7 @@ export default function TopBar() {
 
   return (
     <div
-      className="titlebar fixed top-0 left-[248px] right-0 z-40 flex h-16 items-center gap-3 select-none pt-3 pr-4"
+      className="titlebar fixed top-0 left-[248px] right-[136px] z-40 flex h-16 items-center gap-3 select-none pt-3 pr-4"
       onDoubleClick={(e) => {
         // 双击空白拖拽区 = 最大化/还原；交互控件不触发
         if ((e.target as HTMLElement).closest('.no-drag')) return

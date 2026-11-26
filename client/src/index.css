@@ -430,6 +430,12 @@ code, pre, kbd, .font-mono {
   -webkit-app-region: no-drag;
 }
 
+/* 窗口控制按钮组：始终脱离拖拽区，保证点击能进渲染进程（B55 修复） */
+.win-controls,
+.win-controls button {
+  -webkit-app-region: no-drag;
+}
+
 /* ─── 分类颜色（12大分类） ─────────────── */
 .cat-开发 { --cat-color: #00B894; }
 .cat-会议 { --cat-color: #E54D42; }

@@ -6,7 +6,7 @@
 export default function TitleBar() {
   return (
     <div
-      className="titlebar fixed top-3 right-3 z-50"
+      className="fixed top-3 right-3 z-50"
       onDoubleClick={(e) => {
         if ((e.target as HTMLElement).closest('button')) return
         window.electronAPI?.maximize()

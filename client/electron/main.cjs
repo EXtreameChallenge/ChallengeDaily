@@ -73,6 +73,10 @@ const BACKEND_PORT = 59300
 // 这样无论通过快捷方式、npx electron .、还是 start.bat 启动都能正确判断
 const _distExists = fs.existsSync(path.join(__dirname, '..', 'dist', 'index.html'))
 const isDev = process.env.ELECTRON_IS_DEV === '0' ? false
+  : process.env.ELECTRON_IS_DEV === '1' ? true
+  // B55：npm run dev 时优先用 Vite 5173，避免"仓库里存在旧的 dist/index.html
+  // 就强制走生产模式"，导致源码改动在 dev 下完全不生效（一直加载过期产物）
+  : process.env.npm_lifecycle_event === 'dev' ? true
   : app.isPackaged ? false
   : !_distExists
 
@@ -477,7 +481,10 @@ function createMainWindow() {
     maximizable: true,
     center: true,
     frame: false,
-    titleBarStyle: 'hidden',
+    // B55：Windows 下 frame:false 已无边框，再叠加 titleBarStyle:'hidden' 会触发系统
+    // Window Controls Overlay（DWM 在右上角绘制原生三按钮），该层点击进不了渲染进程，
+    // 表现为"右上角三个按钮点不动"。仅 macOS 需要 hidden。
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hidden' } : {}),
     backgroundColor: '#121212',
     icon: getIconPath(),
     webPreferences: {
